@@ -1,92 +1,153 @@
+def _safe_json_decode(s):
+    if not s or len(s) == 0:
+        return None
+    return json.decode(s)
+
+_STATES = {
+    1: ("OK", "Normal"),
+    2: ("WARN", "Degraded"),
+    3: ("CRIT", "Failed")
+}
 
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: fetch CPGs and emit services for each CPG and its usage types
-        res = ctx.run(["curl", "-s", "-k", "-H", "Authorization: Basic %s" % params.get("credentials", ""),
-                       "https://%s/api/v1/storageSystem" % params.get("host", "localhost")], mutates=False)
-        if res.rc != 0:
-            fail("failed to fetch CPG data: " + res.stderr)
-        data = json.decode(res.stdout)
-        cpgs = data.get("members", [])
+        host = params.get("host", "localhost")
+        username = params.get("username", "3par_admin")
+        password = params.get("password", "")
+        port = params.get("port", 443)
+        use_ssl = params.get("use_ssl", True)
+        timeout = params.get("timeout", 10)
+
+        curl_check = ctx.run(["curl", "--version"], mutates=False)
+        if curl_check.rc != 0:
+            return {"changed": False, "msg": "curl not found", "data": {"discovery": []}}
+
+        scheme = "https" if use_ssl else "http"
+        api_url = "%s://%s:%d/api/v1/cpgs" % (scheme, host, port)
+
+        curl_cmd = [
+            "curl", "-sk", "-u", "%s:%s" % (username, password),
+            "--connect-timeout", str(timeout),
+            "-H", "Accept: application/json",
+            api_url
+        ]
+        res = ctx.run(curl_cmd, mutates=False)
+
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "3PAR array not reachable or not accessible", "data": {"discovery": []}}
+
+        data = _safe_json_decode(res.stdout)
+        if data == None:
+            return {"changed": False, "msg": "failed to parse 3PAR API response", "data": {"discovery": []}}
+
+        members = data.get("members", []) if data else []
+        if not members:
+            return {"changed": False, "msg": "no CPGs found on 3PAR array", "data": {"discovery": []}}
+
         discovery = []
-        for cpg in cpgs:
-            name = cpg.get("name", "")
-            if not name:
-                continue
-            num_vvs = (cpg.get("numFPVVs", 0) + cpg.get("numTDVVs", 0) + cpg.get("numTPVVs", 0))
-            if num_vvs > 0:
-                # CPG state check service
+        for cpg in members:
+            name = cpg.get("name")
+            if name:
+                state_val = cpg.get("state", 1)
+                state_info = _STATES.get(state_val, ("UNKNOWN", "Unknown"))
+                state_readable = state_info[1]
                 discovery.append({
                     "item": name,
                     "params": {},
-                    "metrics": []
+                    "metrics": ["num_vvs"],
+                    "service_labels": {"3par_cpg_state": state_readable}
                 })
-                # CPG usage services
-                for fs in ["SAUsage", "SDUsage", "UsrUsage"]:
-                    discovery.append({
-                        "item": name + " " + fs,
-                        "params": params.get("levels", (80.0, 90.0)),
-                        "metrics": ["used_percent"]
-                    })
-        return {"changed": False, "msg": "discovered %d CPGs" % len([d for d in discovery if " " not in d["item"]]),
-                "data": {"discovery": discovery}}
 
-    # Check mode: parse item, extract data, compute state
+        return {
+            "changed": False,
+            "msg": "discovered %d CPGs" % len(discovery),
+            "data": {"discovery": discovery}
+        }
+
     item = params.get("item", "")
-    # Determine whether this is a CPG state check or a usage check
-    if item.endswith(" SAUsage") or item.endswith(" SDUsage") or item.endswith(" UsrUsage"):
-        # Usage check
-        parts = item.rsplit(" ", 1)
-        if len(parts) != 2:
-            return {"changed": False, "msg": "invalid item format",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        cpg_name = parts[0]
-        usage_type = parts[1]
-        res = ctx.run(["curl", "-s", "-k", "-H", "Authorization: Basic %s" % params.get("credentials", ""),
-                       "https://%s/api/v1/storageSystem" % params.get("host", "localhost")], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to fetch CPG data: " + res.stderr,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        data = json.decode(res.stdout)
-        cpg = None
-        for c in data.get("members", []):
-            if c.get("name") == cpg_name:
-                cpg = c
-                break
-        if cpg == None:
-            return {"changed": False, "msg": "CPG not found: " + cpg_name,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        usage = cpg.get(usage_type, {})
-        total_mib = usage.get("totalMiB", 0.0)
-        used_mib = usage.get("usedMiB", 0.0)
-        free_mib = total_mib - used_mib
-        warn, crit = params.get("levels", (80.0, 90.0))
-        if total_mib <= 0:
-            return {"changed": False, "msg": "total size is zero",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        used_pct = (used_mib / total_mib) * 100.0
-        state = "CRIT" if used_pct >= crit else ("WARN" if used_pct >= warn else "OK")
-        return {"changed": False, "msg": "Size: %f MiB, Used: %f MiB (%f%%)" % (total_mib, used_mib, used_pct),
-                "data": {"state": state, "metrics": {"used_percent": used_pct}, "details": ""}}
-    else:
-        # CPG state check
-        res = ctx.run(["curl", "-s", "-k", "-H", "Authorization: Basic %s" % params.get("credentials", ""),
-                       "https://%s/api/v1/storageSystem" % params.get("host", "localhost")], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to fetch CPG data: " + res.stderr,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        data = json.decode(res.stdout)
-        cpg = None
-        for c in data.get("members", []):
-            if c.get("name") == item:
-                cpg = c
-                break
-        if cpg == None:
-            return {"changed": False, "msg": "CPG not found: " + item,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        state_code = cpg.get("state", 1)
-        state_map = {1: ("OK", "Normal"), 2: ("WARN", "Degraded"), 3: ("CRIT", "Failed")}
-        state_label, state_text = state_map.get(state_code, ("UNKNOWN", "Unknown"))
-        num_vvs = cpg.get("numFPVVs", 0) + cpg.get("numTDVVs", 0) + cpg.get("numTPVVs", 0)
-        return {"changed": False, "msg": "%s, %d VVs" % (state_text, num_vvs),
-                "data": {"state": state_label, "metrics": {}, "details": ""}}
+    host = params.get("host", "localhost")
+    username = params.get("username", "3par_admin")
+    password = params.get("password", "")
+    port = params.get("port", 443)
+    use_ssl = params.get("use_ssl", True)
+    timeout = params.get("timeout", 10)
+
+    curl_check = ctx.run(["curl", "--version"], mutates=False)
+    if curl_check.rc != 0:
+        return {
+            "changed": False,
+            "msg": "curl not found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "curl is required to query 3PAR array"}
+        }
+
+    scheme = "https" if use_ssl else "http"
+    api_url = "%s://%s:%d/api/v1/cpgs" % (scheme, host, port)
+
+    curl_cmd = [
+        "curl", "-sk", "-u", "%s:%s" % (username, password),
+        "--connect-timeout", str(timeout),
+        "-H", "Accept: application/json",
+        api_url
+    ]
+    res = ctx.run(curl_cmd, mutates=False)
+
+    if res.rc != 0 or not res.stdout:
+        return {
+            "changed": False,
+            "msg": "3PAR array not reachable or not accessible",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "Cannot connect to 3PAR array at %s" % host}
+        }
+
+    data = _safe_json_decode(res.stdout)
+    if data == None:
+        return {
+            "changed": False,
+            "msg": "failed to parse 3PAR API response",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        }
+
+    members = data.get("members", []) if data else []
+
+    found_cpg = None
+    for cpg in members:
+        if cpg.get("name") == item:
+            found_cpg = cpg
+            break
+
+    if found_cpg == None:
+        return {
+            "changed": False,
+            "msg": "no such CPG: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "CPG %s not found on array" % item}
+        }
+
+    state_val = found_cpg.get("state", 1)
+    state_info = _STATES.get(state_val, ("UNKNOWN", "Unknown"))
+    state_code = state_info[0]
+    state_readable = state_info[1]
+
+    num_fpvvs = cpg_get_int(found_cpg.get("numFPVVs"))
+    num_tdvvs = cpg_get_int(found_cpg.get("numTDVVs"))
+    num_tpvvs = cpg_get_int(found_cpg.get("numTPVVs"))
+    total_vvs = num_fpvvs + num_tdvvs + num_tpvvs
+
+    msg = "%s, %d VVs" % (state_readable, total_vvs)
+
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": state_code,
+            "metrics": {"num_vvs": total_vvs},
+            "details": msg
+        }
+    }
+
+def cpg_get_int(v):
+    if v == None:
+        return 0
+    if type(v) == "int":
+        return v
+    if type(v) == "string":
+        return int(v) if v.isdigit() else 0
+    return 0

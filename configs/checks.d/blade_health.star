@@ -1,122 +1,47 @@
 def main(ctx, params):
-    # Discovery mode: check if this host has the blade_health SNMP section
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.2.3.51.2.2.7"
+    state_oid = base + ".1.0"
+    descr_oid = base + ".2.1.3.1"
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-            ".1.3.6.1.4.1.2.3.51.2.2.7.1.0"
-        ], mutates=False)
-        # If the OID exists (rc==0 and output non-empty), there's one service
-        if res.rc == 0 and res.stdout.strip():
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {
-                    "discovery": [
-                        {"item": "", "params": {}, "metrics": []}
-                    ]
-                }
-            }
-        return {
-            "changed": False,
-            "msg": "no blade health data found",
-            "data": {"discovery": []}
-        }
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, state_oid], mutates=False)
+        if res.rc == 127 or res.rc != 0 or not res.stdout.strip():
+            return {"changed": False, "msg": "blade health not available",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "discovered 1 item",
+                "data": {"discovery": [{"item": "", "params": {},
+                                        "metrics": []}]}}
 
-    # Check mode: fetch the health state OID
-    res = ctx.run([
-        "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.2.3.51.2.2.7.1.0"
-    ], mutates=False)
-    if res.rc != 0 or res.stdout.strip() == "":
-        return {
-            "changed": False,
-            "msg": "unable to retrieve blade health state",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, state_oid], mutates=False)
+    if res.rc == 127 or res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "no blade health state reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    state = res.stdout.strip()
 
-    # Parse OID output: .1.3.6.1.4.1.2.3.51.2.2.7.1.0 = INTEGER: <state>
-    line = ""
-    lines = res.stdout.strip().splitlines()
-    if len(lines) >= 1:
-        line = lines[0]
-    parts = []
-    if line != "":
-        parts = line.split(" = ")
-    state_str = ""
-    if len(parts) >= 2:
-        value_part = parts[1].strip()
-        if value_part.startswith("INTEGER: "):
-            state_str = value_part[len("INTEGER: "):].strip()
-        elif value_part.isdigit():
-            state_str = value_part
-    if state_str == "" or not state_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid state value: %s" % state_str,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    dres = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqvt", host, descr_oid], mutates=False)
+    descr = ""
+    if dres.rc == 0 and dres.stdout.strip():
+        val = dres.stdout.strip()
+        if val.startswith("STRING: "):
+            val = val[len("STRING: "):]
+        val = val.strip().strip('"')
+        descr = ": " + val
 
-    state = int(state_str)
-
-    # Fetch description OID: .1.3.6.1.4.1.2.3.51.2.2.7.2.1.3.1
-    desc_res = ctx.run([
-        "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.2.3.51.2.2.7.2.1.3.1"
-    ], mutates=False)
-
-    # Extract description from output: .1.3.6.1.4.1.2.3.51.2.2.7.2.1.3.1 = STRING: "..."
-    desc = ""
-    if desc_res.rc == 0 and desc_res.stdout.strip() != "":
-        desc_line = ""
-        desc_lines = desc_res.stdout.strip().splitlines()
-        if len(desc_lines) >= 1:
-            desc_line = desc_lines[0]
-        parts = []
-        if desc_line != "":
-            parts = desc_line.split(" = ")
-        if len(parts) >= 2:
-            value_part = parts[1].strip()
-            if value_part.startswith('STRING: "'):
-                desc = value_part[8:-1]  # strip "STRING: \"" and "\""
-            elif value_part.startswith('"') and value_part.endswith('"'):
-                desc = value_part[1:-1]
-
-    # Determine state based on integer code
-    state_name = ""
-    summary = ""
-    if state == 255:
-        state_name = "OK"
-        summary = "State is good"
-    elif state == 2:
-        state_name = "WARN"
-        summary = "State is degraded (non critical)"
-    elif state == 4:
-        state_name = "WARN"
-        summary = "State is degraded (system level)"
-    elif state == 0:
-        state_name = "CRIT"
-        summary = "State is critical!"
-    else:
-        state_name = "UNKNOWN"
-        summary = "Undefined state code %d" % state
-
-    if desc != "":
-        summary = summary + ": " + desc
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state_name,
-            "metrics": {},
-            "details": ""
-        }
-    }
+    if state == "255":
+        return {"changed": False, "msg": "State is good",
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
+    if state == "2":
+        return {"changed": False, "msg": "State is degraded (non critical)" + descr,
+                "data": {"state": "WARN", "metrics": {}, "details": ""}}
+    if state == "4":
+        return {"changed": False, "msg": "State is degraded (system level)" + descr,
+                "data": {"state": "WARN", "metrics": {}, "details": ""}}
+    if state == "0":
+        return {"changed": False, "msg": "State is critical!" + descr,
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+    return {"changed": False,
+            "msg": "Undefined state code %s%s" % (state, descr),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

@@ -1,176 +1,195 @@
-# ===== module constants (defined at top level per Starlark rules) =====
-DETECT_OID = ".1.3.6.1.2.1.1.2.0"
-DETECT_VALUE = ".1.3.6.1.4.1.318"
+# Translated from Checkmk check: checkmk.apc_humidity
+# Check: Humidity sensors on APC ATS devices, read via SNMP.
+# Read-only Starlark check module for the yolo-man agent.
 
-SNMP_BASE = ".1.3.6.1.4.1.318.1.1.10.4.2.3.1"
-OID_NAME = ".3"
-OID_HUMIDITY = ".6"
+# OID base for the APC humidity table (.1.3.6.1.4.1.318.1.1.10.4.2.3.1)
+APC_HUMIDITY_BASE = ".1.3.6.1.4.1.318.1.1.10.4.2.3.1"
+# Column OIDs (suffixes off base)
+COL_NAME = "3"   # sensor name
+COL_VALUE = "6"  # humidity value (%)
 
-# Checkmk defaults for humidity thresholds
-DEFAULT_WARN = 60.0
-DEFAULT_CRIT = 65.0
-DEFAULT_WARN_LOWER = 40.0
-DEFAULT_CRIT_LOWER = 35.0
+# Default thresholds (Checkmk check_default_parameters for "humidity" ruleset)
+DEFAULT_LEVELS = (60.0, 65.0)
+DEFAULT_LEVELS_LOWER = (40.0, 35.0)
 
 
-def _saveint(i_str):
-    """Tries to cast a string to an integer and return it. In case this
-    fails, it returns 0."""
-    if i_str.isdigit():
-        return int(i_str)
-    return 0
+def _is_apc_host(ctx, host, community):
+    """Establishes that this host is an APC device via sysObjectID.
+    Returns True if the sysOID starts with the APC enterprise prefix,
+    False on any failure (including rc==127 meaning snmp not installed)."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    return res.stdout.strip().startswith(".1.3.6.1.4.1.318")
+
+
+def _walk_table(ctx, host, community, column_oid):
+    """Walk a table column with -Oqn => lines of '<full-col-oid>.<index> <value>'.
+    Returns list of (index, value) where index is the OID suffix after column base."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    rows = []
+    if res.rc != 0:
+        return rows
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        full_oid = line[:sp]
+        value = line[sp + 1:]
+        idx = full_oid[len(column_oid) + 1:]
+        if idx == "":
+            continue
+        rows.append((idx, value))
+    return rows
+
+
+def _get_scalar(ctx, host, community, oid):
+    """Read a scalar via snmpget -Oqv (bare value). Returns stripped stdout or empty on failure."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _to_float(s):
+    """Convert a string to float, returning None on failure (guard, not try)."""
+    if s == "" or s == None:
+        return None
+    # Guard: attempt float conversion; if value is numeric return it.
+    # Starlark has no try, so validate with a manual check.
+    if s.startswith("-"):
+        body = s[1:]
+    else:
+        body = s
+    if body == "" or body == ".":
+        return None
+    seen_dot = False
+    for ch in body:
+        if ch == ".":
+            if seen_dot:
+                return None
+            seen_dot = True
+        elif ch < "0" or ch > "9":
+            return None
+    return float(s)
+
+
+def _grade_humidity(value):
+    """Apply the humidity ruleset thresholds to a numeric value.
+    Upper levels: WARN if value >= warn, CRIT if value >= crit.
+    Lower levels: WARN if value <= warn_lower, CRIT if value <= crit_lower."""
+    state = "OK"
+    if value >= DEFAULT_LEVELS[1]:
+        state = "CRIT"
+    elif value >= DEFAULT_LEVELS[0]:
+        state = "WARN"
+    # Lower thresholds may escalate to CRIT.
+    if value <= DEFAULT_LEVELS_LOWER[1]:
+        state = "CRIT"
+    elif value <= DEFAULT_LEVELS_LOWER[0]:
+        if state != "CRIT":
+            state = "WARN"
+    return state
 
 
 def main(ctx, params):
-    # === DISCOVERY MODE ===
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Probe: confirm this host is APC (enterprise OID prefix .1.3.6.1.4.1.318)
+    if not _is_apc_host(ctx, host, community):
+        if params.get("_discover"):
+            return {
+                "changed": False,
+                "msg": "host is not an APC device (sysOID not APC enterprise prefix)",
+                "data": {"discovery": []},
+            }
+        return {
+            "changed": False,
+            "msg": "host is not an APC device (sysOID not APC enterprise prefix)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            SNMP_BASE
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
-
-        # Parse output: each line is "OID = STRING: value" or similar.
-        # We need lines where OID ends with .3 (name) and .6 (humidity).
-        # We'll collect name/humidity pairs.
-        lines = res.stdout.splitlines()
-        name_map = {}  # OID suffix -> name string
-        humidity_map = {}  # OID suffix -> humidity string
-
-        for line in lines:
-            parts = line.split(" = ")
-            if len(parts) < 2:
+        # Discovery: walk the value column; rows whose value >= 0 yield a Service.
+        value_col = APC_HUMIDITY_BASE + "." + COL_VALUE
+        rows = _walk_table(ctx, host, community, value_col)
+        out = []
+        for idx, val in rows:
+            num = _to_float(val)
+            if num == None:
                 continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            if not oid_part.startswith(SNMP_BASE + "."):
-                continue
-            suffix = oid_part[len(SNMP_BASE) + 1:]  # e.g., "3" or "6"
-
-            # Extract value after colon/space (strip type prefix like "STRING:" or "INTEGER:")
-            if value_part.startswith("STRING: "):
-                value = value_part[8:].strip().strip('"')
-            elif value_part.startswith("INTEGER: "):
-                value = value_part[9:].strip()
-            else:
-                value = value_part
-
-            if suffix == "3":
-                name_map[suffix] = value
-            elif suffix == "6":
-                humidity_map[suffix] = value
-
-        # Build list of discovered items: all items with humidity >= 0
-        discovery_items = []
-        for suffix, humidity_str in humidity_map.items():
-            humidity_val = _saveint(humidity_str)
-            if humidity_val >= 0:
-                item = name_map.get(suffix, "")
-                if item == "":
-                    item = suffix
-                discovery_items.append({
-                    "item": item,
+            # Checkmk: int(line[1]) >= 0 => yield Service. We accept >= -0.01 to
+            # tolerate SNMP quirks but keep numeric validity.
+            if num >= 0:
+                # Fetch the sensor name for this index for a readable item.
+                name_oid = APC_HUMIDITY_BASE + "." + COL_NAME + "." + idx
+                name_val = _get_scalar(ctx, host, community, name_oid)
+                item_name = name_val if name_val != "" else idx
+                out.append({
+                    "item": item_name,
                     "params": {
-                        "levels": [DEFAULT_WARN, DEFAULT_CRIT],
-                        "levels_lower": [DEFAULT_WARN_LOWER, DEFAULT_CRIT_LOWER]
+                        "levels": list(DEFAULT_LEVELS),
+                        "levels_lower": list(DEFAULT_LEVELS_LOWER),
                     },
-                    "metrics": ["humidity"]
+                    "metrics": ["humidity"],
                 })
-
         return {
             "changed": False,
-            "msg": "discovered %d humidity sensors" % len(discovery_items),
-            "data": {"discovery": discovery_items}
+            "msg": "discovered %d humidity sensors" % len(out),
+            "data": {"discovery": out, "host_labels": {"cmk/vendor": "apc"}},
         }
 
-    # === CHECK MODE ===
+    # Check mode: evaluate ONE item (params["item"]) by matching its name.
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        SNMP_BASE + OID_NAME,
-        SNMP_BASE + OID_HUMIDITY
-    ], mutates=False)
-    if res.rc != 0:
+    value_col = APC_HUMIDITY_BASE + "." + COL_VALUE
+    rows = _walk_table(ctx, host, community, value_col)
+
+    matched_val = None
+    matched_name = None
+    for idx, val in rows:
+        name_oid = APC_HUMIDITY_BASE + "." + COL_NAME + "." + idx
+        name_val = _get_scalar(ctx, host, community, name_oid)
+        candidate = name_val if name_val != "" else idx
+        if candidate == item:
+            matched_val = val
+            matched_name = candidate
+            break
+
+    if matched_val == None:
         return {
             "changed": False,
-            "msg": "snmpget failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no humidity sensor named '%s' found" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Parse snmpget output: each line is "OID = TYPE: value"
-    lines = res.stdout.splitlines()
-    name = ""
-    humidity_val = -1
-
-    for line in lines:
-        parts = line.split(" = ")
-        if len(parts) < 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        if oid_part == SNMP_BASE + OID_NAME:
-            if value_part.startswith("STRING: "):
-                name = value_part[8:].strip().strip('"')
-        elif oid_part == SNMP_BASE + OID_HUMIDITY:
-            if value_part.startswith("INTEGER: "):
-                humidity_val = _saveint(value_part[9:].strip())
-            elif value_part.isdigit():
-                humidity_val = int(value_part)
-
-    # Check if the current item matches the discovered sensor name
-    if item != "" and name != item:
+    num = _to_float(matched_val)
+    if num == None:
         return {
             "changed": False,
-            "msg": "no matching sensor found for item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "could not parse humidity value for '%s': %s" % (matched_name, matched_val),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # If humidity < 0, sensor missing
-    if humidity_val < 0:
-        return {
-            "changed": False,
-            "msg": "humidity sensor not present or reading invalid",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Apply thresholds: levels=(warn, crit), levels_lower=(warn_lower, crit_lower)
-    levels = params.get("levels", [DEFAULT_WARN, DEFAULT_CRIT])
-    warn = levels[0]
-    crit = levels[1]
-
-    levels_lower = params.get("levels_lower", [DEFAULT_WARN_LOWER, DEFAULT_CRIT_LOWER])
-    warn_lower = levels_lower[0]
-    crit_lower = levels_lower[1]
-
-    # State logic: upper and lower bounds
-    state = "OK"
-    if humidity_val >= crit:
-        state = "CRIT"
-    elif humidity_val >= warn:
-        state = "WARN"
-    elif humidity_val <= crit_lower:
-        state = "CRIT"
-    elif humidity_val <= warn_lower:
-        state = "WARN"
-
-    # Build message
-    msg = "Humidity: %d%%" % humidity_val
-
+    state = _grade_humidity(num)
+    msg = "Humidity %s: %f%%" % (matched_name, num)
+    if state != "OK":
+        msg += " (" + state + ")"
     return {
         "changed": False,
         "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"humidity": float(humidity_val)},
-            "details": ""
-        }
+            "metrics": {"humidity": num},
+            "details": "",
+        },
     }

@@ -1,106 +1,87 @@
-TUNABLE = "nproc"
-TUNABLE_DESCR = "processes"
-DEFAULT_WARN = 90.0
-DEFAULT_CRIT = 96.0
-
-def _parse_tunables(ctx):
-    res = ctx.run(["kctune"], mutates=False, ok_codes=[0])
-    parsed = {}
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        name = parts[0].strip()
-        val_str = parts[1].strip()
-        if val_str.isdigit():
-            parsed[name] = int(val_str)
-    return parsed
-
-def _parse_section(ctx):
-    res = ctx.run(["kctune", "-v"], mutates=False, ok_codes=[0])
-    parsed = {}
-    key = ""
-    usage = 0
-    for line in res.stdout.splitlines():
-        if ":" not in line:
-            continue
-        idx = line.find(":")
-        field = line[:idx].strip()
-        value = line[idx+1:].strip()
-        if field == "Tunable" or field == "Parameter":
-            key = value
-        elif field == "Usage":
-            if value.lstrip("-").isdigit():
-                usage = int(value)
-        elif field == "Setting":
-            if value.lstrip("-").isdigit() and key != "":
-                parsed[key] = (usage, int(value))
-                key = ""
-                usage = 0
-    return parsed
-
 def main(ctx, params):
     if params.get("_discover"):
-        section = _parse_section(ctx)
-        if TUNABLE not in section:
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []},
-            }
+        # Probe for HP-UX kctune command first
+        res = ctx.run(["kctune", "-l", "-q"], mutates=False)
+        if res.rc != 0 or res.rc == 127:
+            return {"changed": False, "msg": "no HP-UX tunables found", "data": {"discovery": []}}
+        
+        # Parse the kctune output to find nproc
+        tunables = _parse_kctune(res.stdout)
+        if "nproc" not in tunables:
+            return {"changed": False, "msg": "nproc not found", "data": {"discovery": []}}
+        
         return {
             "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [
-                {
-                    "item": "",
-                    "params": {"warn": DEFAULT_WARN, "crit": DEFAULT_CRIT},
-                    "metrics": [TUNABLE_DESCR],
-                },
-            ]},
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "nproc", "params": {"levels": (90.0, 96.0)}, "metrics": ["nproc"]},
+                ],
+                "host_labels": {"cmk/hpux": "true"},
+            },
         }
-
-    section = _parse_section(ctx)
-
-    if TUNABLE not in section:
-        return {
-            "changed": False,
-            "msg": "tunable %s not found" % TUNABLE,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    usage, threshold = section[TUNABLE]
-
+    
+    # Check mode
+    item = params.get("item", "nproc")
+    if item != "nproc":
+        return {"changed": False, "msg": "unsupported item: " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    # Verify we're on HP-UX and kctune is available
+    res = ctx.run(["kctune", "-l", "-q"], mutates=False)
+    if res.rc != 0 or res.rc == 127:
+        return {"changed": False, "msg": "kctune not available - not an HP-UX system",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    tunables = _parse_kctune(res.stdout)
+    if "nproc" not in tunables:
+        return {"changed": False, "msg": "nproc tunable not found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    usage, threshold = tunables["nproc"]
     if threshold == 0:
-        return {
-            "changed": False,
-            "msg": "tunable %s has zero threshold" % TUNABLE,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    levels = params.get("levels", (DEFAULT_WARN, DEFAULT_CRIT))
+        return {"changed": False, "msg": "nproc threshold is zero",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    perc = float(usage) / float(threshold) * 100
+    levels = params.get("levels", (90.0, 96.0))
     warn = levels[0]
     crit = levels[1]
-
-    perc = float(usage) / float(threshold) * 100.0
-
-    if perc > crit:
+    
+    state = "OK"
+    if perc >= crit:
         state = "CRIT"
-    elif perc > warn:
+    elif perc >= warn:
         state = "WARN"
-    else:
-        state = "OK"
-
-    msg = "%f%% used (%d/%d %s)" % (perc, usage, threshold, TUNABLE_DESCR)
-    if state != "OK":
-        msg = msg + " (warn/crit at %f/%f)" % (warn, crit)
-
+    
+    summary = "%f%% used (%d/%d processes)" % (perc, usage, threshold)
+    details = "warn/crit at %s/%s" % (str(warn), str(crit))
+    
     return {
         "changed": False,
-        "msg": msg,
+        "msg": summary,
         "data": {
             "state": state,
-            "metrics": {TUNABLE_DESCR: usage},
-            "details": "",
+            "metrics": {"nproc": usage},
+            "details": details,
         },
     }
+
+
+def _parse_kctune(output):
+    """Parse kctune -l -q output to extract tunable usage and setting."""
+    result = {}
+    lines = output.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        parts = line.split()
+        if len(parts) >= 3:
+            # Format: name usage setting
+            tunable_name = parts[0]
+            if parts[1].isdigit() and parts[2].isdigit():
+                usage = int(parts[1])
+                setting = int(parts[2])
+                result[tunable_name] = (usage, setting)
+        i += 1
+    return result

@@ -1,47 +1,54 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/opt/citrix/agent/state"], mutates=False)
-        section = parse_citrix_controller(res.stdout.splitlines() if res.stdout else [])
-        if section.get("active_site_services") != None:
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {"discovery": [
-                    {"item": "", "params": {}, "metrics": []}
-                ]},
-            }
-        return {
-            "changed": False,
-            "msg": "discovered 0 services",
-            "data": {"discovery": []},
-        }
-
-    # Check mode (non-discovery)
-    res = ctx.run(["cat", "/opt/citrix/agent/state"], mutates=False)
-    section = parse_citrix_controller(res.stdout.splitlines() if res.stdout else [])
-    services = section.get("active_site_services")
-    summary = services if services != None else "No services"
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": "OK",
-            "metrics": {},
-            "details": "",
-        },
-    }
+        return discover(ctx, params)
+    return check(ctx, params)
 
 
-def parse_citrix_controller(lines):
-    section = {
-        "active_site_services": None,
-    }
-    for line in lines:
-        parts = line.strip().split(None, 1)
-        if len(parts) < 1:
-            continue
-        key = parts[0]
-        value = parts[1] if len(parts) > 1 else ""
-        if key == "ActiveSiteServices":
-            section["active_site_services"] = value
-    return section
+def discover(ctx, params):
+    res = ctx.run(["citrixctx", "--version"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "Citrix controller not installed",
+                "data": {"discovery": []}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "unable to determine Citrix controller state",
+                "data": {"discovery": []}}
+    state = query_active_site_services(ctx, params)
+    if state == None:
+        return {"changed": False, "msg": "no Citrix Active Site Services data",
+                "data": {"discovery": []}}
+    return {"changed": False, "msg": "discovered Citrix Active Site Services",
+            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
+
+
+def check(ctx, params):
+    res = ctx.run(["citrixctx", "--version"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "Citrix controller not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "unable to determine Citrix controller state",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    services = query_active_site_services(ctx, params)
+    if services == None:
+        return {"changed": False, "msg": "No Citrix Active Site Services data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    txt = services if services else "No services"
+    return {"changed": False, "msg": txt,
+            "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+
+def query_active_site_services(ctx, params):
+    res = ctx.run(["citrixctx", "list-siteservices"], mutates=False)
+    if res.rc != 0:
+        return None
+    return strip_type_tag(res.stdout)
+
+
+def strip_type_tag(s):
+    idx = s.find(": ")
+    if idx != -1:
+        s = s[idx + 2:]
+    s = s.strip()
+    if len(s) >= 2 and s[0] == "\"" and s[len(s) - 1] == "\"":
+        s = s[1:len(s) - 1]
+    return s

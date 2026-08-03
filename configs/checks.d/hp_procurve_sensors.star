@@ -1,5 +1,60 @@
-# ===== Starlark check module: hp_procurve_sensors =====
-# Sensor monitoring for HP ProCurve devices via SNMP
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Probe for the HP ProCurve device (sysObjectID enterprise .11.2.3.7.x)
+    sysid = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv",
+                     host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if sysid.rc != 0 or (sysid.rc == 127):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no HP ProCurve device found",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no HP ProCurve device found at " + host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    sysid_val = sysid.stdout
+    if not _is_procurve(sysid_val):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not an HP ProCurve device",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "host is not an HP ProCurve device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Fetch the sensor table columns 1 (name), 2 (type), 4 (value), 7 (model)
+    base = ".1.3.6.1.4.1.11.2.14.11.1.2.6.1"
+    col1 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+                    base + ".1"], mutates=False)
+    col2 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+                    base + ".2"], mutates=False)
+    col4 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+                    base + ".4"], mutates=False)
+    col7 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+                    base + ".7"], mutates=False)
+
+    sensors = _build_sensors(col1.stdout, col2.stdout, col4.stdout, col7.stdout)
+
+    if params.get("_discover"):
+        out = []
+        for s in sensors:
+            if s["status"] != "5":
+                out.append({"item": s["name"], "params": {}, "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d sensors" % len(out),
+                "data": {"discovery": out}}
+
+    item = params.get("item", "")
+    for s in sensors:
+        if s["name"] == item:
+            state, readable = _STATUS_MAP[s["status"]]
+            stype = _sensor_type(s["type"])
+            msg = 'Condition of %s "%s" is %s' % (stype, s["model"], readable)
+            return {"changed": False, "msg": msg,
+                    "data": {"state": state, "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": "item not found in snmp data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
 
 _STATUS_MAP = {
     "1": ("UNKNOWN", "unknown"),
@@ -16,174 +71,68 @@ _SENSOR_TYPE_SUFFIX_MAP = {
     "11.2.3.7.8.3.4": "FutureSlot",
 }
 
+
+def _is_procurve(sysid_val):
+    return sysid_val.find(".11.2.3.7.11") != -1 or sysid_val.find(".11.2.3.7.8") != -1
+
+
 def _sensor_type(type_input):
     for suffix, name in _SENSOR_TYPE_SUFFIX_MAP.items():
         if type_input.endswith(suffix):
             return name
     return ""
 
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", "public")
-        # Fetch all sensor data
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host,
-            ".1.3.6.1.4.1.11.2.14.11.1.2.6.1"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
-        
-        # Parse lines like: .1.3.6.1.4.1.11.2.14.11.1.2.6.1.1.1 = INTEGER: 1
-        # Split into key-value pairs by = and extract sensor data
-        lines = res.stdout.splitlines()
-        sensor_data = []
-        
-        # We need to group the 4 OID extensions: .1 (id), .2 (type), .4 (status), .7 (description)
-        # Build lookup by base OID index
-        sensors = {}
-        for line in lines:
-            line = line.strip()
-            if not line or "=" not in line:
+
+def _build_sensors(col1, col2, col4, col7):
+    def _parse_col(text):
+        rows = {}
+        if not text:
+            return rows
+        for line in text.split("\n"):
+            if not line:
                 continue
-            parts = line.split("=", 1)
+            parts = line.split(" ", 1)
             if len(parts) != 2:
                 continue
-            oid = parts[0].strip()
-            value = parts[1].strip()
-            # Remove leading type prefix (e.g., "INTEGER: ", "STRING: ")
-            if ": " in value:
-                value = value.split(": ", 1)[1].strip()
-                # Remove quotes from strings
-                if value.startswith('"') and value.endswith('"'):
-                    value = value[1:-1]
-            
-            # Extract base and suffix
-            base_oid = ".1.3.6.1.4.1.11.2.14.11.1.2.6.1."
-            if not oid.startswith(base_oid):
+            oid, val = parts
+            idx = oid[len(".1.3.6.1.4.1.11.2.14.11.1.2.6.1.1")] if False else None
+            # Extract index: everything after ".1" / ".2" / ".4" / ".7"
+            rows[oid] = val.strip()
+        return rows
+    # Re-parse properly using column base lengths
+    by_index = {}
+
+    def _load(text, base_col, field):
+        if not text:
+            return
+        col_oid = ".1.3.6.1.4.1.11.2.14.11.1.2.6.1." + base_col
+        for line in text.split("\n"):
+            if not line:
                 continue
-            suffix = oid[len(base_oid):]
-            
-            # Split suffix to get index and field
-            if "." not in suffix:
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
                 continue
-            index_part = suffix.rsplit(".", 1)[0]
-            field = suffix.rsplit(".", 1)[1]
-            
-            if index_part not in sensors:
-                sensors[index_part] = {}
-            
-            if field == "1":
-                sensors[index_part]["id"] = value
-            elif field == "2":
-                sensors[index_part]["type"] = value
-            elif field == "4":
-                sensors[index_part]["status"] = value
-            elif field == "7":
-                sensors[index_part]["description"] = value
-        
-        # Build discovery items
-        out = []
-        for idx, sensor in sensors.items():
-            status = sensor.get("status", "5")
-            status_name = _STATUS_MAP.get(status, ("UNKNOWN", "unknown"))[1]
-            if status_name != "notPresent":
-                item = sensor.get("id", "")
-                if item:
-                    out.append({
-                        "item": item,
-                        "params": {},
-                        "metrics": []
-                    })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d sensors" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # Check mode
-    item = params.get("item", "")
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-    
-    # Fetch all sensor data (same as discovery)
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host,
-        ".1.3.6.1.4.1.11.2.14.11.1.2.6.1"
-    ], mutates=False)
-    if res.rc != 0:
-        fail("snmpwalk failed: " + res.stderr)
-    
-    # Parse lines into sensor data
-    lines = res.stdout.splitlines()
-    sensors = {}
-    for line in lines:
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        value = parts[1].strip()
-        if ": " in value:
-            value = value.split(": ", 1)[1].strip()
-            if value.startswith('"') and value.endswith('"'):
-                value = value[1:-1]
-        
-        base_oid = ".1.3.6.1.4.1.11.2.14.11.1.2.6.1."
-        if not oid.startswith(base_oid):
-            continue
-        suffix = oid[len(base_oid):]
-        if "." not in suffix:
-            continue
-        index_part = suffix.rsplit(".", 1)[0]
-        field = suffix.rsplit(".", 1)[1]
-        
-        if index_part not in sensors:
-            sensors[index_part] = {}
-        
-        if field == "1":
-            sensors[index_part]["id"] = value
-        elif field == "2":
-            sensors[index_part]["type"] = value
-        elif field == "4":
-            sensors[index_part]["status"] = value
-        elif field == "7":
-            sensors[index_part]["description"] = value
-    
-    # Find matching sensor
-    for idx, sensor in sensors.items():
-        sensor_item = sensor.get("id", "")
-        if sensor_item == item:
-            status = sensor.get("status", "1")
-            status_tuple = _STATUS_MAP.get(status, ("UNKNOWN", "unknown"))
-            state = status_tuple[0]
-            status_readable = status_tuple[1]
-            sensor_type_name = _sensor_type(sensor.get("type", ""))
-            description = sensor.get("description", "")
-            msg = "Condition of %s \"%s\" is %s" % (sensor_type_name, description, status_readable)
-            return {
-                "changed": False,
-                "msg": msg,
-                "data": {
-                    "state": state,
-                    "metrics": {},
-                    "details": ""
-                }
-            }
-    
-    # Item not found
-    return {
-        "changed": False,
-        "msg": "item not found in snmp data",
-        "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": ""
-        }
-    }
+            oid = parts[0]
+            val = parts[1].strip()
+            if not oid.startswith(col_oid + "."):
+                continue
+            idx = oid[len(col_oid) + 1:]
+            if idx not in by_index:
+                by_index[idx] = {}
+            by_index[idx][field] = val
+
+    _load(col1, "1", "name")
+    _load(col2, "2", "type")
+    _load(col4, "4", "status")
+    _load(col7, "7", "model")
+
+    out = []
+    for idx in sorted(by_index.keys()):
+        rec = by_index[idx]
+        out.append({
+            "name": rec.get("name", ""),
+            "type": rec.get("type", ""),
+            "status": rec.get("status", "1"),
+            "model": rec.get("model", ""),
+        })
+    return out

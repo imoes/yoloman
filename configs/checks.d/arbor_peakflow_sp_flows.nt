@@ -2,29 +2,22 @@ name: arbor_peakflow_sp_flows
 fqcn: checkmk.arbor_peakflow_sp_flows
 collection: checkmk
 short_description: Flow Count
-description:
-    > ## Overview
-    > Monitors the current number of active flows on an Arbor PeakFlow SP device, providing visibility into traffic volume and potential anomalies.
-    >
-    > ## What it monitors
-    > - Current flow count (number of active network flows) on the monitored device
-    >
-    > ## How it works
-    > Uses SNMP to query the device via `snmpwalk` for OID `.1.3.6.1.4.1.9694.1.4.2.1.12.0`. Parses the integer result from the output. During discovery, it identifies a single service with item `""` and metric `flows`. The check always returns OK with the raw flow count since no thresholds are configured.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - **OK**: Flow count successfully retrieved and reported.
-    > - **UNKNOWN**: SNMP query failed or flow count could not be parsed.
-    >
-    > ## Metrics
-    > - `flows` — number of active network flows, unit: count
+description: Checkmk check 'arbor_peakflow_sp_flows' (service: Flow Count), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
+    levels:
+        type: list
+        description: levels (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Network
+execution: snmp
+prompt_version: c21f0f5a7229

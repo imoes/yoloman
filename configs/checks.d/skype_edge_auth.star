@@ -1,61 +1,44 @@
+def _upper(levels):
+    if not levels:
+        return None
+    return levels.get("upper")
+
+def _grade_upper(value, levels):
+    if levels == None:
+        return "OK"
+    u = levels.get("upper")
+    if u == None:
+        return "OK"
+    warn = u[0]
+    crit = u[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+# Windows Skype Edge Auth checks use WMI perf counters; no on-host source via ctx here.
+# Discovery: requires WMI tables LS:A/V Auth - Requests to exist.
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "powershell", "-Command",
-            "Get-WmiObject -Class \"LS:A/V Auth - Requests\" -Namespace \"root\\cimv2\" | Select-Object -ExpandProperty __SERVER"
-        ], mutates=False)
-        items = []
-        if res.rc == 0 and res.stdout.strip():
-            for line in res.stdout.splitlines():
-                stripped = line.strip()
-                if stripped:
-                    items.append({
-                        "item": stripped,
-                        "params": {"bad_requests": {"upper": (20.0, 40.0)}},
-                        "metrics": ["avauth_failed_requests"],
-                    })
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items},
-        }
-
-    item = params.get("item", "")
-    res = ctx.run([
-        "powershell", "-Command",
-        "Get-WmiObject -Class \"LS:A/V Auth - Requests\" -Namespace \"root\\cimv2\" | Select-Object -ExpandProperty \"Bad Requests Received/sec\""
-    ], mutates=False)
-
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "WMI query failed or no data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    total_bad_requests = 0
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.isdigit():
-            total_bad_requests = total_bad_requests + int(stripped)
-
-    bad_requests_levels = params.get("bad_requests", {"upper": (20.0, 40.0)})
-    warn = float(bad_requests_levels.get("upper", (20.0, 40.0))[0])
-    crit = float(bad_requests_levels.get("upper", (20.0, 40.0))[1])
-
-    if total_bad_requests >= crit:
-        state = "CRIT"
-    elif total_bad_requests >= warn:
-        state = "WARN"
-    else:
-        state = "OK"
-
-    return {
-        "changed": False,
-        "msg": "Bad requests/sec: %d" % total_bad_requests,
-        "data": {
-            "state": state,
-            "metrics": {"avauth_failed_requests": total_bad_requests},
-            "details": "",
-        },
-    }
+        # Probe for the WMI table presence via typeperf (Windows perf counters accessible on-host).
+        res = ctx.run(["typeperf", "LS:A/V Auth - Requests\\- Bad Requests Received/sec"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no Skype A/V Auth - Requests table", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [{"item": "LS:A/V Auth - Requests", "params": {"bad_requests": {"upper": (20, 40)}}, "metrics": ["avauth_failed_requests"]}]}}
+    item = params.get("item", "LS:A/V Auth - Requests")
+    res = ctx.run(["typeperf", "LS:A/V Auth - Requests\\- Bad Requests Received/sec"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "no Skype A/V Auth - Requests data", "data": {"state": "UNKNOWN", "metrics": {}, "details": "WMI table LS:A/V Auth - Requests not available"}}
+    lines = res.stdout.splitlines()
+    if len(lines) < 2:
+        return {"changed": False, "msg": "no Skype A/V Auth - Requests data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # typeperf output: "timestamp,value"
+    last = lines[-1].strip()
+    parts = last.split(",")
+    if len(parts) < 2 or not parts[1].strip().isdigit():
+        return {"changed": False, "msg": "no Skype A/V Auth - Requests data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    value = int(parts[1].strip())
+    levels = params.get("bad_requests", {"upper": (20, 40)})
+    state = _grade_upper(float(value), levels)
+    return {"changed": False, "msg": "Bad requests/sec: %s (state %s)" % (str(value), state), "data": {"state": state, "metrics": {"avauth_failed_requests": float(value)}, "details": ""}}

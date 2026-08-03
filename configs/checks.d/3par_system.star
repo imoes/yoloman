@@ -1,73 +1,50 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["sshpass", "-p", params.get("password", ""), "ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", 
-                       params.get("username", "3paradm") + "@" + params.get("host", "localhost"), 
-                       "cli", "-F", "systemshow -json"], mutates=False)
+        res = ctx.run(["showsys", "-d", "-json"], mutates=False)
         if res.rc != 0:
-            res = ctx.run(["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", 
-                           params.get("username", "3paradm") + "@" + params.get("host", "localhost"), 
-                           "cli", "-F", "systemshow -json"], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to connect to 3PAR system", "data": {"discovery": []}}
-        
+            return {"changed": False, "msg": "3PAR not available", "data": {"discovery": [], "host_labels": {}}}
         if not res.stdout:
-            return {"changed": False, "msg": "no data from 3PAR system", "data": {"discovery": []}}
-        
-        data = json.decode(res.stdout) if res.stdout else {}
-        
-        system_name = data.get("name")
-        if system_name:
-            return {"changed": False, "msg": "discovered 1 3PAR system", 
-                    "data": {"discovery": [{"item": system_name, "params": {}, "metrics": []}]}}
-        return {"changed": False, "msg": "no 3PAR system found", "data": {"discovery": []}}
-    
-    # Check mode
+            return {"changed": False, "msg": "no 3PAR data", "data": {"discovery": [], "host_labels": {}}}
+        data = json.decode(res.stdout)
+        name = data.get("name")
+        if not name:
+            return {"changed": False, "msg": "no 3PAR system name", "data": {"discovery": [], "host_labels": {}}}
+        metrics = ["online_nodes", "cluster_nodes"]
+        discovery = [{"item": name, "params": {}, "metrics": metrics,
+                      "service_labels": {"3par/model": data.get("model", "N/A"),
+                                         "3par/system_version": data.get("systemVersion", "N/A"),
+                                         "3par/serial_number": data.get("serialNumber", "N/A")}}]
+        labels = {"cmk/os_family": ctx.facts().get("os_family", "linux")}
+        return {"changed": False, "msg": "discovered 3PAR system", "data": {"discovery": discovery, "host_labels": labels}}
+
     item = params.get("item", "")
-    
-    res = ctx.run(["sshpass", "-p", params.get("password", ""), "ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", 
-                   params.get("username", "3paradm") + "@" + params.get("host", "localhost"), 
-                   "cli", "-F", "systemshow -json"], mutates=False)
-    if res.rc != 0:
-        res = ctx.run(["ssh", "-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null", 
-                       params.get("username", "3paradm") + "@" + params.get("host", "localhost"), 
-                       "cli", "-F", "systemshow -json"], mutates=False)
-    
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to connect to 3PAR system", 
+    res = ctx.run(["showsys", "-d", "-json"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "3PAR not available",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    if not res.stdout:
-        return {"changed": False, "msg": "no data from 3PAR system", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
     data = json.decode(res.stdout)
-    
-    if data.get("name") != item:
-        return {"changed": False, "msg": "item %s not found" % item, 
+    name = data.get("name", "")
+    if item and name != item:
+        return {"changed": False, "msg": "3PAR system not found: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
+
     model = data.get("model", "N/A")
-    version = data.get("systemVersion", "N/A")
-    serial = data.get("serialNumber", "N/A")
-    cluster_nodes = data.get("clusterNodes", [])
-    online_nodes = data.get("onlineNodes", [])
-    
+    system_version = data.get("system_version", data.get("systemVersion", "N/A"))
+    serial_number = data.get("serial_number", data.get("serialNumber", "N/A"))
+    cluster_nodes = data.get("clusterNodes", data.get("cluster_nodes", []))
+    online_nodes = data.get("onlineNodes", data.get("online_nodes", []))
+
     summary = "Model: %s, Version: %s, Serial number: %s, Online nodes: %d/%d" % (
-        model, version, serial, len(online_nodes), len(cluster_nodes))
-    
+        model, system_version, serial_number, len(online_nodes), len(cluster_nodes))
+
+    details_lines = [summary]
     state = "OK"
-    details = ""
-    
-    if len(online_nodes) < len(cluster_nodes):
-        state = "CRIT"
-        missing_nodes = list(set(cluster_nodes) ^ set(online_nodes))
-        missing_nodes.sort()
-        details_list = []
-        for n in range(len(missing_nodes)):
-            details_list.append("Node %d not available" % missing_nodes[n])
-        details = ", ".join(details_list)
-        summary += ", " + details
-    
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {}, "details": details}}
+    for node in set(cluster_nodes) ^ set(online_nodes):
+        details_lines.append("(Node %d not available)" % node)
+        if state == "OK":
+            state = "CRIT"
+
+    metrics = {"online_nodes": len(online_nodes), "cluster_nodes": len(cluster_nodes)}
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": "\n".join(details_lines)}}

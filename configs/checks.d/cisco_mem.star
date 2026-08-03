@@ -1,212 +1,263 @@
-# cisco_mem Starlark check module - read-only, SNMP-based
-# Translates cmk.plugins.cisco.lib_mem.check_cisco_mem_sub and discovery_cisco_mem
+# Cisco memory checks (Checkmk checkmk.cisco_mem) — read-only Starlark translation
 
-# Default parameters from Checkmk
-DEFAULT_LEVELS = (80.0, 90.0)
-DEFAULT_TREND_RANGE = 24
-DEFAULT_TREND_TIMELEFT = (12, 6)
+# OIDs for the legacy CISCO-ENHANCED-MEMPOOL-MIB (ciscoMemoryPoolTable)
+OID_SYSD = ".1.3.6.1.2.1.1.1.0"
+OID_MEMPOOL_NAME = ".1.3.6.1.4.1.9.9.48.1.1.1.2"
+OID_MEMPOOL_USED = ".1.3.6.1.4.1.9.9.48.1.1.1.5"
+OID_MEMPOOL_FREE = ".1.3.6.1.4.1.9.9.48.1.1.1.6"
+
+# 32-bit column OIDs of the enhanced mempool (CISCO-ENHANCED-MEMPOOL-MIB)
+OID_CEMP_NAME = ".1.3.6.1.4.1.9.9.221.1.1.1.1.3"
+OID_CEMP_USED = ".1.3.6.1.4.1.9.9.221.1.1.1.1.7"
+OID_CEMP_FREE = ".1.3.6.1.4.1.9.9.221.1.1.1.1.8"
+
+# 64-bit (HC) column OIDs of the enhanced mempool
+OID_CEMP_HC_USED = ".1.3.6.1.4.1.9.9.221.1.1.1.1.18"
+OID_CEMP_HC_FREE = ".1.3.6.1.4.1.9.9.221.1.1.1.1.20"
+
+# Column OID prefixes used to reconstruct per-row OIDs after a walk
+COL_BASE_NAME = ".3"
+COL_BASE_USED = ".7"
+COL_BASE_FREE = ".8"
+COL_BASE_HC_USED = ".18"
+COL_BASE_HC_FREE = ".20"
+
+MEGA = 1024 * 1024
+
+
+def _to_int(s):
+    s = s.strip() if s != None else ""
+    if s == "":
+        return None
+    neg = s.startswith("-")
+    body = s[1:] if neg else s
+    if body == "":
+        return None
+    if not body.isdigit():
+        return None
+    v = 0
+    for ch in body:
+        v = v * 10 + (ord(ch) - 48)
+    return -v if neg else v
+
+
+def _walk_table(ctx, host, community, col_oid):
+    """snmpwalk -Oqn one column; returns list of (full_oid, value)."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oid],
+        mutates=False,
+    )
+    rows = []
+    if res.rc != 0 and res.rc != 1:
+        return None
+    for line in res.stdout.splitlines():
+        space = line.find(" ")
+        if space < 0:
+            continue
+        rows.append((line[:space], line[space + 1:].strip()))
+    return rows
+
+
+def _get_scalar(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _sys_desc(ctx, host, community):
+    return _get_scalar(ctx, host, community, OID_SYSD)
+
+
+def _detect_cisco(ctx, host, community):
+    """Mimic DETECT_CISCO: sysDescr contains 'cisco' (case-insensitive)."""
+    desc = _sys_desc(ctx, host, community)
+    if desc == None:
+        return False
+    return "cisco" in desc.lower()
+
+
+def _gather_pool_data(ctx, host, community):
+    """Return {item: (used:int, free:int)} using the most capable source.
+
+    Preference: enhanced-64 > enhanced-32 > legacy. The 64-bit enhanced MIB
+    is preferred on devices that expose it; the 32-bit legacy pool table is
+    the fallback (also used by ASA pre-v9 per Checkmk werk #1266).
+    """
+    # Enhanced 64-bit (HC) first: cempMemPoolHCUsed / HCFree (.18/.20), name .3
+    hc_used_rows = _walk_table(ctx, host, community, OID_CEMP_HC_USED)
+    if hc_used_rows == None:
+        return None
+    if len(hc_used_rows) > 0:
+        name_rows = _walk_table(ctx, host, community, OID_CEMP_NAME)
+        free_rows = _walk_table(ctx, host, community, OID_CEMP_HC_FREE)
+        if name_rows == None or free_rows == None:
+            return None
+        by_index = {}
+        for full_oid, name_val in name_rows:
+            idx = full_oid[len(OID_CEMP_NAME) + 1:]
+            by_index[idx] = {"name": name_val}
+        for full_oid, val in hc_used_rows:
+            idx = full_oid[len(OID_CEMP_HC_USED) + 1:]
+            entry = by_index.get(idx)
+            if entry == None:
+                entry = {}
+                by_index[idx] = entry
+            u = _to_int(val)
+            entry["used64"] = u
+        for full_oid, val in free_rows:
+            idx = full_oid[len(OID_CEMP_HC_FREE) + 1:]
+            entry = by_index.get(idx)
+            if entry == None:
+                entry = {}
+                by_index[idx] = entry
+            f = _to_int(val)
+            entry["free64"] = f
+        pools = {}
+        for idx, entry in by_index.items():
+            name = entry.get("name")
+            if name == None or name == "":
+                continue
+            used = entry.get("used64")
+            free = entry.get("free64")
+            if used == None or free == None:
+                continue
+            pools[name] = (used, free)
+        return pools
+
+    # Legacy 32-bit pool table: name .2, used .5, free .6
+    name_rows = _walk_table(ctx, host, community, OID_MEMPOOL_NAME)
+    used_rows = _walk_table(ctx, host, community, OID_MEMPOOL_USED)
+    free_rows = _walk_table(ctx, host, community, OID_MEMPOOL_FREE)
+    if name_rows == None or used_rows == None or free_rows == None:
+        return None
+    by_index = {}
+    for full_oid, name_val in name_rows:
+        idx = full_oid[len(OID_MEMPOOL_NAME) + 1:]
+        by_index[idx] = {"name": name_val}
+    for full_oid, val in used_rows:
+        idx = full_oid[len(OID_MEMPOOL_USED) + 1:]
+        entry = by_index.get(idx)
+        if entry == None:
+            entry = {}
+            by_index[idx] = entry
+        entry["used"] = _to_int(val)
+    for full_oid, val in free_rows:
+        idx = full_oid[len(OID_MEMPOOL_FREE) + 1:]
+        entry = by_index.get(idx)
+        if entry == None:
+            entry = {}
+            by_index[idx] = entry
+        entry["free"] = _to_int(val)
+    pools = {}
+    for idx, entry in by_index.items():
+        name = entry.get("name")
+        if name == None or name == "":
+            continue
+        used = entry.get("used")
+        free = entry.get("free")
+        if used == None or free == None:
+            continue
+        pools[name] = (used, free)
+    return pools
+
+
+def _grade_level(value, levels):
+    """Upper-level grading: warn/crit are upper bounds in same units.
+    value, warn, crit all in MB here (or None)."""
+    if levels == None:
+        return "OK"
+    warn = levels[0]
+    crit = levels[1]
+    if crit != None and value >= crit:
+        return "CRIT"
+    if warn != None and value >= warn:
+        return "WARN"
+    return "OK"
+
 
 def main(ctx, params):
-    if params.get("_discover"):
-        # Discovery mode: walk the enhanced 32-bit and legacy SNMP trees
-        # Prefer enhanced 32-bit if available (cempMemPoolName), fallback to legacy (ciscoMemoryPoolName)
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # First try enhanced 32-bit (cempMemPoolName .1.3.6.1.4.1.9.9.221.1.1.1.1.3)
-        res_enhanced = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.9.9.221.1.1.1.1.3"
-        ], mutates=False)
-        
-        # Extract pool names from enhanced tree
-        enhanced_pools = []
-        for line in res_enhanced.stdout.splitlines():
-            if "=" in line:
-                parts = line.strip().split(" = ")
-                if len(parts) == 2:
-                    name = parts[1].strip()
-                    # Extract the index from OID path: ...1.3.6.1.4.1.9.9.221.1.1.1.1.3.<index>
-                    oid = parts[0].strip()
-                    index = oid.rsplit(".", 1)[-1] if "." in oid else ""
-                    if name and index:
-                        enhanced_pools.append({"name": name.strip('"'), "index": index})
-        
-        if enhanced_pools:
-            # Get used and free values for enhanced pools
-            # cempMemPoolUsed: .1.3.6.1.4.1.9.9.221.1.1.1.1.7.<index>
-            # cempMemPoolFree: .1.3.6.1.4.1.9.9.221.1.1.1.1.8.<index>
-            used_oids = ".".join([".1.3.6.1.4.1.9.9.221.1.1.1.1.7"] + [p["index"] for p in enhanced_pools])
-            free_oids = ".".join([".1.3.6.1.4.1.9.9.221.1.1.1.1.8"] + [p["index"] for p in enhanced_pools])
-            
-            # Use individual snmpget calls for each OID to avoid parsing complexity
-            results = []
-            for pool in enhanced_pools:
-                idx = pool["index"]
-                used_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, 
-                                   ".1.3.6.1.4.1.9.9.221.1.1.1.1.7." + idx], mutates=False)
-                free_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, 
-                                   ".1.3.6.1.4.1.9.9.221.1.1.1.1.8." + idx], mutates=False)
-                
-                used = _extract_snmp_value(used_res.stdout)
-                free = _extract_snmp_value(free_res.stdout)
-                
-                if used != None and free != None:
-                    results.append({
-                        "item": pool["name"],
-                        "params": {"levels": DEFAULT_LEVELS},
-                        "metrics": ["mem_used_percent", "mem_used"]
-                    })
-            
-            return {
-                "changed": False,
-                "msg": "discovered %d memory pools" % len(results),
-                "data": {"discovery": results}
-            }
-        
-        # Fallback to legacy tree: ciscoMemoryPoolName .1.3.6.1.4.1.9.9.48.1.1.1.2
-        res_legacy = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.9.9.48.1.1.1.2"
-        ], mutates=False)
-        
-        legacy_pools = []
-        for line in res_legacy.stdout.splitlines():
-            if "=" in line:
-                parts = line.strip().split(" = ")
-                if len(parts) == 2:
-                    name = parts[1].strip()
-                    oid = parts[0].strip()
-                    index = oid.rsplit(".", 1)[-1] if "." in oid else ""
-                    if name and index:
-                        legacy_pools.append({"name": name.strip('"'), "index": index})
-        
-        results = []
-        for pool in legacy_pools:
-            idx = pool["index"]
-            used_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, 
-                               ".1.3.6.1.4.1.9.9.48.1.1.1.5." + idx], mutates=False)
-            free_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, 
-                               ".1.3.6.1.4.1.9.9.48.1.1.1.6." + idx], mutates=False)
-            
-            used = _extract_snmp_value(used_res.stdout)
-            free = _extract_snmp_value(free_res.stdout)
-            
-            if used != None and free != None:
-                results.append({
-                    "item": pool["name"],
-                    "params": {"levels": DEFAULT_LEVELS},
-                    "metrics": ["mem_used_percent", "mem_used"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d memory pools" % len(results),
-            "data": {"discovery": results}
-        }
-    
-    # Check mode: verify one item
-    item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Try enhanced 32-bit first (prefer snmpget with index)
-    # Get the index for this item from discovery if possible, otherwise query all
-    # For simplicity, query the legacy tree which is more predictable
-    
-    # Query legacy tree: get all pool names
-    res_names = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.9.9.48.1.1.1.2"
-    ], mutates=False)
-    
-    pool_index = ""
-    for line in res_names.stdout.splitlines():
-        if "=" in line:
-            parts = line.strip().split(" = ")
-            if len(parts) == 2 and parts[1].strip().strip('"') == item:
-                oid = parts[0].strip()
-                pool_index = oid.rsplit(".", 1)[-1]
-                break
-    
-    if not pool_index:
+    community = params.get("community", "public")
+    item = params.get("item", "")
+
+    # --- DISCOVERY MODE ---
+    if params.get("_discover"):
+        if not _detect_cisco(ctx, host, community):
+            return {"changed": False, "msg": "no Cisco device", "data": {"discovery": []}}
+        pools = _gather_pool_data(ctx, host, community)
+        if pools == None:
+            return {"changed": False, "msg": "no Cisco memory data", "data": {"discovery": []}}
+        discovery = []
+        for name, (used, free) in pools.items():
+            if name == "" or name == "Driver text":
+                continue
+            if used == 0 and free == 0:
+                continue
+            discovery.append({
+                "item": name,
+                "params": {"levels": (80.0, 90.0)},
+                "metrics": ["mem_used_percent"],
+            })
         return {
             "changed": False,
-            "msg": "memory pool not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d memory pools" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Get used and free values
-    used_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, 
-                       ".1.3.6.1.4.1.9.9.48.1.1.1.5." + pool_index], mutates=False)
-    free_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, 
-                       ".1.3.6.1.4.1.9.9.48.1.1.1.6." + pool_index], mutates=False)
-    
-    used = _extract_snmp_value(used_res.stdout)
-    free = _extract_snmp_value(free_res.stdout)
-    
-    if used == None or free == None:
+
+    # --- CHECK MODE ---
+    if not _detect_cisco(ctx, host, community):
         return {
             "changed": False,
-            "msg": "cannot retrieve memory data for pool: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no Cisco device found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Calculate totals and usage
-    total = free + used
+    pools = _gather_pool_data(ctx, host, community)
+    if pools == None:
+        return {
+            "changed": False,
+            "msg": "could not read Cisco memory data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    entry = pools.get(item)
+    if entry == None:
+        return {
+            "changed": False,
+            "msg": "no memory pool item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    used, free = entry
+    total = used + free
     if total == 0:
         return {
             "changed": False,
             "msg": "Cannot calculate memory usage: Device reports total memory 0",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    usage_pct = (used * 100.0) / total
-    warn, crit = params.get("levels", DEFAULT_LEVELS)
-    
-    # Determine state based on usage percentage
-    state = "OK"
-    if usage_pct >= crit:
-        state = "CRIT"
-    elif usage_pct >= warn:
-        state = "WARN"
-    
-    # Format message
-    mib = "MiB"
-    used_mb = used / (1024 * 1024)
-    total_mb = total / (1024 * 1024)
-    msg = "Usage: %f%% - %d %s of %d %s" % (usage_pct, int(used_mb), mib, int(total_mb), mib)
-    
+    used_mb = used / MEGA
+    free_mb = free / MEGA
+    total_mb = total / MEGA
+    percent = (used / total) * 100.0 if total != 0 else 0.0
+
+    levels = params.get("levels", (80.0, 90.0))
+    warn_mb = levels[0] if levels != None and len(levels) >= 1 else None
+    crit_mb = levels[1] if levels != None and len(levels) >= 2 else None
+
+    # check_cisco_mem_sub converts warn/crit from MB to bytes and takes abs;
+    # here we grade percent directly against percent thresholds (the default
+    # levels (80.0, 90.0) are percentages).
+    state = _grade_level(percent, levels)
+
+    msg = "Usage: %f%% - %f MiB of %f MiB" % (percent, used_mb, total_mb)
     return {
         "changed": False,
         "msg": msg,
         "data": {
             "state": state,
-            "metrics": {
-                "mem_used_percent": usage_pct,
-                "mem_used": used,
-                "mem_total": total
-            },
-            "details": ""
+            "metrics": {"mem_used_percent": percent},
+            "details": "",
         },
     }
-
-def _extract_snmp_value(output):
-    # Parse snmpget/snmpwalk output: OID = INTEGER: value or STRING: "value"
-    lines = output.strip().split("\n")
-    if not lines:
-        return None
-    line = lines[0].strip()
-    if "=" in line:
-        parts = line.split(" = ")
-        if len(parts) >= 2:
-            value_part = parts[1].strip()
-            if value_part.startswith("INTEGER:"):
-                return int(value_part.split(":", 1)[1].strip())
-            elif value_part.startswith("Counter32:"):
-                return int(value_part.split(":", 1)[1].strip())
-            elif value_part.startswith("Counter64:"):
-                return int(value_part.split(":", 1)[1].strip())
-            elif value_part.isdigit():
-                return int(value_part)
-    return None

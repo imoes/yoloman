@@ -1,210 +1,192 @@
-# Checkmk zpool_status check - read-only Starlark translation
-# Discovery: one service per host (no items)
-# Check: parse zpool status output, compute state from messages
+# Checkmk check plugin: zpool_status
+# Translated to a read-only Starlark check module for the yolo-man agent.
+# Monitors ZFS pool status. Never uses the Checkmk agent; reads `zpool status`
+# directly on the host.
 
-def _parse_zpool_status(string_table):
-    # Returns dict: {message, state_messages, pool_messages}
-    if not string_table:
-        return None
-    
-    first_line = " ".join(string_table[0])
-    if first_line == "all pools are healthy":
-        return {"message": "All pools are healthy"}
-    
-    if first_line == "no pools available":
-        return {"message": "No pools available"}
-    
-    state_messages = []
-    error_pools = {}  # name -> (state, health, read, write, cksum) etc.
-    warning_pools = {} # same structure for devices with CKSUM errors
-    pool_messages = {} # pool -> [messages]
-    
-    last_pool = ""
-    start_pool = False
-    multiline = False
-    
-    for line in string_table:
-        if not line:
-            continue
-        token = line[0] if len(line) > 0 else ""
-        
-        if token == "pool:":
-            last_pool = line[1] if len(line) > 1 else ""
-            pool_messages.setdefault(last_pool, [])
-        
-        elif token == "state:":
-            if len(line) > 1:
-                state_messages.append(line[1])
-        
-        elif token in ["status:", "action:"]:
-            if len(line) > 1:
-                pool_messages[last_pool].append(" ".join(line[1:]))
-            multiline = True
-        
-        elif token in ["scrub:", "see:", "scan:", "config:"]:
-            multiline = False
-        
-        elif token == "NAME":
-            multiline = False
-            start_pool = True
-        
-        elif token == "errors:":
-            multiline = False
-            start_pool = False
-            msg = " ".join(line[1:]) if len(line) > 1 else ""
-            if msg != "No known data errors":
-                pool_messages[last_pool].append(msg)
-        
-        elif token in ["spares", "logs", "cache", "special"]:
-            start_pool = False
-            continue
-        
-        elif start_pool and token and token.lower() != "dedup":
-            # Expected format: NAME STATE HEALTH READ WRITE CKSUM ...
-            # At least 2 fields required (name + state)
-            if len(line) < 2:
-                continue
-            name = line[0]
-            state = line[1]
-            if state != "ONLINE":
-                error_pools[name] = tuple(line)
-            elif len(line) > 4:
-                cksum_str = line[4] if len(line) > 4 else "0"
-                # saveint equivalent: int() or 0 if non-digit
-                cksum = 0
-                if cksum_str.isdigit():
-                    cksum = int(cksum_str)
-                if cksum != 0:
-                    warning_pools[name] = tuple(line)
-        
-        elif multiline and last_pool:
-            # Append remaining tokens as message
-            if len(line) > 0:
-                pool_messages[last_pool].append(" ".join(line))
-    
-    return {
-        "message": "",
-        "state_messages": state_messages,
-        "error_pools": error_pools,
-        "warning_pools": warning_pools,
-        "pool_messages": pool_messages,
-    }
+# Maps a pool vdev state token to a Checkmk-style level and human message.
+# Mirrors the source's state_mappings (which maps State.* constants).
+# Lower states (DEGRADED) -> WARN, faulted/removed/unavail -> CRIT.
+state_mappings = {
+    "ONLINE": {"state": "OK", "message": ""},
+    "DEGRADED": {"state": "WARN", "message": "DEGRADED State"},
+    "FAULTED": {"state": "CRIT", "message": "FAULTED State"},
+    "UNAVIL": {"state": "CRIT", "message": "UNAVIL State"},
+    "REMOVED": {"state": "CRIT", "message": "REMOVED State"},
+    "OFFLINE": {"state": "OK", "message": ""},
+}
 
-def _state_details(msg):
-    mappings = {
-        "ONLINE": {"state": "OK", "message": ""},
-        "DEGRADED": {"state": "WARN", "message": "DEGRADED State"},
-        "FAULTED": {"state": "CRIT", "message": "FAULTED State"},
-        "UNAVIL": {"state": "CRIT", "message": "UNAVIL State"},
-        "REMOVED": {"state": "CRIT", "message": "REMOVED State"},
-        "OFFLINE": {"state": "OK", "message": ""},
-    }
-    return mappings.get(msg, {"state": "WARN", "message": "Unknown State"})
+
+# Rank helper so a higher state value wins (OK=0, WARN=1, CRIT=2).
+def _state_rank(state):
+    if state == "CRIT":
+        return 2
+    if state == "WARN":
+        return 1
+    return 0
+
+
+def _higher(a, b):
+    """Return whichever of the two states (a, b) is more severe."""
+    return a if _state_rank(a) >= _state_rank(b) else b
+
 
 def main(ctx, params):
-    # Probe data: run 'zpool status -x' to get compact status, or fallback to 'zpool status'
-    # Prefer 'zpool status' to match original check's format; use -v for full output
-    res = ctx.run(["zpool", "status", "-v"], mutates=False)
-    if res.rc != 0:
-        # zpool command not available or error
-        return {
-            "changed": False,
-            "msg": "zpool command failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "zpool status failed with rc=%s, stderr=%s" % (res.rc, res.stderr)
-            }
-        }
-    
-    # Split lines preserving whitespace for accurate parsing
-    lines = res.stdout.splitlines()
-    string_table = []
-    for line in lines:
-        # Split by whitespace preserving fields
-        fields = line.split()
-        if fields:
-            string_table.append(fields)
-    
-    section = _parse_zpool_status(string_table)
-    
-    # Discovery mode
+    # ---- probe for the real thing ----
+    # `zpool` must exist and be executable. rc == 127 means "not installed".
+    probe = ctx.run(["zpool", "status"], mutates=False)
+    if probe.rc == 127:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "zpool not installed",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "zpool not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # ---- discovery mode ----
     if params.get("_discover"):
-        if section == None or section.get("message") == "No pools available":
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []}
-            }
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [
-                {
-                    "item": "",
-                    "params": {},
-                    "metrics": []
-                }
-            ]}
-        }
-    
-    # Check mode: single-service (item == "")
+        # The zpool_status check is a single-service check (no per-item
+        # breakdown in the original discover_zpool_status: it yields one
+        # Service() unconditionally, provided pools exist).
+        # Reproduce the "no pools available" guard from parse_zpool_status.
+        first_line = probe.stdout.splitlines()[0] if probe.stdout else ""
+        if first_line.strip() == "no pools available":
+            return {"changed": False, "msg": "no pools available",
+                    "data": {"discovery": []}}
+        if first_line.strip() == "all pools are healthy":
+            return {"changed": False, "msg": "discovered 1 item",
+                    "data": {"discovery": [
+                        {"item": "", "params": {}, "metrics": []}]}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}]}}
+
+    # ---- check mode (single service, item="") ----
+    item = params.get("item", "")
+
+    # Parse the `zpool status` output. The source parser (parse_zpool_status)
+    # consumes a StringTable (list of whitespace-split token lists) produced by
+    # the zpool_status agent section. We reproduce the same tokenisation by
+    # splitting each line on whitespace.
+    lines = probe.stdout.splitlines()
+    string_table = []
+    for l in lines:
+        tokens = l.split()
+        if len(tokens) == 0:
+            continue
+        string_table.append(tokens)
+
+    # Mirror the parse function's early returns.
+    if len(string_table) == 0:
+        return {"changed": False, "msg": "no zpool output",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    joined_first = " ".join(string_table[0])
+    if joined_first == "all pools are healthy":
+        return {"changed": False,
+                "msg": "zpool status: All pools are healthy",
+                "data": {"state": "OK", "metrics": {},
+                         "details": "All pools are healthy"}}
+
+    if joined_first == "no pools available":
+        return {"changed": False, "msg": "no pools available",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "No pools available"}}
+
+    # Reproduce parse_zpool_status logic.
+    start_pool = False
+    multiline = False
+    last_pool = ""
+    error_pools = {}
+    warning_pools = {}
+    pool_messages = {}
+    state_messages = []
+
+    for line in string_table:
+        tag = line[0]
+        if tag == "pool:":
+            last_pool = line[1]
+            pool_messages.setdefault(last_pool, [])
+
+        elif tag == "state:":
+            state_messages.append(line[1])
+
+        elif tag in ["status:", "action:"]:
+            joined = " ".join(line[1:])
+            pool_messages.setdefault(last_pool, []).append(joined)
+            multiline = True
+
+        elif tag in ["scrub:", "see:", "scan:", "config:"]:
+            multiline = False
+
+        elif tag == "NAME":
+            multiline = False
+            start_pool = True
+
+        elif tag == "errors:":
+            multiline = False
+            start_pool = False
+            msg = " ".join(line[1:])
+            if msg != "No known data errors":
+                pool_messages.setdefault(last_pool, []).append(msg)
+
+        elif tag in ["spares", "logs", "cache", "special"]:
+            start_pool = False
+            continue
+
+        elif start_pool and tag.lower() != "dedup":
+            # Need at least 5 columns to read the CKSUM count safely.
+            if len(line) >= 5:
+                if line[1] != "ONLINE":
+                    error_pools[line[0]] = tuple(line[1:])
+                else:
+                    cksum = line[4]
+                    cksum_int = int(cksum) if cksum.lstrip("-").isdigit() else 0
+                    if cksum_int != 0:
+                        # Mimic saveint(msg[3]); store the raw token tuple.
+                        warning_pools[line[0]] = tuple(line[1:])
+
+        elif multiline:
+            joined = " ".join(line)
+            pool_messages.setdefault(last_pool, []).append(joined)
+
+    # Reproduce check_zpool_status verdict logic.
     state = "OK"
     messages = []
-    
-    if section == None:
-        state = "UNKNOWN"
-        messages.append("No pools detected")
-    elif section.get("message") == "All pools are healthy":
-        state = "OK"
-        messages.append(section["message"])
-    elif section.get("message") == "No pools available":
-        state = "UNKNOWN"
-        messages.append("No pools available")
-    else:
-        # Process state messages
-        for msg in section.get("state_messages", []):
-            details = _state_details(msg)
-            state = details["state"]
+
+    for msg in state_messages:
+        details = state_mappings.get(msg)
+        if details:
+            state = _higher(state, details["state"])
             if details["message"]:
                 messages.append(details["message"])
-        
-        # Process pool-level messages
-        for pool, msgs in section.get("pool_messages", {}).items():
-            if state != "CRIT":  # only elevate if not already CRIT
-                state = "WARN"
-            for msg in msgs:
-                messages.append("%s: %s" % (pool, msg))
-        
-        # Process warning pools (CKSUM errors)
-        for pool, msg in section.get("warning_pools", {}).items():
-            if state != "CRIT":
-                state = "WARN"
-            # msg[3] is CKSUM count per original code
-            cksum = 0
-            if len(msg) > 3 and msg[3].isdigit():
-                cksum = int(msg[3])
-            messages.append("%s CKSUM: %d" % (pool, cksum))
-        
-        # Process error pools
-        for pool, msg in section.get("error_pools", {}).items():
-            state = "CRIT"
-            if len(msg) > 0:
-                messages.append("%s state: %s" % (pool, msg[0]))
-            else:
-                messages.append("%s state: unknown" % pool)
-    
+        else:
+            state = _higher(state, "WARN")
+            messages.append("Unknown State")
+
+    for pool, msg in pool_messages.items():
+        state = _higher(state, "WARN")
+        messages.append("%s: %s" % (pool, " ".join(msg)))
+
+    for pool, msg in warning_pools.items():
+        # The source formats: pool CKSUM: <c ksum count>
+        # msg[3] is the CKSUM count; guard for short tuples.
+        cksum_val = ""
+        if len(msg) >= 4:
+            cksum_val = str(msg[3])
+        else:
+            cksum_val = "0"
+        state = _higher(state, "WARN")
+        messages.append("%s CKSUM: %s" % (pool, cksum_val))
+
+    for pool, msg in error_pools.items():
+        state = _higher(state, "CRIT")
+        # msg[0] is the vdev's state token.
+        err_state = msg[0] if len(msg) >= 1 else "UNKNOWN"
+        messages.append("%s state: %s" % (pool, err_state))
+
     if len(messages) == 0:
         messages.append("No critical errors")
-    
-    # Build summary
-    summary = ", ".join(messages)
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+
+    return {"changed": False,
+            "msg": "zpool status: " + ", ".join(messages),
+            "data": {"state": state, "metrics": {},
+                     "details": ", ".join(messages)}}

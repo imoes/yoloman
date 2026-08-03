@@ -1,204 +1,205 @@
-# Health level → state: 1=OK, 2=Warning, 3+=Critical (matches storeonce lib STATE_MAP)
-HEALTH_LEVEL_MAP = {"1": "OK", "2": "WARN", "3": "CRIT", "4": "CRIT"}
-STATE_ORDER = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
-
-def _worst_state(a, b):
-    if STATE_ORDER.get(a, 3) >= STATE_ORDER.get(b, 3):
-        return a
-    return b
-
-def _health_state(level):
-    return HEALTH_LEVEL_MAP.get(str(level), "UNKNOWN")
-
-def _format_uptime(seconds):
-    secs = int(float(str(seconds)))
-    days = secs // 86400
-    hours = (secs % 86400) // 3600
-    mins = (secs % 3600) // 60
-    parts = []
-    if days > 0:
-        parts.append("%d days" % days)
-    if hours > 0:
-        parts.append("%d hours" % hours)
-    parts.append("%d minutes" % mins)
-    return " ".join(parts)
-
-def _to_float(v):
-    if v == None:
-        return 0.0
-    return float(str(v))
-
-def _get(data, *keys):
-    for k in keys:
-        v = data.get(k)
-        if v != None:
-            return v
-    return None
-
-def _query_api(ctx, params):
-    host = params.get("host", "localhost")
-    port = params.get("port", 443)
-    username = params.get("username", "Admin")
-    password = params.get("password", "")
-    path = params.get("api_path", "/storeonceservices/cluster/")
-    url = "https://%s:%s%s" % (host, str(int(port)), path)
-    res = ctx.run([
-        "curl", "-s", "-k", "--max-time", "30",
-        "-u", "%s:%s" % (username, password),
-        "-H", "Accept: application/json",
-        url,
-    ], mutates=False)
-    if res.rc != 0:
-        return None
-    stdout = res.stdout.strip()
-    if not stdout:
-        return None
-    return json.decode(stdout)
-
 def main(ctx, params):
     if params.get("_discover"):
-        data = _query_api(ctx, params)
-        if data == None:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        return discover(ctx, params)
+    return check(ctx, params)
 
-        # API may nest fields under "clusterInfo" or return them at top level
-        info = data.get("clusterInfo", data)
-        product_class = _get(info, "productClass", "Product Class") or ""
+# STATE_MAP for StoreOnce health levels: 0=OK, 1=WARN, 2=CRIT
+STATE_MAP = {
+    "0": "OK",
+    "1": "WARN",
+    "2": "CRIT",
+}
 
-        items = []
-        if product_class:
-            items.append({
-                "item": product_class,
-                "params": {},
-                "metrics": [],
-            })
-        if _get(info, "clusterHealth", "Cluster Health") != None:
-            items.append({
-                "item": "Appliance Status",
-                "params": {},
-                "metrics": [],
-            })
-        items.append({
-            "item": "Total Capacity",
-            "params": {"warn": 80.0, "crit": 90.0},
-            "metrics": ["total_bytes", "free_bytes", "used_percent", "dedupe_ratio"],
-        })
-        items.append({
-            "item": "Uptime",
-            "params": {},
-            "metrics": ["uptime"],
-        })
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items},
-        }
+# df.FILESYSTEM_DEFAULT_PARAMS default thresholds
+SPACE_DEFAULT_WARN = 80
+SPACE_DEFAULT_CRIT = 90
 
-    item = params.get("item", "")
-    data = _query_api(ctx, params)
+# uptime default thresholds
+UPTIME_DEFAULT_WARN = [60, None]
+UPTIME_DEFAULT_CRIT = [90, None]
+
+# Mapping from storeav output keys to section keys
+STOREAV_TO_SECTION = {
+    "Appliance Name": "Appliance Name",
+    "Network Name": "Network Name",
+    "Serial Number": "Serial Number",
+    "Software Version": "Software Version",
+    "Product Class": "Product Class",
+    "Total Capacity": "Total Capacity",
+    "Free Space": "Free Space",
+    "User Data Stored": "User Data Stored",
+    "Size On Disk": "Size On Disk",
+    "Dedupe Ratio": "Dedupe Ratio",
+    "Cluster Health Level": "Cluster Health Level",
+    "Cluster Health": "Cluster Health",
+    "Cluster Status": "Cluster Status",
+    "Replication Health Level": "Replication Health Level",
+    "Replication Health": "Replication Health",
+    "Replication Status": "Replication Status",
+    "Uptime Seconds": "Uptime Seconds",
+    "sysContact": "sysContact",
+    "sysLocation": "sysLocation",
+    "isMixedCluster": "isMixedCluster",
+}
+
+def read_clusterinfo(ctx):
+    # Check for StoreOnce CLI tools first
+    av_res = ctx.run(["storeav", "show", "-l"], mutates=False)
+    if av_res.rc == 127:
+        # Not installed
+        return None
+    if av_res.rc != 0:
+        return None
+    # Parse the storeav output into key-value pairs
+    data = {}
+    for line in av_res.stdout.splitlines():
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+        parts = line.split(":", 1)
+        if len(parts) == 2:
+            key = parts[0].strip()
+            value = parts[1].strip()
+            section_key = STOREAV_TO_SECTION.get(key, key)
+            data[section_key] = value
+    return data
+
+def discover(ctx, params):
+    data = read_clusterinfo(ctx)
     if data == None:
-        return {
-            "changed": False,
-            "msg": "cannot connect to StoreOnce API",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        return {"changed": False, "msg": "no StoreOnce system found", "data": {"discovery": []}}
+    discovery = []
+    # General appliance info check
+    if "Product Class" in data:
+        discovery.append({"item": data.get("Product Class", ""), "params": {}, "metrics": []})
+    # Cluster/Appliance status check
+    if "Cluster Health" in data:
+        discovery.append({"item": "", "params": {}, "metrics": []})
+    # Space check
+    if "Total Capacity" in data:
+        discovery.append({"item": "Total Capacity", "params": {"warn": SPACE_DEFAULT_WARN, "crit": SPACE_DEFAULT_CRIT}, "metrics": ["used_percent"]})
+    # Uptime check
+    if "Uptime Seconds" in data:
+        discovery.append({"item": "", "params": {"warn": UPTIME_DEFAULT_WARN, "crit": UPTIME_DEFAULT_CRIT}, "metrics": ["uptime"]})
+    return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
 
-    info = data.get("clusterInfo", data)
+def check(ctx, params):
+    item = params.get("item", "")
+    check_name = params.get("_check_name", "storeonce_clusterinfo")
+    data = read_clusterinfo(ctx)
+    if data == None:
+        return {"changed": False, "msg": "no StoreOnce system found", "data": {"state": "UNKNOWN", "metrics": {}, "details": "StoreOnce CLI not available"}}
+    if check_name == "storeonce_clusterinfo":
+        return check_general(ctx, params, data)
+    elif check_name == "storeonce_clusterinfo_cluster":
+        return check_cluster(ctx, params, data)
+    elif check_name == "storeonce_clusterinfo_space":
+        return check_space(ctx, params, data)
+    elif check_name == "storeonce_clusterinfo_uptime":
+        return check_uptime(ctx, params, data)
+    return {"changed": False, "msg": "unknown check", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if item == "Uptime":
-        uptime_raw = _get(info, "uptimeSeconds", "Uptime Seconds")
-        if uptime_raw == None:
-            return {
-                "changed": False,
-                "msg": "uptime data not available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-            }
-        uptime_secs = _to_float(uptime_raw)
-        min_warn = params.get("min_warn")
-        min_crit = params.get("min_crit")
-        state = "OK"
-        if min_crit != None and uptime_secs < _to_float(min_crit):
-            state = "CRIT"
-        elif min_warn != None and uptime_secs < _to_float(min_warn):
-            state = "WARN"
-        return {
-            "changed": False,
-            "msg": "Up for: %s" % _format_uptime(uptime_secs),
-            "data": {
-                "state": state,
-                "metrics": {"uptime": uptime_secs},
-                "details": "",
-            },
-        }
+def check_general(ctx, params, data):
+    if "Appliance Name" not in data:
+        return {"changed": False, "msg": "missing appliance data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    msg_parts = []
+    state = "OK"
+    if "Appliance Name" in data:
+        msg_parts.append("Name: %s" % data["Appliance Name"])
+    if "Serial Number" in data:
+        msg_parts.append("Serial Number: %s" % data["Serial Number"])
+    if "Software Version" in data:
+        msg_parts.append("Version: %s" % data["Software Version"])
+    details = "\n".join(msg_parts)
+    return {"changed": False, "msg": "; ".join(msg_parts), "data": {"state": state, "metrics": {}, "details": details}}
 
-    if item == "Total Capacity":
-        total_raw = _get(info, "totalCapacityBytes", "Total Capacity (bytes)")
-        free_raw = _get(info, "freeSpaceBytes", "Free Space (bytes)")
-        dedupe_raw = _get(info, "dedupeRatio", "Dedupe Ratio")
-        if total_raw == None or free_raw == None:
-            return {
-                "changed": False,
-                "msg": "capacity data not available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-            }
-        total = _to_float(total_raw)
-        free = _to_float(free_raw)
-        used = total - free
-        warn_pct = _to_float(params.get("warn", 80.0))
-        crit_pct = _to_float(params.get("crit", 90.0))
-        used_pct = (used / total * 100.0) if total > 0.0 else 0.0
-        state = "CRIT" if used_pct >= crit_pct else ("WARN" if used_pct >= warn_pct else "OK")
-        # StoreOnce reports in SI (bytes / 1e9 = GB, matching section "Total Capacity" field)
-        total_gb = total / 1000000000.0
-        free_gb = free / 1000000000.0
-        dedupe = _to_float(dedupe_raw)
-        return {
-            "changed": False,
-            "msg": "Total: %f GB, Free: %f GB, Used: %f%%, Dedupe: %fx" % (
-                total_gb, free_gb, used_pct, dedupe
-            ),
-            "data": {
-                "state": state,
-                "metrics": {
-                    "total_bytes": total,
-                    "free_bytes": free,
-                    "used_percent": used_pct,
-                    "dedupe_ratio": dedupe,
-                },
-                "details": "",
-            },
-        }
+def check_cluster(ctx, params, data):
+    if "Cluster Health" not in data:
+        return {"changed": False, "msg": "missing cluster data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    state = "OK"
+    msg_parts = []
+    if "Cluster Status" in data:
+        msg_parts.append("Cluster Status: %s" % data["Cluster Status"])
+    if "Replication Status" in data:
+        msg_parts.append("Replication Status: %s" % data["Replication Status"])
+    for component in ("Cluster Health", "Replication Health"):
+        level_key = "%s Level" % component
+        if level_key in data:
+            level = data[level_key]
+            comp_state = STATE_MAP.get(level, "UNKNOWN")
+            msg_parts.append("%s: %s (Level %s)" % (component, data.get(component, ""), level))
+            if comp_state == "CRIT":
+                state = "CRIT"
+            elif comp_state == "WARN" and state != "CRIT":
+                state = "WARN"
+    return {"changed": False, "msg": "; ".join(msg_parts), "data": {"state": state, "metrics": {}, "details": "\n".join(msg_parts)}}
 
-    if item == "Appliance Status":
-        cluster_status = _get(info, "clusterStatus", "Cluster Status") or "Unknown"
-        repl_status = _get(info, "replicationStatus", "Replication Status") or "Unknown"
-        cluster_health = _get(info, "clusterHealth", "Cluster Health") or "Unknown"
-        cluster_lvl = _get(info, "clusterHealthLevel", "Cluster Health Level")
-        repl_health = _get(info, "replicationHealth", "Replication Health") or "Unknown"
-        repl_lvl = _get(info, "replicationHealthLevel", "Replication Health Level")
-        cs = _health_state(cluster_lvl) if cluster_lvl != None else "UNKNOWN"
-        rs = _health_state(repl_lvl) if repl_lvl != None else "UNKNOWN"
-        worst = _worst_state(cs, rs)
-        return {
-            "changed": False,
-            "msg": "Cluster Status: %s, Replication Status: %s" % (cluster_status, repl_status),
-            "data": {
-                "state": worst,
-                "metrics": {},
-                "details": "Cluster Health: %s, Replication Health: %s" % (cluster_health, repl_health),
-            },
-        }
+def check_space(ctx, params, data):
+    if "Total Capacity" not in data or "Free Space" not in data:
+        return {"changed": False, "msg": "missing space data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    total = safe_float(data.get("Total Capacity"))
+    free = safe_float(data.get("Free Space"))
+    if total == None or free == None:
+        return {"changed": False, "msg": "invalid capacity values", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    used = total - free
+    if total > 0:
+        used_percent = (used / total) * 100
+    else:
+        used_percent = 0
+    warn = params.get("warn", SPACE_DEFAULT_WARN)
+    crit = params.get("crit", SPACE_DEFAULT_CRIT)
+    state = "CRIT" if used_percent >= crit else ("WARN" if used_percent >= warn else "OK")
+    details = "Total: %f GB, Used: %f GB (%f%%), Free: %f GB" % (total, used, used_percent, free)
+    return {"changed": False, "msg": "Used %f%%" % used_percent, "data": {"state": state, "metrics": {"used_percent": used_percent}, "details": details}}
 
-    # General info — item equals the discovered product class
-    appliance_name = _get(info, "applianceName", "applicationName", "hostname", "Appliance Name") or "unknown"
-    serial = _get(info, "serialNumber", "Serial Number") or "unknown"
-    version = _get(info, "softwareVersion", "Software Version") or "unknown"
-    return {
-        "changed": False,
-        "msg": "Name: %s, Serial Number: %s, Version: %s" % (appliance_name, serial, version),
-        "data": {
-            "state": "OK",
-            "metrics": {},
-            "details": "",
-        },
-    }
+def check_uptime(ctx, params, data):
+    if "Uptime Seconds" not in data:
+        return {"changed": False, "msg": "missing uptime data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    uptime_seconds = safe_float(data.get("Uptime Seconds"))
+    if uptime_seconds == None:
+        return {"changed": False, "msg": "invalid uptime value", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    uptime_days = uptime_seconds / 86400
+    warn_params = params.get("warn", UPTIME_DEFAULT_WARN)
+    crit_params = params.get("crit", UPTIME_DEFAULT_CRIT)
+    warn_days = extract_threshold(warn_params)
+    crit_days = extract_threshold(crit_params)
+    state = "OK"
+    if crit_days != None and uptime_days >= crit_days:
+        state = "CRIT"
+    elif warn_days != None and uptime_days >= warn_days:
+        state = "WARN"
+    details = "Uptime: %f days" % uptime_days
+    return {"changed": False, "msg": details, "data": {"state": state, "metrics": {"uptime_days": uptime_days}, "details": details}}
+
+def safe_float(val):
+    if val == None:
+        return None
+    s = str(val)
+    if len(s) == 0:
+        return None
+    # Simple float parse: check digits and decimal point
+    valid_chars = "0123456789.-"
+    all_valid = True
+    for ch in s:
+        if ch not in valid_chars:
+            all_valid = False
+            break
+    if not all_valid:
+        return None
+    dot_count = 0
+    minus_count = 0
+    for ch in s:
+        if ch == ".":
+            dot_count = dot_count + 1
+        if ch == "-":
+            minus_count = minus_count + 1
+    if dot_count > 1 or minus_count > 1:
+        return None
+    return float(s)
+
+def extract_threshold(params_val):
+    if params_val == None:
+        return None
+    if type(params_val) == "list":
+        return params_val[0] if len(params_val) > 0 and params_val[0] != None else None
+    return params_val

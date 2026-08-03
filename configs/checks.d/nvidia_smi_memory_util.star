@@ -1,203 +1,126 @@
-def main(ctx, params):
-    # Determine mode: discovery or check
-    if params.get("_discover"):
-        # Run nvidia-smi to get XML output
-        res = ctx.run(["nvidia-smi", "-q", "-x"], mutates=False)
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "nvidia-smi failed or returned empty output",
-                    "data": {"discovery": []}}
-        
-        # Extract GPU IDs using string operations
-        gpu_ids = []
-        xml_content = res.stdout
-        start_idx = 0
-        while True:
-            idx = xml_content.find("<gpu id=", start_idx)
-            if idx == -1:
-                break
-            id_start = xml_content.find('"', idx) + 1
-            id_end = xml_content.find('"', id_start)
-            if id_start > 0 and id_end > id_start:
-                gpu_id = xml_content[id_start:id_end]
-                gpu_ids.append(gpu_id)
-            start_idx = idx + 1
-        
-        # Build discovery list
-        discovery_items = []
-        for gpu_id in gpu_ids:
-            discovery_items.append({
-                "item": gpu_id,
-                "params": {
-                    "levels_total": None,
-                    "levels_bar1": None,
-                    "levels_fb": None
-                },
-                "metrics": ["total_memory_used_percent", "fb_mem_usage_used", "bar1_mem_usage_used"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d GPUs" % len(gpu_ids),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode
-    item = params.get("item", "")
-    res = ctx.run(["nvidia-smi", "-q", "-x"], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "nvidia-smi failed or returned empty output",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    xml_content = res.stdout
-    
-    # Find the specific GPU block by ID
-    gpu_block = None
-    start_idx = 0
+def _parse_float(s):
+    if s == None or s == "N/A" or s == "":
+        return None
+    return float(s)
+
+def _find_text(xml_str, tag):
+    open_t = xml_str.find("<" + tag + ">")
+    if open_t == -1:
+        open_t = xml_str.find("<" + tag + " ")
+        if open_t == -1:
+            return None
+    close_t = xml_str.find(">", open_t)
+    if close_t == -1:
+        return None
+    end_t = xml_str.find("</" + tag + ">", close_t + 1)
+    if end_t == -1:
+        return None
+    inner = xml_str[close_t + 1:end_t]
+    return inner.strip()
+
+def _find_all_gpus(xml_str):
+    gpus = []
+    pos = 0
     while True:
-        idx = xml_content.find("<gpu id=", start_idx)
-        if idx == -1:
+        start = xml_str.find("<gpu ", pos)
+        if start == -1:
+            start = xml_str.find("<gpu>", pos)
+            if start == -1:
+                break
+        end = xml_str.find("</gpu>", start)
+        if end == -1:
             break
-        id_start = xml_content.find('"', idx) + 1
-        id_end = xml_content.find('"', id_start)
-        if id_start > 0 and id_end > id_start:
-            gpu_id = xml_content[id_start:id_end]
-            if gpu_id == item:
-                block_start = idx
-                block_end = xml_content.find("</gpu>", block_start)
-                if block_end != -1:
-                    gpu_block = xml_content[block_start:block_end + 6]
-                    break
-        start_idx = idx + 1
-    
-    if gpu_block == None:
-        return {"changed": False, "msg": "GPU not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Helper function to extract float value from XML element
-    def get_float_value(block, tag_name, unit=None):
-        tag_start = "<%s>" % tag_name
-        tag_end = "</%s>" % tag_name
-        idx = block.find(tag_start)
-        if idx == -1:
-            return None
-        val_start = idx + len(tag_start)
-        val_end = block.find(tag_end, val_start)
-        if val_end == -1:
-            return None
-        value_str = block[val_start:val_end].strip()
-        if value_str == "N/A" or value_str == "":
-            return None
-        if unit != None and value_str.endswith(unit):
-            value_str = value_str[:-len(unit)].strip()
-        # Guard instead of try/except: validate numeric format
-        check_str = value_str.replace("-", "").replace(".", "")
-        if check_str == "" or not check_str.isdigit():
-            return None
-        # Manual float conversion using split on decimal point
-        parts = value_str.split(".")
-        if len(parts) == 1:
-            return float(int(parts[0]))
-        elif len(parts) == 2 and parts[0].lstrip("-").isdigit() and parts[1].isdigit():
-            # Compute fractional part: int(parts[1]) / (10^len(parts[1]))
-            denominator = 1
-            for _ in range(len(parts[1])):
-                denominator = denominator * 10
-            return float(int(parts[0])) + float(int(parts[1])) / denominator
-        else:
-            return None
-    
-    # Extract memory values
-    fb_total = get_float_value(gpu_block, "fb_memory_usage/total", "MiB")
-    fb_used = get_float_value(gpu_block, "fb_memory_usage/used", "MiB")
-    fb_free = get_float_value(gpu_block, "fb_memory_usage/free", "MiB")
-    
-    bar1_total = get_float_value(gpu_block, "bar1_memory_usage/total", "MiB")
-    bar1_used = get_float_value(gpu_block, "bar1_memory_usage/used", "MiB")
-    bar1_free = get_float_value(gpu_block, "bar1_memory_usage/free", "MiB")
-    
-    # Validate required values exist
-    if (fb_total == None or fb_used == None or 
-        bar1_total == None or bar1_used == None):
-        return {"changed": False, "msg": "memory information incomplete",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Calculate totals
-    sum_total = fb_total + bar1_total
-    sum_used = fb_used + bar1_used
-    
-    # Calculate percentages
-    total_percent = (sum_used / sum_total * 100) if sum_total > 0 else 0.0
-    fb_percent = (fb_used / fb_total * 100) if fb_total > 0 else 0.0
-    bar1_percent = (bar1_used / bar1_total * 100) if bar1_total > 0 else 0.0
-    
-    # Get thresholds
-    levels_total = params.get("levels_total")
-    levels_bar1 = params.get("levels_bar1")
-    levels_fb = params.get("levels_fb")
-    
-    # Determine state
+        gpus.append(xml_str[start:end + len("</gpu>")])
+        pos = end + len("</gpu>")
+    return gpus
+
+def _parse_gpu(gpu_str):
+    id_val = _find_text(gpu_str, "id")
+    product_name = _find_text(gpu_str, "product_name")
+    fb_total = _find_text(gpu_str, "fb_memory_usage/total")
+    fb_used = _find_text(gpu_str, "fb_memory_usage/used")
+    fb_free = _find_text(gpu_str, "fb_memory_usage/free")
+    bar1_total = _find_text(gpu_str, "bar1_memory_usage/total")
+    bar1_used = _find_text(gpu_str, "bar1_memory_usage/used")
+    bar1_free = _find_text(gpu_str, "bar1_memory_usage/free")
+    gpu_util = _find_text(gpu_str, "utilization/gpu_util")
+    return {"id": id_val, "product_name": product_name,
+            "fb_total": _parse_float(fb_total), "fb_used": _parse_float(fb_used),
+            "fb_free": _parse_float(fb_free),
+            "bar1_total": _parse_float(bar1_total), "bar1_used": _parse_float(bar1_used),
+            "bar1_free": _parse_float(bar1_free), "gpu_util": _parse_float(gpu_util)}
+
+def main(ctx, params):
+    if params.get("_discover"):
+        res = ctx.run(["nvidia-smi", "-q", "-d", "MEMORY,UTILIZATION", "-x"], mutates=False)
+        if res.rc == 127 or not res.stdout:
+            return {"changed": False, "msg": "no nvidia-smi found", "data": {"discovery": [], "host_labels": {}}}
+        xml = res.stdout
+        gpus = _find_all_gpus(xml)
+        out = []
+        for gpu_str in gpus:
+            gpu = _parse_gpu(gpu_str)
+            if gpu["id"] == None and gpu["fb_total"] == None:
+                continue
+            out.append({"item": gpu["id"], "params": {"levels_total": (80, 90), "levels_bar1": (80, 90), "levels_fb": (80, 90)}, "metrics": ["fb_mem_usage_used", "bar1_mem_usage_used"], "service_labels": {"product_name": gpu["product_name"]}})
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out, "host_labels": {"cmk/vendor": "nvidia"}}}
+    item = params.get("item", "")
+    res = ctx.run(["nvidia-smi", "-q", "-d", "MEMORY,UTILIZATION", "-x"], mutates=False)
+    if res.rc == 127 or not res.stdout:
+        return {"changed": False, "msg": "no nvidia-smi found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    xml = res.stdout
+    gpus = _find_all_gpus(xml)
+    gpu = None
+    for gpu_str in gpus:
+        g = _parse_gpu(gpu_str)
+        if g["id"] == item:
+            gpu = g
+            break
+    if gpu == None:
+        return {"changed": False, "msg": "gpu %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    fb_total = gpu["fb_total"]
+    fb_used = gpu["fb_used"]
+    bar1_total = gpu["bar1_total"]
+    bar1_used = gpu["bar1_used"]
+    levels_total = params.get("levels_total", (80, 90))
+    levels_bar1 = params.get("levels_bar1", (80, 90))
+    levels_fb = params.get("levels_fb", (80, 90))
+    metrics = {}
+    details = ""
     state = "OK"
-    details_parts = []
-    
-    # Check total memory
-    if levels_total != None:
-        warn_val = levels_total[0]
-        crit_val = levels_total[1]
-        if crit_val != None and total_percent >= crit_val:
-            state = "CRIT"
-        elif warn_val != None and total_percent >= warn_val:
-            state = "WARN" if state == "OK" else state
-        details_parts.append("Total: %f%% used (%f/%f MiB)" % (
-            total_percent, sum_used, sum_total))
-    else:
-        details_parts.append("Total: %f%% used (%f/%f MiB)" % (
-            total_percent, sum_used, sum_total))
-    
-    # Check FB memory
-    if levels_fb != None:
-        warn_val = levels_fb[0]
-        crit_val = levels_fb[1]
-        if crit_val != None and fb_percent >= crit_val:
-            state = "CRIT"
-        elif warn_val != None and fb_percent >= warn_val:
-            state = "WARN" if state == "OK" else state
-        details_parts.append("FB: %f%% used (%f/%f MiB)" % (
-            fb_percent, fb_used, fb_total))
-    else:
-        details_parts.append("FB: %f%% used (%f/%f MiB)" % (
-            fb_percent, fb_used, fb_total))
-    
-    # Check BAR1 memory
-    if levels_bar1 != None:
-        warn_val = levels_bar1[0]
-        crit_val = levels_bar1[1]
-        if crit_val != None and bar1_percent >= crit_val:
-            state = "CRIT"
-        elif warn_val != None and bar1_percent >= warn_val:
-            state = "WARN" if state == "OK" else state
-        details_parts.append("BAR1: %f%% used (%f/%f MiB)" % (
-            bar1_percent, bar1_used, bar1_total))
-    else:
-        details_parts.append("BAR1: %f%% used (%f/%f MiB)" % (
-            bar1_percent, bar1_used, bar1_total))
-    
-    # Build metrics dict
-    metrics = {
-        "total_memory_used_percent": total_percent,
-        "fb_mem_usage_used": fb_used,
-        "fb_mem_usage_free": fb_free,
-        "fb_mem_usage_total": fb_total,
-        "bar1_mem_usage_used": bar1_used,
-        "bar1_mem_usage_free": bar1_free,
-        "bar1_mem_usage_total": bar1_total
-    }
-    
-    return {
-        "changed": False,
-        "msg": ", ".join(details_parts),
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    if fb_total != None and fb_used != None and bar1_total != None and bar1_used != None:
+        sum_total = fb_total + bar1_total
+        sum_used = fb_used + bar1_used
+        if sum_total > 0:
+            perc = (sum_used / sum_total) * 100.0
+            metrics["total_mem_usage_used"] = perc
+            w_tot = levels_total[0] if levels_total else 80
+            c_tot = levels_total[1] if levels_total else 90
+            if perc >= c_tot:
+                state = "CRIT"
+            elif perc >= w_tot:
+                state = "WARN"
+            details = details + "Total memory %d%% used.\n" % int(perc)
+    if fb_used != None and fb_total != None:
+        if fb_total > 0:
+            perc = (fb_used / fb_total) * 100.0
+            metrics["fb_mem_usage_used"] = perc
+            w_fb = levels_fb[0] if levels_fb else 80
+            c_fb = levels_fb[1] if levels_fb else 90
+            if perc >= c_fb and state != "CRIT":
+                state = "CRIT"
+            elif perc >= w_fb and state == "OK":
+                state = "WARN"
+            details = details + "FB memory %d%% used.\n" % int(perc)
+    if bar1_used != None and bar1_total != None:
+        if bar1_total > 0:
+            perc = (bar1_used / bar1_total) * 100.0
+            metrics["bar1_mem_usage_used"] = perc
+            w_b1 = levels_bar1[0] if levels_bar1 else 80
+            c_b1 = levels_bar1[1] if levels_bar1 else 90
+            if perc >= c_b1 and state != "CRIT":
+                state = "CRIT"
+            elif perc >= w_b1 and state == "OK":
+                state = "WARN"
+            details = details + "BAR1 memory %d%% used.\n" % int(perc)
+    return {"changed": False, "msg": ("%s memory: %s" % (item, details.strip())).strip(), "data": {"state": state, "metrics": metrics, "details": details.strip()}}

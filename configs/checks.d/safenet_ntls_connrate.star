@@ -1,102 +1,125 @@
+# Checkmk check: checkmk.safenet_ntls_connrate
+# Translated to a read-only Starlark check module for the yolo-man agent.
+#
+# This is an SNMP-based Checkmk check. The on-host source is a network device
+# (Safenet NTLS appliance) queried via SNMP. We probe the same OIDs the
+# Checkmk SimpleSNMPSection would fetch.
+#
+# SNMP base OID: .1.3.6.1.4.1.12383.3.1.2
+# OIDs (relative to base): 1=operation_status, 2=connected_clients,
+#                          3=links, 4=successful_connections,
+#                          5=failed_connections, 6=expiration_date
+
+BASE_OID = ".1.3.6.1.4.1.12383.3.1.2"
+
+OID_OP_STATUS  = "1"
+OID_CLIENTS    = "2"
+OID_LINKS      = "3"
+OID_SUCCESS    = "4"
+OID_FAILED     = "5"
+OID_EXPIRATION = "6"
+
+def _fetch_section(ctx, host, community):
+    oids = [
+        BASE_OID + "." + OID_OP_STATUS,
+        BASE_OID + "." + OID_CLIENTS,
+        BASE_OID + "." + OID_LINKS,
+        BASE_OID + "." + OID_SUCCESS,
+        BASE_OID + "." + OID_FAILED,
+        BASE_OID + "." + OID_EXPIRATION,
+    ]
+    values = []
+    for oid in oids:
+        r = ctx.run(
+            [
+                "snmpget",
+                "-v2c",
+                "-c",
+                community,
+                "-Oqv",
+                host,
+                oid,
+            ],
+            mutates=False,
+        )
+        if r.rc != 0:
+            return None
+        val = r.stdout.strip()
+        values.append(val)
+    if len(values) != 6:
+        return None
+    op_status = values[0]
+    connected_clients = int(values[1]) if values[1].isdigit() else 0
+    links = int(values[2]) if values[2].isdigit() else 0
+    successful_connections = int(values[3]) if values[3].isdigit() else 0
+    failed_connections = int(values[4]) if values[4].isdigit() else 0
+    expiration_date = values[5]
+    return {
+        "operation_status": op_status,
+        "connected_clients": connected_clients,
+        "links": links,
+        "successful_connections": successful_connections,
+        "failed_connections": failed_connections,
+        "expiration_date": expiration_date,
+    }
+
 def main(ctx, params):
-    # Determine mode: discovery vs check
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        # Discovery: run SNMP query to gather NTLS section data
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.12383.3.1.2"
-        ], mutates=False)
-
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-
-        # Parse snmpwalk output into section dict
-        section = {}
-        for line in res.stdout.splitlines():
-            if "=" not in line:
-                continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_full, value_raw = parts
-            # Extract last OID component (e.g., .1.3.6.1.4.1.12383.3.1.2.1 -> 1)
-            oid_idx = oid_full.rsplit(".", 1)[-1]
-            value = value_raw.strip()
-            # Convert numeric fields to int where appropriate
-            if oid_idx in ["2", "3", "4", "5"]:
-                section[oid_idx] = int(value) if value.isdigit() else 0
-            else:
-                section[oid_idx] = value
-
-        # If section not populated, no data found
-        if not section:
-            return {"changed": False, "msg": "no NTLS data found", "data": {"discovery": []}}
-
-        # Discovery yields services for successful/failed connection rate
+        section = _fetch_section(ctx, host, community)
+        if section == None:
+            return {
+                "changed": False,
+                "msg": "Safenet NTLS device not reachable or no data",
+                "data": {"discovery": []},
+            }
         discovery = [
             {"item": "successful", "params": {}, "metrics": ["connections_rate"]},
-            {"item": "failed", "params": {}, "metrics": ["connections_rate"]}
+            {"item": "failed", "params": {}, "metrics": ["connections_rate"]},
         ]
-        return {"changed": False, "msg": "discovered 2 items", "data": {"discovery": discovery}}
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
-    # Check mode: handle one item
     item = params.get("item", "")
-    if item != "successful" and item != "failed":
-        return {"changed": False, "msg": "unsupported item: %s" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _fetch_section(ctx, host, community)
+    if section == None:
+        return {
+            "changed": False,
+            "msg": "Safenet NTLS device not reachable or no data",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "no safenet_ntls section available",
+            },
+        }
 
-    # Run SNMP query to gather fresh NTLS data
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.12383.3.1.2"
-    ], mutates=False)
-
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Parse snmpwalk output into section dict (same as discovery)
-    section = {}
-    for line in res.stdout.splitlines():
-        if "=" not in line:
-            continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_full, value_raw = parts
-        oid_idx = oid_full.rsplit(".", 1)[-1]
-        value = value_raw.strip()
-        if oid_idx in ["2", "3", "4", "5"]:
-            section[oid_idx] = int(value) if value.isdigit() else 0
-        else:
-            section[oid_idx] = value
-
-    # If section not populated, item not found
-    if not section:
-        return {"changed": False, "msg": "no NTLS data found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Map item to data field
     if item == "successful":
-        value = section.get("4", 0)
-    else:  # failed
-        value = section.get("5", 0)
+        item_data = section["successful_connections"]
+    elif item == "failed":
+        item_data = section["failed_connections"]
+    else:
+        return {
+            "changed": False,
+            "msg": "unknown item: %s" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
 
-    # Simulate rate calculation: for Starlark, we use current value directly (no persisted rate store)
-    # This mirrors the behavior when agent data is fresh and no time delta is applied.
-    rate = float(value)
-
-    # Since we cannot persist state between runs in Starlark, we report current value as rate
-    # (a real-time rate would require state persistence across runs — not feasible here.
-    #  In production, one would use agent caching or a more advanced mechanism.)
-    summary = "%f connections/s" % rate
-    state = "OK"
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {"connections_rate": rate}, "details": ""}}
+    connections_rate = float(item_data)
+    return {
+        "changed": False,
+        "msg": "%f connections/s" % connections_rate,
+        "data": {
+            "state": "OK",
+            "metrics": {"connections_rate": connections_rate},
+            "details": "",
+        },
+    }

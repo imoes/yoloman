@@ -1,129 +1,198 @@
-# Module-level constants for SNMP OIDs
-_BASE_OID_10GM = ".1.3.6.1.4.1.3652.3.3.4"
-_OID_SLOT = "1.1.2"
-_OID_TEMP = "1.1.7"
-_OID_WARN = "2.1.13"
-_OID_CRIT = "2.1.14"
+def main(ctx, params):
+    # pandacom_10gm_temp: SNMP temperature check for 10GM modules
+    # Base OID: .1.3.6.1.4.1.3652.3.3.4
+    # Columns: 1.1.2 (slot), 1.1.7 (temp), 2.1.13 (warn), 2.1.14 (crit)
 
-_DEFAULT_LEVELS = (35.0, 40.0)
-
-
-def _walk_snmp(ctx, community, host, base_oid):
-    """Walk an SNMP tree and return lines like 'OID = TYPE: value'"""
-    res = ctx.run(
-        [
+    if params.get("_discover"):
+        # Discovery: walk the slot column to enumerate modules
+        walk = ctx.run([
             "snmpwalk",
             "-v2c",
-            "-c",
-            community,
-            "-On",
-            host,
-            base_oid,
-        ],
-        mutates=False,
-    )
-    if res.rc != 0:
-        return []
-    return res.stdout.splitlines()
-
-
-def _parse_snmp_lines(lines):
-    """Parse SNMP walk output into dict: {slot: {"temp": float, "warn": float, "crit": float}}"""
-    slots = {}
-    for line in lines:
-        if " = " not in line:
-            continue
-        oid_part, val_part = line.split(" = ", 1)
-        if ":" in val_part:
-            val_type, val = val_part.split(":", 1)
-            val = val.strip()
-        else:
-            val = val_part.strip()
-            val_type = ""
-        # Extract the last number in the OID (the slot index)
-        oid_parts = oid_part.split(".")
-        if len(oid_parts) < 2:
-            continue
-        index = oid_parts[-1]
-        # Map OIDs to types: slot (1.1.2), temp (1.1.7), warn (2.1.13), crit (2.1.14)
-        # We only care about 10GM module (base .1.3.6.1.4.1.3652.3.3.4)
-        base = ".".join(oid_parts[:-1])
-        if base == _BASE_OID_10GM + "." + _OID_SLOT:
-            slots.setdefault(index, {})["slot"] = val
-        elif base == _BASE_OID_10GM + "." + _OID_TEMP:
-            if val.isdigit():
-                slots.setdefault(index, {})["temp"] = float(val)
-        elif base == _BASE_OID_10GM + "." + _OID_WARN:
-            if val.isdigit():
-                slots.setdefault(index, {})["warn"] = float(val)
-        elif base == _BASE_OID_10GM + "." + _OID_CRIT:
-            if val.isdigit():
-                slots.setdefault(index, {})["crit"] = float(val)
-    return slots
-
-
-def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    levels = params.get("levels", _DEFAULT_LEVELS)
-
-    # Discovery mode: enumerate items
-    if params.get("_discover"):
-        lines = _walk_snmp(ctx, community, host, _BASE_OID_10GM)
-        parsed = _parse_snmp_lines(lines)
+            "-c", params.get("community", "public"),
+            "-Oqn",
+            params.get("host", "localhost"),
+            ".1.3.6.1.4.1.3652.3.3.4.1.1.2",
+        ], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "snmpwalk failed: " + walk.stderr,
+                    "data": {"discovery": []}}
         items = []
-        for slot_id, data in sorted(parsed.items()):
-            if "slot" in data:
-                item_name = str(data["slot"])
-                items.append({
-                    "item": item_name,
-                    "params": {"levels": _DEFAULT_LEVELS},
-                    "metrics": ["temperature"]
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d 10GM modules" % len(items),
-            "data": {"discovery": items},
-        }
+        seen = []
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            index = oid[len(".1.3.6.1.4.1.3652.3.3.4.1.1.2"):]
+            if index == "" or index in seen:
+                continue
+            # Read the slot name for this index
+            get = ctx.run([
+                "snmpget",
+                "-v2c",
+                "-c", params.get("community", "public"),
+                "-Oqv",
+                params.get("host", "localhost"),
+                ".1.3.6.1.4.1.3652.3.3.4.1.1.2." + index,
+            ], mutates=False)
+            if get.rc != 0 or not get.stdout.strip():
+                continue
+            slot = get.stdout.strip()
+            seen.append(index)
+            items.append({"item": slot, "params": {"levels": (35.0, 40.0)},
+                          "metrics": ["temperature"]})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(items),
+                "data": {"discovery": items}}
 
-    # Check mode: verify single item
+    # Check one item
     item = params.get("item", "")
-    lines = _walk_snmp(ctx, community, host, _BASE_OID_10GM)
-    parsed = _parse_snmp_lines(lines)
-    slot_data = None
-    for slot_id, data in parsed.items():
-        if "slot" in data and str(data["slot"]) == item:
-            slot_data = data
-            break
+    if item == "":
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if slot_data == None or "temp" not in slot_data:
-        return {
-            "changed": False,
-            "msg": "temperature sensor not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Walk the slot column to find the index matching this item (slot name)
+    walk = ctx.run([
+        "snmpwalk",
+        "-v2c",
+        "-c", params.get("community", "public"),
+        "-Oqn",
+        params.get("host", "localhost"),
+        ".1.3.6.1.4.1.3652.3.3.4.1.1.2",
+    ], mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "snmpwalk failed: " + walk.stderr,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    temp = slot_data["temp"]
-    warn = slot_data.get("warn", levels[0])
-    crit = slot_data.get("crit", levels[1])
+    found_index = ""
+    for line in walk.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        index = oid[len(".1.3.6.1.4.1.3652.3.3.4.1.1.2"):]
+        if index == "":
+            continue
+        get = ctx.run([
+            "snmpget",
+            "-v2c",
+            "-c", params.get("community", "public"),
+            "-Oqv",
+            params.get("host", "localhost"),
+            ".1.3.6.1.4.1.3652.3.3.4.1.1.2." + index,
+        ], mutates=False)
+        if get.rc != 0 or get.stdout.strip() != item:
+            continue
+        found_index = index
+        break
 
-    # Determine state based on thresholds (upper bounds)
-    state = "OK"
-    if temp >= crit:
+    if found_index == "":
+        return {"changed": False, "msg": "no such module: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Read temperature for the matched index
+    temp_res = ctx.run([
+        "snmpget",
+        "-v2c",
+        "-c", params.get("community", "public"),
+        "-Oqv",
+        params.get("host", "localhost"),
+        ".1.3.6.1.4.1.3652.3.3.4.1.1.7." + found_index,
+    ], mutates=False)
+    if temp_res.rc != 0 or not temp_res.stdout.strip():
+        return {"changed": False, "msg": "failed to read temperature for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    temp_str = temp_res.stdout.strip()
+    # Strip quotes if present
+    if temp_str.startswith('"') and temp_str.endswith('"'):
+        temp_str = temp_str[1:-1]
+    if temp_str == "" or temp_str == "NOSUCHOBJECT" or temp_str == "NOSUCHINSTANCE":
+        return {"changed": False, "msg": "no temperature data for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    temp_val = 0.0
+    try_val = temp_str
+    # Handle possible trailing .0 or integer formatting
+    dot = try_val.find(".")
+    if dot >= 0:
+        int_part = try_val[:dot]
+        frac_part = try_val[dot+1:]
+        if int_part.lstrip("-").isdigit() and (frac_part.isdigit() or frac_part == ""):
+            temp_val = float(try_val)
+        else:
+            return {"changed": False, "msg": "invalid temperature: " + temp_str,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    else:
+        if try_val.lstrip("-").isdigit():
+            temp_val = float(try_val)
+        else:
+            return {"changed": False, "msg": "invalid temperature: " + temp_str,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Read warning level
+    warn_res = ctx.run([
+        "snmpget",
+        "-v2c",
+        "-c", params.get("community", "public"),
+        "-Oqv",
+        params.get("host", "localhost"),
+        ".1.3.6.1.4.1.3652.3.3.4.2.1.13." + found_index,
+    ], mutates=False)
+    dev_warn = 35.0
+    if warn_res.rc == 0 and warn_res.stdout.strip() != "":
+        wv = warn_res.stdout.strip()
+        if wv.startswith('"') and wv.endswith('"'):
+            wv = wv[1:-1]
+        if wv.lstrip("-").replace(".", "", 1).isdigit():
+            dev_warn = float(wv)
+
+    # Read alarm/critical level
+    crit_res = ctx.run([
+        "snmpget",
+        "-v2c",
+        "-c", params.get("community", "public"),
+        "-Oqv",
+        params.get("host", "localhost"),
+        ".1.3.6.1.4.1.3652.3.3.4.2.1.14." + found_index,
+    ], mutates=False)
+    dev_crit = 40.0
+    if crit_res.rc == 0 and crit_res.stdout.strip() != "":
+        cv = crit_res.stdout.strip()
+        if cv.startswith('"') and cv.endswith('"'):
+            cv = cv[1:-1]
+        if cv.lstrip("-").replace(".", "", 1).isdigit():
+            dev_crit = float(cv)
+
+    # Get configured thresholds
+    levels = params.get("levels", (35.0, 40.0))
+    warn_level = dev_warn
+    crit_level = dev_crit
+    if type(levels) == "list" and len(levels) >= 2:
+        warn_level = levels[0] if type(levels[0]) == "float" or type(levels[0]) == "int" else dev_warn
+        crit_level = levels[1] if type(levels[1]) == "float" or type(levels[1]) == "int" else dev_crit
+    elif type(levels) == "tuple" and len(levels) >= 2:
+        warn_level = levels[0] if type(levels[0]) == "float" or type(levels[0]) == "int" else dev_warn
+        crit_level = levels[1] if type(levels[1]) == "float" or type(levels[1]) == "int" else dev_crit
+    # Prefer device levels if configured params are empty/default
+    if warn_level == 35.0 and crit_level == 40.0:
+        warn_level = dev_warn
+        crit_level = dev_crit
+
+    # Grade
+    if temp_val >= crit_level:
         state = "CRIT"
-    elif temp >= warn:
+    elif temp_val >= warn_level:
         state = "WARN"
-
-    msg = "Temperature 10GM Module %s: %f °C" % (item, temp)
-    if warn != None and crit != None:
-        msg += " (warn at %f °C, crit at %f °C)" % (warn, crit)
+    else:
+        state = "OK"
 
     return {
         "changed": False,
-        "msg": msg,
+        "msg": item + ": %f C (levels: %f/%f C)" % (temp_val, warn_level, crit_level),
         "data": {
             "state": state,
-            "metrics": {"temperature": temp},
+            "metrics": {"temperature": temp_val},
             "details": "",
         },
     }

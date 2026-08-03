@@ -1,148 +1,147 @@
-def main(ctx, params):
-    STATE_MAP = {
-        "0": "UNKNOWN",
-        "1": "OK",
-        "2": "WARN",
-        "3": "CRIT"
-    }
+OPENBSD_MAP_STATE = {"0": "UNKNOWN", "1": "OK", "2": "WARN", "3": "CRIT"}
+OPENBSD_MAP_TYPE = {"0": "temp", "1": "fan", "2": "voltage", "9": "indicator", "13": "drive", "21": "powersupply"}
 
-    TYPE_MAP = {
-        "0": "temp",
-        "1": "fan",
-        "2": "voltage",
-        "9": "indicator",
-        "13": "drive",
-        "21": "powersupply"
-    }
+COL_DESCR = "2"
+COL_TYPE = "3"
+COL_UNIT = "5"
+COL_STATE = "6"
+COL_VALUE = "7"
 
-    def get_item_name(name, used):
-        idx = 0
-        new_name = name
-        while new_name in used:
-            new_name = name + "/" + str(idx)
-            idx += 1
-        return new_name
 
-    def parse_snmp_output(lines):
-        section = {}
-        used = set()
-        for i in range(0, len(lines), 5):
-            if i + 4 >= len(lines):
-                continue
-            ok = True
-            parts = []
-            for j in range(5):
-                line = lines[i + j].strip()
-                if line.find(":") == -1:
-                    ok = False
-                    break
-                val = line.split(":", 1)[1].strip()
-                if val.startswith('"') and val.endswith('"'):
-                    val = val[1:-1]
-                parts.append(val)
-            if not ok or len(parts) != 5:
-                continue
-            descr, sensortype, value, unit, state = parts
-            if sensortype not in TYPE_MAP:
-                continue
-            if sensortype == "0" and value == "-273.15":
-                continue
-            if sensortype in ["1", "2"] and value == "0":
-                continue
-            if not (value.replace(".", "", 1).isdigit() or (value.startswith("-") and value[1:].replace(".", "", 1).isdigit())):
-                value_converted = value
-            else:
-                value_converted = float(value)
-            item_name = get_item_name(descr, used)
-            used.add(item_name)
-            section[item_name] = {
-                "state": STATE_MAP.get(state, "UNKNOWN"),
-                "value": value_converted,
-                "unit": unit,
-                "type": TYPE_MAP[sensortype]
-            }
-        return section
+def _is_number(s):
+    if s == "":
+        return False
+    if s.startswith("-"):
+        s = s[1:]
+    if s == "":
+        return False
+    parts = s.split(".")
+    if len(parts) == 1:
+        return s.isdigit()
+    if len(parts) == 2:
+        return (parts[0].isdigit() or parts[0] == "") and (parts[1].isdigit() or parts[1] == "")
+    return False
 
-    if params.get("_discover"):
-        base_oid = ".1.3.6.1.4.1.30155.2.1.2.1"
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            base_oid + ".2", base_oid + ".3", base_oid + ".5", base_oid + ".6", base_oid + ".7"
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed: " + res.stderr,
-                "data": {"discovery": []}
-            }
-        lines = res.stdout.splitlines()
-        if len(lines) % 5 != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP output malformed: expected multiples of 5 lines",
-                "data": {"discovery": []}
-            }
-        section = parse_snmp_output(lines)
-        items = []
-        for item_name, data in section.items():
-            if data["type"] == "indicator":
-                items.append({
-                    "item": item_name,
-                    "params": {},
-                    "metrics": []
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d indicators" % len(items),
-            "data": {"discovery": items}
+
+def _to_number(value):
+    if value == "":
+        return value
+    if _is_number(value):
+        f = float(value)
+        if f == int(f):
+            return int(f)
+        return f
+    return value
+
+
+def _dedup_name(name, used):
+    count = used.get(name, 0)
+    if count == 0:
+        used[name] = 1
+        return name
+    new_name = name + "/" + str(count)
+    used[name] = count + 1
+    return new_name
+
+
+def _fetch_sensors(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.30155.2.1.2.1"
+
+    detect = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.30155.2.1.1.0"], mutates=False)
+    if detect.rc == 127 or detect.rc != 0:
+        return None
+
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On", host, base + ".2"], mutates=False)
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return {}
+
+    table = {}
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        suffix = "." + oid[len(base) + 1:]
+        idx = suffix[len(COL_DESCR) + 1:]
+        if idx.startswith("."):
+            idx = idx[1:]
+        table[idx] = {"descr": val}
+
+    for col in [COL_TYPE, COL_UNIT, COL_STATE, COL_VALUE]:
+        r = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On", host, base + "." + col], mutates=False)
+        if r.rc != 0:
+            continue
+        for line in r.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:]
+            suffix = "." + oid[len(base) + 1:]
+            idx = suffix[len(col) + 1:]
+            if idx.startswith("."):
+                idx = idx[1:]
+            if idx not in table:
+                table[idx] = {}
+            table[idx][col] = val
+
+    parsed = {}
+    used = {}
+    for idx in sorted(table.keys()):
+        e = table[idx]
+        descr = e.get(COL_DESCR, "")
+        sensortype = e.get(COL_TYPE, "")
+        value = e.get(COL_VALUE, "")
+        unit = e.get(COL_UNIT, "")
+        state = e.get(COL_STATE, "")
+
+        if sensortype not in OPENBSD_MAP_TYPE:
+            continue
+        if sensortype == "0" and value == "-273.15":
+            continue
+        if sensortype in ["1", "2"] and _is_number(value) and float(value) == 0.0:
+            continue
+
+        value_converted = _to_number(value)
+        item_name = _dedup_name(descr, used)
+        parsed[item_name] = {
+            "state": OPENBSD_MAP_STATE.get(state, "UNKNOWN"),
+            "value": value_converted,
+            "unit": unit,
+            "type": OPENBSD_MAP_TYPE[sensortype],
         }
+    return parsed
+
+
+def _state_to_rcm(state):
+    return {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}.get(state, 3)
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        section = _fetch_sensors(ctx, params)
+        if section == None:
+            return {"changed": False, "msg": "OpenBSD sensors not present", "data": {"discovery": []}}
+        discovery = []
+        for item in sorted(section.keys()):
+            if section[item]["type"] == "indicator":
+                discovery.append({"item": item, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    base_oid = ".1.3.6.1.4.1.30155.2.1.2.1"
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        base_oid + ".2", base_oid + ".3", base_oid + ".5", base_oid + ".6", base_oid + ".7"
-    ], mutates=False)
-
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    lines = res.stdout.splitlines()
-    if len(lines) % 5 != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP output malformed: expected multiples of 5 lines",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    section = parse_snmp_output(lines)
+    section = _fetch_sensors(ctx, params)
+    if section == None:
+        return {"changed": False, "msg": "no OpenBSD sensors found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     data = section.get(item)
     if data == None:
-        return {
-            "changed": False,
-            "msg": "sensor item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return {"changed": False, "msg": "no such indicator: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    return {
-        "changed": False,
-        "msg": "Status: " + str(data["value"]),
-        "data": {
-            "state": data["state"],
-            "metrics": {},
-            "details": ""
-        }
-    }
+    state = data["state"]
+    value = data["value"]
+    msg = "Status: %s" % str(value)
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {}, "details": msg}}

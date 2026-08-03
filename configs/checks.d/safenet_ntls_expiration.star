@@ -1,81 +1,95 @@
-# Helper to parse the SNMP table row (single list of 6 strings)
-# operation_status, connected_clients, links, successful_connections, failed_connections, expiration_date
-
-def _parse_section(row):
-    if row == None or len(row) != 6:
-        return None
-    # Guard each conversion safely - Starlark has no try/except
-    def safe_int(s):
-        s = s.strip()
-        if s == "" or not (s.isdigit() or (s.startswith("-") and s[1:].isdigit() and len(s) > 1)):
-            return 0
-        return int(s)
-    
-    return {
-        "operation_status": row[0],
-        "connected_clients": safe_int(row[1]),
-        "links": safe_int(row[2]),
-        "successful_connections": safe_int(row[3]),
-        "failed_connections": safe_int(row[4]),
-        "expiration_date": row[5],
-    }
+def _check_levels_lower(value, levels):
+    # levels: (warn, crit) or ("no_levels", None)
+    if not levels or levels[0] == "no_levels":
+        return "OK"
+    warn = levels[0]
+    crit = levels[1] if len(levels) > 1 and levels[1] != None else None
+    if value == None or (crit != None and value <= crit):
+        return "CRIT"
+    if warn != None and value <= warn:
+        return "WARN"
+    return "OK"
 
 def main(ctx, params):
-    # Discovery mode: enumerate items
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-            ".1.3.6.1.4.1.12383.3.1.2"
-        ], mutates=False)
-        # We only care if there's at least one row; discovery yields exactly one service
-        # Since this is a single-service check (no per-item breakdown), return one item with ""
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # Minimal heuristic: look for the key OID prefix to confirm NTLS section
-        if ".1.3.6.1.4.1.12383.3.1.2" not in res.stdout:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 item",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
-    
-    # Check mode for the single-service NTLS Expiration Date check
-    # Gather raw SNMP data
-    res = ctx.run([
-        "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.12383.3.1.2"
-    ], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "Unable to fetch SNMP data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse: find first row matching our section prefix
-    lines = res.stdout.splitlines()
-    row = []
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith(".1.3.6.1.4.1.12383.3.1.2."):
-            # Extract value after '='
-            idx = stripped.find("=")
-            if idx != -1:
-                val = stripped[idx+1:].strip()
-                row.append(val)
-            if len(row) == 6:
-                break
-    if len(row) < 6:
-        return {"changed": False, "msg": "Incomplete SNMP data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    section = _parse_section(row)
-    if section == None:
-        return {"changed": False, "msg": "Failed to parse SNMP data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    exp = section["expiration_date"]
-    if exp == "" or exp == "0":
-        return {"changed": False, "msg": "Expiration date unknown",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Checkmk-style summary: "The NTLS server certificate expires on ..."
-    return {"changed": False, "msg": "The NTLS server certificate expires on " + exp,
-            "data": {"state": "OK", "metrics": {}, "details": ""}}
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+
+        # Probe the real thing: check SNMP connectivity / device present.
+        sys_oid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if sys_oid_res.rc != 0:
+            return {"changed": False, "msg": "no SNMP response", "data": {"discovery": []}}
+
+        # Verify it's a Safenet NTLS device via sysObjectID.
+        sys_oid_val = sys_oid_res.stdout.strip()
+        if (sys_oid_val.find(".1.3.6.1.4.1.12383") != 0 and
+                sys_oid_val.find(".1.3.6.1.4.1.8072") != 0):
+            return {"changed": False, "msg": "not a Safenet NTLS device", "data": {"discovery": []}}
+
+        discovery = []
+        discovery.append({"item": "", "params": {}, "metrics": []})
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+
+    # Read the base OID table values via SNMP.
+    base = ".1.3.6.1.4.1.12383.3.1.2"
+    oids = ["1", "2", "3", "4", "5", "6"]
+    results = {}
+    all_ok = True
+    for i, oid in enumerate(oids):
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, base + "." + oid],
+            mutates=False,
+        )
+        if res.rc != 0:
+            all_ok = False
+            break
+        results[i] = res.stdout
+
+    if not all_ok:
+        return {
+            "changed": False,
+            "msg": "SNMP data unavailable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    operation_status = results.get(0, "")
+    connected_clients = int(results.get(1, "0"))
+    links = int(results.get(2, "0"))
+    successful_connections = int(results.get(3, "0"))
+    failed_connections = int(results.get(4, "0"))
+    expiration_date = results.get(5, "")
+
+    # Map states: operation_status 1=OK, 2=Down(CRIT), 3=Unknown(UNKNOWN)
+    state = "OK"
+    summary = "Running"
+    if operation_status == "2":
+        state = "CRIT"
+        summary = "Down"
+    elif operation_status == "3":
+        state = "UNKNOWN"
+        summary = "Unknown"
+
+    msg = "The NTLS server certificate expires on " + expiration_date if expiration_date else summary
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": state,
+            "metrics": {
+                "connected_clients": connected_clients,
+                "links": links,
+            },
+            "details": "status=%s clients=%d links=%d" % (operation_status, connected_clients, links),
+        },
+    }

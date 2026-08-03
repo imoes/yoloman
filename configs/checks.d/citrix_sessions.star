@@ -3,99 +3,110 @@ def main(ctx, params):
         return {
             "changed": False,
             "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": ["total", "active", "inactive"]}]}
+            "data": {"discovery": [
+                {
+                    "item": "",
+                    "params": {
+                        "total": (60, 65),
+                        "active": (60, 65),
+                        "inactive": (10, 15),
+                    },
+                    "metrics": ["total", "active", "inactive"],
+                }
+            ]},
         }
-    
-    # Read citrix_sessions data from agent output (simulated via a custom probe command)
-    data_path = "/var/lib/yolo-agent/cache/citrix_sessions"
-    content = ""
-    if ctx.file_exists(data_path):
-        content = ctx.file_read(data_path)
-    else:
-        # Try to fetch via a simple probe that would generate the same output
-        res = ctx.run(["sh", "-c", 'echo -e "sessions 1\\nactive_sessions 1\\ninactive_sessions 0"'], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {
-                "changed": False,
-                "msg": "Could not collect session information. Please check the agent configuration.",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-        content = res.stdout
-    
-    # Parse the citrix_sessions section
+
+    # --- probe for the real thing ---
+    # The Checkmk agent plugin reads the <<<citrix_sessions>>> section, which is
+    # produced by a Citrix-specific agent (over the network). There is no on-host
+    # Citrix daemon on this host. Probe for the product binary/socket as the
+    # source plugin would; absence means the service does not apply here.
+    probe = ctx.run(["ctx", "is-citrix-present"], mutates=False)
+    # rc 127 => not installed / not present
+    if probe.rc == 127:
+        return {
+            "changed": False,
+            "msg": "Citrix sessions: no Citrix environment found on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # --- gather the same data the agent section would provide ---
+    # The agent section reports: sessions <n>, active_sessions <n>, inactive_sessions <n>
+    # We read the equivalent on-host source. Since this is an agent-based check that
+    # depends on a Citrix-specific agent, attempt the configured data path.
+    out = probe.stdout.strip()
     session = {}
-    for line in content.splitlines():
-        parts = line.split()
-        if len(parts) > 1:
-            # Guard instead of try/except: validate digit before conversion
-            if parts[1].isdigit():
-                session[parts[0]] = int(parts[1])
-    
+    if out:
+        for line in out.splitlines():
+            parts = line.split()
+            if len(parts) > 1:
+                session.setdefault(parts[0], int(parts[1]))
+
     if not session:
         return {
             "changed": False,
             "msg": "Could not collect session information. Please check the agent configuration.",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    # Check default parameters from Checkmk source
-    defaults = {
-        "total": (60, 65),
-        "active": (60, 65),
-        "inactive": (10, 15),
-    }
-    
-    # Process each metric
-    states = []
+
+    warn_total, crit_total = params.get("total", (60, 65))
+    warn_active, crit_active = params.get("active", (60, 65))
+    warn_inactive, crit_inactive = params.get("inactive", (10, 15))
+
+    details = []
     metrics = {}
-    
+    worst = "OK"
+    levels = {
+        "sessions": (warn_total, crit_total),
+        "active_sessions": (warn_active, crit_active),
+        "inactive_sessions": (warn_inactive, crit_inactive),
+    }
+    labels = {
+        "sessions": "total",
+        "active_sessions": "active",
+        "inactive_sessions": "inactive",
+    }
+
     for key, what in [
         ("sessions", "total"),
         ("active_sessions", "active"),
         ("inactive_sessions", "inactive"),
     ]:
-        value = session.get(key)
-        if value == None:
+        val = session.get(key)
+        if val == 0:
             continue
-        
-        # Get levels from params with defaults
-        levels = params.get(what, defaults.get(what, (None, None)))
-        warn, crit = levels
-        
-        # Determine state
-        state = "OK"
-        if crit != None and value >= crit:
-            state = "CRIT"
-        elif warn != None and value >= warn:
-            state = "WARN"
-        
-        states.append(state)
-        metrics[what] = value
-    
-    # Final state: CRIT > WARN > OK
-    final_state = "OK"
-    if "CRIT" in states:
-        final_state = "CRIT"
-    elif "WARN" in states:
-        final_state = "WARN"
-    
-    # Build summary message
-    parts = []
-    for key, what in [
-        ("sessions", "total"),
-        ("active_sessions", "active"),
-        ("inactive_sessions", "inactive"),
-    ]:
-        if key in session:
-            parts.append("%s: %d" % (what.title(), session[key]))
-    msg = ", ".join(parts) if parts else "No session data"
-    
+        w, c = levels[key]
+        if val >= c:
+            st = "CRIT"
+        elif val >= w:
+            st = "WARN"
+        else:
+            st = "OK"
+        metrics[what] = val
+        details.append("%s: %d (warn=%d, crit=%d) -> %s" % (what, val, w, c, st))
+        if st == "CRIT":
+            worst = "CRIT"
+        elif st == "WARN" and worst != "CRIT":
+            worst = "WARN"
+
+    if not metrics:
+        return {
+            "changed": False,
+            "msg": "No session metrics collected.",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    msg = " | ".join(details)
     return {
         "changed": False,
         "msg": msg,
         "data": {
-            "state": final_state,
+            "state": worst,
             "metrics": metrics,
-            "details": ""
+            "details": "\n".join(details),
         },
     }

@@ -1,140 +1,154 @@
-def main(ctx, params):
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-    base_oid = ".1.3.6.1.4.1.18248.20.1.2.1.1"
+_MAP_SENSOR_TYPE = {
+    "1": "temp",
+    "2": "humidity",
+    "3": "dewpoint",
+}
 
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On",
-            host,
-            base_oid + ".3"
-        ], mutates=False)
+_MAP_UNITS = {
+    "0": "c",
+    "1": "f",
+    "2": "k",
+    "3": "percent",
+}
 
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "discovery failed: SNMP walk of dewpoint section failed",
-                "data": {"discovery": []}
-            }
+_MAP_STATES = {
+    "0": (0, "OK"),
+    "1": (3, "not available"),
+    "2": (1, "over-flow"),
+    "3": (1, "under-flow"),
+    "4": (2, "error"),
+}
 
-        dewpoint_items = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            if line.find("=") == -1:
-                continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, val_part = parts[0], parts[1]
-            if val_part.find(": ") == -1:
-                continue
-            val = val_part.split(": ")[1]
-            oid_parts = oid_part.strip().split(".")
-            sensor_id = oid_parts[-1]
-            dewpoint_items.append({
-                "item": "Sensor " + sensor_id,
-                "params": {},
-                "metrics": ["dewpoint"]
-            })
+_OID_BASE = ".1.3.6.1.4.1.18248.20.1.2.1.1"
+_SYSCONTACT_OID = ".1.3.6.1.2.1.1.1.0"
+_SYSSID_OID = ".1.3.6.1.2.1.1.2.0"
 
-        return {
-            "changed": False,
-            "msg": "discovered %d dewpoint sensors" % len(dewpoint_items),
-            "data": {"discovery": dewpoint_items}
-        }
 
-    item = params.get("item", "")
-    if item == "":
-        fail("item must be specified for dewpoint check (e.g., 'Sensor 1')")
-
-    sensor_id = item[7:] if item.startswith("Sensor ") else item
-
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        base_oid + ".1." + sensor_id,
-        base_oid + ".2." + sensor_id,
-        base_oid + ".3." + sensor_id
-    ], mutates=False)
-
+def _is_papouch(ctx):
+    community = ctx.params.get("community", "public")
+    host = ctx.params.get("host", "localhost")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, _SYSCONTACT_OID],
+        mutates=False,
+    )
     if res.rc != 0:
+        return False
+    res2 = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, _SYSSID_OID],
+        mutates=False,
+    )
+    if res2.rc != 0:
+        return False
+    return "th2e" in res.stdout and res2.stdout.startswith(".0.10.43.6.1.4.1")
+
+
+def _fetch_sensors(ctx):
+    community = ctx.params.get("community", "public")
+    host = ctx.params.get("host", "localhost")
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, _OID_BASE],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    raw = {}
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        value = parts[1]
+        if not oid.startswith(_OID_BASE + "."):
+            continue
+        idx = oid[len(_OID_BASE) + 1:]
+        raw[idx] = value
+    type_map = {}
+    sensor_values = {}
+    for k in sorted(raw.keys(), key=lambda x: len(x.split("."))):
+        v = raw[k]
+        comps = k.split(".")
+        if len(comps) == 1:
+            type_map[comps[0]] = _MAP_SENSOR_TYPE.get(v, "")
+        elif len(comps) >= 2:
+            col = comps[0]
+            idx = ".".join(comps[1:])
+            if col in ("1", "2", "3"):
+                sensor_values.setdefault(idx, {})
+                sensor_values[idx][col] = v
+    parsed = {}
+    for idx, st in type_map.items():
+        if st not in ("temp", "humidity", "dewpoint"):
+            continue
+        if idx not in sensor_values:
+            continue
+        cols = sensor_values[idx]
+        state = cols.get("1", "3")
+        reading_str = cols.get("2", "")
+        unit = cols.get("3", "0")
+        if state == "3":
+            continue
+        sensor_unit = _MAP_UNITS.get(unit, "")
+        if not reading_str or not reading_str.lstrip("-").replace(".", "", 1).isdigit():
+            continue
+        reading = float(reading_str) / 10
+        (st_num, st_readable) = _MAP_STATES.get(state, (0, "OK"))
+        item_name = "Sensor " + idx
+        parsed.setdefault(st, {})
+        parsed[st][item_name] = ((st_num, st_readable), reading, sensor_unit)
+    return parsed if parsed else None
+
+
+def main(ctx, params):
+    ctx.params = params
+    if not _is_papouch(ctx):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "Papouch TH2E not detected", "data": {"discovery": []}}
         return {
             "changed": False,
-            "msg": "SNMP get failed for dewpoint sensor " + sensor_id,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Papouch TH2E not detected on host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    lines = res.stdout.splitlines()
-    values = {}
-    for line in lines:
-        if line.find("=") == -1:
-            continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, val_part = parts[0], parts[1]
-        if val_part.find(": ") == -1:
-            continue
-        val = val_part.split(": ")[1]
-        oid_parts = oid_part.strip().split(".")
-        type_idx = oid_parts[-2]
-        values[type_idx] = val
-
-    if not values.get("1") or not values.get("2"):
+    if params.get("_discover"):
+        section = _fetch_sensors(ctx)
+        if section == None or "dewpoint" not in section:
+            return {"changed": False, "msg": "no dewpoint sensors found", "data": {"discovery": []}}
+        out = []
+        for item in section["dewpoint"]:
+            out.append({"item": item, "params": {}, "metrics": ["temperature"]})
         return {
             "changed": False,
-            "msg": "dewpoint sensor " + sensor_id + " not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d dewpoint sensors" % len(out),
+            "data": {"discovery": out},
         }
-
-    state_map = {
-        "0": (0, "OK"),
-        "1": (3, "not available"),
-        "2": (1, "over-flow"),
-        "3": (1, "under-flow"),
-        "4": (2, "error")
-    }
-    state_code, state_name = state_map.get(values.get("1"), (3, "unknown"))
-    if state_code == 0:
-        state = "OK"
-    elif state_code == 1:
-        state = "WARN"
-    elif state_code == 2:
-        state = "CRIT"
-    else:
-        state = "UNKNOWN"
-
-    reading_str = values.get("2")
-    if not reading_str.isdigit():
+    item = params.get("item", "")
+    section = _fetch_sensors(ctx)
+    if section == None or "dewpoint" not in section or item not in section["dewpoint"]:
         return {
             "changed": False,
-            "msg": "invalid dewpoint reading for sensor " + sensor_id,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such dewpoint sensor: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    dewpoint = float(reading_str) / 10.0
-
-    unit_map = {
-        "0": "C",
-        "1": "F",
-        "2": "K",
-        "3": "%"
-    }
-    unit = unit_map.get(values.get("3"), "C")
-
-    msg = "Dew point: %f %s, Status: %s" % (dewpoint, unit, state_name)
-
+    ((dev_state, state_readable), reading, unit) = section["dewpoint"][item]
+    warn = None
+    crit = None
+    levels = params.get("levels")
+    if levels != None and len(levels) >= 2:
+        warn = levels[0]
+        crit = levels[1]
+    check_state = "OK"
+    if dev_state != 0:
+        check_state = "CRIT" if dev_state == 2 else ("WARN" if dev_state == 1 else "UNKNOWN")
+    elif warn != None and crit != None:
+        check_state = "CRIT" if reading >= crit else ("WARN" if reading >= warn else "OK")
+    elif warn != None:
+        check_state = "WARN" if reading >= warn else "OK"
+    msg = "Dew point %s: %f %s" % (item, reading, unit)
     return {
         "changed": False,
         "msg": msg,
         "data": {
-            "state": state,
-            "metrics": {"dewpoint": dewpoint},
-            "details": ""
-        }
+            "state": check_state,
+            "metrics": {"temperature": reading},
+            "details": msg + " (device: %s)" % state_readable,
+        },
     }

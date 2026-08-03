@@ -1,321 +1,187 @@
-DISCOVERY_DEFAULT_PARAMETERS = {
-    "admstates": [1, 3, 4],
-    "phystates": [3, 4, 5, 6, 7, 8, 9, 10],
-    "opstates": [1, 2, 3, 4],
-    "use_portname": True,
-    "show_isl": True,
-}
-
-OID_BASE_PORT_INFO = ".1.3.6.1.4.1.1588.2.1.1.1.6.2.1"
-OID_BASE_PORT_ISL = ".1.3.6.1.4.1.1588.2.1.1.1.2.9.1"
-OID_BASE_SFP = ".1.3.6.1.4.1.1588.2.1.1.1.28.1.1"
-
-# SNMP OIDs (for snmpwalk/snmpget)
-# Port info: index(1), phystate(3), opstate(4), admstate(5), portname(36)
-OID_PORT_INDEX = OID_BASE_PORT_INFO + ".1"
-OID_PORT_PHYSTATE = OID_BASE_PORT_INFO + ".3"
-OID_PORT_OPSTATE = OID_BASE_PORT_INFO + ".4"
-OID_PORT_ADMSTATE = OID_BASE_PORT_INFO + ".5"
-OID_PORT_NAME = OID_BASE_PORT_INFO + ".36"
-
-# ISL info
-OID_PORT_ISL = OID_BASE_PORT_ISL + ".2"
-
-# SFP metrics: temp(1), voltage(2), current(3), rx_power(4), tx_power(5)
-OID_SFP_TEMP = OID_BASE_SFP + ".1"
-OID_SFP_VOLTAGE = OID_BASE_SFP + ".2"
-OID_SFP_CURRENT = OID_BASE_SFP + ".3"
-OID_SFP_RX_POWER = OID_BASE_SFP + ".4"
-OID_SFP_TX_POWER = OID_BASE_SFP + ".5"
-
-
-def _parse_oid_line(line):
-    """Parse one line of snmpwalk output: 'OID = TYPE: value' -> (oid_tail, value_str)"""
-    if not line.strip():
-        return None
-    eq = line.find("=")
-    if eq < 0:
-        return None
-    oid_part = line[:eq].strip()
-    value_part = line[eq + 1:].strip()
-    colon = value_part.find(": ")
-    if colon < 0:
-        return None
-    value_str = value_part[colon + 2:].strip()
-    if oid_part.startswith(OID_BASE_PORT_INFO):
-        tail = oid_part[len(OID_BASE_PORT_INFO):]
-    elif oid_part.startswith(OID_BASE_PORT_ISL):
-        tail = oid_part[len(OID_BASE_PORT_ISL):]
-    elif oid_part.startswith(OID_BASE_SFP):
-        tail = oid_part[len(OID_BASE_SFP):]
-    else:
-        tail = ""
-    return {"oid_tail": tail, "value": value_str}
-
-
-def _walk_section(ctx, base_oid):
-    """Walk entire section and return dict tail -> value"""
-    res = ctx.run(["snmpwalk", "-v2c", "-c", ctx.get("community", "public"),
-                   "-On", ctx.get("host", "localhost"), base_oid], mutates=False)
-    result = {}
-    for line in res.stdout.splitlines():
-        parsed = _parse_oid_line(line)
-        if parsed:
-            tail = parsed["oid_tail"]
-            result[tail] = parsed["value"]
-    return result
-
-
-def _brocade_fcport_inventory_this_port(admstate, phystate, opstate, settings):
-    """Replicate brocade_fcport_inventory_this_port logic"""
-    try_adm = admstate
-    try_phi = phystate
-    try_op = opstate
-    if try_adm.isdigit():
-        if int(try_adm) not in settings["admstates"]:
-            return False
-    else:
-        return False
-    if try_phi.isdigit():
-        if int(try_phi) not in settings["phystates"]:
-            return False
-    else:
-        return False
-    return try_op.isdigit() and int(try_op) in settings["opstates"]
-
-
-def _brocade_fcport_getitem(number_of_ports, index, portname, is_isl, settings):
-    """Replicate brocade_fcport_getitem logic"""
-    if number_of_ports == 0:
-        itemname = "0"
-    else:
-        digits = len(str(number_of_ports))
-        itemname = ("%0" + str(digits) + "d") % (index - 1)
-    if is_isl and settings["show_isl"]:
-        itemname += " ISL"
-    if portname.strip() != "":
-        itemname += " " + portname.strip()
-    return itemname
-
-
-def _check_temperature(value, params):
-    """Replicate check_temperature behavior for simple cases"""
-    warn = params.get("levels", None)
-    if warn == None:
-        warn = (None, None)
-    elif type(warn) == "int":
-        warn = (warn, warn)
-    elif type(warn) == "list":
-        if len(warn) < 2:
-            warn = (warn[0], None) if len(warn) == 1 else (None, None)
-        else:
-            warn = (warn[0], warn[1])
-    else:
-        warn = (None, None)
-
-    warn_lower = warn[0]
-    warn_upper = warn[1]
-
-    crit = params.get("levels_lower", None)
-    if crit == None:
-        crit = (None, None)
-    elif type(crit) == "int":
-        crit = (crit, None)
-    elif type(crit) == "list":
-        if len(crit) < 2:
-            crit = (crit[0], None) if len(crit) == 1 else (None, None)
-        else:
-            crit = (crit[0], crit[1])
-    else:
-        crit = (None, None)
-
-    crit_lower = crit[0]
-    crit_upper = crit[1]
-
-    if crit_lower == None and crit_upper == None:
-        crit_lower = warn_lower
-        crit_upper = warn_upper
-
-    state = "OK"
-    if crit_upper != None and value >= crit_upper:
-        state = "CRIT"
-    elif crit_lower != None and value <= crit_lower:
-        state = "CRIT"
-    elif warn_upper != None and value >= warn_upper:
-        state = "WARN"
-    elif warn_lower != None and value <= warn_lower:
-        state = "WARN"
-
-    msg = "Temperature: %f C" % value
-    return state, msg
-
+def _isdigit(s):
+    return s != None and s != "" and s.lstrip("-").isdigit()
 
 def main(ctx, params):
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    settings = params.get("discovery", DISCOVERY_DEFAULT_PARAMETERS)
-    if settings == None:
-        settings = DISCOVERY_DEFAULT_PARAMETERS
+    community = params.get("community", "public")
 
-    if not isinstance(settings, dict):
-        settings = DISCOVERY_DEFAULT_PARAMETERS
-
+    # ----- Discovery mode -----
     if params.get("_discover"):
-        port_info_section = _walk_section(ctx, OID_BASE_PORT_INFO)
-        port_isl_section = _walk_section(ctx, OID_BASE_PORT_ISL)
-        sfp_section = _walk_section(ctx, OID_BASE_SFP)
+        # Probe for Brocade device — sysDescr OID .1.3.6.1.2.1.1.1.0
+        probe = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Ov", host, ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if probe.rc == 127 or probe.rc == 1 or probe.rc == 2:
+            return {"changed": False, "msg": "no SNMP/Brocade device found",
+                    "data": {"discovery": []}}
+        if probe.stdout.find("1.3.6.1.4.1.1588") == -1:
+            return {"changed": False, "msg": "not a Brocade device",
+                    "data": {"discovery": []}}
 
-        port_infos = {}
-        for tail, val_str in port_info_section.items():
-            idx_str = tail.lstrip(".")
-            if not idx_str.isdigit():
+        # Walk the SFP stats table (swSfpStatEntry = .1.3.6.1.4.1.1588.2.1.1.1.28.1.1)
+        # Column for temperature is .1 under that base.
+        stats_walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             ".1.3.6.1.4.1.1588.2.1.1.1.28.1.1.1"],
+            mutates=False,
+        )
+        if stats_walk.rc != 0 or not stats_walk.stdout.strip():
+            return {"changed": False, "msg": "no SFP stats found",
+                    "data": {"discovery": []}}
+
+        sfp_indices = []
+        stats_base_len = len(".1.3.6.1.4.1.1588.2.1.1.1.28.1.1.1")
+        for line in stats_walk.stdout.splitlines():
+            parts = line.strip().split(" ", 1)
+            if len(parts) < 2:
                 continue
-            idx = int(idx_str)
-            phystate = port_info_section.get("." + str(idx) + ".3")
-            opstate = port_info_section.get("." + str(idx) + ".4")
-            admstate = port_info_section.get("." + str(idx) + ".5")
-            portname = port_info_section.get("." + str(idx) + ".36")
-            if phystate == None or opstate == None or admstate == None:
+            oid = parts[0]
+            suffix = oid[stats_base_len:]
+            if suffix.startswith("."):
+                idx = suffix[1:]
+                if idx:
+                    sfp_indices.append(idx)
+
+        if not sfp_indices:
+            return {"changed": False, "msg": "no SFP stats found",
+                    "data": {"discovery": []}}
+
+        # Walk the fcport info table (.1.3.6.1.4.1.1588.2.1.1.1.6.2.1)
+        # Columns: 1=swFCPortIndex, 3=swFCPortPhyState, 4=swFCPortOpStatus,
+        #          5=swFCPortAdmStatus, 36=swFCPortName
+        info_walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             ".1.3.6.1.4.1.1588.2.1.1.1.6.2.1"],
+            mutates=False,
+        )
+        info = {}
+        info_base_len = len(".1.3.6.1.4.1.1588.2.1.1.1.6.2.1")
+        if info_walk.rc == 0 and info_walk.stdout.strip():
+            for line in info_walk.stdout.splitlines():
+                parts = line.strip().split(" ", 1)
+                if len(parts) < 2:
+                    continue
+                oid = parts[0]
+                val = parts[1]
+                suffix = oid[info_base_len:]
+                bits = suffix.split(".")
+                if len(bits) < 3:
+                    continue
+                col = bits[1]
+                pindex = bits[2]
+                if pindex not in info:
+                    info[pindex] = {}
+                info[pindex][col] = val
+
+        # Walk the ISL table (.1.3.6.1.4.1.1588.2.1.1.1.2.9.1, col 2 = swNbMyPort)
+        isl_walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             ".1.3.6.1.4.1.1588.2.1.1.1.2.9.1.2"],
+            mutates=False,
+        )
+        isl_ports = []
+        isl_base_len = len(".1.3.6.1.4.1.1588.2.1.1.1.2.9.1.2")
+        if isl_walk.rc == 0 and isl_walk.stdout.strip():
+            for line in isl_walk.stdout.splitlines():
+                parts = line.strip().split(" ", 1)
+                if len(parts) < 2:
+                    continue
+                oid = parts[0]
+                suffix = oid[isl_base_len:]
+                if suffix.startswith("."):
+                    isl_ports.append(suffix[1:])
+
+        admstates = [1, 3, 4]
+        phystates = [3, 4, 5, 6, 7, 8, 9, 10]
+        opstates = [1, 2, 3, 4]
+
+        number_of_ports = len(info)
+        width = len(str(number_of_ports)) if number_of_ports > 0 else 1
+
+        discovery = []
+        for idx in sfp_indices:
+            pinfo = info.get(idx)
+            if pinfo == None:
                 continue
 
-            port_infos[idx] = {
-                "index": idx,
-                "phystate": phystate,
-                "opstate": opstate,
-                "admstate": admstate,
-                "portname": portname if portname != None and portname != "NA" else "",
-            }
+            adm_raw = pinfo.get("5")
+            admstate = int(adm_raw) if _isdigit(adm_raw) else 0
+            phy_raw = pinfo.get("3")
+            phystate = int(phy_raw) if _isdigit(phy_raw) else 0
+            op_raw = pinfo.get("4")
+            opstate = int(op_raw) if _isdigit(op_raw) else 0
 
-        isl_list = []
-        for tail, val_str in port_isl_section.items():
-            idx_str = tail.lstrip(".")
-            if idx_str.isdigit():
-                isl_list.append(int(idx_str))
-
-        sfp_metrics = {}
-        for tail, val_str in sfp_section.items():
-            idx_str = tail.lstrip(".")
-            if not idx_str.isdigit():
+            if admstate not in admstates:
                 continue
-            idx = int(idx_str)
-            temp_val = sfp_section.get(tail)
-            if temp_val == None or temp_val == "NA":
+            if phystate not in phystates:
                 continue
-            if not temp_val.isdigit():
-                continue
-            temp_int = int(temp_val)
-            sfp_metrics[idx] = {
-                "index": idx,
-                "temp": temp_int,
-            }
-
-        ports = {}
-        for idx, info in port_infos.items():
-            if idx in sfp_metrics:
-                ports[idx] = {"info": info, "values": sfp_metrics[idx]}
-
-        discovered = []
-        for idx, port in ports.items():
-            info = port["info"]
-            if not _brocade_fcport_inventory_this_port(
-                info["admstate"], info["phystate"], info["opstate"], settings
-            ):
+            if opstate not in opstates:
                 continue
 
-            item = _brocade_fcport_getitem(
-                len(ports),
-                info["index"],
-                info["portname"],
-                info["index"] in isl_list,
-                settings,
-            )
-            discovered.append({
-                "item": item,
-                "params": {"levels": None},
-                "metrics": ["temp"],
+            is_isl = idx in isl_ports
+
+            portname_raw = pinfo.get("36")
+            portname = portname_raw if portname_raw != None else ""
+
+            itemname = ("%0" + str(width) + "d") % (int(idx) - 1)
+            if is_isl:
+                itemname += " ISL"
+            pname_stripped = portname.strip()
+            if pname_stripped:
+                itemname += " " + pname_stripped
+
+            discovery.append({
+                "item": itemname,
+                "params": {"warn": 55.0, "crit": 60.0},
+                "metrics": ["temperature"],
             })
 
-        return {
-            "changed": False,
-            "msg": "discovered %d SFP ports" % len(discovered),
-            "data": {"discovery": discovered},
-        }
+        return {"changed": False, "msg": "discovered %d SFP ports" % len(discovery),
+                "data": {"discovery": discovery}}
 
+    # ----- Check mode -----
     item = params.get("item", "")
-    parts = item.split(" ", 1)
-    idx_str = parts[0]
-    if not idx_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid item format: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if item == "":
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    port_index = int(idx_str) + 1
+    # Parse the port index from the item (first whitespace-delimited token, zero-based)
+    first_tok = item.split(None, 1)[0]
+    if not _isdigit(first_tok):
+        return {"changed": False, "msg": "invalid item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    port_index = int(first_tok) + 1
 
-    port_info_section = _walk_section(ctx, OID_BASE_PORT_INFO)
-    port_isl_section = _walk_section(ctx, OID_BASE_PORT_ISL)
-    sfp_section = _walk_section(ctx, OID_BASE_SFP)
+    # Query the temperature for this port: swSfpTemperature for OID index = port_index
+    # swSfpTemperature column is .1 under swSfpStatEntry base
+    temp_oid = ".1.3.6.1.4.1.1588.2.1.1.1.28.1.1.1." + str(port_index)
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, temp_oid],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "SFP not found for item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    port_infos = {}
-    for tail, val_str in port_info_section.items():
-        idx_str = tail.lstrip(".")
-        if not idx_str.isdigit():
-            continue
-        idx = int(idx_str)
-        phystate = port_info_section.get("." + str(idx) + ".3")
-        opstate = port_info_section.get("." + str(idx) + ".4")
-        admstate = port_info_section.get("." + str(idx) + ".5")
-        portname = port_info_section.get("." + str(idx) + ".36")
-        if phystate == None or opstate == None or admstate == None:
-            continue
-        port_infos[idx] = {
-            "index": idx,
-            "phystate": phystate,
-            "opstate": opstate,
-            "admstate": admstate,
-            "portname": portname if portname != None and portname != "NA" else "",
-        }
+    # Value may come as "INTEGER: 42" or bare; strip type tag if present
+    raw_val = res.stdout.strip()
+    if raw_val.find(": ") != -1:
+        raw_val = raw_val.split(": ", 1)[1]
+    # Strip surrounding quotes if any
+    if raw_val.startswith('"') and raw_val.endswith('"'):
+        raw_val = raw_val[1:-1]
+    if not _isdigit(raw_val):
+        return {"changed": False, "msg": "invalid temperature value for item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    isl_list = []
-    for tail, val_str in port_isl_section.items():
-        idx_str = tail.lstrip(".")
-        if idx_str.isdigit():
-            isl_list.append(int(idx_str))
+    temp = float(raw_val)
 
-    sfp_metrics = {}
-    for tail, val_str in sfp_section.items():
-        idx_str = tail.lstrip(".")
-        if not idx_str.isdigit():
-            continue
-        idx = int(idx_str)
-        temp_val = sfp_section.get(tail)
-        if temp_val == None or temp_val == "NA":
-            continue
-        if not temp_val.isdigit():
-            continue
-        temp_int = int(temp_val)
-        sfp_metrics[idx] = {"index": idx, "temp": temp_int}
+    warn = params.get("warn", 55.0)
+    crit = params.get("crit", 60.0)
 
-    ports = {}
-    for idx, info in port_infos.items():
-        if idx in sfp_metrics:
-            ports[idx] = {"info": info, "values": sfp_metrics[idx]}
+    state = "CRIT" if temp >= crit else ("WARN" if temp >= warn else "OK")
 
-    port = ports.get(port_index)
-    if port == None:
-        return {
-            "changed": False,
-            "msg": "port index %d not found" % port_index,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    temp = port["values"]["temp"]
-    state, msg = _check_temperature(float(temp), params)
-    metrics = {"temp": float(temp)}
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": ""},
-    }
+    return {"changed": False,
+            "msg": "%s: %f C" % (item, temp),
+            "data": {"state": state, "metrics": {"temperature": temp}, "details": ""}}

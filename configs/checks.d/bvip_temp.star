@@ -1,126 +1,164 @@
-# ===== module-level constants =====
-SNMP_BASE = ".1.3.6.1.4.1.3967.1.1.7.1"
-DETECT_OID = ".1.3.6.1.2.1.1.1.0"
-BVIP_NAMES = ["flexidome", "vip-x", "dinion", "autodome"]
-DEFAULT_WARN = 50.0
-DEFAULT_CRIT = 60.0
+# Translated Checkmk check: bvip_temp
+# Monitors temperature sensors on Bosch VIP devices via SNMP.
 
+def _split_first(s, sep):
+    idx = s.find(sep)
+    if idx == -1:
+        return [s]
+    return [s[:idx], s[idx + 1:]]
 
-def _detect_bvip(ctx):
-    # Detect BVIP device by reading system description
-    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-On", "localhost", DETECT_OID], mutates=False)
-    if res.rc != 0:
-        return False
-    line = res.stdout.strip()
-    if " = STRING: " in line:
-        desc = line.split(" = STRING: ", 1)[1].strip('"')
-    else:
-        return False
-    for name in BVIP_NAMES:
-        if name in desc.lower():
-            return True
-    return False
-
-
-def _walk_temp(ctx, community):
-    # Walk the temperature OIDs: base + OIDEnd (item name) and OID 1 (value)
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", "localhost", SNMP_BASE], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return []
-    items = []
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Format: <oid> = STRING: "<item_name>" or <oid>.1 = INTEGER: <value>
-        eq_pos = line.find(" = ")
-        if eq_pos == -1:
-            continue
-        oid = line[:eq_pos].strip()
-        value_part = line[eq_pos+3:].strip()
-        if value_part.startswith("STRING: "):
-            # This is the item name line
-            name = value_part[8:].strip('"')
-            items.append((name, None))
-        elif value_part.startswith("INTEGER: "):
-            # This is the temperature value line (.1)
-            val_str = value_part[9:].strip()
-            if val_str.isdigit() or (val_str.startswith("-") and val_str[1:].isdigit()):
-                temp = int(val_str)
-                items.append((None, temp))
-            else:
-                continue
-    # Reconstruct pairs: (item_name, temp_value) by aligning sequential entries
-    pairs = []
-    current_name = None
-    for name, temp in items:
-        if name != None:
-            current_name = name
-        elif temp != None and current_name != None:
-            pairs.append((current_name, temp))
-    return pairs
-
+def _parse_oid_index(line, base_oid):
+    # line looks like "<base>.<index> <value>" from snmpwalk -Oqn
+    parts = line.split(" ", 1)
+    if len(parts) < 2:
+        return None, None
+    full_oid = parts[0]
+    value = parts[1]
+    if len(full_oid) <= len(base_oid) + 1:
+        return None, None
+    # full_oid == base_oid + "." + index  (base_oid does not end with a dot)
+    if full_oid[:len(base_oid) + 1] != base_oid + ".":
+        return None, None
+    index = full_oid[len(base_oid) + 1:]
+    return index, value
 
 def main(ctx, params):
-    if params.get("_discover"):
-        # Detect BVIP device first
-        community = params.get("community", "public")
-        if not _detect_bvip(ctx):
-            return {"changed": False, "msg": "not a BVIP device", "data": {"discovery": []}}
-
-        # Walk temperatures
-        items = _walk_temp(ctx, community)
-        discovery = []
-        for item_name, _ in items:
-            discovery.append({
-                "item": item_name,
-                "params": {"warn": DEFAULT_WARN, "crit": DEFAULT_CRIT},
-                "metrics": ["temp"]
-            })
-        return {"changed": False, "msg": "discovered %d temperature sensors" % len(discovery),
-                "data": {"discovery": discovery}}
-
-    # Normal check mode (non-discovery)
-    item = params.get("item", "")
+    host = params.get("host", "localhost")
     community = params.get("community", "public")
+    version = params.get("version", "2c")
 
-    # Skip if not a BVIP device
-    if not _detect_bvip(ctx):
-        return {"changed": False, "msg": "not a BVIP device",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    base_oid = ".1.3.6.1.4.1.3967.1.1.7.1"
+    # Discovery: walk column 1 (the label/name column), base_oid.1
+    res = ctx.run(
+        ["snmpwalk", "-" + ("v2c" if version == "2c" else version),
+         "-c", community, "-Oqn", "-OQ", host, base_oid + ".1"],
+        mutates=False,
+    )
+    if res.rc != 0 or res.skipped:
+        return {
+            "changed": False,
+            "msg": "not a BVIP device (SNMP walk failed)",
+            "data": {"discovery": [], "host_labels": {}},
+        }
 
-    # Get temperature data
-    temp_pairs = _walk_temp(ctx, community)
-    temp = None
-    for name, val in temp_pairs:
-        if name == item:
-            temp = val
+    # Build index -> name map
+    index_to_name = {}
+    name_order = []
+    for line in res.stdout.splitlines():
+        idx, val = _parse_oid_index(line, base_oid + ".1")
+        if idx == None or val == None:
+            continue
+        name = val.strip().strip('"')
+        if idx not in index_to_name:
+            name_order.append(idx)
+        index_to_name[idx] = name
+
+    if not index_to_name:
+        return {
+            "changed": False,
+            "msg": "no BVIP temperature sensors found",
+            "data": {"discovery": [], "host_labels": {}},
+        }
+
+    if params.get("_discover"):
+        discovery = []
+        for idx in name_order:
+            discovery.append({
+                "item": index_to_name[idx],
+                "params": {"levels": (50.0, 60.0)},
+                "metrics": ["temperature"],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d temperature sensors" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
+        }
+
+    # --- Check mode: evaluate one item ---
+    item = params.get("item", "")
+    levels = params.get("levels", (50.0, 60.0))
+    warn = levels[0] if len(levels) >= 1 else 50.0
+    crit = levels[1] if len(levels) >= 2 else 60.0
+    label = params.get("label", "temperature")
+
+    # Find the index for this item's name
+    target_index = None
+    for idx in name_order:
+        if index_to_name[idx] == item:
+            target_index = idx
             break
 
-    # Check for missing item or data
-    if temp == None:
-        return {"changed": False, "msg": "temperature sensor not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if target_index == None:
+        return {
+            "changed": False,
+            "msg": "no such temperature sensor: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Convert temperature to degrees (value / 10)
-    temp_c = float(temp) / 10.0
+    # Fetch the value: snmpget base_oid.<index> (column 1 is label, column 2 is value)
+    # The table uses OIDEnd() for index and column "1" for label.
+    # The value column is the SAME column (1) since oids=[OIDEnd(), "1"] means base.<index> and base.<index>.1
+    # Re-reading: fetch=SNMPTree(base=base_oid, oids=[OIDEnd(), "1"])
+    # This fetches base_oid.<index> (OIDEnd) and base_oid.<index>.1
+    # Actually OIDEnd() captures the instance, and "1" is the relative OID appended.
+    # So the values are at base_oid.<index>.1
+    val_oid = base_oid + "." + target_index + ".1"
+    vres = ctx.run(
+        ["snmpget", "-" + ("v2c" if version == "2c" else version),
+         "-c", community, "-Oqv", host, val_oid],
+        mutates=False,
+    )
+    if vres.rc != 0 or vres.skipped:
+        return {
+            "changed": False,
+            "msg": "could not read temperature value for " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Read thresholds (Checkmk default: (50.0, 60.0))
-    warn = params.get("warn", DEFAULT_WARN)
-    crit = params.get("crit", DEFAULT_CRIT)
-
-    # Determine state based on thresholds (upper levels)
-    if temp_c >= crit:
-        state = "CRIT"
-    elif temp_c >= warn:
-        state = "WARN"
+    raw = vres.stdout.strip().strip('"')
+    temp_val = 0
+    parsed_ok = False
+    # Try integer first
+    int_part = raw
+    if int_part.isdigit():
+        temp_val = int(int_part) / 10
+        parsed_ok = True
     else:
-        state = "OK"
+        # Try float
+        try_ok = True
+        cleaned = raw
+        neg = cleaned.startswith("-")
+        if neg:
+            cleaned = cleaned[1:]
+        has_dot = False
+        ok = True
+        for ch in cleaned:
+            if ch == ".":
+                if has_dot:
+                    ok = False
+                    break
+                has_dot = True
+            elif not ch.isdigit():
+                ok = False
+                break
+        if ok and len(cleaned) > 0:
+            temp_val = float(raw) / 10
+            parsed_ok = True
 
-    return {"changed": False,
-            "msg": "Temperature: %f C" % temp_c,
-            "data": {
-                "state": state,
-                "metrics": {"temp": temp_c},
-                "details": ""
-            }}
+    if not parsed_ok:
+        return {
+            "changed": False,
+            "msg": "could not parse temperature value: " + raw,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    state = "CRIT" if temp_val >= crit else ("WARN" if temp_val >= warn else "OK")
+    return {
+        "changed": False,
+        "msg": "%s %f C" % (item, temp_val),
+        "data": {
+            "state": state,
+            "metrics": {"temperature": temp_val},
+            "details": "BVIP sensor %s: %f C (warn<%f, crit<%f)" % (item, temp_val, warn, crit),
+        },
+    }

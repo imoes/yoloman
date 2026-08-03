@@ -1,175 +1,310 @@
-# Checkmk check: hivemanager_devices
-# Translated to Starlark for yolo-man agent (read-only)
-# discovery: enumerate devices by hostname
-# check: per-device metrics and thresholds
+# ===== Checkmk check → read-only Starlark check module =====
+# Translates cmk/plugins/hivemanager/agent_based/hivemanager_devices.py
+# Monitors Aruba/HP HiveManager devices via the hivemanager_devices agent section.
 
-TOKEN_MULTIPLIER = [1, 60, 3600, 86400, 31536000]
+# Default parameters (mirrors Checkmk check_default_parameters)
+DEFAULT_PARAMS = {
+    "alert_on_loss": True,
+    "max_clients": (25, 50),
+    "crit_states": ["Critical"],
+    "warn_states": ["Maybe", "Major", "Minor"],
+}
 
-def _parse_uptime(raw_uptime):
-    if raw_uptime == "down":
+# Keys considered "additional information" in the summary (order preserved)
+ADDITIONAL_INFORMATION = [
+    "eth0LLDPPort",
+    "eth0LLDPSysName",
+    "hive",
+    "hiveOS",
+    "hwmodel",
+    "serialNumber",
+    "nodeId",
+    "location",
+    "networkPolicy",
+]
+
+# Token multipliers for parsing Checkmk-style durations (unused here; uptime
+# is stored as raw seconds-equivalent tokens in the section).
+TOKEN_MULTIPLIER = (1, 60, 3600, 86400, 31536000)
+
+
+def _parse_hivemanager_devices(raw):
+    """Parse the raw hivemanager_devices section into a dict keyed by hostName.
+
+    Each raw line is expected to be a list of "key::value" tokens. We group
+    consecutive lines into per-device info dicts. Lines starting a new
+    hostName (containing hostName::) begin a new entry.
+    """
+    section = {}
+    for line in raw:
+        # line is a list of "key::value" strings from the agent section
+        infos = {}
+        for token in line:
+            # Split on the FIRST "::" only
+            idx = token.find("::")
+            if idx == -1:
+                continue
+            key = token[:idx]
+            value = token[idx + 2:]
+            infos[key] = value
+        # The hostName key identifies the device item
+        host = infos.get("hostName")
+        if host == None:
+            continue
+        section[host] = infos
+    return section
+
+
+def _gather_section(ctx):
+    """Read the real on-host source for hivemanager_devices.
+
+    The Checkmk agent plugin reads from a HiveManager API/socket. Since our
+    agent may not have that, we support reading a local cache file written
+    by an external collector at /var/lib/cmk/hivemanager_devices (one
+    device per line, "key::value" tokens separated by spaces). If absent,
+    the check does not apply.
+    """
+    path = "/var/lib/cmk/hivemanager_devices"
+    if not ctx.file_exists(path):
         return None
-    tokens = raw_uptime.split()
-    if len(tokens) < 3:
-        return None
-    # reverse order excluding last token (assumed unit), take even indices
-    vals = []
-    for i in range(len(tokens) - 2, -1, -2):
-        if tokens[i].isdigit():
-            vals.append(int(tokens[i]))
-        else:
-            vals.append(0)
-    # pad if needed (ensure at least 5 values)
-    while len(vals) < 5:
-        vals.append(0)
+    content = ctx.file_read(path)
+    raw = []
+    for line in content.splitlines():
+        line = line.strip()
+        if line == "":
+            continue
+        raw.append(line.split())
+    return _parse_hivemanager_devices(raw)
+
+
+def _probe(ctx):
+    """Determine whether hivemanager monitoring is actually present on host."""
+    path = "/var/lib/cmk/hivemanager_devices"
+    return ctx.file_exists(path)
+
+
+def _parse_uptime_tokens(tokens):
+    """Convert Checkmk timespan tokens like [3, 'day', 5, 'hour', ...] to seconds.
+
+    The original code uses:
+        sum(factor * int(token) for factor, token in
+            zip(TOKEN_MULTIPLIER, raw_uptime.split()[-2::-2]))
+    raw_uptime split is e.g. ['3','day','5','hour','10','minute','down' or 'up']
+    reversed and stepped by 2 yields the numeric tokens in ascending unit order.
+    We reconstruct using the same logic.
+    """
+    # tokens: list like [n_days, 'day', n_hours, 'hour', ..., 'up'/'down']
+    # Original: raw.split()[-2::-2] -> take every 2nd from end-1 going backwards
+    # Build the reversed token list, then pick every other starting at index 0
+    # of the reversed list minus the last (state) element.
+    if tokens == None or len(tokens) == 0:
+        return 0
+    # Drop trailing state word if present
+    body = tokens
+    if body[-1] in ("up", "down"):
+        body = body[:-1]
+    # Original: split()[-2::-2] on the full string; replicate:
+    # reversed list, then take indices 0,2,4,... (which equals [-2::-2] reversed)
+    rev = list(reversed(body))
+    nums = []
+    i = 0
+    for t in rev:
+        if i % 2 == 0:
+            # numeric token
+            n = int(t) if t.lstrip("-").isdigit() else 0
+            nums.append(n)
+        i += 1
+    # nums are in ascending unit order: days, hours, minutes, seconds
+    # but we need to multiply by TOKEN_MULTIPLIER in ascending order
     total = 0
-    for i in range(min(len(vals), len(TOKEN_MULTIPLIER))):
-        total += TOKEN_MULTIPLIER[i] * vals[i]
+    for factor, n in zip(TOKEN_MULTIPLIER, nums):
+        total += factor * n
     return total
 
+
+def _check_levels(value, levels, name, human_readable):
+    """Mimic cmk check_levels_legacy_compatible for warn/crit thresholds.
+
+    levels is (warn, crit) or params.get("max_uptime"). Values that fail
+    the upper-level comparison grade as WARN/CRIT.
+    """
+    if levels == None:
+        return "OK", ""
+    warn = levels[0]
+    crit = levels[1]
+    # warn/crit may be None
+    if crit != None and value >= crit:
+        return "CRIT", "%s %s (crit at %s)" % (name, human_readable(value), human_readable(crit))
+    if warn != None and value >= warn:
+        return "WARN", "%s %s (warn at %s)" % (name, human_readable(value), human_readable(warn))
+    return "OK", "%s %s" % (name, human_readable(value))
+
+
+def _render_timespan(seconds):
+    """Render a number of seconds like Checkmk render.timespan."""
+    if seconds == None:
+        return "-"
+    if seconds < 0:
+        return "-"
+    days = seconds // 86400
+    seconds = seconds % 86400
+    hours = seconds // 3600
+    seconds = seconds % 3600
+    minutes = seconds // 60
+    secs = seconds % 60
+    parts = []
+    if days > 0:
+        parts.append("%d day%s" % (days, "s" if days != 1 else ""))
+    if hours > 0:
+        parts.append("%d hour%s" % (hours, "s" if hours != 1 else ""))
+    if minutes > 0:
+        parts.append("%d minute%s" % (minutes, "s" if minutes != 1 else ""))
+    if secs > 0 or len(parts) == 0:
+        parts.append("%d second%s" % (secs, "s" if secs != 1 else ""))
+    return " ".join(parts)
+
+
 def main(ctx, params):
+    # ----- DISCOVERY MODE -----
     if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/check-mk-agent/local/hivemanager_devices"], mutates=False)
-        if res.rc != 0 or res.stdout == "":
-            return {"changed": False, "msg": "discovered 0 devices", "data": {"discovery": []}}
-        
-        devices = {}
-        for line in res.stdout.splitlines():
-            if "::" not in line:
-                continue
-            entry = {}
-            parts = line.split()
-            # Each part should be key::value pairs separated by spaces
-            for part in parts:
-                if "::" in part:
-                    key_val = part.split("::")
-                    if len(key_val) == 2:
-                        entry[key_val[0]] = key_val[1]
-            if "hostName" in entry:
-                devices[entry["hostName"]] = entry
-        
-        items = []
-        for hostname in devices:
-            items.append({
-                "item": hostname,
-                "params": {
-                    "alert_on_loss": True,
-                    "max_clients": [25, 50],
-                    "crit_states": ["Critical"],
-                    "warn_states": ["Maybe", "Major", "Minor"],
-                },
-                "metrics": ["client_count", "uptime"],
+        if not _probe(ctx):
+            return {
+                "changed": False,
+                "msg": "hivemanager_devices not installed on this host",
+                "data": {"discovery": []},
+            }
+        section = _gather_section(ctx)
+        if section == None or len(section) == 0:
+            return {
+                "changed": False,
+                "msg": "no hivemanager devices found",
+                "data": {"discovery": []},
+            }
+        discovery = []
+        for host_name in section:
+            discovery.append({
+                "item": host_name,
+                "params": dict(DEFAULT_PARAMS),
+                "metrics": ["client_count"],
             })
-        return {"changed": False, "msg": "discovered %d devices" % len(items),
-                "data": {"discovery": items}}
-    
-    # Check mode
+        return {
+            "changed": False,
+            "msg": "discovered %d hivemanager devices" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    # ----- CHECK MODE -----
     item = params.get("item", "")
-    res = ctx.run(["cat", "/var/lib/check-mk-agent/local/hivemanager_devices"], mutates=False)
-    
-    if res.rc != 0 or res.stdout == "":
-        return {"changed": False, "msg": "device not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    section = {}
-    for line in res.stdout.splitlines():
-        if "::" not in line:
-            continue
-        entry = {}
-        parts = line.split()
-        for part in parts:
-            if "::" in part:
-                key_val = part.split("::")
-                if len(key_val) == 2:
-                    entry[key_val[0]] = key_val[1]
-        if "hostName" in entry:
-            section[entry["hostName"]] = entry
-    
-    if not item in section:
-        return {"changed": False, "msg": "device not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    infos = section[item]
-    
-    warn_states = params.get("warn_states", ["Maybe", "Major", "Minor"])
-    crit_states = params.get("crit_states", ["Critical"])
-    alert_on_loss = params.get("alert_on_loss", True)
-    max_clients = params.get("max_clients", [25, 50])
-    warn_clients = max_clients[0]
-    crit_clients = max_clients[1]
-    max_uptime = params.get("max_uptime", None)
-    
-    # Check alarm state
+    merged = dict(DEFAULT_PARAMS)
+    merged.update(params)
+
+    if not _probe(ctx):
+        return {
+            "changed": False,
+            "msg": "hivemanager_devices not installed on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    section = _gather_section(ctx)
+    if section == None:
+        return {
+            "changed": False,
+            "msg": "hivemanager_devices section not available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    infos = section.get(item)
+    if infos == None:
+        return {
+            "changed": False,
+            "msg": "no such hivemanager device: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # ---- Alarm state ----
     state = "OK"
-    summary_parts = []
-    
-    if infos["alarm"] in crit_states:
+    summaries = []
+
+    alarm = infos.get("alarm", "")
+    alarmstate = "Alarm state: " + alarm
+    crit_states = merged.get("crit_states", DEFAULT_PARAMS["crit_states"])
+    warn_states = merged.get("warn_states", DEFAULT_PARAMS["warn_states"])
+    if alarm in crit_states:
         state = "CRIT"
-        summary_parts.append("Alarm state: " + infos["alarm"])
-    elif infos["alarm"] in warn_states:
-        state = "WARN"
-        summary_parts.append("Alarm state: " + infos["alarm"])
-    
-    # Connection lost check
-    if alert_on_loss and infos["connection"] == "False":
-        state = "CRIT"
-        summary_parts.append("Connection lost")
-    
-    # Clients count
-    num_clients = int(infos["clients"]) if infos["clients"].isdigit() else 0
-    
-    if num_clients >= crit_clients:
-        if state != "CRIT":
-            state = "CRIT"
-        summary_parts.append("Clients: %d Warn/Crit at %d/%d" % (num_clients, warn_clients, crit_clients))
-    elif num_clients >= warn_clients:
+        summaries.append(alarmstate)
+    elif alarm in warn_states:
         if state == "OK":
             state = "WARN"
-        summary_parts.append("Clients: %d Warn/Crit at %d/%d" % (num_clients, warn_clients, crit_clients))
+        summaries.append(alarmstate)
+
+    # ---- Lost connection ----
+    alert_on_loss = merged.get("alert_on_loss", True)
+    if alert_on_loss:
+        conn = infos.get("connection", "True")
+        if conn == "False":
+            if state == "OK":
+                state = "CRIT"
+            summaries.append("Connection lost")
+
+    # ---- Client count ----
+    clients_raw = infos.get("clients", "0")
+    number_of_clients = int(clients_raw) if clients_raw.lstrip("-").isdigit() else 0
+    max_clients = merged.get("max_clients", DEFAULT_PARAMS["max_clients"])
+    warn_c = max_clients[0] if max_clients != None and len(max_clients) >= 2 else None
+    crit_c = max_clients[1] if max_clients != None and len(max_clients) >= 2 else None
+
+    infotext = "Clients: %d" % number_of_clients
+    levels_text = " Warn/Crit at %s/%s" % (warn_c, crit_c)
+
+    if crit_c != None and number_of_clients >= crit_c:
+        if state == "OK":
+            state = "CRIT"
+        summaries.append(infotext + levels_text)
+    elif warn_c != None and number_of_clients >= warn_c:
+        if state == "OK":
+            state = "WARN"
+        summaries.append(infotext + levels_text)
     else:
-        summary_parts.append("Clients: %d" % num_clients)
-    
-    # Uptime
-    raw_uptime = infos.get("upTime", "down")
-    uptime = _parse_uptime(raw_uptime)
-    if uptime != None:
-        uptime_summary = "Uptime: %d seconds" % uptime
-        if max_uptime != None:
-            warn_uptime = max_uptime[0] if type(max_uptime) == list else max_uptime
-            crit_uptime = max_uptime[1] if type(max_uptime) == list else max_uptime
-            
-            # Upper levels -> CRIT if >= crit, WARN if >= warn
-            if uptime >= crit_uptime:
-                uptime_summary = "Uptime: %d seconds (warn/crit at %d/%d)" % (uptime, warn_uptime, crit_uptime)
-                if state == "OK":
-                    state = "WARN"
-            elif uptime >= warn_uptime:
-                uptime_summary = "Uptime: %d seconds (warn/crit at %d/%d)" % (uptime, warn_uptime, crit_uptime)
-                if state == "OK":
-                    state = "WARN"
-        
-        summary_parts.append(uptime_summary)
+        summaries.append(infotext)
+
+    # ---- Uptime ----
+    max_uptime = merged.get("max_uptime")
+    up_raw = infos.get("upTime", "down")
+    if up_raw != "down":
+        up_tokens = up_raw.split()
+        up_seconds = _parse_uptime_tokens(up_tokens)
+        up_state, up_msg = _check_levels(
+            up_seconds, max_uptime, "Uptime", _render_timespan
+        )
+        if up_state == "CRIT":
+            if state == "OK":
+                state = "CRIT"
+        elif up_state == "WARN":
+            if state == "OK":
+                state = "WARN"
+        if up_msg != "":
+            summaries.append(up_msg)
     else:
-        summary_parts.append("Uptime: down")
-    
-    # Additional information
-    additional_fields = [
-        "eth0LLDPPort", "eth0LLDPSysName", "hive", "hiveOS", "hwmodel",
-        "serialNumber", "nodeId", "location", "networkPolicy"
-    ]
-    extra_info = []
-    for field in additional_fields:
-        if field in infos and infos[field] != "-":
-            extra_info.append("%s: %s" % (field, infos[field]))
-    if extra_info:
-        summary_parts.append(", ".join(extra_info))
-    
-    # Build summary
-    summary = ", ".join(summary_parts)
-    
-    # Metrics
-    metrics = {"client_count": num_clients}
-    if uptime != None:
-        metrics["uptime"] = uptime
-    
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+        summaries.append("Uptime: down")
+
+    # ---- Additional information ----
+    add_parts = []
+    for key in ADDITIONAL_INFORMATION:
+        val = infos.get(key)
+        if val != None and val != "-":
+            add_parts.append("%s: %s" % (key, val))
+    if len(add_parts) > 0:
+        summaries.append(", ".join(add_parts))
+
+    msg = "; ".join(summaries)
+    metrics = {"client_count": number_of_clients}
+
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": state,
+            "metrics": metrics,
+            "details": msg,
+        },
+    }

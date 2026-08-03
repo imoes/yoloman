@@ -1,17 +1,16 @@
-BASE_OID = ".1.3.6.1.4.1.5951.4.1.3.1.1"
-BASE_OID_DOT = ".1.3.6.1.4.1.5951.4.1.3.1.1."
+# ===== netscaler_vserver — Checkmk SNMP check, read-only Starlark =====
 
-VSERVER_STATES = {
-    "0": (1, "unknown"),
-    "1": (2, "down"),
-    "2": (1, "unknown"),
-    "3": (1, "busy"),
-    "4": (1, "out of service"),
-    "5": (1, "transition to out of service"),
-    "7": (0, "up"),
+NETSCALER_STATES = {
+    "0": [1, "unknown"],
+    "1": [2, "down"],
+    "2": [1, "unknown"],
+    "3": [1, "busy"],
+    "4": [1, "out of service"],
+    "5": [1, "transition to out of service"],
+    "7": [0, "up"],
 }
 
-VSERVER_TYPES = {
+NETSCALER_TYPES = {
     "0": "http",
     "1": "ftp",
     "2": "tcp",
@@ -44,7 +43,7 @@ VSERVER_TYPES = {
     "69": "tftp",
 }
 
-ENTITY_TYPES = {
+NETSCALER_ENTITYTYPES = {
     "0": "unknown",
     "1": "loadbalancing",
     "2": "loadbalancing group",
@@ -53,186 +52,238 @@ ENTITY_TYPES = {
     "5": "cache redirection",
 }
 
-WANTED_COLS = {
-    "1": True, "2": True, "3": True, "4": True, "5": True,
-    "43": True, "44": True, "45": True, "59": True, "62": True, "64": True,
-}
+NETSCALER_BASE_OID = ".1.3.6.1.4.1.5951.4.1.3.1.1"
+COL_NAME = "1"
+COL_IP = "2"
+COL_PORT = "3"
+COL_TYPE = "4"
+COL_STATE = "5"
+COL_HEALTH = "62"
+COL_ENTITYTYPE = "64"
+COL_REQUEST_RATE = "43"
+COL_RX = "44"
+COL_TX = "45"
+COL_FULL_NAME = "59"
+NETSCALER_DETECT_OID = ".1.3.6.1.2.1.1.1.0"
 
-STATE_NAMES = ["OK", "WARN", "CRIT"]
 
-def _to_int(s, default=0):
-    s = s.strip()
-    if not s:
-        return default
-    neg = s.startswith("-")
-    digits = s[1:] if neg else s
-    if not digits.isdigit():
-        return default
-    return int(s)
+def _safe_int(s):
+    return int(s) if s.isdigit() else 0
 
-def _parse_snmp_val(val_str):
-    colon = val_str.find(": ")
-    if colon >= 0:
-        v = val_str[colon + 2:].strip()
-    else:
-        v = val_str.strip()
-    if v.startswith('"') and v.endswith('"'):
-        v = v[1:-1]
-    return v
 
-def _walk_table(ctx, host, community):
-    res = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, BASE_OID],
-        mutates=False,
-        ok_codes=[0, 1, 2],
-    )
-    rows = {}
+def _safe_float(s):
+    stripped = s.strip()
+    if stripped == "" or stripped == "-":
+        return 0.0
+    dot_seen = False
+    digits_seen = False
+    start = 0
+    if stripped.startswith("-") or stripped.startswith("+"):
+        start = 1
+    for ch_idx in range(start, len(stripped)):
+        ch = stripped[ch_idx]
+        if ch == ".":
+            if dot_seen:
+                return 0.0
+            dot_seen = True
+        elif ch >= "0" and ch <= "9":
+            digits_seen = True
+        else:
+            return 0.0
+    return float(stripped) if digits_seen else 0.0
+
+
+def _parse_walk_line(line):
+    parts = line.split(" ", 1)
+    if len(parts) < 2:
+        return None
+    return parts[0], parts[1].strip()
+
+
+def _walk_table(ctx, params, column_oid):
+    args = ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+            "-Oqn", params.get("host", "localhost"), column_oid]
+    res = ctx.run(args, mutates=False)
+    if res.rc != 0:
+        return []
+    out = []
     for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line.startswith(BASE_OID_DOT):
+        parsed = _parse_walk_line(line)
+        if parsed == None:
             continue
-        eq = line.find(" = ")
-        if eq < 0:
-            continue
-        oid_part = line[:eq]
-        val_str = line[eq + 3:]
-        suffix = oid_part[len(BASE_OID_DOT):]
-        dot = suffix.find(".")
-        if dot < 0:
-            continue
-        col = suffix[:dot]
-        instance = suffix[dot + 1:]
-        if col not in WANTED_COLS:
-            continue
-        v = _parse_snmp_val(val_str)
-        if instance not in rows:
-            rows[instance] = {}
-        rows[instance][col] = v
-    return rows
+        oid, value = parsed
+        idx = oid[len(column_oid):]
+        if idx.startswith("."):
+            idx = idx[1:]
+        out.append([idx, value])
+    return out
 
-def _build_vservers(rows):
-    vservers = {}
-    for instance in rows:
-        cols = rows[instance]
-        name = cols.get("1", "")
-        full_name = cols.get("59", "")
-        ip = cols.get("2", "0.0.0.0")
-        port = cols.get("3", "0")
-        svr_type = cols.get("4", "0")
-        svr_state = cols.get("5", "0")
-        svr_health_str = cols.get("62", "0")
-        svr_entity = cols.get("64", "0")
-        req_rate_str = cols.get("43", "0")
-        rx_str = cols.get("44", "0")
-        tx_str = cols.get("45", "0")
 
-        display_name = full_name if full_name else name
-        if not display_name:
+def _column_map(ctx, params, column_oid):
+    rows = _walk_table(ctx, params, column_oid)
+    m = {}
+    for idx, value in rows:
+        m[idx] = value
+    return m
+
+
+def _gather_vservers(ctx, params, base_oid):
+    name_rows = _walk_table(ctx, params, base_oid + "." + COL_NAME)
+    cols = {}
+    col_oids = [COL_NAME, COL_IP, COL_PORT, COL_TYPE, COL_STATE, COL_HEALTH,
+                COL_ENTITYTYPE, COL_REQUEST_RATE, COL_RX, COL_TX, COL_FULL_NAME]
+    for c in col_oids:
+        cols[c] = _column_map(ctx, params, base_oid + "." + c)
+
+    indices = []
+    seen = {}
+    for idx, value in name_rows:
+        if idx in seen:
             continue
+        seen[idx] = True
+        indices.append(idx)
 
-        state_entry = VSERVER_STATES.get(svr_state, (1, "unknown"))
-        entity_type = ENTITY_TYPES.get(svr_entity, "unknown (%s)" % svr_entity)
-        protocol = VSERVER_TYPES.get(svr_type, "service unknown (%s)" % svr_type)
+    servers = []
+    for idx in indices:
+        name = cols[COL_NAME].get(idx, "")
+        ip = cols[COL_IP].get(idx, "0.0.0.0")
+        port = cols[COL_PORT].get(idx, "0")
+        svr_type = cols[COL_TYPE].get(idx, "0")
+        svr_state = cols[COL_STATE].get(idx, "0")
+        svr_health = cols[COL_HEALTH].get(idx, "0")
+        svr_entitytype = cols[COL_ENTITYTYPE].get(idx, "0")
+        req_rate = cols[COL_REQUEST_RATE].get(idx, "0")
+        rx_bytes = cols[COL_RX].get(idx, "0")
+        tx_bytes = cols[COL_TX].get(idx, "0")
+        full_name = cols[COL_FULL_NAME].get(idx, "")
 
-        vs = {
+        state_entry = NETSCALER_STATES.get(svr_state, [1, "unknown"])
+        entity_type = NETSCALER_ENTITYTYPES.get(svr_entitytype, "unknown (%s)" % svr_entitytype)
+        proto = NETSCALER_TYPES.get(svr_type, "service unknown (%s)" % svr_type)
+        socket = ip + ":" + port
+
+        vserver = {
             "service_state": state_entry,
             "entity_service_type": entity_type,
-            "protocol": protocol,
-            "socket": "%s:%s" % (ip, port),
-            "request_rate": _to_int(req_rate_str),
-            "rx_bytes": _to_int(rx_str),
-            "tx_bytes": _to_int(tx_str),
+            "protocol": proto,
+            "socket": socket,
+            "request_rate": _safe_int(req_rate),
+            "rx_bytes": _safe_int(rx_bytes),
+            "tx_bytes": _safe_int(tx_bytes),
         }
+        if svr_entitytype in ("1", "2"):
+            vserver["health"] = _safe_float(svr_health)
 
-        if svr_entity == "1" or svr_entity == "2":
-            vs["health"] = float(_to_int(svr_health_str))
+        item_name = full_name or name
+        if item_name == "":
+            item_name = name
+        servers.append([item_name, vserver])
 
-        vservers[display_name] = vs
-    return vservers
+    return servers
+
+
+def _is_netscaler(ctx, params):
+    args = ["snmpget", "-v2c", "-c", params.get("community", "public"),
+            "-Oqv", params.get("host", "localhost"), NETSCALER_DETECT_OID]
+    res = ctx.run(args, mutates=False)
+    if res.rc != 0:
+        return False
+    return "citrix" in res.stdout.lower()
+
 
 def main(ctx, params):
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-
-    rows = _walk_table(ctx, host, community)
-
-    if params.get("_discover"):
-        vservers = _build_vservers(rows)
-        discovery = []
-        for name in vservers:
-            vs = vservers[name]
-            if vs["entity_service_type"] == "loadbalancing group":
-                continue
-            metrics = ["request_rate", "if_in_octets", "if_out_octets"]
-            if "health" in vs:
-                metrics = ["health_perc"] + metrics
-            discovery.append({
-                "item": name,
-                "params": {"health_levels": [100.0, 0.1], "cluster_status": "best"},
-                "metrics": metrics,
-            })
+    if not _is_netscaler(ctx, params):
         return {
             "changed": False,
-            "msg": "discovered %d vservers" % len(discovery),
+            "msg": "NetScaler device not detected at " + params.get("host", "localhost"),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    if params.get("_discover"):
+        servers = _gather_vservers(ctx, params, NETSCALER_BASE_OID)
+        discovery = []
+        for item_name, vserver in servers:
+            if vserver.get("entity_service_type") == "loadbalancing group":
+                continue
+            entry = {
+                "item": item_name,
+                "params": {
+                    "health_levels": params.get("health_levels", [100.0, 0.1]),
+                    "cluster_status": params.get("cluster_status", "best"),
+                },
+                "metrics": ["health_perc", "request_rate", "if_in_octets", "if_out_octets"],
+            }
+            discovery.append(entry)
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
             "data": {"discovery": discovery},
         }
 
     item = params.get("item", "")
-    vservers = _build_vservers(rows)
+    servers = _gather_vservers(ctx, params, NETSCALER_BASE_OID)
 
-    if item not in vservers:
+    found = None
+    for item_name, vserver in servers:
+        if vserver.get("entity_service_type") == "loadbalancing group":
+            continue
+        if item_name == item:
+            found = vserver
+            break
+
+    if found == None:
         return {
             "changed": False,
-            "msg": "VServer not found: " + item,
+            "msg": "no such vserver: " + item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    vs = vservers[item]
-    health_levels = params.get("health_levels", [100.0, 0.1])
-    health_warn = float(health_levels[0])
-    health_crit = float(health_levels[1])
+    state_entry = found.get("service_state", [1, "unknown"])
+    state_num = state_entry[0]
+    state_name = state_entry[1]
 
-    svc_state = vs["service_state"]
-    svc_state_num = svc_state[0]
-    svc_state_txt = svc_state[1]
-    overall = svc_state_num
-
-    msg_parts = ["Status: " + svc_state_txt]
-
-    metrics = {
-        "request_rate": float(vs["request_rate"]),
-        "if_in_octets": float(vs["rx_bytes"]),
-        "if_out_octets": float(vs["tx_bytes"]),
-    }
-
-    if "health" in vs:
-        health = vs["health"]
-        if health < health_crit:
-            h_state = 2
-        elif health < health_warn:
-            h_state = 1
-        else:
-            h_state = 0
-        overall = h_state if h_state > overall else overall
-        msg_parts.append("Health: %f%%" % health)
-        metrics["health_perc"] = health
-
-    msg_parts.append("Type: %s, Protocol: %s, Socket: %s" % (
-        vs["entity_service_type"], vs["protocol"], vs["socket"],
-    ))
-    msg_parts.append("Request rate: %d/s" % vs["request_rate"])
-
-    if (overall >= 0) and (overall <= 2):
-        state_str = STATE_NAMES[overall]
+    if state_num == 0:
+        state = "OK"
+    elif state_num == 1:
+        state = "WARN"
     else:
-        state_str = "UNKNOWN"
+        state = "CRIT"
+
+    metrics = {}
+    details_lines = []
+
+    if found.get("health") != None and found.get("entity_service_type") in ("loadbalancing", "loadbalancing group"):
+        health = found["health"]
+        metrics["health_perc"] = health
+        details_lines.append("Health: %f%%" % health)
+    else:
+        details_lines.append("Type: %s, Protocol: %s, Socket: %s" % (
+            found.get("entity_service_type", "unknown"),
+            found.get("protocol", "unknown"),
+            found.get("socket", "unknown"),
+        ))
+
+    req_rate = found.get("request_rate", 0)
+    metrics["request_rate"] = float(req_rate)
+    details_lines.append("Request rate: %s/s" % str(req_rate))
+
+    rx = found.get("rx_bytes", 0)
+    tx = found.get("tx_bytes", 0)
+    metrics["if_in_octets"] = float(rx)
+    metrics["if_out_octets"] = float(tx)
+    details_lines.append("In: %s Bit/s" % str(rx))
+    details_lines.append("Out: %s Bit/s" % str(tx))
+
+    msg = "Status: %s" % state_name
+    if found.get("health") != None:
+        msg = msg + ", Health: %f%%" % found["health"]
 
     return {
         "changed": False,
-        "msg": ", ".join(msg_parts),
+        "msg": msg,
         "data": {
-            "state": state_str,
+            "state": state,
             "metrics": metrics,
-            "details": "",
+            "details": "\n".join(details_lines),
         },
     }

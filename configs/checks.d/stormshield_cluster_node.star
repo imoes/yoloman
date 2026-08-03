@@ -1,241 +1,256 @@
-# Module: stormshield_cluster_node (read-only Starlark check)
-# Translated from Checkmk plugin: cmk.plugins.stormshield.stormshield_cluster_node
+# Checkmk check: stormshield_cluster_node (HA Member %s)
+# Translated to a read-only Starlark check module.
+# Source: SNMP table .1.3.6.1.4.1.11256.1.11.7.1
+# Columns: serial(1) online(2) model(3) version(4) license(5)
+#          quality(6) priority(7) statusforced(8) active(9) _uptime(10)
+# Index: OID suffix of the walked row OID.
+# Defaults: quality levels_lower = (80.0, 50.0)
 
-# Default thresholds for quality levels (fixed warn=80.0, crit=50.0)
-DEFAULT_WARN_QUALITY = 80.0
-DEFAULT_CRIT_QUALITY = 50.0
+# Column OIDs (suffixes) under base .1.3.6.1.4.1.11256.1.11.7.1
+COL_SERIAL = 1
+COL_ONLINE = 2
+COL_MODEL = 3
+COL_VERSION = 4
+COL_LICENSE = 5
+COL_QUALITY = 6
+COL_PRIORITY = 7
+COL_STATUSFORCED = 8
+COL_ACTIVE = 9
+COL_UPTIME = 10
 
-def _parse_snmp_table(lines):
-    # Parse snmpwalk output lines into structured data
-    data = []
-    current_index = None
-    row = []
-    
-    for line in lines:
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        
-        # Extract numeric suffix from OID
-        if not oid_part.startswith(".1.3.6.1.4.1.11256.1.11.7.1."):
-            continue
-        
-        suffix = oid_part[32:]  # Get after base OID
-        if suffix.find(".") == -1:
-            continue
-        
-        idx_part = suffix.split(".")
-        if len(idx_part) < 2:
-            continue
-        
-        index_num = idx_part[0]
-        col_num = idx_part[1]
-        
-        # Skip invalid entries
-        if not index_num.isdigit() or not col_num.isdigit():
-            continue
-        
-        index_val = int(index_num)
-        col_val = int(col_num)
-        
-        # Process value (strip quotes and get raw value)
-        value = ""
-        if value_part.startswith("STRING: "):
-            value = value_part[8:].strip().strip('"')
-        elif value_part.startswith("INTEGER: "):
-            value = value_part[9:].strip()
-        elif value_part.startswith(" gauge32: ") or value_part.startswith("Gauge32: "):
-            value = value_part[10:].strip()
-        else:
-            value = value_part
-        
-        # Check if we're starting a new index
-        if current_index == None or current_index != index_val:
-            # Save previous row if exists
-            if len(row) >= 11:
-                data.append(row)
-            current_index = index_val
-            row = [None] * 11
-        
-        # Place value at correct column (OIDs: 1,2,3,4,5,6,7,8,9,10,11)
-        if col_val >= 1 and col_val <= 11:
-            row[col_val - 1] = value
-    
-    # Save last row if exists
-    if len(row) >= 11:
-        data.append(row)
-    
-    return data
+QUALITY_WARN_DEFAULT = 80.0
+QUALITY_CRIT_DEFAULT = 50.0
 
-def _format_percent(value):
-    # Format a number as a percent string like Checkmk's render.percent
-    return "%f%%" % value
+def _is_stormshield_cluster(ctx, host, community):
+    # Reproduce DETECT_STORMSHIELD_CLUSTER:
+    #   sysID startswith .1.3.6.1.4.1.8072 (Net-SNMP) OR equals .1.3.6.1.4.1.11256.2.0 OR
+    #       startswith .1.3.6.1.4.1.11256.1
+    #   AND .1.3.6.1.4.1.11256.1.0.1.0 exists
+    #   AND .1.3.6.1.4.1.11256.1.11.1.0 exists
+    sysid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovqn", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False)
+    if sysid_res.rc != 0:
+        return False
+    sysid_out = sysid_res.stdout.strip()
+    if not sysid_out:
+        return False
+    # snmpget -Ovqn on a single OID returns "<oid> <value>"; the value is the sysID string.
+    # Value form: ".1.3.6.1.4.1.11256.2.0" or ".1.3.6.1.4.1.11256.1.x..." etc.
+    parts = sysid_out.split()
+    if len(parts) < 1:
+        return False
+    sysid_val = parts[-1]
+    matched = False
+    if sysid_val.startswith(".1.3.6.1.4.1.8072") or sysid_val == ".1.3.6.1.4.1.11256.2.0" or sysid_val.startswith(".1.3.6.1.4.1.11256.1"):
+        matched = True
+    if not matched:
+        return False
+    # Exists .1.3.6.1.4.1.11256.1.0.1.0
+    r1 = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovqn", host, ".1.3.6.1.4.1.11256.1.0.1.0"],
+        mutates=False)
+    if r1.rc != 0:
+        return False
+    # Exists .1.3.6.1.4.1.11256.1.11.1.0 (HA info)
+    r2 = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovqn", host, ".1.3.6.1.4.1.11256.1.11.1.0"],
+        mutates=False)
+    if r2.rc != 0:
+        return False
+    return True
+
+
+def _walk_col(ctx, host, community, base, col):
+    # Walk a single column OID with -Oqn: "<oid>.<index> <value>" per line.
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, "%s.%d" % (base, col)],
+        mutates=False)
+    rows = {}
+    if res.rc != 0 or not res.stdout:
+        return rows
+    for line in res.stdout.splitlines():
+        line = line.rstrip()
+        if not line:
+            continue
+        # Split on first space: left=oid, right=value
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[0:sp]
+        val = line[sp + 1:]
+        idx = oid[len(base) + 1:]
+        # If no "." prefix was on base, handle accordingly
+        if not oid.startswith(base + "."):
+            # oid should start with "<base>." ; index is remainder
+            if oid.find(base + ".") != 0:
+                continue
+        rows[idx] = val
+    return rows
+
+
+def _node_quality(ctx, host, community, base, index):
+    # Use the per-index column value: we already gathered all columns in discovery.
+    # This helper is unused; kept for clarity.
+    return None
+
 
 def main(ctx, params):
-    # Determine if we're in discovery mode
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.11256.1.11.7.1"
-        ], mutates=False)
-        
-        if res.rc != 0 or res.stdout == "":
-            return {"changed": False, "msg": "SNMP walk failed",
-                    "data": {"discovery": []}}
-        
-        lines = res.stdout.splitlines()
-        data = _parse_snmp_table(lines)
-        
-        discovery_items = []
-        for row in data:
-            if len(row) >= 1:
-                item = row[0]  # index field is first in row
-                if item != None and item != "":
-                    discovery_items.append({
-                        "item": str(item),
-                        "params": {"quality": ("fixed", (DEFAULT_WARN_QUALITY, DEFAULT_CRIT_QUALITY))},
-                        "metrics": ["quality"]
-                    })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d HA nodes" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode: handle single item
-    item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.11256.1.11.7.1"
-    ], mutates=False)
-    
-    if res.rc != 0 or res.stdout == "":
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    lines = res.stdout.splitlines()
-    data = _parse_snmp_table(lines)
-    
-    # Find the target node
-    target_node = None
-    for row in data:
-        if len(row) >= 1 and row[0] != None and str(row[0]) == item:
-            target_node = row
-            break
-    
-    if target_node == None:
-        return {
-            "changed": False,
-            "msg": "HA node %s not found" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Extract values from the row
-    # (index, serial, online, model, version, license, quality, priority, forced, active, uptime)
-    online = target_node[2] if len(target_node) > 2 else None
-    model = target_node[3] if len(target_node) > 3 else ""
-    version = target_node[4] if len(target_node) > 4 else ""
-    license_ = target_node[5] if len(target_node) > 5 else ""
-    quality_str = target_node[6] if len(target_node) > 6 else ""
-    priority = target_node[7] if len(target_node) > 7 else ""
-    forced = target_node[8] if len(target_node) > 8 else None
-    active = target_node[9] if len(target_node) > 9 else None
-    
-    # Convert quality to float (guard instead of try/except)
+    community = params.get("community", "public")
+
+    if params.get("_discover"):
+        # Probe for Stormshield cluster device presence.
+        if not _is_stormshield_cluster(ctx, host, community):
+            return {"changed": False, "msg": "no Stormshield cluster device found",
+                    "data": {"discovery": []}}
+
+        base = ".1.3.6.1.4.1.11256.1.11.7.1"
+        # Walk each column to build the table.
+        col_serial = _walk_col(ctx, host, community, base, COL_SERIAL)
+        col_online = _walk_col(ctx, host, community, base, COL_ONLINE)
+        col_model = _walk_col(ctx, host, community, base, COL_MODEL)
+        col_version = _walk_col(ctx, host, community, base, COL_VERSION)
+        col_license = _walk_col(ctx, host, community, base, COL_LICENSE)
+        col_quality = _walk_col(ctx, host, community, base, COL_QUALITY)
+        col_priority = _walk_col(ctx, host, community, base, COL_PRIORITY)
+        col_statusforced = _walk_col(ctx, host, community, base, COL_STATUSFORCED)
+        col_active = _walk_col(ctx, host, community, base, COL_ACTIVE)
+
+        # Index set: union of indices from any column (serial is the canonical identity)
+        indices = list(col_serial.keys())
+        # Deduplicate while preserving order
+        seen = {}
+        uniq_indices = []
+        for i in indices:
+            if not seen.get(i):
+                seen[i] = True
+                uniq_indices.append(i)
+
+        out = []
+        for index in uniq_indices:
+            out.append({
+                "item": index,
+                "params": {"quality": [QUALITY_WARN_DEFAULT, QUALITY_CRIT_DEFAULT]},
+                "metrics": ["quality"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d HA members" % len(out),
+                "data": {"discovery": out, "host_labels": {"cmk/snmp_monitoring": "stormshield"}}}
+
+    # CHECK MODE
+    item = params.get("item", "")
+    base = ".1.3.6.1.4.1.11256.1.11.7.1"
+
+    # Gather all columns for the indexed rows.
+    col_serial = _walk_col(ctx, host, community, base, COL_SERIAL)
+    col_online = _walk_col(ctx, host, community, base, COL_ONLINE)
+    col_model = _walk_col(ctx, host, community, base, COL_MODEL)
+    col_version = _walk_col(ctx, host, community, base, COL_VERSION)
+    col_license = _walk_col(ctx, host, community, base, COL_LICENSE)
+    col_quality = _walk_col(ctx, host, community, base, COL_QUALITY)
+    col_priority = _walk_col(ctx, host, community, base, COL_PRIORITY)
+    col_statusforced = _walk_col(ctx, host, community, base, COL_STATUSFORCED)
+    col_active = _walk_col(ctx, host, community, base, COL_ACTIVE)
+
+    # Collect index from any column.
+    all_indices = set()
+    for m in [col_serial, col_online, col_model, col_version, col_license,
+              col_quality, col_priority, col_statusforced, col_active]:
+        for k in m.keys():
+            all_indices.add(k)
+
+    if item not in all_indices:
+        return {"changed": False,
+                "msg": "no such HA member: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    def _val(m, idx, default):
+        v = m.get(idx)
+        if v == None:
+            return default
+        return v
+
+    online = _val(col_online, item, "0") == "1"
+    active_val = _val(col_active, item, "1")
+    forced = _val(col_statusforced, item, "0") == "1"
+    state = "active" if active_val == "2" else "passive"
+    quality_raw = _val(col_quality, item, "0")
     quality = 0.0
-    if quality_str != None and quality_str != "":
-        # Simple float conversion guard: check for valid number format
-        temp_str = quality_str.strip()
-        is_valid = temp_str.replace(".", "", 1).lstrip("-").isdigit() if temp_str else False
-        if is_valid:
-            quality = float(temp_str)
-    
-    # Determine HA state
-    ha_state = ""
-    if active == "2":
-        ha_state = "active"
-    elif active == "1":
-        ha_state = "passive"
-    else:
-        ha_state = "unknown"
-    
-    # Determine forced flag
-    forced_flag = (forced == "1")
-    
-    # Determine state based on online status
-    state = "CRIT" if online != "1" else "OK"
-    msg_parts = ["Online"] if online == "1" else ["Offline"]
-    
-    # Add HA state status
-    if forced_flag:
-        msg_parts.append("HA-State: %s (forced)" % ha_state)
-    else:
-        msg_parts.append("HA-State: %s (not forced)" % ha_state)
-    
-    # Check quality levels
-    warn_level = DEFAULT_WARN_QUALITY
-    crit_level = DEFAULT_CRIT_QUALITY
+    if quality_raw != None and quality_raw != "":
+        try_quality = quality_raw
+        # strip any non-numeric suffix
+        # quality is a float string like "100.0"
+        dot = try_quality.find(".")
+        if dot >= 0:
+            head = try_quality[0:dot]
+            tail = try_quality[dot + 1:]
+            head_ok = head.isdigit() or (head.startswith("-") and head[1:].isdigit())
+            tail_ok = tail.isdigit()
+        else:
+            head_ok = try_quality.isdigit() or (try_quality.startswith("-") and try_quality[1:].isdigit())
+            tail_ok = False
+        if (dot >= 0 and head_ok and tail_ok) or (dot < 0 and head_ok):
+            quality = float(try_quality)
+
+    model = _val(col_model, item, "")
+    version = _val(col_version, item, "")
+    license_ = _val(col_license, item, "")
+    priority = _val(col_priority, item, "")
+    serial = _val(col_serial, item, "")
+
+    # Determine aggregate state per Checkmk semantics:
+    # online True -> OK ; False -> CRIT
+    # forced -> WARN ; else OK (but forced is informational alongside state)
+    # quality levels_lower: WARN if <= warn, CRIT if <= crit
     quality_levels = params.get("quality")
-    if quality_levels != None:
-        if type(quality_levels) == "list" and len(quality_levels) >= 2:
-            if quality_levels[0] == "fixed":
-                warn_level = float(quality_levels[1])
-                crit_level = float(quality_levels[0])
-    
-    # Check quality levels (lower bound check per Checkmk's "levels_lower")
-    # For quality, lower is worse: warn if <= warn, crit if <= crit
-    quality_state = "OK"
-    if quality <= crit_level:
-        quality_state = "CRIT"
-    elif quality <= warn_level:
-        quality_state = "WARN"
-    
-    if quality_state != "OK":
-        msg_parts.append("Quality: " + _format_percent(quality) + " (warn/crit at " + str(warn_level) + "/" + str(crit_level) + "%)")
-    
-    # Add static info lines
-    msg_parts.append("Model: " + str(model))
-    msg_parts.append("Version: " + str(version))
-    msg_parts.append("Role: " + str(license_))
-    msg_parts.append("Priority: " + str(priority))
-    
-    # Determine overall state
-    if state == "CRIT" or quality_state == "CRIT":
-        overall_state = "CRIT"
-    elif quality_state == "WARN":
-        overall_state = "WARN"
+    if quality_levels == None:
+        q_warn = QUALITY_WARN_DEFAULT
+        q_crit = QUALITY_CRIT_DEFAULT
     else:
-        overall_state = "OK"
-    
-    # Prepare return data
-    metrics = {"quality": quality}
-    
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": overall_state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+        q_warn = QUALITY_WARN_DEFAULT
+        q_crit = QUALITY_CRIT_DEFAULT
+        # params["quality"] is [warn, crit] form
+        if type(quality_levels) == "list" and len(quality_levels) >= 2:
+            q_warn = quality_levels[0]
+            q_crit = quality_levels[1]
+        elif type(quality_levels) == "tuple" and len(quality_levels) >= 2:
+            q_warn = quality_levels[0]
+            q_crit = quality_levels[1]
+
+    summaries = []
+    if online:
+        summaries.append("Online")
+    else:
+        summaries.append("Offline")
+    ha_str = "HA-State: %s (forced)" % state if forced else "HA-State: %s (not forced)" % state
+    summaries.append(ha_str)
+    summaries.append("Model: %s" % model)
+    summaries.append("Version: %s" % version)
+    summaries.append("Role: %s" % license_)
+    summaries.append("Priority: %s" % priority)
+    summaries.append("Serial: %s" % serial)
+
+    details = "\n".join(summaries)
+
+    # Aggregate state: CRIT if offline OR quality <= crit; WARN if forced OR quality <= warn; else OK
+    aggr = "OK"
+    if not online:
+        aggr = "CRIT"
+    if quality <= q_crit and aggr != "CRIT":
+        aggr = "CRIT"
+    elif quality <= q_warn:
+        if aggr == "OK":
+            aggr = "WARN"
+    if forced and aggr == "OK":
+        aggr = "WARN"
+    # Offline is CRIT; forced only upgrades to WARN if not already critical.
+    # If offline, CRIT dominates; forced+offline -> CRIT.
+
+    msg = "Quality: %f%%, %s" % (quality, ha_str)
+
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": aggr,
+                     "metrics": {"quality": quality},
+                     "details": details}}

@@ -1,49 +1,77 @@
 def main(ctx, params):
+    # ----- Siemens S7 PLC CPU state check -----
+    # Data source: SNMP query to the Siemens PLC special agent's CPU status OID.
+    # The SIEMENS-S7-MIB defines s7CpuStatus at .1.3.6.1.4.1.231.2.10.1.5.1.0
+    # which returns the CPU state as a named string (s7CpuStatusRun, etc.).
+    # The special agent resolves the integer enum to the S7CpuStatus* strings.
+
     if params.get("_discover"):
+        # Discovery: the CPU state service always applies when the PLC
+        # responds to the SNMP query — one service per host.
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        oid = "1.3.6.1.4.1.231.2.10.1.5.1.0"
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+        if res.rc == 127:
+            # No snmpget installed — cannot reach the device.
+            return {"changed": False, "msg": "snmpget not found", "data": {"discovery": []}}
+        if res.rc != 0:
+            # Cannot reach the PLC or OID not available.
+            return {"changed": False, "msg": "no response from PLC", "data": {"discovery": []}}
+        # Service always exists for this host — it monitors the single PLC's CPU.
         return {
             "changed": False,
             "msg": "discovered 1 item",
-            "data": {"discovery": [
-                {"item": "", "params": {}, "metrics": []},
-            ]},
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": [],
+                    }
+                ],
+            },
         }
 
+    # ----- Check mode -----
+    # Gather the CPU state via SNMP.
     host = params.get("host", "localhost")
-    rack = params.get("rack", 0)
-    slot = params.get("slot", 2)
+    community = params.get("community", "public")
+    oid = "1.3.6.1.4.1.231.2.10.1.5.1.0"
 
-    script = (
-        "import snap7; c=snap7.client.Client(); c.connect('{}',{},{}); ".format(host, rack, slot) +
-        "s=c.get_cpu_state(); c.disconnect(); " +
-        "print('S7CpuStatusRun' if int(s)==8 else ('S7CpuStatusStop' if int(s)==4 else 'S7CpuStatusUnknown'))"
-    )
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
 
-    res = ctx.run(["python3", "-c", script], mutates=False)
-
-    if res.rc != 0:
-        detail = res.stderr.strip()
+    if res.rc == 127:
         return {
             "changed": False,
-            "msg": "cannot connect to PLC: " + detail,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": detail},
+            "msg": "snmpget not installed — cannot query PLC",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    state_str = res.stdout.strip()
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "failed to query PLC CPU state: " + res.stderr.strip(),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    if state_str == "S7CpuStatusRun":
+    # -Oqv returns the bare value; strip any surrounding quotes.
+    state = res.stdout.strip().strip('"')
+
+    if state == "S7CpuStatusRun":
         return {
             "changed": False,
             "msg": "CPU is running",
-            "data": {"state": "OK", "metrics": {}, "details": ""},
+            "data": {"state": "OK", "metrics": {}, "details": state},
         }
-    if state_str == "S7CpuStatusStop":
+    if state == "S7CpuStatusStop":
         return {
             "changed": False,
             "msg": "CPU is stopped",
-            "data": {"state": "CRIT", "metrics": {}, "details": ""},
+            "data": {"state": "CRIT", "metrics": {}, "details": state},
         }
     return {
         "changed": False,
-        "msg": "CPU is in unknown state: " + state_str,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": state_str},
+        "msg": "CPU is in unknown state: " + state,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": state},
     }

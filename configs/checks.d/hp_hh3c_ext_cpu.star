@@ -1,179 +1,170 @@
-# Translated from Checkmk plugin: checkmk.hp_hh3c_ext_cpu
-# Reads SNMP data from HP/H3C devices to report CPU utilization per module
+# ===== check plugin: hp_hh3c_ext_cpu =====
+# Monitors CPU utilization (%) on HH3C (HP) devices via SNMP.
 
-# SNMP OIDs for hp_hh3c_ext section (temperature, CPU, memory, status)
-_BASE_OID_EXT = ".1.3.6.1.4.1.25506.2.6.1.1.1.1"
-_BASE_OID_ENTITY = ".1.3.6.1.2.1.47.1.1.1.1"
+_CPU_TABLE_OID = ".1.3.6.1.4.1.25506.2.6.1.1.1.1"
+_CPU_ADMIN_COL = "2"
+_CPU_OPER_COL = "3"
+_CPU_CPU_COL = "6"
+_CPU_MEM_USAGE_COL = "8"
+_CPU_TEMP_COL = "12"
+_CPU_MEM_SIZE_COL = "10"
 
-# SNMP OIDs extracted from SNMPTree definitions:
-# base=".1.3.6.1.4.1.25506.2.6.1.1.1.1"
-#   oids=[OIDEnd(), "2", "3", "6", "8", "12", "10"]
-#   index, adminState, operState, cpu, memUsage, temperature, memSize
-# base=".1.3.6.1.2.1.47.1.1.1.1"
-#   oids=[OIDEnd(), OIDCached("2")] -> entityName (index+1)
+_ENTITY_TABLE_OID = ".1.3.6.1.2.1.47.1.1.1.1"
+_ENTITY_NAME_COL = "2"
 
-def _snmp_walk(ctx, community, host, base_oid, oid_suffixes):
-    """Perform snmpwalk on a base OID + each suffix and return parsed lines."""
-    lines = []
-    for suffix in oid_suffixes:
-        full_oid = base_oid + "." + suffix
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, full_oid], mutates=False)
-        if res.rc == 0:
-            lines.extend(res.stdout.splitlines())
-    return lines
+_DEFAULT_WARN = 80
+_DEFAULT_CRIT = 90
 
-def _parse_entity_names(ctx, community, host):
-    """Parse entity name mapping (index -> name) from entityMIB."""
-    lines = _snmp_walk(ctx, community, host, _BASE_OID_ENTITY, ["2"])
-    mapping = {}
-    for line in lines:
-        # Format: .1.3.6.1.2.1.47.1.1.1.1.2.<index> = STRING: "<name>"
-        if " = " not in line:
+
+def _to_int(s):
+    return int(s) if s.isdigit() else 0
+
+
+def _gather_section(ctx, host, community):
+    cols = {
+        _CPU_ADMIN_COL: "admin",
+        _CPU_OPER_COL: "oper",
+        _CPU_CPU_COL: "cpu",
+        _CPU_MEM_USAGE_COL: "mem_usage",
+        _CPU_TEMP_COL: "temp",
+        _CPU_MEM_SIZE_COL: "mem_size",
+    }
+
+    col_data = {}
+    for col_oid, col_name in cols.items():
+        col_oid_full = _CPU_TABLE_OID + "." + col_oid
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oid_full],
+            mutates=False,
+        )
+        col_data[col_name] = {}
+        if res.rc != 0 or not res.stdout:
             continue
-        oid_part, val_part = line.rsplit(" = ", 1)
-        # Extract index from end of OID
-        idx_str = oid_part.rsplit(".", 1)[-1]
-        # Strip quotes and leading/trailing whitespace from value
-        name = val_part.strip().strip('"')
-        if name != "" and idx_str.isdigit():
-            mapping[idx_str] = name
-    return mapping
-
-def _parse_ext_section(ctx, community, host):
-    """Parse the hp_hh3c_ext section (CPU, temp, memory, states)."""
-    entity_names = _parse_entity_names(ctx, community, host)
-    
-    # Fetch all required OIDs for the extension table
-    base_oid = _BASE_OID_EXT
-    suffixes = ["1", "2", "3", "6", "8", "12", "10"]  # index, adminState, operState, cpu, memUsage, temperature, memSize
-    
-    # Perform a single snmpwalk per OID suffix
-    data_by_index = {}
-    for suffix in suffixes:
-        full_oid = base_oid + "." + suffix
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, full_oid], mutates=False)
-        if res.rc != 0:
-            continue
+        prefix = col_oid_full + "."
         for line in res.stdout.splitlines():
-            if " = " not in line:
+            sp = line.find(" ")
+            if sp == -1:
                 continue
-            oid_part, val_part = line.rsplit(" = ", 1)
-            idx_str = oid_part.rsplit(".", 1)[-1]
-            val_str = val_part.strip()
-            if not idx_str.isdigit():
+            oid_part = line[:sp]
+            val = line[sp + 1:]
+            if oid_part.startswith(prefix):
+                idx = oid_part[len(prefix):]
+                col_data[col_name][idx] = val
+
+    ent_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+         _ENTITY_TABLE_OID + "." + _ENTITY_NAME_COL],
+        mutates=False,
+    )
+    entity_names = {}
+    if ent_res.rc == 0 and ent_res.stdout:
+        ent_prefix = _ENTITY_TABLE_OID + "."
+        name_suffix = "." + _ENTITY_NAME_COL
+        for line in ent_res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
                 continue
-            if idx_str not in data_by_index:
-                data_by_index[idx_str] = {}
-            # Map suffix to field name
-            if suffix == "1":
-                data_by_index[idx_str]["admin"] = val_str
-            elif suffix == "2":
-                data_by_index[idx_str]["oper"] = val_str
-            elif suffix == "3":
-                data_by_index[idx_str]["cpu"] = val_str
-            elif suffix == "6":
-                data_by_index[idx_str]["mem_usage"] = val_str
-            elif suffix == "8":
-                data_by_index[idx_str]["temperature"] = val_str
-            elif suffix == "12":
-                data_by_index[idx_str]["mem_size"] = val_str
+            oid_part = line[:sp]
+            val = line[sp + 1:]
+            if oid_part.startswith(ent_prefix) and oid_part.endswith(name_suffix):
+                suffix = oid_part[len(ent_prefix):]
+                idx = suffix[:-(len(name_suffix))]
+                entity_names[idx] = val
 
-    # Assemble final section
-    section = {}
-    for idx_str, data in data_by_index.items():
-        name = entity_names.get(idx_str, "")
-        if name == "":
-            name = ""
-        key = "%s %s" % (name, idx_str)
-        # Convert numeric fields with guards (no try/except)
-        temp_str = data.get("temperature", "65535")
-        temp = int(temp_str) if temp_str.isdigit() else 65535
-        
-        cpu_str = data.get("cpu", "0")
-        cpu = int(cpu_str) if cpu_str.isdigit() else 0
-        
-        mem_size_str = data.get("mem_size", "0")
-        mem_size = int(mem_size_str) if mem_size_str.isdigit() else 0
-        
-        mem_usage_str = data.get("mem_usage", "0")
-        mem_usage = float(mem_usage_str) if mem_usage_str.replace(".", "").isdigit() else 0.0
+    parsed = {}
+    indices = set(col_data["cpu"].keys())
+    for idx in indices:
+        cpu_val = col_data["cpu"].get(idx, "0")
+        mem_size_val = col_data["mem_size"].get(idx, "0")
+        mem_usage_val = col_data["mem_usage"].get(idx, "0")
+        temp_val = col_data["temp"].get(idx, "65535")
+        admin_val = col_data["admin"].get(idx, "")
+        oper_val = col_data["oper"].get(idx, "")
 
-        section[key] = {
+        mem_total = _to_int(mem_size_val)
+        mem_used = 0.01 * _to_int(mem_usage_val) * mem_total
+        temp = _to_int(temp_val)
+        cpu = _to_int(cpu_val)
+
+        name = entity_names.get(idx, "")
+        item_name = (name + " " + idx) if name else idx
+        parsed.setdefault(item_name, {
             "temp": temp,
             "cpu": cpu,
-            "mem_total": mem_size,
-            "mem_used": 0.01 * mem_usage * mem_size if mem_size > 0 else 0.0,
-            "admin": data.get("admin", "1"),
-            "oper": data.get("oper", "1"),
-        }
-    return section
+            "mem_total": mem_total,
+            "mem_used": mem_used,
+            "admin": admin_val,
+            "oper": oper_val,
+        })
+    return parsed
 
-def _check_cpu_util(ctx, params, cpu_val):
-    """Check CPU utilization using Checkmk-style levels (same logic as check_cpu_util)."""
-    # Default thresholds (check_default_parameters is empty for cpu_utilization_multiitem)
-    warn = params.get("levels", (80.0, 90.0))
-    if len(warn) == 2:
-        warn_val, crit_val = warn
-    else:
-        warn_val = 80.0
-        crit_val = 90.0
 
-    # Apply thresholds
-    if cpu_val >= crit_val:
-        state = "CRIT"
-    elif cpu_val >= warn_val:
-        state = "WARN"
-    else:
-        state = "OK"
-    msg = "CPU %d%%" % cpu_val
-    return state, msg, cpu_val
+def _is_hh3c(ctx, host, community):
+    soid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if soid_res.rc != 0 or not soid_res.stdout:
+        return False
+    soid = soid_res.stdout.strip()
+    return (
+        soid.startswith(".1.3.6.1.4.1.25506.11.1.239") or
+        soid.startswith(".1.3.6.1.4.1.25506.11.1.189") or
+        soid.startswith(".1.3.6.1.4.1.25506.11.1.87")
+    )
+
 
 def main(ctx, params):
-    if params.get("_discover") == True:
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        section = _parse_ext_section(ctx, community, host)
-        
-        # Discovery: yield one item per module where mem_total > 0
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    warn = params.get("warn", _DEFAULT_WARN)
+    crit = params.get("crit", _DEFAULT_CRIT)
+
+    if params.get("_discover"):
+        if not _is_hh3c(ctx, host, community):
+            return {"changed": False, "msg": "not installed", "data": {"discovery": []}}
+
+        section = _gather_section(ctx, host, community)
         discovery = []
-        for item, data in section.items():
+        for name, data in section.items():
             if data["mem_total"] > 0:
-                # CPU item: metrics = ["cpu_util"]
                 discovery.append({
-                    "item": item,
-                    "params": {},  # empty defaults for cpu_utilization_multiitem
+                    "item": name,
+                    "params": {"warn": warn, "crit": crit},
                     "metrics": ["cpu_util"],
                 })
         return {
             "changed": False,
-            "msg": "discovered %d CPU items" % len(discovery),
+            "msg": "discovered %d items" % len(discovery),
             "data": {"discovery": discovery},
         }
-    
-    # Check mode
+
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Parse data on-demand (avoid caching; each invocation gets fresh params)
-    section = _parse_ext_section(ctx, community, host)
+
+    if not _is_hh3c(ctx, host, community):
+        return {
+            "changed": False,
+            "msg": "not an HH3C device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    section = _gather_section(ctx, host, community)
     data = section.get(item)
-    
     if data == None:
         return {
             "changed": False,
-            "msg": "item not found: " + item,
+            "msg": "no such item: " + item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    cpu_val = float(data["cpu"])
-    state, msg, perf_val = _check_cpu_util(ctx, params, cpu_val)
+
+    cpu = data["cpu"]
+    state = "CRIT" if cpu >= crit else ("WARN" if cpu >= warn else "OK")
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "CPU utilization %d%%" % cpu,
         "data": {
             "state": state,
-            "metrics": {"cpu_util": perf_val},
+            "metrics": {"cpu_util": cpu},
             "details": "",
         },
     }

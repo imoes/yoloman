@@ -1,222 +1,174 @@
+# Module: haproxy_frontend
+# FQCN: checkmk.haproxy_frontend
+# Short description: HAProxy Frontend %s
+# Reads the on-host HAProxy stats CSV (via the stats socket or HTTP endpoint)
+# and reproduces the Checkmk haproxy_frontend check: discovery of frontend
+# items, status-level grading (OPEN=OK, STOP=CRIT), and session-total metric.
+
+HAProxyFrontendStatus = {
+    "OPEN": "OPEN",
+    "STOP": "STOP",
+}
+
+DEFAULT_FRONTEND_STATES = {
+    "OPEN": 0,
+    "STOP": 2,
+}
+
+STATUS_COL = 17
+STOT_COL = 7
+TYPE_COL = 32
+
+
+def _get_stats(ctx, params):
+    """Gather HAProxy frontend stats.
+
+    Tries the local HAProxy stats socket first (default /var/run/haproxy.sock),
+    then the stats socket path param, then a CSV stats endpoint.
+    Returns a list of rows (each a list of string fields), or None on failure.
+    """
+    socket_path = params.get("socket_path", "/var/run/haproxy.sock")
+    csv_url = params.get("csv_url")
+
+    if ctx.file_exists(socket_path):
+        res = ctx.run(
+            ["echo", "show stat", "|", "socat", "UNIX-LISTEN:" + socket_path, "-"],
+            mutates=False,
+            ok_codes=[0],
+        )
+        if res.rc == 0 and res.stdout:
+            lines = res.stdout.strip().splitlines()
+            rows = []
+            for line in lines:
+                fields = line.split(",")
+                if len(fields) > 32:
+                    rows.append(fields)
+            return rows
+        return None
+
+    if csv_url:
+        res = ctx.run(["curl", "-s", csv_url], mutates=False, ok_codes=[0])
+        if res.rc == 0 and res.stdout:
+            lines = res.stdout.strip().splitlines()
+            rows = []
+            for line in lines:
+                fields = line.split(",")
+                if len(fields) > 32:
+                    rows.append(fields)
+            return rows
+        return None
+
+    return None
+
+
+def _parse_frontend(rows):
+    """Extract frontend entries from raw stats rows."""
+    frontends = {}
+    for fields in rows:
+        if len(fields) <= 32:
+            continue
+        if fields[TYPE_COL] != "0":
+            continue
+        name = fields[0]
+        status = fields[STATUS_COL]
+        stot_raw = fields[STOT_COL]
+        stot = None
+        if stot_raw.strip().isdigit():
+            stot = int(stot_raw)
+        frontends[name] = {"status": status, "stot": stot}
+    return frontends
+
+
+def _grade_status(status_str, states):
+    """Grade a frontend status string against the states dict."""
+    if status_str not in HAProxyFrontendStatus:
+        return 3
+    level = states.get(status_str)
+    if level == 0:
+        return 0
+    if level == 1:
+        return 1
+    if level == 2:
+        return 2
+    return 3
+
+
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        # We'll use the haproxy stats socket to get data
-        # First check if socat is available
-        res_socat = ctx.run(["which", "socat"])
-        if res_socat.rc != 0:
+        rows = _get_stats(ctx, params)
+        if rows == None:
             return {
                 "changed": False,
-                "msg": "socat not available for HAProxy stats",
-                "data": {"discovery": []}
+                "msg": "no HAProxy frontend data available",
+                "data": {"discovery": []},
             }
-        
-        # Get HAProxy stats via socket
-        haproxy_socket = params.get("haproxy_socket", "/run/haproxy.sock")
-        socket_res = ctx.run(["socat", "stdio", haproxy_socket], mutates=False)
-        
-        if socket_res.rc != 0 or not socket_res.stdout.strip():
-            return {
-                "changed": False,
-                "msg": "Failed to get HAProxy stats",
-                "data": {"discovery": []}
-            }
-        
-        # Parse HAProxy CSV output
-        lines = socket_res.stdout.splitlines()
-        header_line = None
-        header_index = -1
-        for i, line in enumerate(lines):
-            if line.startswith("# pxname") or line.startswith("# frontend,svname"):
-                header_line = line
-                header_index = i
-                break
-        
-        if header_line == None:
-            return {
-                "changed": False,
-                "msg": "Invalid HAProxy stats format",
-                "data": {"discovery": []}
-            }
-        
-        # Parse header to get column indices
-        header = header_line.lstrip("# ").strip().split(",")
-        pxname_idx = -1
-        svname_idx = -1
-        status_idx = -1
-        stot_idx = -1
-        
-        # Find indices safely
-        for idx, col in enumerate(header):
-            if col == "pxname":
-                pxname_idx = idx
-            elif col == "svname":
-                svname_idx = idx
-            elif col == "status":
-                status_idx = idx
-            elif col == "stot":
-                stot_idx = idx
-        
-        # Check if all required indices found
-        if pxname_idx == -1 or svname_idx == -1 or status_idx == -1 or stot_idx == -1:
-            return {
-                "changed": False,
-                "msg": "Missing required columns in HAProxy stats",
-                "data": {"discovery": []}
-            }
-        
-        # Parse data lines
-        frontends = []
-        for line in lines[header_index + 1:]:
-            if not line or line.startswith("#"):
-                continue
-            fields = line.split(",")
-            if len(fields) <= max(pxname_idx, svname_idx, status_idx, stot_idx):
-                continue
-            
-            pxname = fields[pxname_idx].strip()
-            svname = fields[svname_idx].strip()
-            
-            # Only process frontends (svname == "FRONTEND")
-            if svname == "FRONTEND":
-                frontends.append(pxname)
-        
-        # Build discovery result
-        discovery_items = []
-        for name in frontends:
-            # Default parameters as per Checkmk plugin
-            discovery_items.append({
+
+        frontends = _parse_frontend(rows)
+        discovery = []
+        for name, data in frontends.items():
+            discovery.append({
                 "item": name,
-                "params": {
-                    "OPEN": 0,
-                    "STOP": 2,
-                },
-                "metrics": ["session_rate"]
+                "params": dict(DEFAULT_FRONTEND_STATES),
+                "metrics": ["session_rate"],
             })
-        
+
         return {
             "changed": False,
-            "msg": "discovered %d frontends" % len(discovery_items),
-            "data": {"discovery": discovery_items}
+            "msg": "discovered %d frontends" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode - single frontend
-    # Get frontend data
-    res_socat = ctx.run(["which", "socat"])
-    if res_socat.rc != 0:
-        return {
-            "changed": False,
-            "msg": "socat not available for HAProxy stats",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    haproxy_socket = params.get("haproxy_socket", "/run/haproxy.sock")
-    socket_res = ctx.run(["socat", "stdio", haproxy_socket], mutates=False)
-    
-    if socket_res.rc != 0 or not socket_res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "Failed to get HAProxy stats",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse HAProxy CSV output
-    lines = socket_res.stdout.splitlines()
-    header_line = None
-    header_index = -1
-    for i, line in enumerate(lines):
-        if line.startswith("# pxname") or line.startswith("# frontend,svname"):
-            header_line = line
-            header_index = i
-            break
-    
-    if header_line == None:
-        return {
-            "changed": False,
-            "msg": "Invalid HAProxy stats format",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse header to get column indices
-    header = header_line.lstrip("# ").strip().split(",")
-    pxname_idx = -1
-    svname_idx = -1
-    status_idx = -1
-    stot_idx = -1
-    
-    for idx, col in enumerate(header):
-        if col == "pxname":
-            pxname_idx = idx
-        elif col == "svname":
-            svname_idx = idx
-        elif col == "status":
-            status_idx = idx
-        elif col == "stot":
-            stot_idx = idx
-    
-    if pxname_idx == -1 or svname_idx == -1 or status_idx == -1 or stot_idx == -1:
-        return {
-            "changed": False,
-            "msg": "Missing required columns in HAProxy stats",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse data lines
+
     item = params.get("item", "")
-    frontend_data = None
-    
-    for line in lines[header_index + 1:]:
-        if not line or line.startswith("#"):
-            continue
-        fields = line.split(",")
-        if len(fields) <= max(pxname_idx, svname_idx, status_idx, stot_idx):
-            continue
-        
-        pxname = fields[pxname_idx].strip()
-        svname = fields[svname_idx].strip()
-        
-        if svname == "FRONTEND" and pxname == item:
-            status = fields[status_idx].strip()
-            stot_str = fields[stot_idx].strip()
-            stot = int(stot_str) if stot_str.isdigit() else None
-            frontend_data = {"status": status, "stot": stot}
-            break
-    
-    if frontend_data == None:
+    rows = _get_stats(ctx, params)
+    if rows == None:
         return {
             "changed": False,
-            "msg": "Frontend not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "HAProxy not reachable for frontend " + str(item),
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    # Determine state based on status
-    status = frontend_data["status"]
-    default_params = {
-        "OPEN": 0,
-        "STOP": 2,
-    }
-    params_map = params.get("params", {})
-    if not params_map:
-        params_map = default_params
-    
-    if status == "OPEN":
-        state = params_map.get("OPEN", default_params["OPEN"])
-    elif status == "STOP":
-        state = params_map.get("STOP", default_params["STOP"])
+
+    frontends = _parse_frontend(rows)
+    data = frontends.get(item)
+    if data == None:
+        return {
+            "changed": False,
+            "msg": "frontend " + str(item) + " not found",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
+    status_str = data["status"]
+    states = params.get("states", DEFAULT_FRONTEND_STATES)
+    level = _grade_status(status_str, states)
+
+    if level == 0:
+        state = "OK"
+    elif level == 1:
+        state = "WARN"
+    elif level == 2:
+        state = "CRIT"
     else:
-        state = 1  # WARN
-    
-    state_name = "OK" if state == 0 else ("WARN" if state == 1 else ("CRIT" if state == 2 else "UNKNOWN"))
-    
-    # Build summary message
-    msg = "Status: %s" % status
-    
+        state = "UNKNOWN"
+
+    metrics = {}
+    stot = data["stot"]
+    if stot != None:
+        metrics["session_rate"] = stot
+
+    summary = "Status: " + status_str + ", Stot: " + str(stot)
     return {
         "changed": False,
-        "msg": msg,
+        "msg": summary,
         "data": {
-            "state": state_name,
-            "metrics": {},
-            "details": ""
-        }
+            "state": state,
+            "metrics": metrics,
+            "details": "",
+        },
     }

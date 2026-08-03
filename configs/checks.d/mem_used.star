@@ -1,177 +1,147 @@
 def main(ctx, params):
-    # Discovery mode: yield a single service if MemTotal exists
     if params.get("_discover"):
         res = ctx.run(["cat", "/proc/meminfo"], mutates=False)
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "host not supported", "data": {"discovery": []}}
+        lines = res.stdout.splitlines()
         meminfo = {}
-        for line in res.stdout.splitlines():
+        for line in lines:
             parts = line.split()
             if len(parts) >= 2:
                 key = parts[0].rstrip(":")
-                value_str = parts[1]
-                if value_str.isdigit():
-                    meminfo[key] = int(value_str) * 1024  # convert kB to bytes
-                else:
-                    meminfo[key] = 0
-        if "MemTotal" in meminfo:
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {
-                                "levels": [150.0, 200.0],
-                                "average": None
-                            },
-                            "metrics": ["mem_used", "mem_used_percent", "mem_lnx_total_used", "swap_used", "mem_lnx_page_tables"]
-                        }
-                    ]
-                },
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no MemTotal found",
-                "data": {"discovery": []}
-            }
+                val = parts[1]
+                if val.isdigit():
+                    meminfo[key] = int(val)
+        if "MemTotal" not in meminfo:
+            return {"changed": False, "msg": "no memory info", "data": {"discovery": []}}
+        metrics = ["mem_used", "mem_used_percent"]
+        if "SwapFree" in meminfo:
+            metrics.append("swap_used")
+        if "PageTables" in meminfo:
+            metrics.append("mem_lnx_page_tables")
+        return {
+            "changed": False,
+            "msg": "discovered 1 memory item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": {"levels": [150, 200]}, "metrics": metrics}
+                ]
+            },
+        }
 
-    # Check mode for single item (item is always "" for this check)
     item = params.get("item", "")
+    if item != "":
+        return {
+            "changed": False,
+            "msg": "no such item: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     res = ctx.run(["cat", "/proc/meminfo"], mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "/proc/meminfo not readable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    lines = res.stdout.splitlines()
     meminfo = {}
-    for line in res.stdout.splitlines():
+    for line in lines:
         parts = line.split()
         if len(parts) >= 2:
             key = parts[0].rstrip(":")
-            value_str = parts[1]
-            if value_str.isdigit():
-                meminfo[key] = int(value_str) * 1024  # kB to bytes
-            else:
-                meminfo[key] = 0
+            val = parts[1]
+            if val.isdigit():
+                meminfo[key] = int(val)
 
-    # Check required keys exist
     if "MemTotal" not in meminfo:
         return {
             "changed": False,
-            "msg": "Reported total memory is 0 B, this may be caused by the lack of a memory cgroup in the kernel",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "no memory info",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    memtotal_kb = meminfo.get("MemTotal", 0) / 1024.0
-    memtotal_bytes = meminfo.get("MemTotal", 0)
-    memfree_kb = meminfo.get("MemFree", 0) / 1024.0
+    memtotal_kb = float(meminfo["MemTotal"])
+    if memtotal_kb == 0:
+        return {
+            "changed": False,
+            "msg": "Reported total memory is 0 B, this may be caused by the lack of a memory cgroup in the kernel",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    memfree_kb = float(meminfo.get("MemFree", 0))
     memused_kb = memtotal_kb - memfree_kb
 
-    # Caches (Buffers + Cached) in bytes
-    buffers_kb = meminfo.get("Buffers", 0) / 1024.0
-    cached_kb = meminfo.get("Cached", 0) / 1024.0
-    caches_kb = buffers_kb + cached_kb
+    swapused_kb = 0.0
+    swap_used_bytes = 0
+    if "SwapFree" in meminfo:
+        swaptotal_kb = float(meminfo["SwapTotal"])
+        swapfree_kb = float(meminfo["SwapFree"])
+        swapused_kb = swaptotal_kb - swapfree_kb
+        swap_used_bytes = int(swapused_kb * 1024)
+
+    pagetables_kb = 0.0
+    pagetables_bytes = 0
+    if "PageTables" in meminfo:
+        pagetables_kb = float(meminfo["PageTables"])
+        pagetables_bytes = int(pagetables_kb * 1024)
+
+    memtotal_bytes = int(memtotal_kb * 1024)
+    caches_kb = float(meminfo.get("Buffers", 0)) + float(meminfo.get("Cached", 0))
     ramused_kb = memused_kb - caches_kb
+    ramused_bytes = int(ramused_kb * 1024)
 
-    # Swap info
-    swaptotal_bytes = meminfo.get("SwapTotal", 0)
-    swapfree_bytes = meminfo.get("SwapFree", 0)
-    swapused_kb = (swaptotal_bytes - swapfree_bytes) / 1024.0 if swaptotal_bytes > 0 else 0.0
+    totalused_kb = ramused_kb
+    if swap_used_bytes > 0:
+        totalused_kb += swapused_kb
+    if pagetables_bytes > 0:
+        totalused_kb += pagetables_kb
 
-    # Pagetables
-    pagetables_kb = meminfo.get("PageTables", 0) / 1024.0
-
-    # Calculate total used
-    totalused_kb = ramused_kb + swapused_kb + pagetables_kb
-
-    # Levels from params (Checkmk defaults: (150.0, 200.0) in MB)
-    levels = params.get("levels", [150.0, 200.0])
-    warn_mb = float(levels[0]) if len(levels) > 0 else 150.0
-    crit_mb = float(levels[1]) if len(levels) > 1 else 200.0
-
-    # Convert to bytes for comparison
-    warn_bytes = warn_mb * 1024 * 1024
-    crit_bytes = crit_mb * 1024 * 1024
     totalused_bytes = int(totalused_kb * 1024)
+    totalused_mb = totalused_kb / 1024.0
 
-    # Compute state: upper levels (WARN if >= warn, CRIT if >= crit)
-    if totalused_bytes >= crit_bytes:
-        state = "CRIT"
-    elif totalused_bytes >= warn_bytes:
-        state = "WARN"
-    else:
-        state = "OK"
+    used_percent = (100.0 * totalused_bytes / memtotal_bytes) if memtotal_bytes > 0 else 0.0
 
-    # Build details message
-    details_parts = ["RAM"]
-    if swapused_kb > 0:
-        details_parts.append("Swap")
-    if pagetables_kb > 0:
-        details_parts.append("Pagetables")
-    
-    if len(details_parts) == 1:
-        totalused_desc = "RAM"
-    else:
-        totalused_desc = "Total (%s)" % " + ".join(details_parts)
-
-    # Render sizes
-    def format_bytes(b):
-        if b >= 1024 * 1024 * 1024:
-            return "%f GB" % (b / (1024 * 1024 * 1024))
-        elif b >= 1024 * 1024:
-            return "%f MB" % (b / (1024 * 1024))
-        elif b >= 1024:
-            return "%f kB" % (b / 1024)
-        else:
-            return "%d B" % b
-
-    # Build summary
-    infotext = "%s: %s" % (totalused_desc, format_bytes(totalused_bytes))
-
-    # Levels text (only add if non-default)
-    levels_text = ""
-    if (warn_mb != 150.0 or crit_mb != 200.0) and state != "OK":
-        levels_text = "warn/crit at %f MB/%f MB" % (warn_mb, crit_mb)
-
-    if levels_text:
-        infotext = "%s (%s)" % (infotext, levels_text)
-
-    # Average support (optional)
-    average_min = params.get("average")
-    if average_min and type(average_min) == "int":
-        # No real averaging possible in this simple check,
-        # but we can simulate the message format
-        infotext = "%s, %d min average %f%%" % (
-            infotext,
-            average_min,
-            (totalused_kb / (memtotal_kb + swapused_kb * 1024.0 + pagetables_kb * 1024.0) * 100)
-        )
-
-    # Metrics dict (all in bytes, as numbers)
-    mem_used_percent = 100.0 * ramused_kb / memtotal_kb if memtotal_kb > 0 else 0.0
-    mem_used_percent_rounded = int(mem_used_percent * 10 + 0.5) / 10.0
-    metrics = {
-        "mem_used": int(ramused_kb * 1024),
-        "mem_used_percent": mem_used_percent_rounded,
-        "mem_lnx_total_used": totalused_bytes,
-        "swap_used": int(swapused_kb * 1024),
-        "mem_lnx_page_tables": int(pagetables_kb * 1024)
+    metrics_out = {
+        "mem_used": ramused_bytes,
+        "mem_used_percent": used_percent,
     }
+    if swap_used_bytes > 0:
+        metrics_out["swap_used"] = swap_used_bytes
+    if pagetables_bytes > 0:
+        metrics_out["mem_lnx_page_tables"] = pagetables_bytes
 
-    # Add additional Linux metrics if present
-    if "Mapped" in meminfo:
-        metrics["mem_lnx_mapped"] = meminfo["Mapped"]
-    if "Committed_AS" in meminfo:
-        metrics["mem_lnx_committed_as"] = meminfo["Committed_AS"]
-    if "Shmem" in meminfo:
-        metrics["mem_lnx_shmem"] = meminfo["Shmem"]
+    descr = ["RAM"]
+    if swap_used_bytes > 0:
+        descr.append("Swap")
+    if pagetables_bytes > 0:
+        descr.append("Pagetables")
+    summary_name = "RAM" if len(descr) == 1 else "Total (%s)" % " + ".join(descr)
+
+    summary_str = summary_name + ": %f MB" % totalused_mb
+
+    levels = params.get("levels", [150.0, 200.0])
+    warn_mb = abs(float(levels[0]))
+    crit_mb = abs(float(levels[1]))
+
+    state = "OK"
+    if totalused_mb >= crit_mb:
+        state = "CRIT"
+    elif totalused_mb >= warn_mb:
+        state = "WARN"
+
+    levels_text = "levels: %f/%f MB" % (warn_mb, crit_mb)
+    if state != "OK":
+        summary_str = summary_str + " (" + levels_text + ")"
+
+    details = "Total used: %f MB (%f%% of RAM)" % (totalused_mb, used_percent)
+    if swap_used_bytes > 0:
+        details += "\nSwap used: %f MB" % (swapused_kb / 1024.0)
+    if pagetables_bytes > 0:
+        details += "\nPagetables: %f MB" % (pagetables_kb / 1024.0)
 
     return {
         "changed": False,
-        "msg": infotext,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+        "msg": summary_str,
+        "data": {"state": state, "metrics": metrics_out, "details": details},
     }

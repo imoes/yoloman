@@ -1,127 +1,97 @@
-def _parse_tunables(ctx):
-    res = ctx.run(["kctune", "-q", "semmns"], mutates=False)
-    if res.rc != 0:
-        return None
-    tunables = {}
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line or line.startswith("Tunable"):
-            continue
-        parts = line.split()
-        if len(parts) >= 2:
-            key = parts[0]
-            val_str = parts[1]
-            if val_str.isdigit():
-                tunables[key] = int(val_str)
-    return tunables
-
-
-def _parse_kctune_all(ctx):
-    res = ctx.run(["kctune"], mutates=False)
-    if res.rc != 0:
-        return {}
-    parsed = {}
-    key = ""
-    usage = 0
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Tunable") or stripped.startswith("Parameter"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                key = parts[1].strip()
-        elif stripped.startswith("Usage"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                usage = int(val) if val.isdigit() else 0
-        elif stripped.startswith("Setting"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val.isdigit() and key != "":
-                    parsed[key] = (usage, int(val))
-    return parsed
-
-
-def _get_semmns(ctx):
-    res = ctx.run(["kctune", "semmns"], mutates=False)
-    if res.rc != 0:
-        return None, None
-    usage = None
-    setting = None
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Tunable") or stripped.startswith("Parameter"):
-            pass
-        elif stripped.startswith("Usage"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                usage = int(val) if val.isdigit() else 0
-        elif stripped.startswith("Setting"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val.isdigit():
-                    setting = int(val)
-    return usage, setting
-
-
 def main(ctx, params):
+    # This is an HP-UX tunables check for semmns (IPC Semaphores)
+    item = params.get("item", "")
+    levels = params.get("levels", (85.0, 90.0))
+    warn = levels[0]
+    crit = levels[1]
+ 
+    # Discovery mode
     if params.get("_discover"):
-        usage, setting = _get_semmns(ctx)
-        if usage == None or setting == None or setting == 0:
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []},
-            }
+        # Check if kctune is available (HP-UX)
+        kctune_check = ctx.run(["kctune", "semmns"], mutates=False)
+        if kctune_check.rc != 0:
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+ 
+        # Check if ipcs is available
+        ipcs_check = ctx.run(["ipcs", "-s"], mutates=False)
+ 
+        # semmns tunable found - discover the service
+        descr = "entries"
         return {
             "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [
-                {
-                    "item": "",
-                    "params": {"levels": (85.0, 90.0)},
-                    "metrics": ["entries"],
-                },
-            ]},
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": {"levels": levels}, "metrics": [descr]}
+                ]
+            },
         }
-
-    usage, setting = _get_semmns(ctx)
-    if usage == None or setting == None:
+ 
+    # Check mode - check the semmns tunable
+    descr = "entries"
+ 
+    # Get the semmns setting from kctune
+    kctune_res = ctx.run(["kctune", "semmns"], mutates=False)
+    if kctune_res.rc != 0 or not kctune_res.stdout:
         return {
             "changed": False,
             "msg": "semmns tunable not found",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
+ 
+    # Parse kctune output for semmns setting
+    # kctune output format: "semmns              = 128" (or "semmns = 128")
+    setting = 0
+    for line in kctune_res.stdout.splitlines():
+        if "semmns" in line:
+            parts = line.split("=")
+            if len(parts) >= 2:
+                val_str = parts[1].strip()
+                setting = int(val_str) if val_str.isdigit() else 0
+            break
+ 
     if setting == 0:
         return {
             "changed": False,
-            "msg": "semmns setting is zero",
+            "msg": "semmns tunable not found or zero",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    levels = params.get("levels", (85.0, 90.0))
-    warn = float(levels[0])
-    crit = float(levels[1])
-
-    perc = float(usage) / float(setting) * 100.0
-
-    if perc > crit:
+ 
+    # Count current semaphores in use via ipcs
+    ipcs_res = ctx.run(["ipcs", "-s"], mutates=False)
+    usage = 0
+    if ipcs_res.rc == 0:
+        # ipcs -s output has a header line, then lines for each semaphore
+        lines = ipcs_res.stdout.splitlines()
+        # Skip header lines (typically 2 header lines on HP-UX)
+        for line in lines[2:]:
+            stripped = line.strip()
+            if stripped and not stripped.startswith("------"):
+                usage += 1
+ 
+    # Calculate percentage
+    perc = float(usage) / float(setting) * 100
+ 
+    # Compute performance thresholds
+    warn_perf = float(warn * setting / 100)
+    crit_perf = float(crit * setting / 100)
+ 
+    # Determine state
+    state = "OK"
+    if perc >= crit:
         state = "CRIT"
-    elif perc > warn:
+    elif perc >= warn:
         state = "WARN"
-    else:
-        state = "OK"
-
-    msg = "%f%% used (%d/%d entries)" % (perc, usage, setting)
-    if state != "OK":
-        msg = msg + " (warn/crit at %g/%g)" % (warn, crit)
-
+ 
+    summary = "%f%% used (%d/%d %s)" % (perc, usage, setting, descr)
+    if perc >= crit:
+        summary += " (warn/crit at %f/%f)" % (warn, crit)
+    elif perc >= warn:
+        summary += " (warn/crit at %f/%f)" % (warn, crit)
+ 
     return {
         "changed": False,
-        "msg": msg,
+        "msg": summary,
         "data": {
             "state": state,
             "metrics": {"entries": usage},

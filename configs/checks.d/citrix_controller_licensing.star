@@ -1,85 +1,145 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
+SERVER_STATES = {
+    "ServerNotSpecified": ("CRIT", "server not specified"),
+    "NotConnected": ("WARN", "not connected"),
+    "OK": ("OK", "OK"),
+    "LicenseNotInstalled": ("CRIT", "license not installed"),
+    "LicenseExpired": ("CRIT", "licenese expired"),
+    "Incompatible": ("CRIT", "incompatible"),
+    "Failed": ("CRIT", "failed"),
+}
 
-    res = ctx.run(["cmk-agent-ctl", "show-data", "citrix_controller"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to retrieve citrix_controller data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+GRACE_STATES = {
+    "NotActive": ("OK", "not active"),
+    "Active": ("CRIT", "active"),
+    "InOutOfBoxGracePeriod": ("WARN", "in-out-of-box grace period"),
+    "InSupplementalGracePeriod": ("WARN", "in-supplemental grace period"),
+    "InEmergencyGracePeriod": ("CRIT", "in-emergency grace period"),
+    "GracePeriodExpired": ("CRIT", "grace period expired"),
+    "Expired": ("CRIT", "expired"),
+}
 
-    lines = res.stdout.splitlines()
+def _parse_section(content):
     section = {
+        "version": None,
+        "state": None,
         "licensing_grace_state": None,
         "licensing_server_state": None,
+        "session": None,
+        "desktop_count": None,
+        "active_site_services": None,
     }
-
+    session = {"active": 0, "inactive": 0}
+    lines = content.splitlines()
+    table = []
+    i = 0
     for line in lines:
-        parts = line.strip().split()
-        if len(parts) < 2:
+        f = line.split()
+        if len(f) >= 2:
+            table.append(f)
+        elif len(f) == 1:
+            table.append([f[0]])
+        else:
+            table.append([])
+        i = i + 1
+    j = 0
+    for f in table:
+        j = j + 1
+        if len(f) == 0:
             continue
-        key = parts[0]
-        value = parts[1] if len(parts) > 1 else None
+        head = f[0]
+        if head == "ControllerVersion" and len(f) >= 2:
+            section["version"] = f[1]
+        elif head == "ControllerState" and len(f) >= 2:
+            section["state"] = f[1]
+        elif head == "ControllerState":
+            section["state"] = "Error"
+        elif head == "LicensingGraceState" and len(f) >= 2 and section["licensing_grace_state"] == None:
+            section["licensing_grace_state"] = f[1]
+        elif head == "LicensingServerState" and len(f) >= 2 and section["licensing_server_state"] == None:
+            section["licensing_server_state"] = f[1]
+        elif head == "TotalFarmActiveSessions" and len(f) >= 2:
+            v = f[1]
+            session["active"] = int(v) if v.isdigit() else 0
+            section["session"] = dict(session)
+        elif head == "TotalFarmInactiveSessions" and len(f) >= 2:
+            v = f[1]
+            session["inactive"] = int(v) if v.isdigit() else 0
+            section["session"] = dict(session)
+        elif head == "DesktopsRegistered" and len(f) >= 2:
+            v = f[1]
+            if v.isdigit():
+                section["desktop_count"] = int(v)
+            else:
+                section["desktop_count"] = "Error"
+        elif head == "ActiveSiteServices":
+            section["active_site_services"] = " ".join(f[1:])
+    return section
 
-        if key == "LicensingGraceState" and section["licensing_grace_state"] == None:
-            section["licensing_grace_state"] = value
-        elif key == "LicensingServerState" and section["licensing_server_state"] == None:
-            section["licensing_server_state"] = value
+def _probe_section(ctx, params):
+    probe = ctx.run(["citrix_controller", "--section"], mutates=False)
+    if probe.rc == 127:
+        return None, "citrix_controller not installed"
+    if probe.rc != 0:
+        return None, "citrix_controller probe failed: " + probe.stderr
+    return _parse_section(probe.stdout), ""
 
-    server_states = {
-        "ServerNotSpecified": ("CRIT", "server not specified"),
-        "NotConnected": ("WARN", "not connected"),
-        "OK": ("OK", "OK"),
-        "LicenseNotInstalled": ("CRIT", "license not installed"),
-        "LicenseExpired": ("CRIT", "licenese expired"),
-        "Incompatible": ("CRIT", "incompatible"),
-        "Failed": ("CRIT", "failed"),
-    }
+def main(ctx, params):
+    if params.get("_discover"):
+        section, err = _probe_section(ctx, params)
+        if section == None:
+            return {"changed": False, "msg": err,
+                    "data": {"discovery": [],
+                             "host_labels": {"cmk/citrix_controller": "not_installed"}}}
+        if section["licensing_server_state"] == None and section["licensing_grace_state"] == None:
+            return {"changed": False, "msg": "no licensing data",
+                    "data": {"discovery": [],
+                             "host_labels": {"cmk/citrix_controller": "present"}}}
+        return {"changed": False, "msg": "discovered Citrix Controller Licensing",
+                "data": {"discovery": [
+                    {"item": "",
+                     "params": {},
+                     "metrics": ["licensing_server_state", "licensing_grace_state"]},
+                ],
+                "host_labels": {"cmk/citrix_controller": "present"}}}
 
-    grace_states = {
-        "NotActive": ("OK", "not active"),
-        "Active": ("CRIT", "active"),
-        "InOutOfBoxGracePeriod": ("WARN", "in-out-of-box grace period"),
-        "InSupplementalGracePeriod": ("WARN", "in-supplemental grace period"),
-        "InEmergencyGracePeriod": ("CRIT", "in-emergency grace period"),
-        "GracePeriodExpired": ("CRIT", "grace period expired"),
-        "Expired": ("CRIT", "expired"),
-    }
+    section, err = _probe_section(ctx, params)
+    if section == None:
+        return {"changed": False,
+                "msg": err,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": err}}
 
     results = []
-    state_order = {"UNKNOWN": 0, "OK": 1, "WARN": 2, "CRIT": 3}
-    final_state = "OK"
+    metrics = {}
 
-    raw_server = section.get("licensing_server_state")
-    if raw_server != None:
-        state, text = server_states.get(raw_server, ("UNKNOWN", "unknown[" + raw_server + "]"))
-        results.append({"state": state, "summary": "Licensing Server State: " + text})
-        if state_order.get(state, 0) > state_order.get(final_state, 0):
-            final_state = state
-
-    raw_grace = section.get("licensing_grace_state")
-    if raw_grace != None:
-        state, text = grace_states.get(raw_grace, ("UNKNOWN", "unknown[" + raw_grace + "]"))
-        results.append({"state": state, "summary": "Licensing Grace State: " + text})
-        if state_order.get(state, 0) > state_order.get(final_state, 0):
-            final_state = state
-
-    if len(results) == 0:
-        msg = "No licensing state data available"
+    server_state = section["licensing_server_state"]
+    if server_state != None:
+        state, text = SERVER_STATES.get(server_state, ("UNKNOWN", "unknown[%s]" % server_state))
+        results.append({"state": state,
+                        "summary": "Licensing Server State: " + text})
     else:
-        msgs = []
-        for r in results:
-            msgs.append(r["summary"])
-        msg = ", ".join(msgs)
+        results.append({"state": "UNKNOWN",
+                        "summary": "Licensing Server State: not available"})
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": final_state, "metrics": {}, "details": ""}
-    }
+    grace_state = section["licensing_grace_state"]
+    if grace_state != None:
+        state, text = GRACE_STATES.get(grace_state, ("UNKNOWN", "unknown[%s]" % grace_state))
+        results.append({"state": state,
+                        "summary": "Licensing Grace State: " + text})
+    else:
+        results.append({"state": "UNKNOWN",
+                        "summary": "Licensing Grace State: not available"})
+
+    order = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
+    worst = "OK"
+    k = 0
+    for r in results:
+        k = k + 1
+        if order.get(r["state"], 2) > order.get(worst, 0):
+            worst = r["state"]
+
+    msg = "; ".join([r["summary"] for r in results])
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": worst,
+                     "metrics": metrics,
+                     "details": "\n".join([r["summary"] for r in results])}}

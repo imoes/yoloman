@@ -1,97 +1,165 @@
-def check_single(ctx, host, params):
-    port = params.get('port') or 80
-    tls = params.get('tls_configuration') or 'no_tls'
-    uri = params.get('uri') or '/'
-    timeout_s = params.get('timeout_s') or 10
-    expect_regex = params.get('expect_regex')
-    query = params.get('query')
-    form_name = params.get('form_name')
-    use_tls = tls == 'tls_standard' or tls == 'tls_no_cert_valid'
-    verify_tls = tls != 'tls_no_cert_valid'
-    scheme = 'http'
-    if use_tls:
-        scheme = 'https'
-    url = '%s://%s:%d%s' % (scheme, host, int(port), uri)
-    get_probe = ctx.probe('http', {
-        'url': url,
-        'method': 'GET',
-        'timeout_s': timeout_s,
-        'verify_tls': verify_tls,
-        'follow_redirects': True,
-    })
-    if get_probe.get('error'):
-        return [False, 'connect: ' + get_probe['error']]
-    status = int(get_probe.get('status_code') or 0)
-    if status < 200 or status >= 300:
-        return [False, 'GET HTTP %d' % status]
-    page_body = get_probe.get('body') or ''
-    if '<form' not in page_body.lower():
-        return [False, 'no HTML form on page']
-    if form_name != None and form_name != '':
-        dq = chr(34)
-        sq = chr(39)
-        if ('name=' + dq + form_name + dq) not in page_body and ('name=' + sq + form_name + sq) not in page_body:
-            return [False, 'form not found: ' + form_name]
-    post_probe = ctx.probe('http', {
-        'url': url,
-        'method': 'POST',
-        'body': query or '',
-        'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-        'timeout_s': timeout_s,
-        'verify_tls': verify_tls,
-        'follow_redirects': True,
-    })
-    if post_probe.get('error'):
-        return [False, 'POST: ' + post_probe['error']]
-    post_status = int(post_probe.get('status_code') or 0)
-    if post_status < 200 or post_status >= 400:
-        return [False, 'POST HTTP %d' % post_status]
-    if expect_regex != None and expect_regex != '':
-        resp_body = post_probe.get('body') or ''
-        r = ctx.run(['python3', '-c',
-            'import re,sys; sys.exit(0 if re.search(sys.argv[1], sys.argv[2]) else 1)',
-            expect_regex, resp_body])
-        if r.rc != 0:
-            return [False, 'regex not matched: /%s/' % expect_regex]
-    resp_ms = float(post_probe.get('response_ms') or 0)
-    return [True, '%d ms' % int(resp_ms)]
+def _run_curl(ctx, params):
+    host = params.get("host", "localhost")
+    port = params.get("port")
+    uri = params.get("uri", "/")
+    form_name = params.get("form_name", "")
+    expect_regex = params.get("expect_regex", "")
+    timeout = params.get("timeout", 30)
+    tls_config = params.get("tls_configuration")
+    query = params.get("query")
+
+    scheme = "https" if port == 443 or tls_config else "http"
+    if port and port != 80 and port != 443:
+        url = "%s://%s:%d%s" % (scheme, host, port, uri)
+    else:
+        url = "%s://%s%s" % (scheme, host, uri)
+    if query:
+        url = url + "?" + query
+
+    curl_args = [
+        "curl",
+        "-s",
+        "-S",
+        "--max-time", str(timeout),
+        "-X", "POST",
+        "-d", form_name,
+        "-w", "\\n%{http_code}",
+    ]
+
+    if tls_config:
+        if tls_config == "insecure":
+            curl_args += ["-k"]
+        elif tls_config == "cert":
+            curl_args += ["--cert-status"]
+
+    curl_args += [url]
+
+    return ctx.run(curl_args, mutates=False)
+
+
+def _count_substring(text, pattern):
+    if not pattern or not text:
+        return 0
+    count = 0
+    pos = 0
+    plen = len(pattern)
+    while True:
+        idx = text.find(pattern, pos)
+        if idx == -1:
+            break
+        count += 1
+        pos = idx + plen
+        if plen == 0:
+            pos += 1
+    return count
+
+
+def _strip_regex_anchors(pattern):
+    p = pattern
+    if p.startswith("^"):
+        p = p[1:]
+    if p.endswith("$"):
+        p = p[:-1]
+    if p.startswith(".*"):
+        p = p[2:]
+    if p.endswith(".*"):
+        p = p[0:len(p) - 2]
+    return p
+
+
+def _safe_int(value, default_val):
+    s = str(value).strip()
+    if s.isdigit():
+        return int(s)
+    if s.startswith("-") and s[1:].isdigit():
+        return int(s)
+    return default_val
+
 
 def main(ctx, params):
-    if params.get('_discover'):
-        return {'changed': False, 'msg': 'active check (assign with parameters)', 'data': {'discovery': []}}
-    hosts = params.get('hosts') or []
-    single_host = params.get('host')
-    if len(hosts) == 0 and single_host != None:
-        hosts = [single_host]
-    if len(hosts) == 0:
-        return {'changed': False, 'msg': 'UNKNOWN', 'data': {'state': 'UNKNOWN', 'metrics': {}, 'details': 'no host configured'}}
-    results = []
-    for h in hosts:
-        r = check_single(ctx, h, params)
-        results.append([h, r[0], r[1]])
-    succeeded = 0
-    failed_parts = []
-    for r in results:
-        if r[1]:
-            succeeded += 1
+    if params.get("_discover"):
+        return {
+            "changed": False,
+            "msg": "discovered 1 form_submit service",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {
+                            "host": params.get("host", "localhost"),
+                            "port": params.get("port", 80),
+                            "uri": params.get("uri", "/"),
+                            "form_name": params.get("form_name", ""),
+                            "expect_regex": params.get("expect_regex", ""),
+                            "timeout": params.get("timeout", 30),
+                            "tls_configuration": params.get("tls_configuration"),
+                            "query": params.get("query"),
+                            "num_succeeded": params.get("num_succeeded"),
+                        },
+                    }
+                ]
+            },
+        }
+
+    host = params.get("host", "localhost")
+    uri = params.get("uri", "/")
+    expect_regex = params.get("expect_regex", "")
+    num_succeeded = params.get("num_succeeded")
+
+    warn_level = 1
+    crit_level = 1
+    if num_succeeded and len(num_succeeded) >= 2:
+        warn_level = _safe_int(num_succeeded[0], 1)
+        crit_level = _safe_int(num_succeeded[1], 1)
+
+    res = _run_curl(ctx, params)
+
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "HTTP form submission failed: " + res.stderr,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "curl exited with code %d" % res.rc,
+            },
+        }
+
+    output = res.stdout
+    lines = output.split("\n")
+    http_code = 0
+    body = output
+    if len(lines) >= 2:
+        last_line = lines[-1].strip()
+        if last_line.isdigit() or (last_line.startswith("-") and last_line[1:].isdigit()):
+            http_code = int(last_line)
+            body = "\n".join(lines[:-1])
         else:
-            failed_parts.append(r[0] + ': ' + r[2])
-    total = len(hosts)
-    state = 'OK'
-    if total > 1:
-        warn = params.get('num_succeeded_warn')
-        crit = params.get('num_succeeded_crit')
-        if crit != None and succeeded <= int(crit):
-            state = 'CRIT'
-        elif warn != None and succeeded <= int(warn):
-            state = 'WARN'
-        elif succeeded < total:
-            state = 'WARN'
+            body = output
     else:
-        if succeeded == 0:
-            state = 'CRIT'
-    if len(failed_parts) > 0:
-        details = '%d/%d hosts OK | %s' % (succeeded, total, '; '.join(failed_parts))
-    else:
-        details = '%d/%d hosts OK' % (succeeded, total)
-    return {'changed': False, 'msg': state, 'data': {'state': state, 'metrics': {'succeeded': succeeded, 'total': total}, 'details': details}}
+        body = output
+
+    clean_pattern = _strip_regex_anchors(expect_regex)
+    match_count = _count_substring(body, clean_pattern)
+
+    state = "OK"
+    if match_count >= crit_level:
+        state = "CRIT"
+    elif match_count >= warn_level:
+        state = "WARN"
+
+    msg = "Form submission to %s: %d match(es), HTTP %d" % (
+        host + uri, match_count, http_code
+    )
+
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": state,
+            "metrics": {"matches": match_count, "http_code": http_code},
+            "details": "Expected regex: %s\nResponse body length: %d" % (
+                expect_regex, len(body)
+            ),
+        },
+    }

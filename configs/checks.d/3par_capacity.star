@@ -1,156 +1,186 @@
+# HPE 3PAR capacity check — translated from checkmk.3par_capacity
+# READ-ONLY: never mutates, never writes. Data comes from the array CLI.
+
+_DEFAULT_FS_LEVELS = (90.0, 95.0)
+_DEFAULT_FAILED_LEVELS = (0.0, 0.0)
+
+
+def _is_number(s):
+    if s == "":
+        return False
+    i = 0
+    if s[0] == "-" or s[0] == "+":
+        i = 1
+    if i == len(s):
+        return False
+    seen_dot = False
+    for c in s[i:]:
+        if c >= "0" and c <= "9":
+            continue
+        if c == "." and not seen_dot:
+            seen_dot = True
+            continue
+        return False
+    return True
+
+
+def _to_float(v):
+    if v == None:
+        return 0.0
+    t = type(v)
+    if t == "string":
+        if v == "" or not _is_number(v):
+            return 0.0
+        return float(v)
+    if t == "int" or t == "float":
+        return float(v)
+    return 0.0
+
+
+def _strip_suffix(s, suffix):
+    if s.endswith(suffix):
+        return s[:len(s) - len(suffix)]
+    return s
+
+
+def _percent(used, total):
+    if total == 0:
+        return 0.0
+    return used * 100.0 / total
+
+
+def _state_rank(s):
+    ranks = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    return ranks.get(s, 3)
+
+
+def _gather(ctx, params):
+    host = params.get("host", "")
+    if host == "":
+        return None
+
+    res = ctx.run(
+        ["3parcli", "-host", host, "-community", params.get("community", "public"), "showvv", "-d"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+
+    raw = res.stdout.strip()
+    if raw == "":
+        return None
+
+    # Guard json.decode: empty/invalid -> None
+    if raw == "":
+        return None
+    data = json.decode(raw)
+    if type(data) != "dict":
+        return None
+
+    section = {}
+    for raw_name, raw_values in data.items():
+        if type(raw_values) != "dict":
+            continue
+        total = _to_float(raw_values.get("totalMiB", 0))
+        free = _to_float(raw_values.get("freeMiB", 0))
+        failed = _to_float(raw_values.get("failedCapacityMiB", 0))
+        name = _strip_suffix(raw_name, "Capacity")
+        section[name] = {
+            "name": name,
+            "total_capacity": total,
+            "free_capacity": free,
+            "failed_capacity": failed,
+        }
+    return section
+
+
 def main(ctx, params):
-    # Discovery mode: enumerate capacity items
+    # ---- DISCOVERY ----
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/diskinfo"], mutates=False)
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        
-        data = json.decode(res.stdout)
-        if type(data) != "dict":
-            data = {}
-        
-        discovery = []
-        for raw_name, raw_values in data.items():
-            if type(raw_values) != "dict":
+        section = _gather(ctx, params)
+        if section == None:
+            return {
+                "changed": False,
+                "msg": "3par array not reachable; no items discovered",
+                "data": {"discovery": []},
+            }
+        out = []
+        for disk_name in sorted(section.keys()):
+            disk = section[disk_name]
+            if disk["total_capacity"] == 0:
                 continue
-            name = raw_name.replace("Capacity", "")
-            
-            totalMiB = raw_values.get("totalMiB")
-            freeMiB = raw_values.get("freeMiB")
-            failedCapacityMiB = raw_values.get("failedCapacityMiB")
-            
-            if totalMiB == None or freeMiB == None or failedCapacityMiB == None:
-                continue
-            
-            # Guard-based float conversion
-            total_capacity = float(totalMiB) if str(totalMiB).replace(".", "").replace("-", "").isdigit() else 0.0
-            free_capacity = float(freeMiB) if str(freeMiB).replace(".", "").replace("-", "").isdigit() else 0.0
-            failed_capacity = float(failedCapacityMiB) if str(failedCapacityMiB).replace(".", "").replace("-", "").isdigit() else 0.0
-            
-            if total_capacity == 0:
-                continue
-            
-            discovery.append({
-                "item": name,
-                "params": {
-                    "levels": (80.0, 90.0),
-                    "levels_low": (50.0, 20.0),
-                    "magic_norm": 0.5,
-                    "show_levels": "onwarning",
-                    "show_reserved": False,
-                    "show_timeleft": True,
-                    "show_util": True,
-                    "failed_capacity_levels": (0.0, 0.0),
-                },
+            out.append({
+                "item": disk["name"],
+                "params": {"levels": _DEFAULT_FS_LEVELS,
+                           "failed_capacity_levels": _DEFAULT_FAILED_LEVELS},
                 "metrics": ["used_percent", "failed_percent"],
             })
-        
-        return {"changed": False, "msg": "discovered %d items" % len(discovery),
-                "data": {"discovery": discovery}}
-    
-    # Check mode: inspect one item
+        return {
+            "changed": False,
+            "msg": "discovered %d 3par capacity items" % len(out),
+            "data": {"discovery": out},
+        }
+
+    # ---- CHECK ----
     item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/diskinfo"], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "no data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    data = json.decode(res.stdout)
-    if type(data) != "dict":
-        return {"changed": False, "msg": "no data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    disk = data.get(item)
-    if disk == None or type(disk) != "dict":
-        return {"changed": False, "msg": "item not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    totalMiB = disk.get("totalMiB")
-    freeMiB = disk.get("freeMiB")
-    failedCapacityMiB = disk.get("failedCapacityMiB")
-    
-    if totalMiB == None or freeMiB == None or failedCapacityMiB == None:
-        return {"changed": False, "msg": "invalid data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Guard-based float conversion
-    total_capacity = float(totalMiB) if str(totalMiB).replace(".", "").replace("-", "").isdigit() else 0.0
-    free_capacity = float(freeMiB) if str(freeMiB).replace(".", "").replace("-", "").isdigit() else 0.0
-    failed_capacity = float(failedCapacityMiB) if str(failedCapacityMiB).replace(".", "").replace("-", "").isdigit() else 0.0
-    
-    if total_capacity == 0:
-        return {"changed": False, "msg": "no capacity data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Compute filesystem usage
-    used_capacity = total_capacity - free_capacity
-    used_percent = used_capacity * 100.0 / total_capacity
-    
-    # Extract thresholds from params (Checkmk defaults)
-    warn, crit = params.get("levels", (80.0, 90.0))
-    warn_low, crit_low = params.get("levels_low", (50.0, 20.0))
-    
-    # Grade filesystem usage (upper levels)
-    state = "OK"
-    if used_percent >= crit:
-        state = "CRIT"
-    elif used_percent >= warn:
-        state = "WARN"
-    elif used_percent <= crit_low:
-        state = "CRIT"
-    elif used_percent <= warn_low:
-        state = "WARN"
-    
-    # Compute failed capacity percentage
-    failed_percent = failed_capacity * 100.0 / total_capacity if total_capacity > 0 else 0.0
-    failed_levels_warn, failed_levels_crit = params.get("failed_capacity_levels", (0.0, 0.0))
-    
-    if failed_percent >= failed_levels_crit or failed_percent >= failed_levels_warn:
-        if failed_percent >= failed_levels_crit:
-            state = "CRIT"
-        elif state == "OK" or state == "WARN":
-            if failed_percent >= failed_levels_warn:
-                state = "WARN"
-    
-    # Build summary message
-    total_bytes = total_capacity * 1024.0 * 1024.0
-    failed_bytes = failed_capacity * 1024.0 * 1024.0
-    
-    # Format size using multiplication instead of **
-    TiB = 1024.0 * 1024.0 * 1024.0 * 1024.0
-    GiB = 1024.0 * 1024.0 * 1024.0
-    MiB = 1024.0 * 1024.0
-    
-    if total_bytes >= TiB:
-        size_str = "%f TB" % (total_bytes / TiB)
-    elif total_bytes >= GiB:
-        size_str = "%f GB" % (total_bytes / GiB)
-    elif total_bytes >= MiB:
-        size_str = "%f MB" % (total_bytes / MiB)
-    else:
-        size_str = "%f bytes" % total_bytes
-    
-    msg_parts = []
-    msg_parts.append("Size: %s" % size_str)
-    msg_parts.append("Used: %f%%" % used_percent)
-    
-    if failed_capacity > 0:
-        if total_bytes >= TiB:
-            failed_str = "%f TB" % (failed_bytes / TiB)
-        elif total_bytes >= GiB:
-            failed_str = "%f GB" % (failed_bytes / GiB)
-        elif total_bytes >= MiB:
-            failed_str = "%f MB" % (failed_bytes / MiB)
-        else:
-            failed_str = "%f bytes" % failed_bytes
-        msg_parts.append("Failed: %f%% - %s of %s" % (failed_percent, failed_str, size_str))
-    
+    fs_levels = params.get("levels", _DEFAULT_FS_LEVELS)
+    failed_levels = params.get("failed_capacity_levels", _DEFAULT_FAILED_LEVELS)
+
+    section = _gather(ctx, params)
+    if section == None:
+        return {
+            "changed": False,
+            "msg": "HPE 3PAR array not reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    disk = section.get(item)
+    if disk == None:
+        return {
+            "changed": False,
+            "msg": "no such 3par disk: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    total = disk["total_capacity"]
+    free = disk["free_capacity"]
+    failed = disk["failed_capacity"]
+
+    if total == 0:
+        return {
+            "changed": False,
+            "msg": "total capacity is zero for %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    used = total - free - failed
+    used_pct = _percent(used, total)
+    warn = fs_levels[0]
+    crit = fs_levels[1]
+    state = "CRIT" if used_pct >= crit else ("WARN" if used_pct >= warn else "OK")
+
+    summary = "%s: %f MiB of %f MiB (%f%%)" % (
+        item, used, total, used_pct,
+    )
+    details = "total=%f free=%f failed=%f used_pct=%f%%" % (
+        total, free, failed, used_pct,
+    )
+    metrics = {"used_percent": used_pct}
+
+    if failed != 0.0:
+        failed_pct = _percent(failed, total)
+        fw = failed_levels[0]
+        fc = failed_levels[1]
+        fstate = "CRIT" if failed_pct >= fc else ("WARN" if failed_pct >= fw else "OK")
+        if _state_rank(fstate) > _state_rank(state):
+            state = fstate
+        summary = summary + " - Failed: %f%% (%f of %f)" % (
+            failed_pct, failed, total,
+        )
+        metrics["failed_percent"] = failed_pct
+
     return {
         "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": state,
-            "metrics": {"used_percent": used_percent, "failed_percent": failed_percent},
-            "details": "",
-        },
+        "msg": summary,
+        "data": {"state": state, "metrics": metrics, "details": details},
     }

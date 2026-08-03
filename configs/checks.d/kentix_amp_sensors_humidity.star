@@ -1,192 +1,174 @@
-# === module: kentix_amp_sensors_humidity.star ===
-# Translate Checkmk check: checkmk.kentix_amp_sensors_humidity
-# Read-only Starlark check for humidity sensors via SNMP
-
-# OID base for Kentix devices (from DETECT_KENTIX)
-KENTIX_OID_BASE = ".1.3.6.1.2.1.1.2.0"
-KENTIX_OID_VALUE = ".1.3.6.1.4.1.332.11.6"
-
-# SNMP OIDs for sensor data (from kentix_amp_sensors SNMPTree)
-# Base .1.3.6.1.4.1.37954.1, then the single fetch for section
-SNMP_BASE = ".1.3.6.1.4.1.37954.1"
-SENSOR_TREE_BASE = ".1.3.6.1.4.1.37954.1.2.7"
-
-# Per-sensor OID offsets
-# 1: sensor name
-# 2: temperature (INTEGER 0..1000)
-# 3: humidity (INTEGER 0..1000)
-# 4: dew point (INTEGER 0..1000)
-# 5: carbon monoxide (INTEGER -100..100, percent)
-# 6: motion (INTEGER 0..100)
-# 7: digital in 1 (leakage) (INTEGER 0..1)
-# 8: digital in 2 (INTEGER 0..1)
-# 9: digital out (INTEGER 0..1)
-# 10: comError (INTEGER 0..1)
-# We need: humidity (offset 3)
-
-def _discover_sensors(ctx, community, host):
-    # Walk the entire sensor tree base to discover all sensor names
-    base_oid = SENSOR_TREE_BASE + ".1"
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        return []
-    
-    sensors = []
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped == "":
-            continue
-        # Parse: .1.3.6.1.4.1.37954.1.2.7.1.N = STRING: "sensor_name"
-        # Extract sensor name and ensure it's valid
-        parts = stripped.split(" = ")
+def _parse_snmpwalk(output):
+    rows = []
+    for line in output.splitlines():
+        parts = line.split()
         if len(parts) < 2:
             continue
-        oid_str = parts[0].strip()
-        value_part = parts[1].strip()
-        # Extract sensor index from OID (last number after last dot)
-        if not oid_str.startswith(SENSOR_TREE_BASE + ".1."):
+        rows.append((parts[0], " ".join(parts[1:])))
+    return rows
+
+def _get_oid_values(ctx, host, community, oids):
+    """Walk multiple OIDs and return {oid: value}."""
+    result = {}
+    for oid in oids:
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+            mutates=False,
+        )
+        if res.rc == 0:
+            result[oid] = res.stdout.strip()
+        elif res.rc == 127:
+            fail("snmpget not found on this host")
+        else:
+            result[oid] = ""
+    return result
+
+def _walk_table(ctx, host, community, column_oid, index):
+    """Walk a single column OID with index and return list of (full_oid, value)."""
+    full_oid = column_oid + "." + index if index else column_oid
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, full_oid],
+        mutates=False,
+    )
+    if res.rc == 0:
+        return _parse_snmpwalk(res.stdout)
+    return []
+
+def _walk_column(ctx, host, community, column_oid):
+    """Walk a whole column and return list of (index, value) tuples."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        if res.rc == 127:
+            fail("snmpwalk not found on this host")
+        return []
+    rows = _parse_snmpwalk(res.stdout)
+    out = []
+    for oid, val in rows:
+        suffix = oid[len(column_oid):]
+        idx = suffix[1:] if suffix.startswith(".") else suffix
+        if idx:
+            out.append((idx, val))
+    return out
+
+def _fetch_sensors(ctx, host, community):
+    """Fetch sensor data from the Kentix device via SNMP.
+
+    The agent plugin parses SNMP data from table .1.3.6.1.4.1.37954.1
+    where each sensor is a row of 10 OIDs. We reproduce that by walking
+    each column OID and correlating by index.
+    """
+    # OID columns:
+    # .1 name (STRING)  .2 temp (INTEGER)  .3 humidity (INTEGER)
+    # .4 dewpoint  .5 CO  .6 motion  .7 leakage  .8 digin2  .9 digout  .10 comError
+    base = ".1.3.6.1.4.1.37954.1.2.7"
+    cols = {
+        "name": base + ".1",
+        "temp": base + ".2",
+        "humidity": base + ".3",
+        "dewpoint": base + ".4",
+        "co": base + ".5",
+        "motion": base + ".6",
+        "leakage": base + ".7",
+    }
+    # Walk the name column to discover all sensor indices
+    name_rows = _walk_column(ctx, host, community, cols["name"])
+    sensors = {}
+    for idx, name_val in name_rows:
+        if name_val == "":
             continue
-        # Extract sensor index
-        oid_tail = oid_str[len(SENSOR_TREE_BASE + ".1."):]
-        if oid_tail == "":
-            continue
-        # Get sensor name
-        # Value format: STRING: "name" or STRING: name (remove quotes)
-        sensor_name = value_part
-        if sensor_name.startswith("STRING: "):
-            sensor_name = sensor_name[8:]
-        # Remove surrounding quotes if present
-        if sensor_name.startswith('"') and sensor_name.endswith('"'):
-            sensor_name = sensor_name[1:-1]
-        if sensor_name == "":
-            continue
-        sensors.append(sensor_name)
-    
+        # Strip possible quotes from STRING values
+        name = name_val.strip().strip('"')
+        sensor = {"name": name}
+        # Fetch each numeric column for this index
+        for field in ["temp", "humidity", "leakage"]:
+            vals = _walk_table(ctx, host, community, cols[field], idx)
+            if vals and len(vals) >= 1:
+                raw = vals[0][1]
+                # snmpget -Oqv gives bare value; for INTEGER it's the number
+                # for STRING we may have quotes
+                cleaned = raw.strip().strip('"')
+                sensor[field] = cleaned
+        sensors[name] = sensor
     return sensors
 
-def _get_humidity(ctx, community, host, item):
-    # Find the sensor index for this item by walking OID 1 (sensor names)
-    base_oid = SENSOR_TREE_BASE + ".1"
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        return None
-    
-    sensor_index = None
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped == "":
-            continue
-        parts = stripped.split(" = ")
-        if len(parts) < 2:
-            continue
-        oid_str = parts[0].strip()
-        value_part = parts[1].strip()
-        # Parse: .1.3.6.1.4.1.37954.1.2.7.1.N = STRING: "sensor_name"
-        if not oid_str.startswith(SENSOR_TREE_BASE + ".1."):
-            continue
-        oid_tail = oid_str[len(SENSOR_TREE_BASE + ".1."):]
-        if oid_tail == "":
-            continue
-        # Get sensor name
-        sensor_name = value_part
-        if sensor_name.startswith("STRING: "):
-            sensor_name = sensor_name[8:]
-        if sensor_name.startswith('"') and sensor_name.endswith('"'):
-            sensor_name = sensor_name[1:-1]
-        
-        if sensor_name == item:
-            sensor_index = oid_tail
-            break
-    
-    if sensor_index == None:
-        return None
-    
-    # Now fetch humidity: SENSOR_TREE_BASE + ".3." + sensor_index
-    humidity_oid = SENSOR_TREE_BASE + ".3." + sensor_index
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, humidity_oid], mutates=False)
-    if res.rc != 0 or res.stdout.strip() == "":
-        return None
-    
-    # Parse: .1.3.6.1.4.1.37954.1.2.7.3.1 = INTEGER: 474
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped == "":
-            continue
-        parts = stripped.split(" = ")
-        if len(parts) < 2:
-            continue
-        value_part = parts[1].strip()
-        # Extract integer value
-        if value_part.startswith("INTEGER: "):
-            val_str = value_part[9:]
-        elif value_part.startswith("INTEGER:"):
-            val_str = value_part[8:]
-        else:
-            continue
-        val_str = val_str.strip()
-        if not val_str.isdigit():
-            continue
-        return float(val_str) / 10.0
-    
-    return None
+def _grade_humidity(value, warn, crit):
+    """Grade humidity: upper levels → WARN if >= warn, CRIT if >= crit."""
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
 
 def main(ctx, params):
-    # Determine SNMP parameters (fallback defaults)
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Discover mode
-    if params.get("_discover"):
-        sensors = _discover_sensors(ctx, community, host)
-        items = []
-        for sensor in sensors:
-            items.append({"item": sensor, "params": {}, "metrics": ["humidity"]})
-        return {
-            "changed": False,
-            "msg": "discovered %d humidity sensors" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode
+    community = params.get("community", "public")
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
     item = params.get("item", "")
-    
-    # Get humidity value
-    humidity = _get_humidity(ctx, community, host, item)
-    if humidity == None:
+
+    # --- Discovery mode ---
+    if params.get("_discover"):
+        sensors = _fetch_sensors(ctx, host, community)
+        if not sensors:
+            return {
+                "changed": False,
+                "msg": "no Kentix sensors found",
+                "data": {"discovery": []},
+            }
+        discovery = []
+        for name in sorted(sensors.keys()):
+            discovery.append({
+                "item": name,
+                "params": {"warn": warn, "crit": crit},
+                "metrics": ["humidity"],
+            })
         return {
             "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d humidity sensors" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Apply thresholds (default levels from Checkmk's humidity check)
-    # Checkmk humidity check defaults: levels=(60.0, 80.0) (warn, crit upper)
-    warn = params.get("levels", (60.0, 80.0))
-    if type(warn) == "list":
-        warn = tuple(warn)
-    if type(warn) != "tuple" or len(warn) < 2:
-        warn = (60.0, 80.0)
-    
-    warn_val = warn[0]
-    crit_val = warn[1]
-    
-    # Determine state: upper levels only (humidity can't exceed 100%)
-    # OK if < warn, WARN if >= warn and < crit, CRIT if >= crit
-    if humidity >= crit_val:
-        state = "CRIT"
-    elif humidity >= warn_val:
-        state = "WARN"
-    else:
-        state = "OK"
-    
+
+    # --- Check mode ---
+    sensors = _fetch_sensors(ctx, host, community)
+    if not sensors:
+        return {
+            "changed": False,
+            "msg": "no Kentix sensors found on host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sensor = sensors.get(item)
+    if sensor == None:
+        return {
+            "changed": False,
+            "msg": "sensor not found: " + str(item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    humidity_raw = sensor.get("humidity", "")
+    if humidity_raw == "":
+        return {
+            "changed": False,
+            "msg": "no humidity value for sensor: " + str(item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    humidity = 0.0
+    if humidity_raw.lstrip("-").isdigit():
+        humidity = float(humidity_raw) / 10.0
+
+    state = _grade_humidity(humidity, warn, crit)
     msg = "Humidity: %f%%" % humidity
-    
+
     return {
         "changed": False,
         "msg": msg,
         "data": {
             "state": state,
             "metrics": {"humidity": humidity},
-            "details": ""
-        }
+            "details": "",
+        },
     }

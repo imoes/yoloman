@@ -1,180 +1,153 @@
-# Constants for SNMP OIDs
-_RMS200_TEMP_BASE_OID = ".1.3.6.1.4.1.1909.13.1.1.1"
-_SYSTEM_OID = ".1.3.6.1.2.1.1.2.0"
-_SYSTEM_RMS200_VALUE = ".1.3.6.1.4.1.1909.13"
+# RMS200 temperature sensor check (SNMP).
+# Translates Checkmk plugin cmk/plugins/infratec_plus/agent_based/rms200_temp.py.
 
-def _snmp_parse_line(line):
-    """Parse a single snmpwalk output line into (oid, type, value)."""
-    if line == None:
-        return None
-    idx = line.find(" = ")
-    if idx == -1:
-        return None
-    oid_part = line[:idx]
-    rest = line[idx + 3:]
-    colon_idx = rest.find(": ")
-    if colon_idx == -1:
-        return None
-    stype = rest[:colon_idx]
-    svalue = rest[colon_idx + 2:]
-    return [oid_part, stype, svalue]
+# SNMP OIDs for the RMS200 temperature section.
+SYS_OID = ".1.3.6.1.2.1.1.2.0"
+PROD_OID = ".1.3.6.1.4.1.1909.13"
+TABLE_BASE = ".1.3.6.1.4.1.1909.13.1.1.1"
+COL_SENSOR = "1"
+COL_LABEL = "2"
+COL_TEMP = "5"
+COL_TEMP_BASE = TABLE_BASE + "." + COL_TEMP
+COL_LABEL_BASE = TABLE_BASE + "." + COL_LABEL
+
+# Defaults mirror Checkmk's check_default_parameters.
+DEFAULT_WARN = 25.0
+DEFAULT_CRIT = 28.0
+
+
+def state_from_levels(value, warn, crit):
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+
+def parse_levels(params):
+    levels = params.get("levels", None)
+    if levels != None and len(levels) >= 2:
+        return levels[0], levels[1]
+    return DEFAULT_WARN, DEFAULT_CRIT
+
+
+def is_rms200(ctx, host, community):
+    det = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, SYS_OID],
+        mutates=False,
+    )
+    return det.rc == 0 and det.stdout.strip() == PROD_OID
+
+
+def walk_column(ctx, host, community, col_base):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_base],
+        mutates=False,
+    )
+    rows = []
+    base_len = len(col_base) + 1
+    if res.rc == 0 or res.rc == 182:
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            value = line[sp + 1:]
+            if len(oid) <= base_len:
+                continue
+            rows.append((oid[base_len:], value))
+    return rows
+
+
+def get_scalar(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc == 0:
+        return res.stdout.strip()
+    return None
+
+
+def discover(ctx, host, community):
+    if not is_rms200(ctx, host, community):
+        return []
+
+    rows = walk_column(ctx, host, community, COL_LABEL_BASE)
+    discovery = []
+    for index, label_val in rows:
+        temp_raw = get_scalar(
+            ctx, host, community, TABLE_BASE + "." + COL_TEMP + "." + index)
+        if temp_raw == None:
+            continue
+        if not temp_raw.lstrip("-").isdigit():
+            continue
+        temp_val = int(temp_raw)
+        if temp_val == -27300:
+            continue
+        discovery.append({
+            "item": label_val,
+            "params": {"levels": [DEFAULT_WARN, DEFAULT_CRIT]},
+            "metrics": ["temperature"],
+        })
+    return discovery
+
+
+def check(ctx, host, community, item, params):
+    warn, crit = parse_levels(params)
+
+    rows = walk_column(ctx, host, community, COL_LABEL_BASE)
+    if len(rows) == 0:
+        return {"state": "UNKNOWN", "metrics": {}, "details": ""}
+
+    sensor_index = None
+    for index, label_val in rows:
+        if label_val == item:
+            sensor_index = index
+            break
+
+    if sensor_index == None:
+        return {"state": "UNKNOWN", "metrics": {},
+                "details": "no such sensor"}
+
+    temp_raw = get_scalar(
+        ctx, host, community, TABLE_BASE + "." + COL_TEMP + "." + sensor_index)
+    if temp_raw == None:
+        return {"state": "UNKNOWN", "metrics": {},
+                "details": "no temperature data"}
+    if not temp_raw.lstrip("-").isdigit():
+        return {"state": "UNKNOWN", "metrics": {},
+                "details": "invalid temperature reading"}
+    temp_val = int(temp_raw)
+    if temp_val == -27300:
+        return {"state": "UNKNOWN", "metrics": {},
+                "details": "no sensor connected"}
+
+    temp_celsius = float(temp_val) / 100.0
+    state = state_from_levels(temp_celsius, warn, crit)
+    return {
+        "state": state,
+        "metrics": {"temperature": temp_celsius},
+        "details": "sensor: " + item,
+    }
+
 
 def main(ctx, params):
-    if params.get("_discover"):
-        # Detect RMS200 device by checking system OID
-        sys_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-                           params.get("host", "localhost"), _SYSTEM_OID], mutates=False)
-        if sys_res.rc != 0 or sys_res.stdout == "":
-            return {"changed": False, "msg": "snmpwalk failed or no response",
-                    "data": {"discovery": []}}
-        
-        # Check if this is an RMS200 device
-        is_rms200 = False
-        for line in sys_res.stdout.splitlines():
-            if line.strip().endswith(" = " + _SYSTEM_RMS200_VALUE):
-                is_rms200 = True
-                break
-        
-        if not is_rms200:
-            return {"changed": False, "msg": "not an RMS200 device",
-                    "data": {"discovery": []}}
-        
-        # Fetch temperature section: .1.3.6.1.4.1.1909.13.1.1.1.{1,2,5}
-        # We need all three OIDs per entry; use walk on base OID
-        temp_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-                            params.get("host", "localhost"), _RMS200_TEMP_BASE_OID], mutates=False)
-        
-        if temp_res.rc != 0 or temp_res.stdout == "":
-            return {"changed": False, "msg": "no temperature data available",
-                    "data": {"discovery": []}}
-        
-        # Group by instance index: OID pattern .base.index.oid_num
-        sensors = {}
-        for line in temp_res.stdout.splitlines():
-            parsed = _snmp_parse_line(line.strip())
-            if parsed == None:
-                continue
-            oid_str = parsed[0]
-            if not oid_str.startswith(_RMS200_TEMP_BASE_OID + "."):
-                continue
-            rest = oid_str[len(_RMS200_TEMP_BASE_OID + "."):]
-            parts = rest.split(".", 1)
-            if len(parts) != 2:
-                continue
-            idx_str = parts[0]
-            oid_num_str = parts[1]
-            
-            # We expect only indices 1,2,3 with oid numbers 1,2,3 respectively:
-            # 1 -> name, 2 -> state, 3 -> temperature *100
-            if not idx_str.isdigit() or not oid_num_str.isdigit():
-                continue
-            idx = int(idx_str)
-            oid_num = int(oid_num_str)
-            
-            if idx not in sensors:
-                sensors[idx] = {"name": "", "state": "", "temp_raw": "-27300"}
-            if oid_num == 1:
-                # Strip quotes if present
-                val = parsed[2].strip('"')
-                sensors[idx]["name"] = val
-            elif oid_num == 2:
-                sensors[idx]["state"] = parsed[2]
-            elif oid_num == 3:
-                sensors[idx]["temp_raw"] = parsed[2]
-        
-        discovery = []
-        for idx, data in sensors.items():
-            # Skip if sensor not connected (temp_raw == "-27300")
-            if data["temp_raw"] == "-27300":
-                continue
-            item = data["name"]
-            if item == "":
-                item = str(idx)
-            discovery.append({"item": item, "params": {"levels": [25.0, 28.0]},
-                              "metrics": ["temp"]})
-        
-        return {"changed": False, "msg": "discovered %d temperature sensors" % len(discovery),
-                "data": {"discovery": discovery}}
-    
-    # Check mode
-    item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Re-fetch all sensor data to get the requested item
-    temp_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On",
-                        host, _RMS200_TEMP_BASE_OID], mutates=False)
-    
-    if temp_res.rc != 0 or temp_res.stdout == "":
-        return {"changed": False, "msg": "no temperature data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse and group sensor data
-    sensors = {}
-    for line in temp_res.stdout.splitlines():
-        parsed = _snmp_parse_line(line.strip())
-        if parsed == None:
-            continue
-        oid_str = parsed[0]
-        if not oid_str.startswith(_RMS200_TEMP_BASE_OID + "."):
-            continue
-        rest = oid_str[len(_RMS200_TEMP_BASE_OID + "."):]
-        parts = rest.split(".", 1)
-        if len(parts) != 2:
-            continue
-        idx_str = parts[0]
-        oid_num_str = parts[1]
-        
-        if not idx_str.isdigit() or not oid_num_str.isdigit():
-            continue
-        idx = int(idx_str)
-        oid_num = int(oid_num_str)
-        
-        if idx not in sensors:
-            sensors[idx] = {"name": "", "state": "", "temp_raw": "-27300"}
-        if oid_num == 1:
-            val = parsed[2].strip('"')
-            sensors[idx]["name"] = val
-        elif oid_num == 2:
-            sensors[idx]["state"] = parsed[2]
-        elif oid_num == 3:
-            sensors[idx]["temp_raw"] = parsed[2]
-    
-    # Find requested item
-    temp_celsius = None
-    sensor_state = ""
-    for idx, data in sensors.items():
-        it = data["name"]
-        if it == "":
-            it = str(idx)
-        if it == item:
-            if data["temp_raw"] == "-27300":
-                temp_celsius = None
-            else:
-                temp_celsius = float(data["temp_raw"]) / 100.0
-            sensor_state = data["state"]
-            break
-    
-    # If item not found or no sensor connected
-    if temp_celsius == None:
-        return {"changed": False, "msg": "sensor '%s' not found or not connected" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Apply thresholds
-    levels = params.get("levels", [25.0, 28.0])
-    warn = levels[0] if len(levels) >= 1 else 25.0
-    crit = levels[1] if len(levels) >= 2 else 28.0
-    
-    state = "OK"
-    if temp_celsius >= crit:
-        state = "CRIT"
-    elif temp_celsius >= warn:
-        state = "WARN"
-    
-    # Build message
-    summary = "Temperature: %f C" % temp_celsius
-    if sensor_state != "":
-        summary += " (%s)" % sensor_state
-    
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {"temp": temp_celsius}, "details": ""}}
+    community = params.get("community", "public")
+
+    if params.get("_discover"):
+        discovery = discover(ctx, host, community)
+        return {
+            "changed": False,
+            "msg": "discovered %d temperature sensors" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
+        }
+
+    item = params.get("item", "")
+    verdict = check(ctx, host, community, item, params)
+    return {
+        "changed": False,
+        "msg": "Temperature %f C (%s)" % (verdict["metrics"].get("temperature", 0.0), item),
+        "data": verdict,
+    }

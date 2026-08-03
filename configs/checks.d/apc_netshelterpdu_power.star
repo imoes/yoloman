@@ -1,616 +1,331 @@
-def _parse_rated_va(rated_power_str):
-    # Parse '43.5kVA' or '4500VA' into VA
-    lower_str = rated_power_str.lower()
-    if lower_str.find("kva") != -1:
-        parts = lower_str.split("kva")
-        if len(parts) == 2:
-            val_part = parts[0].strip()
-            if val_part.replace(".", "").isdigit():
-                return float(val_part) * 1000
-    elif lower_str.find("va") != -1:
-        parts = lower_str.split("va")
-        if len(parts) == 2:
-            val_part = parts[0].strip()
-            if val_part.replace(".", "").isdigit():
-                return float(val_part)
-    return None
+# Translated Checkmk check: apc_netshelterpdu_power (APC NetShelter APDU via SNMP)
+# READ-ONLY Starlark check module. Probes a real PDU over SNMP.
 
-
-def _clean_snmp_name(value):
-    # Strip null bytes and whitespace
+def _clean_name(value):
     return value.replace("\x00", "").strip()
 
 
+def _parse_rated_va(rated_power_str):
+    s = rated_power_str.strip().upper()
+    if s.endswith("KVA"):
+        num = s[:-3].strip()
+        if num.replace(".", "", 1).isdigit():
+            return float(num) * 1000
+        return None
+    if s.endswith("VA"):
+        num = s[:-2].strip()
+        if num.replace(".", "", 1).isdigit():
+            return float(num)
+        return None
+    return None
+
+
 def _current_reading(amperage_str, device_state):
-    # Returns {"value": float, "state": state_text}
+    val = 0.0
+    if amperage_str != None and amperage_str != "":
+        val = float(amperage_str) / 100.0
     state_map = {
-        "1": {"state": "CRIT", "text": "upper critical"},
-        "2": {"state": "WARN", "text": "upper warning"},
-        "3": {"state": "WARN", "text": "lower warning"},
-        "4": {"state": "CRIT", "text": "lower critical"},
-        "5": {"state": "OK", "text": "normal"},
+        1: "CRIT",
+        2: "WARN",
+        3: "WARN",
+        4: "CRIT",
+        5: "OK",
     }
-    unknown = {"state": "CRIT", "text": "unknown state"}
-    state_info = state_map.get(device_state, unknown)
-    value = float(amperage_str) / 100.0 if amperage_str.isdigit() or amperage_str.replace(".", "").isdigit() else 0.0
-    return {"value": value, "state": state_info["state"], "text": state_info["text"]}
+    ds = int(device_state) if (device_state != None and device_state.strip().isdigit()) else 0
+    st = state_map.get(ds, "UNKNOWN")
+    return val, st
+
+
+def _grade_upper(value, warn, crit):
+    if value == None:
+        return "OK"
+    if warn != None and value >= warn:
+        if crit != None and value >= crit:
+            return "CRIT"
+        return "WARN"
+    return "OK"
+
+
+def _grade_lower(value, warn, crit):
+    if value == None:
+        return "OK"
+    if warn != None and value <= warn:
+        if crit != None and value <= crit:
+            return "CRIT"
+        return "WARN"
+    return "OK"
+
+
+def _snmp_get_lines(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-m", "", oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        idx = line.find(" ")
+        if idx == -1:
+            continue
+        out.append((line[:idx], line[idx + 1:]))
+    return out
+
+
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", "-m", "", oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _probe_pdu(ctx, host, community):
+    """Probe a real APC NetShelter PDU via SNMP. Returns None if not a PDU."""
+    sys_obj = _snmp_get(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if sys_obj == None:
+        return None
+    if not sys_obj.startswith(".1.3.6.1.4.1.318.1.1.32"):
+        return None
+
+    device_info = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.2.2.1.2")
+    device_status = _snmp_get_lines(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.2.4.1")
+    n_phases_str = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.3.1")
+    phase_status = _snmp_get_lines(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.3.4.1")
+    bank_status = _snmp_get_lines(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.4.4.1")
+    phase_config = _snmp_get_lines(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.3.2.1")
+    device_properties = _snmp_get_lines(ctx, host, community, ".1.3.6.1.4.1.318.1.1.32.2.3.1")
+
+    # Build threshold map: phase_index -> {warn, crit} in Amps
+    base_phase_cfg = ".1.3.6.1.4.1.318.1.1.32.3.2.1"
+    phase_thresholds = {}
+    for oid, val in phase_config:
+        suffix = oid[len(base_phase_cfg):]
+        parts = suffix.split(".")
+        if len(parts) < 2:
+            continue
+        col = parts[0]
+        idx = parts[1]
+        entry = phase_thresholds.get(idx, {"warn": None, "crit": None})
+        fval = float(val) / 100.0
+        if col == "6":
+            entry["crit"] = fval
+        elif col == "7":
+            entry["warn"] = fval
+        phase_thresholds[idx] = entry
+
+    n_phases = None
+    if n_phases_str != None and n_phases_str.strip().isdigit():
+        n_phases = int(n_phases_str.strip())
+
+    # Device-level power and apparent power
+    device_power = None
+    apparent_power = None
+    base_dev_status = ".1.3.6.1.4.1.318.1.1.32.2.4.1"
+    for oid, val in device_status:
+        suffix = oid[len(base_dev_status):]
+        if suffix == ".4":
+            device_power = float(val)
+        elif suffix == ".5":
+            apparent_power = float(val)
+
+    pdu_name = _clean_name(device_info) if device_info != None else None
+    device_name = "Device " + pdu_name if pdu_name != None else None
+
+    rated_va = None
+    base_dev_props = ".1.3.6.1.4.1.318.1.1.32.2.3.1"
+    for oid, val in device_properties:
+        suffix = oid[len(base_dev_props):]
+        if suffix == ".13":
+            rated_va = _parse_rated_va(val)
+
+    # Reassemble phase_status rows by index
+    base_phase = ".1.3.6.1.4.1.318.1.1.32.3.4.1"
+    phase_rows = {}
+    for oid, val in phase_status:
+        suffix = oid[len(base_phase):]
+        parts = suffix.split(".")
+        if len(parts) < 2:
+            continue
+        col = parts[0]
+        idx = parts[1]
+        row = phase_rows.get(idx, {"state": None, "current": None, "power": None})
+        if col == "1":
+            row["state"] = val
+        elif col == "3":
+            row["current"] = val
+        elif col == "5":
+            row["power"] = val
+        phase_rows[idx] = row
+
+    # Device-level current for single-phase PDU
+    device_current = None
+    if n_phases != None and n_phases == 1 and "1" in phase_rows:
+        rw = phase_rows["1"]
+        device_current = _current_reading(rw.get("current", ""), rw.get("state", ""))
+
+    items = {}
+
+    if device_name != None:
+        output_load = None
+        if rated_va != None and rated_va > 0 and apparent_power != None:
+            output_load = apparent_power / rated_va * 100.0
+        items[device_name] = {
+            "power": device_power,
+            "current": device_current,
+            "output_load": output_load,
+            "warn_current": None,
+            "crit_current": None,
+        }
+
+    # Phase items
+    for idx, rw in phase_rows.items():
+        th = phase_thresholds.get(idx, {"warn": None, "crit": None})
+        cur_val, cur_st = _current_reading(rw.get("current", ""), rw.get("state", ""))
+        pw = None
+        if rw.get("power") != None and rw.get("power") != "":
+            pw = float(rw.get("power"))
+        items["Phase " + idx] = {
+            "power": pw,
+            "current": (cur_val, cur_st),
+            "output_load": None,
+            "warn_current": th.get("warn"),
+            "crit_current": th.get("crit"),
+        }
+
+    # Bank items: reassemble by index, col 3=name, 4=state, 5=current
+    base_bank = ".1.3.6.1.4.1.318.1.1.32.4.4.1"
+    bank_rows = {}
+    bank_names = {}
+    for oid, val in bank_status:
+        suffix = oid[len(base_bank):]
+        parts = suffix.split(".")
+        if len(parts) < 2:
+            continue
+        col = parts[0]
+        idx = parts[1]
+        if col == "3":
+            bank_names[idx] = _clean_name(val)
+        row = bank_rows.get(idx, {"name": None, "state": None, "current": None})
+        if col == "4":
+            row["state"] = val
+        elif col == "5":
+            row["current"] = val
+        bank_rows[idx] = row
+
+    for idx, row in bank_rows.items():
+        bname = bank_names.get(idx, "")
+        if bname == "NA" or bname == "":
+            continue
+        cur_val, cur_st = _current_reading(row.get("current", ""), row.get("state", ""))
+        items["Bank " + bname] = {
+            "power": None,
+            "current": (cur_val, cur_st),
+            "output_load": None,
+            "warn_current": None,
+            "crit_current": None,
+        }
+
+    if not items:
+        return None
+    return items, device_name, n_phases
+
+
+def _check_item(item, entry, params):
+    """Grade one PDU item. Returns (state, msg, metrics)."""
+    warn = params.get("warn")
+    crit = params.get("crit")
+
+    metrics = {}
+    states = []
+
+    cur = entry.get("current")
+    if type(cur) == "tuple":
+        cur_val, cur_st = cur
+        if cur_val != None:
+            metrics["current"] = cur_val
+        if cur_st != "OK" and cur_st != None:
+            states.append(cur_st)
+        w = warn if warn != None else entry.get("warn_current")
+        c = crit if crit != None else entry.get("crit_current")
+        if w != None or c != None:
+            g = _grade_upper(cur_val, w, c) if cur_val != None else "OK"
+            if g != "OK":
+                states.append(g)
+
+    pw = entry.get("power")
+    if pw != None:
+        metrics["power"] = pw
+
+    ol = entry.get("output_load")
+    if ol != None:
+        metrics["output_load"] = ol
+        lw = params.get("output_load_warn", 80)
+        lc = params.get("output_load_crit", 90)
+        g = _grade_upper(ol, lw, lc)
+        if g != "OK":
+            states.append(g)
+
+    final = "OK"
+    for s in states:
+        if s == "CRIT":
+            final = "CRIT"
+        elif s == "WARN" and final != "CRIT":
+            final = "WARN"
+        elif s == "UNKNOWN" and final == "OK":
+            final = "UNKNOWN"
+
+    if final == "UNKNOWN":
+        msg = "no usable SNMP data for " + item
+    else:
+        parts = []
+        if pw != None:
+            parts.append("Power: %f W" % pw)
+        if type(cur) == "tuple" and cur[0] != None:
+            parts.append("Current: %f A" % cur[0])
+        if ol != None:
+            parts.append("Load: %f%%" % ol)
+        if not parts:
+            msg = item + " " + final
+        else:
+            msg = item + " - " + ", ".join(parts)
+
+    return final, msg, metrics
 
 
 def main(ctx, params):
-    # Detect SNMP parameters
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    # === DISCOVERY MODE ===
     if params.get("_discover"):
-        # Fetch all required SNMP data in one go (multiple snmpwalk calls)
-        device_info = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.2.2.1.2"
-        ], mutates=False)
-
-        device_status = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.2.4.1.4",
-            ".1.3.6.1.4.1.318.1.1.32.2.4.1.5"
-        ], mutates=False)
-
-        n_phases = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.3.1"
-        ], mutates=False)
-
-        phase_status = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.3.4.1.1",
-            ".1.3.6.1.4.1.318.1.1.32.3.4.1.3",
-            ".1.3.6.1.4.1.318.1.1.32.3.4.1.5",
-            ".1.3.6.1.4.1.318.1.1.32.3.4.1.7"
-        ], mutates=False)
-
-        bank_status = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.4.4.1.3",
-            ".1.3.6.1.4.1.318.1.1.32.4.4.1.4",
-            ".1.3.6.1.4.1.318.1.1.32.4.4.1.5"
-        ], mutates=False)
-
-        phase_config = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.3.2.1.1",
-            ".1.3.6.1.4.1.318.1.1.32.3.2.1.6",
-            ".1.3.6.1.4.1.318.1.1.32.3.2.1.7"
-        ], mutates=False)
-
-        device_properties = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.32.2.3.1.13"
-        ], mutates=False)
-
-        # Parse phase thresholds: map phase_index -> (warn, crit) in Amps
-        phase_thresholds = {}
-        phase_index = None
-        upper_crit = None
-        upper_warn = None
-        for line in phase_config.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            val = parts[1].strip()
-            if "1.3.6.1.4.1.318.1.1.32.3.2.1.1" in parts[0]:
-                if val.startswith("INTEGER:"):
-                    phase_index = int(val.split(":")[1].strip())
-            elif "1.3.6.1.4.1.318.1.1.32.3.2.1.6" in parts[0]:
-                if val.startswith("INTEGER:"):
-                    upper_crit = float(val.split(":")[1].strip()) / 100.0
-            elif "1.3.6.1.4.1.318.1.1.32.3.2.1.7" in parts[0]:
-                if val.startswith("INTEGER:"):
-                    upper_warn = float(val.split(":")[1].strip()) / 100.0
-
-            if phase_index != None and upper_crit != None and upper_warn != None:
-                phase_thresholds[str(phase_index)] = (upper_warn, upper_crit)
-                phase_index = None
-                upper_crit = None
-                upper_warn = None
-
-        # Parse device info
-        pdu_name = ""
-        for line in device_info.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val.startswith("STRING:"):
-                    pdu_name = val.split(":")[1].strip().strip('"')
-        pdu_name = _clean_snmp_name(pdu_name)
-
-        # Parse device status: active_power (w), apparent_power (VA)
-        device_power = 0.0
-        apparent_power = 0.0
-        for line in device_status.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            val = parts[1].strip()
-            if val.startswith("INTEGER:"):
-                num = int(val.split(":")[1].strip())
-            elif val.startswith("Gauge32:"):
-                num = int(val.split(":")[1].strip())
-            else:
-                continue
-            if ".4" in parts[0]:
-                device_power = float(num)
-            elif ".5" in parts[0]:
-                apparent_power = float(num)
-
-        # Parse rated VA from device_properties
-        rated_va = None
-        for line in device_properties.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val.startswith("STRING:"):
-                    raw = val.split(":")[1].strip().strip('"')
-                    rated_va = _parse_rated_va(raw)
-                    break
-
-        # Calculate total load
-        output_load = None
-        if rated_va != None and rated_va > 0:
-            output_load = apparent_power / rated_va * 100.0
-
-        # Parse n_phases
-        n_phase_val = 0
-        for line in n_phases.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val.startswith("INTEGER:"):
-                    n_phase_val = int(val.split(":")[1].strip())
-                    break
-
-        # Parse phase status lines
-        phase_data = {}
-        for line in phase_status.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            val = parts[1].strip()
-            if val.startswith("INTEGER:"):
-                num = int(val.split(":")[1].strip())
-            elif val.startswith("Gauge32:"):
-                num = int(val.split(":")[1].strip())
-            else:
-                continue
-            oid_base = parts[0].strip()
-            if ".1.3.6.1.4.1.318.1.1.32.3.4.1.1" in oid_base:
-                phase_index = str(num)
-                phase_data[phase_index] = {}
-            elif ".3" in oid_base and phase_index != None:
-                phase_data[phase_index]["state"] = str(num)
-            elif ".5" in oid_base and phase_index != None:
-                phase_data[phase_index]["current"] = str(num)
-            elif ".7" in oid_base and phase_index != None:
-                phase_data[phase_index]["power"] = str(num)
-
-        # Parse bank status
-        bank_data = []
-        bank_name = ""
-        bank_state = ""
-        bank_current = ""
-        for line in bank_status.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            val = parts[1].strip()
-            oid_base = parts[0].strip()
-            if ".1.3.6.1.4.1.318.1.1.32.4.4.1.3" in oid_base:
-                if val.startswith("STRING:"):
-                    bank_name = val.split(":")[1].strip().strip('"')
-            elif ".4" in oid_base:
-                if val.startswith("INTEGER:"):
-                    bank_state = val.split(":")[1].strip()
-                else:
-                    continue
-            elif ".5" in oid_base:
-                if val.startswith("INTEGER:"):
-                    bank_current = val.split(":")[1].strip()
-                elif val.startswith("Gauge32:"):
-                    bank_current = val.split(":")[1].strip()
-                else:
-                    continue
-                if bank_name != "" and bank_name != "NA":
-                    bank_data.append({
-                        "name": _clean_snmp_name(bank_name),
-                        "state": bank_state,
-                        "current": bank_current
-                    })
-                bank_name = ""
-                bank_state = ""
-                bank_current = ""
-
-        # Build items
-        out = []
-        # Add device item
-        if pdu_name != "":
-            device_item = "Device " + pdu_name
-            device_phase = None
-            if n_phase_val == 1 and len(phase_data) > 0:
-                for p_idx, data in phase_data.items():
-                    if "state" in data and "current" in data:
-                        device_phase = _current_reading(data["current"], data["state"])
-                        break
-
-            item = {
-                "item": device_item,
-                "params": {},
-                "metrics": ["power", "output_load"]
-            }
-            if device_phase != None:
-                item["metrics"].append("current")
-            out.append(item)
-
-        # Add phase items
-        for p_idx, data in phase_data.items():
-            item = "Phase " + p_idx
-            warn, crit = phase_thresholds.get(p_idx, (None, None))
-            item_data = {
+        probed = _probe_pdu(ctx, host, community)
+        if probed == None:
+            return {"changed": False, "msg": "no APC NetShelter PDU found via SNMP",
+                    "data": {"discovery": []}}
+        items, device_name, n_phases = probed
+        discovery = []
+        for item in sorted(items.keys()):
+            discovery.append({
                 "item": item,
                 "params": {},
-                "metrics": ["current", "power"]
-            }
-            if warn != None:
-                item_data["params"]["warn_current"] = warn
-            if crit != None:
-                item_data["params"]["crit_current"] = crit
-            out.append(item_data)
-
-        # Add bank items
-        for bank in bank_data:
-            item = "Bank " + bank["name"]
-            out.append({
-                "item": item,
-                "params": {},
-                "metrics": ["current"]
+                "metrics": ["current", "power", "output_load"],
             })
+        return {"changed": False, "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(out),
-            "data": {"discovery": out}
-        }
-
-    # === CHECK MODE ===
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "item name required",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    probed = _probe_pdu(ctx, host, community)
+    if probed == None:
+        return {"changed": False, "msg": "no APC NetShelter PDU found via SNMP",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    items, device_name, n_phases = probed
+    entry = items.get(item)
+    if entry == None:
+        return {"changed": False, "msg": "no such item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Fetch all SNMP data again
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
-    device_info = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.2.2.1.2"
-    ], mutates=False)
-
-    device_status = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.2.4.1.4",
-        ".1.3.6.1.4.1.318.1.1.32.2.4.1.5"
-    ], mutates=False)
-
-    n_phases = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.3.1"
-    ], mutates=False)
-
-    phase_status = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.3.4.1.1",
-        ".1.3.6.1.4.1.318.1.1.32.3.4.1.3",
-        ".1.3.6.1.4.1.318.1.1.32.3.4.1.5",
-        ".1.3.6.1.4.1.318.1.1.32.3.4.1.7"
-    ], mutates=False)
-
-    bank_status = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.4.4.1.3",
-        ".1.3.6.1.4.1.318.1.1.32.4.4.1.4",
-        ".1.3.6.1.4.1.318.1.1.32.4.4.1.5"
-    ], mutates=False)
-
-    phase_config = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.3.2.1.1",
-        ".1.3.6.1.4.1.318.1.1.32.3.2.1.6",
-        ".1.3.6.1.4.1.318.1.1.32.3.2.1.7"
-    ], mutates=False)
-
-    device_properties = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.32.2.3.1.13"
-    ], mutates=False)
-
-    # Re-parse data (same logic as discovery, but optimized for single item)
-    # Parse device info
-    pdu_name = ""
-    for line in device_info.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) == 2:
-            val = parts[1].strip()
-            if val.startswith("STRING:"):
-                pdu_name = val.split(":")[1].strip().strip('"')
-    pdu_name = _clean_snmp_name(pdu_name)
-
-    # Parse device status
-    device_power = 0.0
-    apparent_power = 0.0
-    for line in device_status.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        val = parts[1].strip()
-        if val.startswith("INTEGER:"):
-            num = int(val.split(":")[1].strip())
-        elif val.startswith("Gauge32:"):
-            num = int(val.split(":")[1].strip())
-        else:
-            continue
-        if ".4" in parts[0]:
-            device_power = float(num)
-        elif ".5" in parts[0]:
-            apparent_power = float(num)
-
-    # Parse rated VA
-    rated_va = None
-    for line in device_properties.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) == 2:
-            val = parts[1].strip()
-            if val.startswith("STRING:"):
-                raw = val.split(":")[1].strip().strip('"')
-                rated_va = _parse_rated_va(raw)
-                break
-
-    # Parse n_phases
-    n_phase_val = 0
-    for line in n_phases.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) == 2:
-            val = parts[1].strip()
-            if val.startswith("INTEGER:"):
-                n_phase_val = int(val.split(":")[1].strip())
-                break
-
-    # Parse phase thresholds
-    phase_thresholds = {}
-    phase_index = None
-    upper_crit = None
-    upper_warn = None
-    for line in phase_config.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        val = parts[1].strip()
-        if "1.3.6.1.4.1.318.1.1.32.3.2.1.1" in parts[0]:
-            if val.startswith("INTEGER:"):
-                phase_index = int(val.split(":")[1].strip())
-        elif "1.3.6.1.4.1.318.1.1.32.3.2.1.6" in parts[0]:
-            if val.startswith("INTEGER:"):
-                upper_crit = float(val.split(":")[1].strip()) / 100.0
-        elif "1.3.6.1.4.1.318.1.1.32.3.2.1.7" in parts[0]:
-            if val.startswith("INTEGER:"):
-                upper_warn = float(val.split(":")[1].strip()) / 100.0
-
-        if phase_index != None and upper_crit != None and upper_warn != None:
-            phase_thresholds[str(phase_index)] = (upper_warn, upper_crit)
-            phase_index = None
-            upper_crit = None
-            upper_warn = None
-
-    # Parse phase status
-    phase_data = {}
-    for line in phase_status.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        val = parts[1].strip()
-        if val.startswith("INTEGER:"):
-            num = int(val.split(":")[1].strip())
-        elif val.startswith("Gauge32:"):
-            num = int(val.split(":")[1].strip())
-        else:
-            continue
-        oid_base = parts[0].strip()
-        if ".1.3.6.1.4.1.318.1.1.32.3.4.1.1" in oid_base:
-            phase_index = str(num)
-            phase_data[phase_index] = {}
-        elif ".3" in oid_base and phase_index != None:
-            phase_data[phase_index]["state"] = str(num)
-        elif ".5" in oid_base and phase_index != None:
-            phase_data[phase_index]["current"] = str(num)
-        elif ".7" in oid_base and phase_index != None:
-            phase_data[phase_index]["power"] = str(num)
-
-    # Parse bank status
-    bank_data = []
-    bank_name = ""
-    bank_state = ""
-    bank_current = ""
-    for line in bank_status.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        val = parts[1].strip()
-        oid_base = parts[0].strip()
-        if ".1.3.6.1.4.1.318.1.1.32.4.4.1.3" in oid_base:
-            if val.startswith("STRING:"):
-                bank_name = val.split(":")[1].strip().strip('"')
-        elif ".4" in oid_base:
-            if val.startswith("INTEGER:"):
-                bank_state = val.split(":")[1].strip()
-            else:
-                continue
-        elif ".5" in oid_base:
-            if val.startswith("INTEGER:"):
-                bank_current = val.split(":")[1].strip()
-            elif val.startswith("Gauge32:"):
-                bank_current = val.split(":")[1].strip()
-            else:
-                continue
-            if bank_name != "" and bank_name != "NA":
-                bank_data.append({
-                    "name": _clean_snmp_name(bank_name),
-                    "state": bank_state,
-                    "current": bank_current
-                })
-            bank_name = ""
-            bank_state = ""
-            bank_current = ""
-
-    # === Determine which item this is and process accordingly ===
-    item_lower = item.lower()
-    # Device item
-    if item_lower.startswith("device "):
-        if pdu_name == "" or ("device " + pdu_name).lower() != item_lower:
-            return {
-                "changed": False,
-                "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-
-        # Calculate total load
-        output_load = None
-        if rated_va != None and rated_va > 0:
-            output_load = apparent_power / rated_va * 100.0
-
-        # Current reading (only for single-phase)
-        current_reading = None
-        if n_phase_val == 1 and len(phase_data) > 0:
-            for p_idx, data in phase_data.items():
-                if "state" in data and "current" in data:
-                    current_reading = _current_reading(data["current"], data["state"])
-                    break
-
-        # State and metrics
-        state = "OK"
-        msg_parts = []
-
-        # Power metric
-        power = device_power
-        msg_parts.append("Power: %f W" % power)
-        metrics = {"power": power}
-
-        # Output load
-        if output_load != None:
-            warn_load = params.get("output_load", (80, 90))
-            warn_val = warn_load[0]
-            crit_val = warn_load[1]
-            if output_load >= crit_val:
-                state = "CRIT"
-            elif output_load >= warn_val:
-                if state != "CRIT":
-                    state = "WARN"
-            msg_parts.append("Load: %f%%" % output_load)
-            metrics["output_load"] = output_load
-
-        # Current metric
-        if current_reading != None:
-            curr_state = current_reading["state"]
-            if curr_state == "CRIT":
-                state = "CRIT"
-            elif curr_state == "WARN" and state != "CRIT":
-                state = "WARN"
-            msg_parts.append("Current: %f A" % current_reading["value"])
-            metrics["current"] = current_reading["value"]
-
-        return {
-            "changed": False,
-            "msg": ", ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": ""}
-        }
-
-    # Phase item
-    elif item_lower.startswith("phase "):
-        p_idx = item[6:].strip()  # after "Phase "
-        if p_idx == "" or not p_idx.isdigit() or phase_data.get(p_idx) == None:
-            return {
-                "changed": False,
-                "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-
-        data = phase_data[p_idx]
-        if "current" not in data or "state" not in data:
-            return {
-                "changed": False,
-                "msg": "missing data for " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-
-        current_reading = _current_reading(data["current"], data["state"])
-        power = float(data.get("power", 0))
-
-        # Thresholds
-        warn_current = params.get("warn_current", None)
-        crit_current = params.get("crit_current", None)
-        if warn_current == None and crit_current == None:
-            warn_current, crit_current = phase_thresholds.get(p_idx, (None, None))
-
-        # State evaluation
-        state = current_reading["state"]
-        if state == "OK":
-            # Check thresholds manually if not device-reported
-            if warn_current != None:
-                if current_reading["value"] >= warn_current:
-                    state = "WARN"
-            if crit_current != None:
-                if current_reading["value"] >= crit_current:
-                    state = "CRIT"
-
-        msg_parts = []
-        msg_parts.append("Current: %f A" % current_reading["value"])
-        msg_parts.append("Power: %f W" % power)
-        metrics = {"current": current_reading["value"], "power": power}
-
-        return {
-            "changed": False,
-            "msg": ", ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": ""}
-        }
-
-    # Bank item
-    elif item_lower.startswith("bank "):
-        bank_name = item[5:].strip()  # after "Bank "
-        found_bank = None
-        for bank in bank_data:
-            if bank["name"].lower() == bank_name.lower():
-                found_bank = bank
-                break
-
-        if found_bank == None:
-            return {
-                "changed": False,
-                "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-
-        current_reading = _current_reading(found_bank["current"], found_bank["state"])
-        state = current_reading["state"]
-
-        return {
-            "changed": False,
-            "msg": "Current: %f A" % current_reading["value"],
-            "data": {"state": state, "metrics": {"current": current_reading["value"]}, "details": ""}
-        }
-
-    else:
-        return {
-            "changed": False,
-            "msg": "unknown item type: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    state, msg, metrics = _check_item(item, entry, params)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

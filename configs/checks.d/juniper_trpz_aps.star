@@ -1,65 +1,96 @@
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
+        sysOID = _snmpget(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+        if sysOID == None:
+            return {"changed": False, "msg": "not a Juniper TRILL/APS device", "data": {"discovery": []}}
+        if not _sysOIDMatchesJuniper(sysOID):
+            return {"changed": False, "msg": "not a Juniper TRILL/APS device", "data": {"discovery": []}}
+        aps = _snmpget(ctx, host, community, ".1.3.6.1.4.1.14525.4.5.1.1.1")
+        sessions = _snmpget(ctx, host, community, ".1.3.6.1.4.1.14525.4.4.1.1.4")
+        if aps == None or sessions == None:
+            return {"changed": False, "msg": "no APS data available", "data": {"discovery": []}}
         return {
             "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": ["ap_devices_total", "total_sessions"]}]},
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": ["ap_devices_total", "total_sessions"],
+                        "service_labels": {"cmk/vendor": "juniper"},
+                    }
+                ]
+            },
         }
 
-    # Single-host check path
-    # Probe: SNMP walk on .1.3.6.1.4.1.14525.4.5.1.1.1 and .1.3.6.1.4.1.14525.4.4.1.4
-    res = ctx.run([
-        "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.14525.4.5.1.1.1",
-        ".1.3.6.1.4.1.14525.4.4.1.4"
-    ], mutates=False)
-
-    if res.rc != 0:
+    item = params.get("item", "")
+    aps = _snmpget(ctx, host, community, ".1.3.6.1.4.1.14525.4.5.1.1.1")
+    sessions = _snmpget(ctx, host, community, ".1.3.6.1.4.1.14525.4.4.1.1.4")
+    if aps == None or sessions == None:
         return {
             "changed": False,
-            "msg": "SNMP query failed: " + res.stderr,
+            "msg": "no Juniper APS data available (not a target device or data unavailable)",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    lines = res.stdout.splitlines()
-    active_aps = 0
-    sessions = 0
-    found_aps = False
-    found_sessions = False
-
-    for line in lines:
-        stripped = line.strip()
-        # ap devices: .1.3.6.1.4.1.14525.4.5.1.1.1.0 = INTEGER: 1
-        if stripped.startswith(".1.3.6.1.4.1.14525.4.5.1.1.1"):
-            idx = stripped.find(":")
-            if idx != -1:
-                val = stripped[idx+1:].strip()
-                if val.isdigit():
-                    active_aps = int(val)
-                    found_aps = True
-        # sessions: .1.3.6.1.4.1.14525.4.4.1.4.0 = INTEGER: 0
-        if stripped.startswith(".1.3.6.1.4.1.14525.4.4.1.4"):
-            idx = stripped.find(":")
-            if idx != -1:
-                val = stripped[idx+1:].strip()
-                if val.isdigit():
-                    sessions = int(val)
-                    found_sessions = True
-
-    if not found_aps or not found_sessions:
+    apsVal = _toInt(aps)
+    sessVal = _toInt(sessions)
+    if apsVal == None or sessVal == None:
         return {
             "changed": False,
-            "msg": "expected SNMP OIDs not found",
+            "msg": "invalid APS data",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    state = "OK"
+    sysOID = _snmpget(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    node_name = ""
+    if sysOID != None and _sysOIDMatchesJuniper(sysOID):
+        node_name = _nodeNameForSysOID(sysOID)
+    prefix = ""
+    if node_name:
+        prefix = "[%s] " % node_name
     return {
         "changed": False,
-        "msg": "Online access points: %d, Sessions: %d" % (active_aps, sessions),
+        "msg": "%sOnline access points: %d, Sessions: %d" % (prefix, apsVal, sessVal),
         "data": {
-            "state": state,
-            "metrics": {"ap_devices_total": active_aps, "total_sessions": sessions},
+            "state": "OK",
+            "metrics": {"ap_devices_total": float(apsVal), "total_sessions": float(sessVal)},
             "details": "",
         },
     }
+
+
+def _snmpget(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    val = res.stdout.strip()
+    if val == "":
+        return None
+    return val
+
+
+def _toInt(v):
+    if v == None:
+        return None
+    if v.isdigit():
+        return int(v)
+    return None
+
+
+def _sysOIDMatchesJuniper(sysOID):
+    if sysOID == None:
+        return False
+    return sysOID.startswith(".1.3.6.1.4.1.14525.3.1") or sysOID.startswith(".1.3.6.1.4.1.14525.3.3")
+
+
+def _nodeNameForSysOID(sysOID):
+    if sysOID == None:
+        return ""
+    if sysOID == ".1.3.6.1.4.1.14525.3.1":
+        return "node1"
+    if sysOID == ".1.3.6.1.4.1.14525.3.3":
+        return "node2"
+    return ""

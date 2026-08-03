@@ -1,156 +1,204 @@
-NOTHING_PENDING_FOR_INSTALLATION = "No updates pending for installation"
+def _parse_line(line):
+    sp = line.split(" ", 1)
+    if len(sp) < 2:
+        return None
+    action = sp[0]
+    if action != "Inst" and action != "Remv":
+        return None
+    rest = sp[1]
+    pkg_sp = rest.split(" ", 1)
+    package = pkg_sp[0]
+    rest = pkg_sp[1] if len(pkg_sp) > 1 else ""
+    old_version = None
+    update_metadata = None
+    if rest.startswith("["):
+        close = rest.find("]")
+        if close == -1:
+            return None
+        old_version = rest[1:close].strip()
+        rest = rest[close + 1:]
+        if rest.startswith(" "):
+            rest = rest[1:]
+    if rest.startswith("("):
+        close = rest.find(")")
+        if close == -1:
+            return None
+        update_metadata = rest[1:close].strip()
+        rest = rest[close + 1:]
+    return {"action": action, "package": package, "old_version": old_version, "update_metadata": update_metadata}
+
+
+def _is_security_update(update_metadata):
+    if update_metadata == None:
+        return False
+    if "Debian-Security:" in update_metadata:
+        return True
+    if "Ubuntu" in update_metadata:
+        idx = update_metadata.find("Ubuntu")
+        after = update_metadata[idx + 6:]
+        slash_idx = after.find("/")
+        if slash_idx != -1:
+            after_slash = after[slash_idx + 1:]
+            if "-security" in after_slash:
+                return True
+    return False
+
+
+NOTHING_PENDING = "No updates pending for installation"
 ESM_NOT_ENABLED = "Enable UA Infra"
 ESM_ENABLED = "ESM service enabled"
 UBUNTU_PRO = "Ubuntu Pro"
 
-SECURITY_REGEX_SUBSTRINGS = ["Debian-Security:", "Ubuntu", "-security"]
 
-
-def _is_security_update(metadata):
-    if metadata == None:
-        return False
-    for s in SECURITY_REGEX_SUBSTRINGS:
-        if s in metadata:
-            if s == "Ubuntu":
-                # Must contain / and -security to be a real security update
-                parts = metadata.split()
-                for part in parts:
-                    if "-security" in part:
-                        return True
-                return False
-            return True
-    return False
-
-
-def _parse_line(line):
-    # Inst|Remv package [old_version] (new_version metadata)
-    if not (line.startswith("Inst ") or line.startswith("Remv ")):
-        return None
-    parts = line.split(None, 2)
-    action = parts[0]
-    if len(parts) < 2:
-        return None
-    package = parts[1]
-    old_version = None
-    update_metadata = None
-    if len(parts) > 2:
-        rest = parts[2]
-        # Extract [old_version] if present
-        if rest.startswith("["):
-            idx = rest.find("]")
-            if idx != -1:
-                old_version = rest[1:idx]
-                rest = rest[idx+1:].strip()
-        # Extract (new_version metadata) if present
-        if rest.startswith("("):
-            idx = rest.find(")")
-            if idx != -1:
-                update_metadata = rest[1:idx]
-    return {"action": action, "package": package, "old_version": old_version, "update_metadata": update_metadata}
-
-
-def _sanitize_string_table(lines):
+def _sanitize(string_table):
     sanitized = []
-    skip_next = 0
-    for i in range(len(lines)):
-        if skip_next > 0:
-            skip_next -= 1
-            continue
-        line = lines[i]
-        if line.startswith(UBUNTU_PRO):
-            skip_next = 1
-            continue
-        if line.startswith(ESM_ENABLED):
-            skip_next = 3
-            continue
-        sanitized.append(line)
+    i = 0
+    n = len(string_table)
+    while i < n:
+        row = string_table[i]
+        line = row[0] if len(row) > 0 else ""
+        if UBUNTU_PRO in line:
+            i = i + 2
+        elif ESM_ENABLED in line:
+            i = i + 4
+        else:
+            sanitized.append(row)
+            i = i + 1
     return sanitized
+
+
+def _data_is_valid(string_table):
+    if len(string_table) == 0:
+        return False
+    first_row = string_table[0]
+    if len(first_row) != 1:
+        return False
+    first_line = first_row[0]
+    if first_line == NOTHING_PENDING:
+        return True
+    if "security update" in first_line:
+        if len(string_table) < 2:
+            return False
+        first_row = string_table[1]
+        first_line = first_row[0] if len(first_row) > 0 else ""
+    parts = _parse_line(first_line)
+    if parts == None:
+        return False
+    return parts["old_version"] != None or parts["update_metadata"] != None
+
+
+def _gather_raw(ctx):
+    res = ctx.run(["apt-get", "upgrade", "--simulate", "-q", "-q"], mutates=False)
+    if res.rc == 127:
+        return None
+    if not res.stdout:
+        return {"rows": [], "have_output": False}
+    rows = []
+    for line in res.stdout.splitlines():
+        rows.append([line])
+    return {"rows": rows, "have_output": True}
+
+
+def _parse_section(ctx):
+    raw = _gather_raw(ctx)
+    if raw == None:
+        return None
+    sanitized = _sanitize(raw["rows"])
+    if len(sanitized) == 0:
+        return {"updates": [], "removals": [], "sec_updates": [], "esm_support": True, "valid": True, "have_output": raw["have_output"]}
+    first_line = sanitized[0][0] if len(sanitized[0]) > 0 else ""
+    if first_line == NOTHING_PENDING:
+        return {"updates": [], "removals": [], "sec_updates": [], "esm_support": True, "valid": True, "have_output": raw["have_output"]}
+    if ESM_NOT_ENABLED in first_line:
+        return {"updates": [], "removals": [], "sec_updates": [], "esm_support": False, "valid": True, "have_output": raw["have_output"]}
+    if not _data_is_valid(sanitized):
+        return {"updates": [], "removals": [], "sec_updates": [], "esm_support": True, "valid": False, "have_output": raw["have_output"]}
+    updates = []
+    removals = []
+    sec_updates = []
+    for row in sanitized:
+        line = row[0]
+        p = _parse_line(line)
+        if p == None:
+            continue
+        if p["action"] == "Remv":
+            removals.append(p["package"])
+            continue
+        if _is_security_update(p["update_metadata"]):
+            sec_updates.append(p["package"])
+            continue
+        updates.append(p["package"])
+    return {"updates": updates, "removals": removals, "sec_updates": sec_updates, "esm_support": True, "valid": True, "have_output": raw["have_output"]}
+
+
+def _format_summary(action, packages, verbose):
+    summary = "%d %s" % (len(packages), action)
+    if verbose and len(packages) > 0:
+        summary += " (%s)" % ", ".join(packages)
+    return summary
 
 
 def main(ctx, params):
     if params.get("_discover"):
-        # Single service discovery
-        return {"changed": False, "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["normal_updates", "removals", "security_updates"]}]}}
+        section = _parse_section(ctx)
+        if section == None:
+            return {"changed": False, "msg": "apt-get not found", "data": {"discovery": [], "host_labels": {}}}
+        if section["valid"] == False:
+            return {"changed": False, "msg": "no valid apt data", "data": {"discovery": [], "host_labels": {}}}
+        if not section["have_output"] and len(section["updates"]) == 0 and len(section["removals"]) == 0 and len(section["sec_updates"]) == 0:
+            return {"changed": False, "msg": "apt-get not found", "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {
+            "discovery": [{"item": "", "params": {"normal": 1, "removals": 1, "security": 2}, "metrics": ["normal_updates", "security_updates"]}],
+            "host_labels": {"cmk/apt": "yes"},
+        }}
 
-    # Read apt section from agent
-    res = ctx.run(["cat", "/var/lib/update-notifier/updates-available"], mutates=False)
-    lines = res.stdout.splitlines()
+    section = _parse_section(ctx)
+    if section == None or section["valid"] == False:
+        return {"changed": False, "msg": "no valid apt data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if not lines:
-        # No apt data available
-        return {"changed": False, "msg": "No apt data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Sanitize the string table
-    sanitized_lines = _sanitize_string_table(lines)
-
-    if len(sanitized_lines) == 0:
-        return {"changed": False, "msg": NOTHING_PENDING_FOR_INSTALLATION,
-                "data": {"state": "OK", "metrics": {"normal_updates": 0, "removals": 0, "security_updates": 0}, "details": ""}}
-
-    # Handle ESM not enabled case
-    if ESM_NOT_ENABLED in sanitized_lines[0]:
-        return {"changed": False, "msg": "System could receive security updates, but needs extended support license",
-                "data": {"state": "CRIT", "metrics": {"normal_updates": 0, "removals": 0, "security_updates": 0}, "details": ""}}
-
-    # Check if data is valid (first line must be Inst/Remv or "No updates pending")
-    if sanitized_lines[0] == NOTHING_PENDING_FOR_INSTALLATION:
-        return {"changed": False, "msg": NOTHING_PENDING_FOR_INSTALLATION,
-                "data": {"state": "OK", "metrics": {"normal_updates": 0, "removals": 0, "security_updates": 0}, "details": ""}}
-
-    parsed = _parse_line(sanitized_lines[0])
-    if parsed == None or (parsed["old_version"] == None and parsed["update_metadata"] == None):
-        return {"changed": False, "msg": "Invalid apt data",
-                "data": {"state": "UNKNOWN", "metrics": {"normal_updates": 0, "removals": 0, "security_updates": 0}, "details": ""}}
-
-    updates = []
-    removals = []
-    sec_updates = []
-
-    for line in sanitized_lines:
-        if line.startswith(UBUNTU_PRO) or line.startswith(ESM_ENABLED) or line.startswith(ESM_NOT_ENABLED):
-            continue
-        parsed = _parse_line(line)
-        if parsed == None:
-            continue
-        if parsed["action"] == "Remv":
-            removals.append(parsed["package"])
-        elif parsed["action"] == "Inst":
-            if _is_security_update(parsed["update_metadata"]):
-                sec_updates.append(parsed["package"])
-            else:
-                updates.append(parsed["package"])
-
-    # Get thresholds from params
-    normal = params.get("normal", 1)  # 1=warning, 2=critical, 0=ok
-    removals_threshold = params.get("removals", 1)
+    normal = params.get("normal", 1)
+    removals_p = params.get("removals", 1)
     security = params.get("security", 2)
 
-    # Determine state
-    if len(updates) > 0:
-        state = "CRIT" if normal == 2 else "WARN"
-    elif len(sec_updates) > 0:
-        state = "CRIT" if security == 2 else "WARN"
-    elif len(removals) > 0:
-        state = "CRIT" if removals_threshold == 2 else "WARN"
-    else:
-        state = "OK"
+    metrics = {"normal_updates": len(section["updates"]), "security_updates": len(section["sec_updates"])}
 
-    # Build summary message
+    if not section["esm_support"]:
+        return {"changed": False, "msg": "System could receive security updates, but needs extended support license",
+                "data": {"state": "CRIT", "metrics": metrics, "details": ""}}
+
+    n_total = len(section["updates"]) + len(section["removals"]) + len(section["sec_updates"])
+    if n_total == 0:
+        return {"changed": False, "msg": NOTHING_PENDING,
+                "data": {"state": "OK", "metrics": {"normal_updates": 0, "security_updates": 0}, "details": ""}}
+
+    state = "OK"
+
+    if len(section["updates"]) > 0:
+        if int(normal) >= 2:
+            state = "CRIT"
+        elif int(normal) == 1 and state == "OK":
+            state = "WARN"
+
+    if len(section["removals"]) > 0:
+        r_val = int(removals_p)
+        if r_val >= 2:
+            state = "CRIT"
+        elif r_val == 1 and state == "OK":
+            state = "WARN"
+        metrics["removals"] = len(section["removals"])
+
+    if len(section["sec_updates"]) > 0:
+        s_val = int(security)
+        if s_val >= 2:
+            state = "CRIT"
+        elif s_val == 1 and state == "OK":
+            state = "WARN"
+
     parts = []
-    if updates:
-        parts.append("%d normal updates" % len(updates))
-    if removals:
-        parts.append("%d auto removals (%s)" % (len(removals), ", ".join(removals)))
-    if sec_updates:
-        parts.append("%d security updates (%s)" % (len(sec_updates), ", ".join(sec_updates)))
-
-    if len(updates) == 0 and len(removals) == 0 and len(sec_updates) == 0:
-        msg = NOTHING_PENDING_FOR_INSTALLATION
-    else:
-        msg = "; ".join(parts)
-
-    # Return verdict
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {"normal_updates": len(updates), "removals": len(removals), "security_updates": len(sec_updates)}, "details": ""}}
+    parts.append(_format_summary("normal updates", section["updates"], False))
+    if len(section["removals"]) > 0:
+        parts.append(_format_summary("auto removals", section["removals"], True))
+    if len(section["sec_updates"]) > 0:
+        parts.append(_format_summary("security updates", section["sec_updates"], True))
+    summary = ", ".join(parts)
+    return {"changed": False, "msg": summary, "data": {"state": state, "metrics": metrics, "details": ""}}

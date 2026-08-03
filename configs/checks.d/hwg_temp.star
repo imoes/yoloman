@@ -1,186 +1,172 @@
-# hwg_temp Starlark check module — temperature sensors via SNMP
-# Read-only: no mutations, never changed=True
-
-# OID base and fields (from Checkmk plugin)
-# base = .1.3.6.1.4.1.21796.4.1.3.1
-# oids = ["1", "2", "3", "4", "7"]
-# index, descr, dev_status, current, unit
-OID_BASE = ".1.3.6.1.4.1.21796.4.1.3.1"
-OID_DESCR = OID_BASE + ".2"
-OID_STATUS = OID_BASE + ".3"
-OID_CURRENT = OID_BASE + ".4"
-OID_UNIT = OID_BASE + ".7"
-
-# Device state mapping (same as Python)
-MAP_DEV_STATES = {
-    "0": "invalid",
-    "1": "normal",
-    "2": "out of range low",
-    "3": "out of range high",
-    "4": "alarm low",
-    "5": "alarm high",
-}
-
-# Unit mapping (same as Python)
-MAP_UNITS = {"1": "c", "2": "f", "3": "k", "4": "%"}
-
-# Default levels (same as Checkmk)
-HWG_TEMP_DEFAULTLEVELS = {"levels": (30.0, 35.0)}
-
-# Helper to convert SNMP output type:value lines into a dict {index: {field: value}}
-def _walk_snmp(ctx, host, community, base_oid):
-    # We need the full OID set: base + suffixes
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    out = {}
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        full_oid = parts[0].strip()
-        val_part = parts[1].strip()
-        if not full_oid.startswith(base_oid + "."):
-            continue
-        suffix = full_oid[len(base_oid) + 1:]
-        if "." in suffix:
-            continue  # skip sub-objects
-        # Parse value type
-        if ": " in val_part:
-            type_val = val_part.split(": ", 1)
-            if len(type_val) == 2:
-                val = type_val[1].strip().strip('"')
-            else:
-                val = val_part.strip().strip('"')
-        else:
-            val = val_part.strip().strip('"')
-        out[suffix] = val
-    return out
-
-def _decode_state(status):
-    return MAP_DEV_STATES.get(status, "invalid")
-
-def _decode_unit(unit):
-    return MAP_UNITS.get(unit, "")
-
 def main(ctx, params):
-    # SNMP parameters
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-
-    # Discovery mode
     if params.get("_discover"):
-        # Fetch all fields at once
-        index_map = _walk_snmp(ctx, host, community, OID_BASE + ".1")
-        descr_map = _walk_snmp(ctx, host, community, OID_DESCR)
-        status_map = _walk_snmp(ctx, host, community, OID_STATUS)
-        current_map = _walk_snmp(ctx, host, community, OID_CURRENT)
-        unit_map = _walk_snmp(ctx, host, community, OID_UNIT)
+        return _discover(ctx)
+    return _check(ctx, params)
 
-        # Combine per index
-        items = []
-        for idx in index_map.keys():
-            status = status_map.get(idx, "0")
-            state_name = _decode_state(status)
-            if state_name == "invalid" or state_name == "":
+def _probe(ctx):
+    community = params_get(ctx, "community", "public")
+    host = params_get(ctx, "host", "localhost")
+    # Detect HWG device presence via sysDescr
+    descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False)
+    if descr.rc != 0:
+        return None
+    return _walk(ctx, community, host)
+
+def params_get(ctx, key, default):
+    v = ctx.params.get(key) if hasattr(ctx, "params") else None
+    return v if v != None else default
+
+def _get_params(ctx):
+    return ctx.params
+
+def _walk(ctx, community, host):
+    rows = _snmp_table(ctx, community, host, ".1.3.6.1.4.1.21796.4.1.3.1", ["1", "2", "3", "4", "7"])
+    if len(rows) == 0:
+        return {}
+    return parse_hwg(rows)
+
+def _snmp_table(ctx, community, host, base, col_indices):
+    # Walk base.1..7 and correlate by index
+    col_map = {}
+    for col in col_indices:
+        oid = base + "." + col
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+            mutates=False)
+        if res.rc != 0:
+            continue
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
                 continue
-            curr = current_map.get(idx, "")
-            if curr == "":
+            full_oid = line[:sp]
+            val = line[sp + 1:]
+            idx = full_oid[len(oid):]
+            if idx == "":
                 continue
-            # Only temperature sensors (unit != "%")
-            unit = unit_map.get(idx, "")
-            if _decode_unit(unit) == "%":
-                continue
+            col_map.setdefault(idx, {})[col] = val
+    rows = []
+    for idx in col_map:
+        d = col_map[idx]
+        row = [d.get("1", ""), d.get("2", ""), d.get("3", ""),
+               d.get("4", ""), d.get("7", "")]
+        rows.append(row)
+    return rows
 
-            # Suggested params
-            items.append({
-                "item": idx,
-                "params": {"levels": HWG_TEMP_DEFAULTLEVELS["levels"]},
-                "metrics": ["temp"]
-            })
+def parse_hwg(info):
+    parsed = {}
+    map_units = {"1": "c", "2": "f", "3": "k", "4": "%"}
+    map_dev_states = {
+        "0": "invalid", "1": "normal", "2": "out of range low",
+        "3": "out of range high", "4": "alarm low", "5": "alarm high"}
+    for row in info:
+        index = row[0]
+        descr = row[1]
+        sensorstatus = row[2]
+        current = row[3]
+        unit = row[4]
+        # Humidity branch
+        if sensorstatus != "0" and map_units.get(unit, "") == "%":
+            parsed.setdefault(index, {
+                "descr": descr,
+                "humidity": float(current) if current.replace(".", "", 1).isdigit() else 0.0,
+                "dev_status_name": map_dev_states.get(sensorstatus, "n.a."),
+                "dev_status": sensorstatus})
+        else:
+            tempval = None
+            if _is_float(current):
+                tempval = float(current)
+            parsed.setdefault(index, {
+                "descr": descr,
+                "dev_unit": map_units.get(unit),
+                "temperature": tempval,
+                "dev_status_name": map_dev_states.get(sensorstatus, ""),
+                "dev_status": sensorstatus})
+    return parsed
 
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(items),
-            "data": {"discovery": items}
-        }
+def _is_float(s):
+    if s == "":
+        return False
+    parts = s.split(".")
+    if len(parts) == 1:
+        return s.isdigit()
+    if len(parts) == 2:
+        return parts[0].isdigit() and parts[1].isdigit()
+    return False
 
-    # Check mode
-    item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+def _discover(ctx):
+    section = _probe(ctx)
+    if section == None:
+        return {"changed": False, "msg": "no hwg device found",
+                "data": {"discovery": []}}
+    out = []
+    for index, attrs in section.items():
+        temp = attrs.get("temperature")
+        status = attrs.get("dev_status_name", "")
+        if temp != None and status not in ["invalid", ""]:
+            warn = 30.0
+            crit = 35.0
+            levels = ctx.params.get("levels", (warn, crit)) if hasattr(ctx, "params") else (warn, crit)
+            if levels != None and type(levels) == "list" and len(levels) == 2:
+                warn = levels[0]
+                crit = levels[1]
+            out.append({"item": index,
+                        "params": {"levels": [warn, crit]},
+                        "metrics": ["temperature"]})
+    return {"changed": False, "msg": "discovered %d items" % len(out),
+            "data": {"discovery": out}}
 
-    # Fetch needed fields
-    index_map = _walk_snmp(ctx, host, community, OID_BASE + ".1")
-    if item not in index_map:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    status_map = _walk_snmp(ctx, host, community, OID_STATUS)
-    current_map = _walk_snmp(ctx, host, community, OID_CURRENT)
-    unit_map = _walk_snmp(ctx, host, community, OID_DESCR)
-    descr_map = _walk_snmp(ctx, host, community, OID_DESCR)
-
-    status = status_map.get(item, "0")
-    state_name = _decode_state(status)
-    state_readable = state_name
-
-    # Determine state from status (same as READABLE_STATES)
-    if state_name == "invalid":
-        state = "UNKNOWN"
-    elif state_name == "normal":
-        state = "OK"
-    else:
-        state = "CRIT"
-
-    # Get temperature value with guard instead of try/except
-    curr = current_map.get(item, "")
-    temp = float(curr) if curr != "" and curr.replace(".", "", 1).replace("-", "", 1).isdigit() else None
-
-    if temp == None:
-        return {
-            "changed": False,
-            "msg": "Status: " + state_readable,
-            "data": {"state": state, "metrics": {}, "details": ""}
-        }
-
-    # Get unit and description
-    unit = unit_map.get(item, "")
-    unit_name = _decode_unit(unit)
-    descr = descr_map.get(item, "")
-
-    # Extract levels
-    levels = params.get("levels", HWG_TEMP_DEFAULTLEVELS["levels"])
+def _check(ctx):
+    p = ctx.params
+    item = p.get("item", "")
+    levels = p.get("levels", (30.0, 35.0))
+    if levels == None:
+        levels = (30.0, 35.0)
     warn = levels[0]
     crit = levels[1]
+    community = p.get("community", "public")
+    host = p.get("host", "localhost")
+    section = _probe_with(ctx, community, host)
+    if section == None:
+        return {"changed": False, "msg": "no hwg device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item not in section:
+        return {"changed": False, "msg": "item %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = section[item]
+    status_name = data.get("dev_status_name", "")
+    state_map = {"invalid": "UNKNOWN", "normal": "OK",
+                 "out of range low": "CRIT", "out of range high": "CRIT",
+                 "alarm low": "CRIT", "alarm high": "CRIT"}
+    state = state_map.get(status_name, "UNKNOWN")
+    temp = data.get("temperature")
+    if temp == None:
+        msg = "Status: %s" % status_name
+        return {"changed": False, "msg": msg,
+                "data": {"state": state, "metrics": {}, "details": msg}}
+    temp_state = "CRIT" if temp >= crit else ("WARN" if temp >= warn else "OK")
+    # dev_status takes precedence if in alarm ranges per source ordering
+    if state != "OK":
+        temp_state = state
+    msg = "Description: %s, Status: %s, Temp: %s%s" % (
+        data.get("descr", ""), status_name, _round(temp, 1), data.get("dev_unit", ""))
+    return {"changed": False, "msg": msg,
+            "data": {"state": temp_state, "metrics": {"temperature": temp},
+                     "details": msg}}
 
-    # Determine state based on thresholds (same logic as check_temperature)
-    if temp >= crit:
-        state = "CRIT"
-    elif temp >= warn:
-        state = "WARN"
-    else:
-        state = "OK"
+def _probe_with(ctx, community, host):
+    descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False)
+    if descr.rc != 0:
+        return None
+    rows = _snmp_table(ctx, community, host, ".1.3.6.1.4.1.21796.4.1.3.1", ["1", "2", "3", "4", "7"])
+    if len(rows) == 0:
+        return {}
+    return parse_hwg(rows)
 
-    # Build summary
-    summary = "Temperature: %f %s" % (temp, unit_name.upper() if unit_name else "")
-    if state_readable != "normal":
-        summary = summary + ", Status: " + state_readable
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"temp": temp},
-            "details": "Description: " + descr + ", Status: " + state_readable
-        }
-    }
+def _round(v, n):
+    s = "%.*f" % (n, v)
+    return s

@@ -1,109 +1,52 @@
 def main(ctx, params):
-    # Base OID for Juniper ScreenOS fan status
-    base_oid = ".1.3.6.1.4.1.3224.21.2.1"
-    # OIDs: index (fan number) and status
-    index_oid = base_oid + ".3"
-    status_oid = base_oid + ".2"
-    
-    # Discover fans by walking the index OID
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), index_oid
-        ], mutates=False)
-        
+        res = ctx.run(
+            [
+                "snmpwalk",
+                "-v2c",
+                "-c",
+                params.get("community", "public"),
+                "-Oqn",
+                params.get("host", "localhost"),
+                ".1.3.6.1.4.1.3224.21.2.1.2",
+            ],
+            mutates=False,
+        )
         if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
-        
-        fans = []
+            return {"changed": False, "msg": "no juniper fans found", "data": {"discovery": []}}
+        items = []
         for line in res.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) < 2:
+            f = line.split()
+            if len(f) < 2:
                 continue
-            # OID format: .1.3.6.1.4.1.3224.21.2.1.3.X = INTEGER: X
-            oid_val = parts[0]
-            # Extract fan number from OID end (e.g., .3.1 -> 1)
-            parts_oid = oid_val.rsplit(".", 1)
-            if len(parts_oid) != 2:
-                continue
-            fan_id = parts_oid[1]
-            if not fan_id.isdigit():
-                continue
-            fans.append({"item": fan_id, "params": {}, "metrics": []})
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(fans),
-            "data": {"discovery": fans}
-        }
-    
-    # Normal check mode
+            index = f[0].split(".")[-1]
+            items.append({"item": index, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d fans" % len(items), "data": {"discovery": items}}
+
     item = params.get("item", "")
-    if item == None:
-        item = ""
-    
-    # Walk status OID to find requested fan
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), status_oid
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "snmpwalk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse SNMP output for the requested fan
-    fan_status = None
-    for line in res.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) < 2:
-            continue
-        oid_val = parts[0]
-        status_val = parts[1]
-        
-        # Extract fan number from OID
-        # OID format: .1.3.6.1.4.1.3224.21.2.1.2.X = INTEGER: status
-        parts_oid = oid_val.rsplit(".", 1)
-        if len(parts_oid) != 2:
-            continue
-        fan_id = parts_oid[1]
-        
-        if fan_id == item:
-            # Extract integer value (strip "INTEGER:" or just take the number)
-            if ":" in status_val:
-                status_str = status_val.split(":", 1)[1].strip()
-            else:
-                status_str = status_val
-            fan_status = status_str
-            break
-    
-    # Determine state
-    if fan_status == None:
-        return {
-            "changed": False,
-            "msg": "fan %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    if fan_status == "1":
+    oid = ".1.3.6.1.4.1.3224.21.2.1.3." + item
+    res = ctx.run(
+        [
+            "snmpget",
+            "-v2c",
+            "-c",
+            params.get("community", "public"),
+            "-Oqv",
+            params.get("host", "localhost"),
+            oid,
+        ],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "fan %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    status = res.stdout.strip()
+    if status == "1":
         state = "OK"
-        msg_summary = "status is good"
-    elif fan_status == "2":
+        summary = "status is good"
+    elif status == "2":
         state = "CRIT"
-        msg_summary = "status is failed"
+        summary = "status is failed"
     else:
         state = "CRIT"
-        msg_summary = "Unknown fan status " + str(fan_status)
-    
-    return {
-        "changed": False,
-        "msg": msg_summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+        summary = "Unknown fan status %s" % status
+    return {"changed": False, "msg": summary, "data": {"state": state, "metrics": {}, "details": ""}}

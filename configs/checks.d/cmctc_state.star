@@ -1,52 +1,58 @@
+# cmctc_state.star — TC unit state (Rittal CMCTC) via SNMP
+# READ-ONLY: discovery + check, no mutations.
+#
+# Data source (Checkmk SNMP section cmctc_state):
+#   base OID .1.3.6.1.4.1.2606.4.2  (table-less scalar pair)
+#   OID .1  -> status code (1=failed, 2=ok)
+#   OID .2  -> units connected
+# Detection: sysObjectID .1.3.6.1.2.1.1.2.0 contains ".1.3.6.1.4.1.2606.4".
+
+def _get_oid(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc == 0 and len(res.stdout) > 0:
+        return res.stdout.strip()
+    return None
+
+def _is_cmctc(ctx, host, community):
+    oid = ".1.3.6.1.2.1.1.2.0"
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Onqv", host, oid], mutates=False)
+    if res.rc == 0:
+        val = res.stdout.strip()
+        if val != "" and val.find(".1.3.6.1.4.1.2606.4") != -1:
+            return True
+    return False
+
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
+        if not _is_cmctc(ctx, host, community):
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}
+                ]}}
 
-    # Single-service check: item is always ""
-    res = ctx.run([
-        "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.2606.4.2.1.0", ".1.3.6.1.4.1.2606.4.2.2.0"
-    ], mutates=False)
+    item = params.get("item", "")
+    status_code = _get_oid(ctx, host, community, ".1.3.6.1.4.1.2606.4.2.1")
+    units_raw = _get_oid(ctx, host, community, ".1.3.6.1.4.1.2606.4.2.2")
 
-    status_code = None
-    units = None
+    if status_code == None:
+        return {"changed": False,
+                "msg": "no TC unit data obtainable via SNMP",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Parse "oid value" format
-        parts = line.split(None, 1)
-        if len(parts) != 2:
-            continue
-        oid, value = parts
-        value = value.strip()
-        if oid.endswith(".1.3.6.1.4.1.2606.4.2.1.0"):
-            status_code = value
-        elif oid.endswith(".1.3.6.1.4.1.2606.4.2.2.0"):
-            units = value
-
-    # Fallback if SNMP failed to return data
-    if status_code == None or units == None:
-        return {
-            "changed": False,
-            "msg": "SNMP data missing",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Map status code per original logic: "1" -> failed, "2" -> ok
     status_map = {"1": "failed", "2": "ok"}
-    status = status_map.get(status_code, "unknown[" + status_code + "]")
-
-    # State logic: ok -> OK, anything else -> CRIT
+    status = status_map.get(status_code, "unknown[%s]" % status_code)
     state = "OK" if status == "ok" else "CRIT"
 
-    return {
-        "changed": False,
-        "msg": "Status: " + status + ", Units connected: " + str(units),
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    units_val = None
+    if units_raw != None and units_raw.isdigit():
+        units_val = int(units_raw)
+
+    details = "Status: %s, Units connected: %s" % (
+        status, status_code if units_val == None else units_val)
+    return {"changed": False, "msg": details,
+            "data": {"state": state, "metrics": {}, "details": details}}

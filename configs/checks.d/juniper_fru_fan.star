@@ -1,125 +1,167 @@
-# Map: fru_state string -> (state_readable, state_enum_for_verdict)
-_MAP_FRU_STATE = {
-    "1": ("unknown", "UNKNOWN"),
-    "2": ("empty", "CRIT"),
-    "3": ("present", "WARN"),
-    "4": ("ready", "OK"),
-    "5": ("announce online", "OK"),
-    "6": ("online", "OK"),
-    "7": ("anounce offline", "CRIT"),
-    "8": ("offline", "CRIT"),
-    "9": ("diagnostic", "WARN"),
-    "10": ("standby", "WARN"),
+# juniper_fru_fan.star
+# Read-only Starlark check module translating Checkmk check juniper_fru_fan.
+# Monitors Juniper FRU fan tray state via SNMP (Entity-MIB entPhysicalTable).
+
+# entPhysicalClass OID values of interest. 13 = fan.
+# State mapping mirrors Checkmk's _MAP_FRU_STATE.
+_STATE_MAP = {
+    "1": ("UNKNOWN", "unknown"),
+    "2": ("CRIT", "empty"),
+    "3": ("WARN", "present"),
+    "4": ("OK", "ready"),
+    "5": ("OK", "announce online"),
+    "6": ("OK", "online"),
+    "7": ("CRIT", "anounce offline"),
+    "8": ("CRIT", "offline"),
+    "9": ("WARN", "diagnostic"),
+    "10": ("WARN", "standby"),
 }
 
-# Fan FRU type codes (strings) that this check monitors
-_FAN_FRU_TYPES = ("13",)
-
-
-def _discover_juniper_fru(section, fru_types):
-    out = []
-    for fru_name, fru_data in section.items():
-        if fru_data.get("fru_type") in fru_types and fru_data.get("fru_state") != "2":
-            out.append({"item": fru_name, "params": {}, "metrics": []})
-    return out
-
-
-def _parse_snmpwalk(res):
-    mapping = {}
-    lines = res.stdout.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        parts = line.split(" = ")
-        if len(parts) < 2:
-            i += 1
-            continue
-        oid = parts[0].strip()
-        value_part = parts[1].strip()
-        # Extract last OID component as index
-        idx = oid.rsplit(".", 1)[-1]
-        if value_part.startswith("STRING: "):
-            mapping[idx] = value_part[8:].strip().strip('"')
-        elif value_part.startswith("INTEGER: "):
-            val_str = value_part[9:].strip()
-            mapping[idx] = int(val_str) if val_str.isdigit() else val_str
-        else:
-            mapping[idx] = value_part
-        i += 1
-    return mapping
-
-
-def _build_section(ctx, community, host):
-    # Run snmpwalk commands
-    res_name = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.2636.13.1.1.1.1.1"],
-        mutates=False
-    )
-    res_type = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.2636.13.1.3.1.1.2"],
-        mutates=False
-    )
-    res_state = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.2636.13.1.1.1.1.2"],
-        mutates=False
-    )
-    
-    # Parse results
-    names = _parse_snmpwalk(res_name)
-    types = _parse_snmpwalk(res_type)
-    states = _parse_snmpwalk(res_state)
-    
-    # Build section dict
-    section = {}
-    for idx in names.keys():
-        if idx in types and idx in states:
-            fru_type = str(types[idx]) if type(types[idx]) == "int" else types[idx]
-            fru_state = str(states[idx]) if type(states[idx]) == "int" else states[idx]
-            section[names[idx]] = {"fru_type": fru_type, "fru_state": fru_state}
-    
-    return section
-
+# SNMP OIDs
+# entPhysicalClass: .1.3.6.1.2.1.47.1.1.1.1.13 (column)
+# entPhysicalName:   .1.3.6.1.2.1.47.1.1.1.1.7  (column)
+# entPhysicalDescr:  .1.3.6.1.2.1.47.1.1.1.1.2  (column, used as FRU name fallback)
+# entPhysicalVendorType / custom Juniper FRU state via .1.3.6.1.4.1.2636.x
+# The Checkmk juniper_fru section uses a Juniper enterprise MIB exposing fru_state.
+# We reproduce by reading the juniper_fru SNMP agent-based section equivalent.
+ENT_PHYS_CLASS_OID = ".1.3.6.1.2.1.47.1.1.1.1.13"
+ENT_PHYS_NAME_OID = ".1.3.6.1.2.1.47.1.1.1.1.7"
 
 def main(ctx, params):
     if params.get("_discover"):
-        community = params.get("community", "public")
         host = params.get("host", "localhost")
-        
-        section = _build_section(ctx, community, host)
-        discovery = _discover_juniper_fru(section, _FAN_FRU_TYPES)
-        return {"changed": False, "msg": "discovered %d fans" % len(discovery),
+        community = params.get("community", "public")
+        # Walk entPhysicalClass to find fans (13). Correlate names.
+        class_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ENT_PHYS_CLASS_OID],
+            mutates=False,
+        )
+        # rc==127 => snmpwalk not installed -> not applicable
+        if class_res.rc == 127 or class_res.rc != 0:
+            return {"changed": False, "msg": "snmpwalk not available or no SNMP access",
+                    "data": {"discovery": []}}
+        # rc==22 (noSuchInstance) for empty walks; treat rc==0 only as success
+        if class_res.rc != 0 and class_res.rc != 22:
+            return {"changed": False, "msg": "SNMP query failed", "data": {"discovery": []}}
+
+        # Build index -> class mapping
+        fans = {}
+        for line in class_res.stdout.splitlines():
+            sp = line.split(" ", 1)
+            if len(sp) < 2:
+                continue
+            col_oid, value = sp[0], sp[1]
+            idx = col_oid[len(ENT_PHYS_CLASS_OID) + 1:]
+            if value == "13":
+                fans[idx] = value
+
+        if len(fans) == 0:
+            return {"changed": False, "msg": "discovered 0 fan FRUs",
+                    "data": {"discovery": []}}
+
+        # Get names for fan indices
+        name_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ENT_PHYS_NAME_OID],
+            mutates=False,
+        )
+        names = {}
+        if name_res.rc == 0:
+            for line in name_res.stdout.splitlines():
+                sp = line.split(" ", 1)
+                if len(sp) < 2:
+                    continue
+                col_oid, value = sp[0], sp[1]
+                idx = col_oid[len(ENT_PHYS_NAME_OID) + 1:]
+                names[idx] = value.strip('"')
+
+        discovery = []
+        for idx in fans.keys():
+            item = names.get(idx, idx)
+            discovery.append({
+                "item": item,
+                "params": {"warn": 3, "crit": 2},
+                "metrics": ["fru_state"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d fan FRU(s)" % len(discovery),
                 "data": {"discovery": discovery}}
 
-    # CHECK MODE: single item
+    # CHECK MODE
     item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    section = _build_section(ctx, community, host)
-    if not item in section:
-        return {"changed": False, "msg": "fan not found: " + item,
+    # First, verify SNMP tooling is present
+    tool_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ENT_PHYS_NAME_OID + ".0"],
+        mutates=False,
+    )
+    if tool_res.rc == 127:
+        return {"changed": False, "msg": "snmpget not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "SNMP tooling unavailable"}}
+
+    # Resolve the item's index by walking entPhysicalName
+    name_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ENT_PHYS_NAME_OID],
+        mutates=False,
+    )
+    if name_res.rc != 0:
+        return {"changed": False, "msg": "no FRU data from SNMP",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    fru_state_str = section[item].get("fru_state", "1")
-    # Look up in map; default to unknown
-    state_tuple = _MAP_FRU_STATE.get(fru_state_str, ("unknown", "UNKNOWN"))
-    state_readable, state_enum = state_tuple
+    target_idx = None
+    for line in name_res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) < 2:
+            continue
+        col_oid, value = sp[0], sp[1]
+        idx = col_oid[len(ENT_PHYS_NAME_OID) + 1:]
+        name_val = value.strip('"')
+        if name_val == item:
+            target_idx = idx
+            break
 
-    # Map state_enum to Checkmk state strings
-    state_map = {
-        "UNKNOWN": "UNKNOWN",
-        "OK": "OK",
-        "WARN": "WARN",
-        "CRIT": "CRIT"
-    }
-    state_str = state_map.get(state_enum, "UNKNOWN")
+    # Fall back to using the item as the numeric index if it looks numeric
+    if target_idx == None:
+        if item.isdigit():
+            target_idx = item
+        else:
+            return {"changed": False, "msg": "no such fan FRU: " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    return {
-        "changed": False,
-        "msg": "Operational status: " + state_readable,
-        "data": {
-            "state": state_str,
-            "metrics": {},
-            "details": ""
-        }
-    }
+    # Verify this index is actually a fan (class == 13)
+    class_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ENT_PHYS_CLASS_OID + "." + target_idx],
+        mutates=False,
+    )
+    if class_res.rc != 0 or class_res.stdout.strip() != "13":
+        return {"changed": False, "msg": "FRU is not a fan: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Read the Juniper FRU state. The juniper_fru MIB exposes fru_state.
+    # Juniper enterprise OID for FRU state (per Checkmk juniper agent plugin):
+    # We map using the local entPhysicalStatus / a Juniper-specific state column.
+    # The Checkmk plugin uses the section 'juniper_fru' which comes from
+    # .1.3.6.1.4.1.2636.3.1.x type OIDs. We use the fruState from
+    # JUNIPER-FRU-MIB (.1.3.6.1.4.1.2636.3.1.2) keyed by index.
+    JUNIPER_FRU_STATE_OID = ".1.3.6.1.4.1.2636.3.1.2"
+    state_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, JUNIPER_FRU_STATE_OID + "." + target_idx],
+        mutates=False,
+    )
+    if state_res.rc != 0:
+        return {"changed": False, "msg": "no FRU state for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    fru_state = state_res.stdout.strip()
+    if fru_state not in _STATE_MAP:
+        return {"changed": False, "msg": "unknown FRU state code: " + fru_state,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    level, readable = _STATE_MAP[fru_state]
+    metrics = {}
+    # Map state to numeric for metric: use the raw state code as the metric value
+    metrics["fru_state"] = int(fru_state)
+    return {"changed": False,
+            "msg": "Fan FRU %s: %s" % (item, readable),
+            "data": {"state": level, "metrics": metrics, "details": ""}}

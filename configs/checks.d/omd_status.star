@@ -1,96 +1,68 @@
-def _parse_omd_status(output):
+def _parse_omd_status(text):
     result = {}
-    current_site = None
-    current_data = None
-
-    for line in output.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("[") and line.endswith("]"):
-            current_site = line[1:-1]
-            current_data = {"stopped": [], "existing": []}
-            result[current_site] = current_data
-            continue
-        if current_data == None:
-            continue
+    current = None
+    for line in text.splitlines():
         parts = line.split()
+        if not parts:
+            continue
         if len(parts) < 2:
+            if parts[0].startswith("[") and parts[0].endswith("]"):
+                name = parts[0]
+                current = result.setdefault(name[1:-1], {"stopped": [], "existing": []})
             continue
         name = parts[0]
-        state_val = parts[1]
+        if name.startswith("[") and name.endswith("]"):
+            current = result.setdefault(name[1:-1], {"stopped": [], "existing": []})
+            continue
+        if current == None:
+            continue
+        state = parts[1]
         if name == "OVERALL":
-            if state_val == "0":
-                current_data["overall"] = "running"
-            elif state_val == "1":
-                current_data["overall"] = "stopped"
-            current_site = None
-            current_data = None
-        else:
-            current_data["existing"].append(name)
-            if state_val != "0":
-                current_data["stopped"].append(name)
-                current_data["overall"] = "partially"
-
+            if state == "0":
+                current["overall"] = "running"
+            elif state == "1":
+                current["overall"] = "stopped"
+            current = None
+            continue
+        current["existing"].append(name)
+        if state != "0":
+            current["stopped"].append(name)
+            current["overall"] = "partially"
     return result
 
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["omd", "status", "--bare"], mutates=False, ok_codes=[0, 1, 2])
-        sites = _parse_omd_status(res.stdout)
-        discovery = []
-        for site in sorted(sites.keys()):
-            discovery.append({
-                "item": site,
-                "params": {},
-                "metrics": [],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d OMD sites" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        probe = ctx.run(["omd", "--version"], mutates=False)
+        if probe.rc == 127 or probe.rc != 0:
+            return {"changed": False, "msg": "omd not installed", "data": {"discovery": []}}
+        res = ctx.run(["omd", "status"], mutates=False)
+        if res.rc != 0 and not res.stdout:
+            return {"changed": False, "msg": "omd status unavailable", "data": {"discovery": []}}
+        section = _parse_omd_status(res.stdout)
+        out = []
+        for site in section.keys():
+            out.append({"item": site, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
 
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # omd status --bare <site> outputs daemon lines + OVERALL without a [site] header;
-    # wrap it so _parse_omd_status can handle it uniformly.
-    res = ctx.run(["omd", "status", "--bare", item], mutates=False, ok_codes=[0, 1, 2])
-    wrapped = "[%s]\n%s" % (item, res.stdout)
-    sites = _parse_omd_status(wrapped)
-
-    if item not in sites:
-        return {
-            "changed": False,
-            "msg": "site not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    site_data = sites[item]
-
-    if "overall" not in site_data:
-        state = "CRIT"
-        msg = "defective installation"
-    elif site_data["overall"] == "running":
-        state = "OK"
-        msg = "running"
-    elif site_data["overall"] == "stopped":
-        state = "CRIT"
-        msg = "stopped"
-    else:
-        stopped = site_data.get("stopped", [])
-        state = "CRIT"
-        msg = "partially running, stopped services: " + ", ".join(stopped)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    probe = ctx.run(["omd", "--version"], mutates=False)
+    if probe.rc == 127 or probe.rc != 0:
+        return {"changed": False, "msg": "omd not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    res = ctx.run(["omd", "status"], mutates=False)
+    if res.rc != 0 and not res.stdout:
+        return {"changed": False, "msg": "omd status unavailable", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _parse_omd_status(res.stdout)
+    if not section or item not in section:
+        return {"changed": False, "msg": "site not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    svcs = section[item]
+    overall = svcs.get("overall")
+    if "overall" not in svcs:
+        return {"changed": False, "msg": "defective installation", "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+    if overall == "running":
+        return {"changed": False, "msg": "running", "data": {"state": "OK", "metrics": {}, "details": ""}}
+    if overall == "stopped":
+        return {"changed": False, "msg": "stopped", "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+    if overall == "partially":
+        return {"changed": False, "msg": "partially running, stopped services: " + ", ".join(svcs.get("stopped", [])), "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": "unknown overall state: " + str(overall), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

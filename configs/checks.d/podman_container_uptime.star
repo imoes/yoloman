@@ -1,179 +1,146 @@
+def _uptime_str(total_seconds):
+    # Produce a human-readable uptime string, mirroring Checkmk's uptime formatting.
+    total_seconds = int(total_seconds)
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+    seconds = total_seconds % 60
+    if days > 0:
+        return "%dd %d:%d:%d" % (days, hours, minutes, seconds)
+    return "%d:%d:%d" % (hours, minutes, seconds)
+
+
 def main(ctx, params):
-    # Discovery mode
+    # ---- parameters ----
+    warn = params.get("warn", 0.0)
+    crit = params.get("crit", 0.0)
+    levels = params.get("levels", None)
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+
+    # ---- probe: is podman installed? ----
+    version_res = ctx.run(["podman", "--version"], mutates=False)
+    if version_res.rc != 0 or version_res.skipped:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no podman found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "podman not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # ---- gather container list (read-only) ----
+    # Use --format to get predictable machine-readable output: name|status|started_at
+    list_res = ctx.run(
+        ["podman", "ps", "-a", "--all", "--format", "{{.Names}}|{{.Status}}|{{.StartedAt}}"],
+        mutates=False,
+    )
+    if list_res.rc != 0:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "podman ps failed",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "podman ps failed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    containers = []
+    for line in list_res.stdout.splitlines():
+        if not line:
+            continue
+        parts = line.split("|")
+        if len(parts) < 3:
+            continue
+        name = parts[0]
+        status = parts[1]
+        started_at = parts[2]
+        containers.append((name, status, started_at))
+
+    # ---- discovery mode ----
     if params.get("_discover"):
-        # Probe container inspect data
-        res_inspect = ctx.run(["podman", "inspect", "--format=json", "podman_container"], mutates=False)
-        if res_inspect.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        # Guard before JSON decode - check if stdout is non-empty
-        if res_inspect.stdout == "":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        # Only decode if stdout is non-empty (no try/except allowed)
-        containers = json.decode(res_inspect.stdout)
-        
-        # Check if agent uptime service exists (to suppress duplicate service)
-        res_uptime = ctx.run(["cat", "/proc/uptime"], mutates=False)
-        if res_uptime.rc == 0:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        # Find running or exited containers
-        discovered = []
-        for container in containers:
-            if type(container) == "dict":
-                state = container.get("State", {})
-                if type(state) == "dict":
-                    status = state.get("Status", "")
-                    if status in ("running", "exited"):
-                        discovered.append({
-                            "item": "",
-                            "params": {},
-                            "metrics": ["uptime"]
-                        })
-                        break  # Single-service check; only one item
-        
-        return {"changed": False, "msg": "discovered %d items" % len(discovered),
-                "data": {"discovery": discovered}}
-    
-    # Check mode
-    # Probe container inspect data
-    res_inspect = ctx.run(["podman", "inspect", "--format=json", "podman_container"], mutates=False)
-    if res_inspect.rc != 0:
-        return {"changed": False, "msg": "no container found",
+        discovery = []
+        for name, status, started_at in containers:
+            if status in ("running", "exited"):
+                discovery.append({
+                    "item": name,
+                    "params": {"warn": warn, "crit": crit},
+                    "metrics": ["uptime"],
+                })
+        return {"changed": False,
+                "msg": "discovered %d podman uptime services" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # ---- check mode: evaluate one item ----
+    item = params.get("item", "")
+    if item == "":
+        return {"changed": False, "msg": "no item specified",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Guard before JSON decode
-    if res_inspect.stdout == "":
-        return {"changed": False, "msg": "no container found",
+
+    # find the item
+    found = None
+    for name, status, started_at in containers:
+        if name == item:
+            found = (name, status, started_at)
+            break
+
+    if found == None:
+        return {"changed": False, "msg": "container not found: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    containers = json.decode(res_inspect.stdout)
-    
-    if type(containers) != "list" or len(containers) == 0:
-        return {"changed": False, "msg": "no container found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    container = containers[0]
-    if type(container) != "dict":
-        return {"changed": False, "msg": "no container found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    state = container.get("State", {})
-    if type(state) != "dict":
-        return {"changed": False, "msg": "no state data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    status = state.get("Status", "")
-    if status == "running":
-        # Get started_at timestamp
-        started_at = state.get("StartedAt", "")
-        if started_at == "":
-            return {"changed": False, "msg": "started_at timestamp missing",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        # Calculate uptime in seconds
-        now_res = ctx.run(["date", "+%s"], mutates=False)
-        if now_res.rc != 0:
-            return {"changed": False, "msg": "could not get current time",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        now_epoch_str = now_res.stdout.strip()
-        if not now_epoch_str.isdigit():
-            return {"changed": False, "msg": "could not parse current time",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        now_epoch = int(now_epoch_str)
-        
-        # Parse ISO 8601 timestamp to epoch
-        ts = started_at.strip()
-        # Remove trailing Z if present
-        if ts.endswith("Z"):
-            ts = ts[:-1]
-        # Split date and time
-        parts = ts.split("T")
-        if len(parts) != 2:
-            return {"changed": False, "msg": "could not parse started_at timestamp",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        date_part, time_part = parts[0], parts[1]
-        
-        # Extract year, month, day
-        ymd = date_part.split("-")
-        if len(ymd) != 3:
-            return {"changed": False, "msg": "could not parse date part",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        year = int(ymd[0])
-        month = int(ymd[1])
-        day = int(ymd[2])
-        
-        # Extract time components
-        hms = time_part.split(":")
-        if len(hms) < 2:
-            return {"changed": False, "msg": "could not parse time part",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        hour = int(hms[0])
-        minute = int(hms[1])
-        
-        # Extract seconds (may have decimal)
-        sec_parts = hms[2].split(".")
-        if len(sec_parts) == 0:
-            return {"changed": False, "msg": "could not parse seconds part",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        second = int(sec_parts[0])
-        
-        # Calculate days from 1970-01-01 to target date
-        def days_in_month(m, y):
-            if m in [1, 3, 5, 7, 8, 10, 12]:
-                return 31
-            elif m == 2:
-                if (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0):
-                    return 29
-                else:
-                    return 28
-            else:
-                return 30
-        
-        total_days = 0
-        for y in range(1970, year):
-            if (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0):
-                total_days += 366
-            else:
-                total_days += 365
-        for m in range(1, month):
-            total_days += days_in_month(m, year)
-        total_days += day - 1
-        
-        started_epoch = total_days * 86400 + hour * 3600 + minute * 60 + second
-        uptime_sec = now_epoch - started_epoch
-        
-        if uptime_sec < 0:
-            uptime_sec = 0
-        
-        # Build message string (Checkmk style)
-        uptime_sec = int(uptime_sec)
-        days = uptime_sec // 86400
-        hours = (uptime_sec % 86400) // 3600
-        minutes = (uptime_sec % 3600) // 60
-        
-        msg_parts = []
-        if days > 0:
-            msg_parts.append("%d d" % days)
-        if hours > 0 or days > 0:
-            msg_parts.append("%d h" % hours)
-        msg_parts.append("%d min" % minutes)
-        
-        msg = "Operational state: running, " + ", ".join(msg_parts)
-        
-        return {"changed": False, "msg": msg,
-                "data": {"state": "OK", "metrics": {"uptime": uptime_sec}, "details": ""}}
-    else:
-        # Container is not running (exited, paused, etc.)
-        return {"changed": False, "msg": "Operational state: " + status,
+
+    name, status, started_at = found
+
+    # If not running: report OK with operational state (mirrors the source check)
+    if status != "running":
+        return {"changed": False,
+                "msg": "Operational state: " + status,
                 "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+    # Parse started_at — podman --format prints a Go time string like
+    # "2024-01-15 10:30:00.123456 +0000 UTC". We compute uptime via a
+    # lightweight approach using podman's own inspect + a date calculation.
+    # Try to get started-at as RFC3339 via podman inspect for reliability.
+    inspect_res = ctx.run(
+        ["podman", "inspect", "--format", "{{.State.StartedAt}}", item],
+        mutates=False,
+    )
+    if inspect_res.rc != 0 or not inspect_res.stdout:
+        return {"changed": False, "msg": "could not inspect container start time",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    started_iso = inspect_res.stdout.strip()
+    # Trim Go-style suffix " UTC" -> "+00:00" for fromisoformat compatibility.
+    started_clean = started_iso
+    if started_clean.endswith("UTC"):
+        started_clean = started_clean[:-3].strip() + "+00:00"
+    elif started_clean.endswith(" +0000"):
+        started_clean = started_clean[:-6] + "+00:00"
+
+    # Compute uptime using the host's date command (no Python datetime available).
+    now_res = ctx.run(["date", "+%s"], mutates=False)
+    if now_res.rc != 0 or not now_res.stdout.strip().isdigit():
+        return {"changed": False, "msg": "could not determine current time",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    now_epoch = int(now_res.stdout.strip())
+
+    # Convert started_clean (ISO 8601) to epoch using date -d.
+    date_conv = ctx.run(["date", "-d", started_clean, "+%s"], mutates=False)
+    if date_conv.rc != 0 or not date_conv.stdout.strip().isdigit():
+        return {"changed": False, "msg": "could not parse container start time",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    started_epoch = int(date_conv.stdout.strip())
+
+    uptime_sec = float(now_epoch - started_epoch)
+    if uptime_sec < 0:
+        uptime_sec = 0.0
+
+    # Apply thresholds: warn/crit are in SECONDS per the uptime ruleset.
+    # Lower-bound rules apply (uptime below warn/crit).
+    state = "OK"
+    if crit != 0.0 and uptime_sec <= crit:
+        state = "CRIT"
+    elif warn != 0.0 and uptime_sec <= warn:
+        state = "WARN"
+
+    details = "Uptime: %s (%f seconds)" % (_uptime_str(uptime_sec), uptime_sec)
+    msg = "Uptime %s" % _uptime_str(uptime_sec)
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"uptime": uptime_sec},
+                     "details": details}}

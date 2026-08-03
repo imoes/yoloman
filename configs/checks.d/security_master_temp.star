@@ -1,184 +1,383 @@
-def main(ctx, params):
-    # ===== discovery mode =====
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.35491.30"
+# Translated Checkmk check plugin: security_master_temp (SNMP)
+# Source plugin: cmk/plugins/security_master/agent_based/security_master.py
+# This is a read-only Starlark check module for the yolo-man agent.
 
-        # Fetch the SNMP table: OIDEnd (sensor number suffix) + sensor name at .3
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base_oid, base_oid + ".30.3"
-        ], mutates=False)
+# ---------------------------------------------------------------------------
+# Constants
+# ---------------------------------------------------------------------------
+OID_BASE = "1.3.6.1.4.1.35491.30"
+OID_SYSDESCR = "1.3.6.1.2.1.1.2.0"
 
-        # Parse for sensor numbers and names
-        sensors = []
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(" = ", 2)
-            if len(parts) < 2:
-                continue
-            oid_full, value = parts[0], parts[1].strip()
-            # Look for sensor name entries at *.30.3.1.X.5.0 -> .30.3.1.<X>.5.0
-            # OID structure: .1.3.6.1.4.1.35491.30.3.1.<X>.5.0
-            # We match suffix .5.0 at the end
-            if oid_full.endswith(".5.0"):
-                # Extract sensor number from OID: base_oid + ".30.3.1." + <X> + ".5.0"
-                if ".30.3.1." in oid_full:
-                    sensor_num_str = oid_full.split(".30.3.1.")[1].split(".5.0")[0]
-                    sensor_num = int(sensor_num_str) if sensor_num_str.isdigit() else -1
-                    # Remove quotes and leading/trailing whitespace
-                    name = value.strip().strip('"')
-                    if name == "":
-                        name = "Sensor " + str(sensor_num)
-                    # Only analog temp (ID 50) is monitored by this check
-                    sensors.append({"item": str(sensor_num) + " " + name,
-                                    "params": {},
-                                    "metrics": ["temp"]})
+SUPPORTED_SENSORS = {
+    50: "temp",
+    60: "humidity",
+    72: "smoke",
+}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(sensors),
-            "data": {"discovery": sensors},
-        }
+# Map an alarm integer to (lower_crit, lower_warn, warn, crit) for temp/humidity
+# Not used directly here, but documentation of the source's alarm scale.
+#  -1 = no value, 2 = lower warn, 4 = upper warn, 5 = upper crit
 
-    # ===== check mode =====
-    item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item provided",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+# ---------------------------------------------------------------------------
+# Helpers (Starlark has no exceptions, guard with if/defaults)
+# ---------------------------------------------------------------------------
 
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.35491.30"
+def _safe_int(s):
+    if s == None:
+        return 0
+    t = str(s).strip()
+    neg = False
+    if t.startswith("-"):
+        neg = True
+        t = t[1:]
+    if t.isdigit():
+        v = 0
+        for ch in t:
+            v = v * 10 + (ord(ch) - 48)
+        return -v if neg else v
+    return 0
 
-    # We need: value (.2), sensor_id (.1), warn_low (.8), warn_high (.9), crit_low (.7), crit_high (.10)
-    # Build per-sensor OIDs for this item's sensor number (first number before space in item)
-    parts = item.split(" ", 1)
-    if len(parts) < 1:
-        return {
-            "changed": False,
-            "msg": "invalid item format",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    sensor_num_str = parts[0]
-    if not sensor_num_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "item number is not an integer",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    sensor_num = int(sensor_num_str)
+def _safe_float(s):
+    if s == None:
+        return 0.0
+    t = str(s).strip()
+    if t == "":
+        return 0.0
+    neg = False
+    if t.startswith("-"):
+        neg = True
+        t = t[1:]
+    elif t.startswith("+"):
+        t = t[1:]
+    # handle simple "12", "12.3", "-1.5"
+    parts = t.split(".")
+    ok = len(parts) == 1 or (len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit())
+    if len(parts) == 1:
+        ok = parts[0].isdigit()
+    if not ok:
+        return 0.0
+    if len(parts) == 1:
+        v = 0
+        for ch in parts[0]:
+            v = v * 10 + (ord(ch) - 48)
+        return -float(v) if neg else float(v)
+    intpart = 0
+    for ch in parts[0]:
+        intpart = intpart * 10 + (ord(ch) - 48)
+    frac = 0
+    for ch in parts[1]:
+        frac = frac * 10 + (ord(ch) - 48)
+    scale = 1
+    for _ in parts[1]:
+        scale = scale * 10
+    val = float(intpart) + float(frac) / float(scale)
+    return -val if neg else val
 
-    # Helper to get a single OID value
-    def get_oid_value(oid_base):
-        res = ctx.run([
-            "snmpget", "-v2c", "-c", community, "-On", host, oid_base
-        ], mutates=False)
-        if res.rc != 0:
-            return None
-        # Parse "OID = STRING: value" or "OID = INTEGER: value"
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if "=" in line:
-                oid_full, val_part = line.split("=", 1)
-                return val_part.strip()
+# ---------------------------------------------------------------------------
+# SNMP data gathering + parsing
+# ---------------------------------------------------------------------------
+
+def _snmp_walk_raw(ctx, community, host, column_oid):
+    # -Oqn: numeric OIDs, no type tag, one "OID value" line per row
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout
+
+def _parse_walk_table(walk_out, column_oid):
+    """Return list of (index, value) from a -Oqn snmpwalk on column_oid."""
+    rows = []
+    if walk_out == None or walk_out == "":
+        return rows
+    for line in walk_out.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        line_oid = line[:sp]
+        value = line[sp + 1:]
+        if not line_oid.startswith(column_oid + "."):
+            continue
+        index = line_oid[len(column_oid) + 1:]
+        rows.append((index, value))
+    return rows
+
+def _snmp_get_raw(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+def _gather_security_master(ctx, community, host):
+    """Walk the sensor table and return parsed dict[str, dict[str, section]].
+
+    Structure mirrors parse_security_master:
+        {"temp": {service_name: {...fields...}}, "humidity": {...}, "smoke": {...}}
+    """
+    parsed = {"temp": {}, "humidity": {}, "smoke": {}}
+
+    # The source walks base .1.3.6.1.4.1.35491.30 oids=[OIDEnd(), "3"]
+    # i.e. it walks column .3 (Sensor Group1 / sensor name) under .30.
+    walk_out = _snmp_walk_raw(ctx, community, host, OID_BASE)
+    if walk_out == None or walk_out == "":
         return None
 
-    oid_base_root = base_oid + ".30.3.1." + str(sensor_num)
-    oid_value      = oid_base_root + ".2.0"
-    oid_sensor_id  = oid_base_root + ".1.0"
-    oid_warn_low   = oid_base_root + ".8.0"
-    oid_warn_high  = oid_base_root + ".9.0"
-    oid_crit_low   = oid_base_root + ".7.0"
-    oid_crit_high  = oid_base_root + ".10.0"
+    # Each line: "<full_oid> <value>"; -Oqn keeps numeric OIDs.
+    # The full OID looks like: 1.3.6.1.4.1.35491.30.3.<sensor>.<field>.0
+    # We only process entries whose OID contains ".5.0" (the name field), per source.
+    by_num = {}  # num -> name
+    for line in walk_out.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        full_oid = line[:sp]
+        value = line[sp + 1:]
+        # Only consider sensor name entries (.5.0) per source's `if ".5.0" not in str(oid)`
+        if ".5.0" not in full_oid:
+            continue
+        # num is the sensor group number: parts[0] of the source oid
+        # full_oid == OID_BASE + ".3." + num + ".5.0"
+        prefix = OID_BASE + ".3."
+        if not full_oid.startswith(prefix):
+            continue
+        rest = full_oid[len(prefix):]  # e.g. "50.5.0"
+        num = rest.split(".")[0]
+        by_num[num] = value
 
-    # Fetch all values
-    value_str      = get_oid_value(oid_value)
-    sensor_id_str  = get_oid_value(oid_sensor_id)
-    warn_low_str   = get_oid_value(oid_warn_low)
-    warn_high_str  = get_oid_value(oid_warn_high)
-    crit_low_str   = get_oid_value(oid_crit_low)
-    crit_high_str  = get_oid_value(oid_crit_high)
+    # For each sensor number, fetch the other fields via snmpget on known OIDs.
+    # Source layout (relative to .1.3.6.1.4.1.35491.30.3.<num>):
+    #   .1.0 sensor ID
+    #   .2.0 value
+    #   .3.0 unit
+    #   .4.0 valueint
+    #   .5.0 name  (already have)
+    #   .6.0 alarmint
+    #   .7.0 LoLimitAlarmInt (crit low)
+    #   .8.0 LoLimitWarnInt  (warn low)
+    #   .9.0 HiLimitWarnInt  (warn high)
+    #   .10.0 HiLimitAlarmInt (crit high)
+    #   .11.0 HysterInt
+    for num, name in by_num.items():
+        sensor_id = 0
+        value = None
+        alarm = -1
+        crit_low = 0.0
+        warn_low = 0.0
+        warn_high = 0.0
+        crit_high = 0.0
 
-    # Convert
-    def parse_float(s):
-        if s == None:
-            return None
-        s_stripped = s.strip()
-        # Allow digits, dot, minus sign
-        cleaned = ""
-        for c in s_stripped:
-            if c.isdigit() or c == "." or c == "-":
-                cleaned = cleaned + c
+        sid_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".1.0")
+        if sid_str != None:
+            # Source does: saveint(sensor_second[0].encode("utf-8").hex())
+            # i.e. take first byte of the (string) value, hex-encode, parse int.
+            b = sid_str
+            # encode utf-8 hex of first char
+            first_ord = ord(b[0]) if len(b) > 0 else 0
+            sensor_id = first_ord
+            if first_ord > 127:
+                # two-byte utf-8 would change the hex; keep simple: use ord of first char
+                sensor_id = first_ord
+
+        val_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".2.0")
+        if val_str != None and val_str != "":
+            value = _safe_float(val_str)
+
+        al_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".6.0")
+        if al_str != None and al_str != "":
+            try_alarm = _safe_int(al_str)
+            if try_alarm == 0 and not al_str.strip().lstrip("-").isdigit():
+                alarm = -1
             else:
-                break
-        return float(cleaned) if cleaned != "" and cleaned.replace(".","").replace("-","").isdigit() else None
+                alarm = try_alarm
 
-    value = parse_float(value_str)
-    warn_high_snmp = parse_float(warn_high_str)
-    warn_low_snmp  = parse_float(warn_low_str)
-    crit_high_snmp = parse_float(crit_high_str)
-    crit_low_snmp  = parse_float(crit_low_str)
+        cl_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".7.0")
+        if cl_str != None:
+            crit_low = _safe_int(cl_str) / 1000.0
 
-    # Sensor ID must be 50 for temperature
-    sensor_id = int(sensor_id_str) if sensor_id_str and sensor_id_str.isdigit() else None
-    if sensor_id != 50:
-        return {
-            "changed": False,
-            "msg": "sensor is not a temperature sensor (ID %s)" % str(sensor_id),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        wl_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".8.0")
+        if wl_str != None:
+            warn_low = _safe_int(wl_str) / 1000.0
 
-    # Missing value -> UNKNOWN
-    if value == None:
-        return {
-            "changed": False,
-            "msg": "sensor value not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        wh_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".9.0")
+        if wh_str != None:
+            warn_high = _safe_int(wh_str) / 1000.0
 
-    # Threshold defaults from params and SNMP-provided levels
-    levels = params.get("levels", (None, None))
-    levels_lower = params.get("levels_lower", (None, None))
+        ch_str = _snmp_get_raw(ctx, community, host, OID_BASE + ".3." + num + ".10.0")
+        if ch_str != None:
+            crit_high = _safe_int(ch_str) / 1000.0
 
-    # If params levels are missing, use SNMP
-    if levels == (None, None):
-        levels = (warn_high_snmp, crit_high_snmp) if crit_high_snmp != None else (warn_high_snmp, warn_high_snmp)
-    if levels_lower == (None, None):
-        levels_lower = (warn_low_snmp, crit_low_snmp) if crit_low_snmp != None else (warn_low_snmp, warn_low_snmp)
+        service_name = num + " " + name
 
-    # Check thresholds: higher first, then lower
+        if sensor_id in SUPPORTED_SENSORS:
+            stype = SUPPORTED_SENSORS[sensor_id]
+            parsed[stype][service_name] = {
+                "name": name,
+                "value": value,
+                "id": sensor_id,
+                "levels_low": (warn_low, crit_low),
+                "levels": (warn_high, crit_high),
+                "alarm": alarm,
+            }
+
+    return parsed
+
+# ---------------------------------------------------------------------------
+# Threshold application (check_temperature semantics)
+# ---------------------------------------------------------------------------
+
+def _apply_temperature_levels(value, params, dev_levels, dev_levels_lower):
+    """Mimic cmk.plugins.lib.temperature.check_temperature upper/lower levels.
+
+    params may carry: warn, crit, levels=(warn,crit), levels_lower=(warn,crit)
+    dev_levels / dev_levels_lower are device-provided (warn,crit) tuples.
+
+    device_levels_handling default is "worst" -> device levels are combined
+    with operator levels taking precedence only if defined.
+    We replicate the "worst" semantics: if device defines levels, use them
+    unless operator levels are set; grade value against the effective levels.
+    """
+    warn = None
+    crit = None
+    warn_lower = None
+    crit_lower = None
+
+    # Operator levels
+    levels = params.get("levels")
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+
+    levels_lower = params.get("levels_lower")
+    if levels_lower != None:
+        warn_lower = levels_lower[0]
+        crit_lower = levels_lower[1]
+
+    # Fallbacks for direct warn/crit params
+    if params.get("warn") != None:
+        warn = params.get("warn")
+    if params.get("crit") != None:
+        crit = params.get("crit")
+    if params.get("warn_lower") != None:
+        warn_lower = params.get("warn_lower")
+    if params.get("crit_lower") != None:
+        crit_lower = params.get("crit_lower")
+
+    # Device levels (used when operator levels absent)
+    if dev_levels != None and warn == None and crit == None:
+        warn = dev_levels[0]
+        crit = dev_levels[1]
+    if dev_levels_lower != None and warn_lower == None and crit_lower == None:
+        warn_lower = dev_levels_lower[0]
+        crit_lower = dev_levels_lower[1]
+
     state = "OK"
-    reason = ""
+    detail = ""
 
-    if levels and levels[1] != None and value >= levels[1]:  # crit_high
+    # Upper thresholds
+    if crit != None and value >= crit:
         state = "CRIT"
-        reason = "Critical: %f C >= %f C" % (value, levels[1])
-    elif levels and levels[0] != None and value >= levels[0]:  # warn_high
+    elif warn != None and value >= warn and state == "OK":
         state = "WARN"
-        reason = "Warning: %f C >= %f C" % (value, levels[0])
-    elif levels_lower and levels_lower[1] != None and value <= levels_lower[1]:  # crit_low
+
+    # Lower thresholds
+    if crit_lower != None and value <= crit_lower:
         state = "CRIT"
-        reason = "Critical: %f C <= %f C" % (value, levels_lower[1])
-    elif levels_lower and levels_lower[0] != None and value <= levels_lower[0]:  # warn_low
+    elif warn_lower != None and value <= warn_lower and state == "OK":
         state = "WARN"
-        reason = "Warning: %f C <= %f C" % (value, levels_lower[0])
 
-    if state == "OK":
-        reason = "Temperature: %f C" % value
+    if state == "CRIT":
+        detail = "CRIT - Temperature %f" % value
+    elif state == "WARN":
+        detail = "WARN - Temperature %f" % value
+    else:
+        detail = "OK - Temperature %f" % value
 
+    return state, detail
+
+# ---------------------------------------------------------------------------
+# main
+# ---------------------------------------------------------------------------
+
+def main(ctx, params):
+    # Required SNMP params (mirrors SNMP check convention)
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Discovery mode
+    if params.get("_discover"):
+        parsed = _gather_security_master(ctx, community, host)
+        if parsed == None:
+            return {
+                "changed": False,
+                "msg": "discovered 0 items",
+                "data": {"discovery": []},
+            }
+        out = []
+        # Only temp sensors are discovered by THIS check (security_master_temp)
+        for item in parsed["temp"]:
+            out.append({
+                "item": item,
+                "params": {"device_levels_handling": "worst"},
+                "metrics": ["temperature"],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(out),
+            "data": {"discovery": out},
+        }
+
+    # Check mode: single item
+    item = params.get("item", "")
+
+    parsed = _gather_security_master(ctx, community, host)
+    if parsed == None:
+        return {
+            "changed": False,
+            "msg": "no SNMP response from security master device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sensor = parsed["temp"].get(item)
+    if sensor == None or len(sensor) == 0:
+        return {
+            "changed": False,
+            "msg": "Sensor not found in SNMP output",
+            "data": {"state": "UNKNOWN", "metrics": {"temperature": 0}, "details": ""},
+        }
+
+    sensor_value = sensor["value"]
+    if sensor_value == None:
+        return {
+            "changed": False,
+            "msg": "Sensor value is not in SNMP-WALK",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    dev_levels = None
+    if sensor["levels"][0] != None:
+        dev_levels = sensor["levels"]
+
+    dev_levels_lower = None
+    if sensor["levels_low"][0] != None:
+        dev_levels_lower = sensor["levels_low"]
+
+    state, detail = _apply_temperature_levels(
+        sensor_value, params, dev_levels, dev_levels_lower
+    )
+
+    msg = "%s %s" % (item, detail)
+    # Build a Checkmk-style summary: Sensor <num> <name> ... temp
     return {
         "changed": False,
-        "msg": reason,
+        "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"temp": value},
-            "details": "",
+            "metrics": {"temperature": sensor_value},
+            "details": detail,
         },
     }

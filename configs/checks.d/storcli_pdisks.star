@@ -1,223 +1,259 @@
-# Map state abbreviations to full descriptions (as in Checkmk's megaraid.expand_abbreviation)
-# Using common Broadcom/LSI MegaRAID states
-STATE_MAP = {
+# Checkmk check: checkmk.storcli_pdisks
+# Translated to a read-only Starlark check module for the yolo-man agent.
+
+_RAW_STATE_EXPANSIONS = {
+    "ucapo": "Uncorrectable error to the cache",
+    "ucapn": "Uncorrectable error to the cache during NVDIMM programming",
+    "ucr": "Uncorrectable read error",
+    "ucw": "Uncorrectable write error",
     "onln": "Online",
-    "onbld": "Online, rebuilding",
-    "dgo": "Dedicated hot spare",
-    "ugood": "Unconfigured good",
-    "ubad": "Unconfigured bad",
-    "hsp": "Hot spare",
-    "pfr": "Failed, replacing",
-    "clpr": "Failed, cloning in progress",
-    "pred": "Failed, predictive failure",
-    "bnl": "Blocked",
-    "dgd": "Degraded",
-    "n/a": "Not Available",
-    "uck": "Unknown",
-    "pde": "Pattern degradation error",
-    "cde": "Consistency data error",
-    "sde": "Self decryption error",
-    "ncd": "No capacity data",
-    "pnc": "Partner not complete",
-    "bld": "Rebuild failed",
-    "bad": "Failed",
+    "dgrd": "Drive Downgraded",
+    "rbld": "Rebuild",
+    "rsvd": "Reserved",
+    "hots": "Hot spare",
+    "ursg": "Unconfigured Raid (Good)",
+    "ursh": "Unconfigured Raid (Bad)",
+    "urgd": "Unconfigured (Good)",
+    "urbd": "Unconfigured (Bad)",
+    "shld": "Shld",
+    "spun": "Spun up",
+    "spdn": "Spun down",
+    "untl": "Unconfigured (TLS failure)",
+    "inmt": "In a degraded Media",
+    "fori": "Foreign Raid (Good)",
+    "forc": "Foreign RAID (Bad)",
+    "foru": "Foreign Unconfigured",
+    "gshl": "Global Spare in Ready state",
+    "gshs": "Global Spare in Ready state (SSD)",
+    "psh": "Passthrough",
+    "sata": "SAT drive",
+    "nvme": "NVMe drive",
+    "ssd": "Solid State Drive",
+    "hdd": "Hard Disk Drive",
 }
 
-def _expand_state(state):
-    return STATE_MAP.get(state.lower(), state)
-
-# Default thresholds mapping states to Checkmk State (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
-# Based on megaraid.PDISKS_DEFAULTS
-DEFAULT_STATE_MAP = {
+_PDISKS_DEFAULTS = {
+    "ucapo": 2,
+    "ucapn": 2,
+    "ucr": 2,
+    "ucw": 2,
     "onln": 0,
-    "onbld": 1,
-    "dgo": 0,
-    "ugood": 0,
-    "ubad": 2,
-    "hsp": 0,
-    "pfr": 1,
-    "clpr": 1,
-    "pred": 1,
-    "bnl": 2,
-    "dgd": 2,
-    "n/a": 3,
-    "uck": 3,
-    "pde": 2,
-    "cde": 2,
-    "sde": 2,
-    "ncd": 2,
-    "pnc": 2,
-    "bld": 2,
-    "bad": 2,
+    "dgrd": 1,
+    "rbld": 0,
+    "rsvd": 0,
+    "hots": 0,
+    "ursg": 0,
+    "ursh": 2,
+    "urgd": 0,
+    "urbd": 2,
+    "shld": 0,
+    "spun": 0,
+    "spdn": 0,
+    "untl": 2,
+    "inmt": 1,
+    "fori": 0,
+    "forc": 2,
+    "foru": 0,
+    "gshl": 0,
+    "gshs": 0,
+    "psh": 1,
+    "sata": 0,
+    "nvme": 0,
+    "ssd": 0,
+    "hdd": 0,
 }
+
+_SEV_MAP = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+
+
+def _is_marker(marker, line):
+    if len(line) == 1 and line[0]:
+        s = line[0]
+        return s.count(marker) == len(s)
+    return False
+
+
+def _is_table_marker(line):
+    return _is_marker("-", line)
+
+
+def _is_section_marker(line):
+    return _is_marker("=", line)
+
+
+def _parse_table(lines, name, idx_ref):
+    table_header = lines[idx_ref[0]]
+    idx_ref[0] = idx_ref[0] + 1
+    idx_ref[0] = idx_ref[0] + 1
+    table_body = []
+    while idx_ref[0] < len(lines):
+        cur = lines[idx_ref[0]]
+        if _is_table_marker([cur]):
+            idx_ref[0] = idx_ref[0] + 1
+            break
+        table_body.append(cur)
+        idx_ref[0] = idx_ref[0] + 1
+    return {"name": name, "header": table_header, "body": table_body}
+
+
+def parse_tables(raw_lines):
+    tables = []
+    current_section = None
+    idx_ref = [0]
+    prev_line = ""
+    while idx_ref[0] < len(raw_lines):
+        line = raw_lines[idx_ref[0]]
+        tokens = line.split()
+        if _is_section_marker(tokens):
+            current_section = prev_line.rstrip(": ").strip()
+            idx_ref[0] = idx_ref[0] + 1
+            if current_section:
+                tables.append(_parse_table(raw_lines, current_section, idx_ref))
+        else:
+            prev_line = line
+            idx_ref[0] = idx_ref[0] + 1
+    return tables
+
+
+def parse_storcli_pdisks(raw_text, controller_num):
+    section = {}
+    raw_lines = raw_text.split("\n")
+    lines = [l for l in raw_lines if l.strip() != ""]
+    tables = parse_tables(lines)
+    for table in tables:
+        if table["name"] != "Drive Information":
+            continue
+        header = table["header"].split()
+        if header[:6] == ["EID:Slt", "PID", "State", "Status", "DG", "Size"]:
+            for bline in table["body"]:
+                cols = bline.split()
+                if len(cols) < 7:
+                    continue
+                eid_and_slot = cols[0]
+                device_id = cols[1]
+                status = cols[4]
+                size = cols[5]
+                size_unit = cols[6]
+                item_name = "C%d.%s-%s" % (controller_num, eid_and_slot, device_id)
+                section[item_name] = {
+                    "state": status,
+                    "size": (float(size), size_unit),
+                }
+        else:
+            for bline in table["body"]:
+                cols = bline.split()
+                if len(cols) < 6:
+                    continue
+                eid_and_slot = cols[0]
+                device = cols[1]
+                state = cols[2]
+                size = cols[4]
+                size_unit = cols[5]
+                item_name = "C%d.%s-%s" % (controller_num, eid_and_slot, device)
+                section[item_name] = {
+                    "state": state,
+                    "size": (float(size), size_unit),
+                }
+    return section
+
+
+def _expand_abbreviation(abbr):
+    if abbr in _RAW_STATE_EXPANSIONS:
+        return _RAW_STATE_EXPANSIONS[abbr]
+    return str(abbr)
+
+
+def _probe_storcli(ctx, params):
+    storcli = params.get("storcli_path", "/usr/local/bin/storcli64")
+    v = ctx.run([storcli, "show"], mutates=False)
+    if v.rc == 127:
+        return None
+    ctrl_lines = [l for l in v.stdout.split("\n") if l.strip().isdigit()]
+    if len(ctrl_lines) == 0:
+        ctrl_nums = [0]
+    else:
+        ctrl_nums = []
+        for l in ctrl_lines:
+            ctrl_nums.append(int(l.strip()))
+    section = {}
+    for c in ctrl_nums:
+        res = ctx.run([storcli, "/c%d" % c, "/eall", "/sall", "show", "ALI"], mutates=False)
+        if res.rc != 0:
+            continue
+        controller_section = parse_storcli_pdisks(res.stdout, c)
+        for k in controller_section:
+            section[k] = controller_section[k]
+    return section
+
 
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover") != None:
-        res = ctx.run(["storcli", "/c0", "/eall", "/sall", "show", "all", "J"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        if res.stdout == "":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        data = json.decode(res.stdout)
-        
-        if type(data) != "dict":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        controllers = data.get("Controllers", [])
-        if type(controllers) != "list":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        drive_info = []
-        
-        for ctrl in controllers:
-            if type(ctrl) != "dict":
-                continue
-            response_data = ctrl.get("Response Data", {})
-            if type(response_data) != "dict":
-                continue
-            drives = response_data.get("Drive Information", [])
-            if type(drives) != "list":
-                continue
-            controller_num = ctrl.get("Controller", 0)
-            if type(controller_num) != "int":
-                controller_num = 0
-            
-            for drive in drives:
-                if type(drive) != "dict":
-                    continue
-                eid_slot = drive.get("EID:Slt", "")
-                device_id = drive.get("Device Id", "")
-                state = drive.get("State", "")
-                size_val = drive.get("Size (in GB)", 0)
-                if size_val == 0:
-                    size_val = drive.get("Size", 0)
-                    if type(size_val) == "int":
-                        size_val = float(size_val)
-                    elif type(size_val) != "float":
-                        size_val = 0.0
-                
-                if eid_slot != "" and device_id != "":
-                    item_name = "C%d.%s-%s" % (controller_num, eid_slot, device_id)
-                    drive_info.append({
-                        "item": item_name,
-                        "params": DEFAULT_STATE_MAP,
-                        "metrics": [],
-                    })
-        
-        return {"changed": False, "msg": "discovered %d PDs" % len(drive_info),
-                "data": {"discovery": drive_info}}
+    if params.get("_discover"):
+        section = _probe_storcli(ctx, params)
+        if section == None or len(section) == 0:
+            return {
+                "changed": False,
+                "msg": "storcli_pdisks: no physical disks discovered",
+                "data": {"discovery": []},
+            }
+        discovery = []
+        for item in section:
+            disk = section[item]
+            state = disk["state"].lower()
+            defaults = params.get(state, _PDISKS_DEFAULTS.get(state, 3))
+            discovery.append({
+                "item": item,
+                "params": {state: defaults},
+                "metrics": ["size"],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
-    # Check mode
     item = params.get("item", "")
-    state_map = params.get("state_map", DEFAULT_STATE_MAP)
-    
-    res = ctx.run(["storcli", "/c0", "/eall", "/sall", "show", "all", "J"], mutates=False)
-    if res.rc != 0:
+    section = _probe_storcli(ctx, params)
+    if section == None:
         return {
             "changed": False,
-            "msg": "storcli command failed",
+            "msg": "storcli64 not installed or not reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    if item not in section:
+        return {
+            "changed": False,
+            "msg": "no such physical disk: " + item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    if res.stdout == "":
+    disk = section[item]
+    size_value, size_unit = disk["size"]
+    state_key = disk["state"].lower()
+    severity = params.get(state_key, _PDISKS_DEFAULTS.get(state_key, 3))
+    if not isinstance(severity, int):
+        severity = 3
+    state_str = _SEV_MAP.get(severity, "UNKNOWN")
+
+    if state_str == "UNKNOWN":
+        summary = "Disk State %s not known in parameters." % disk["state"]
         return {
             "changed": False,
-            "msg": "failed to parse storcli JSON",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "Size: %s %s, %s" % (size_value, size_unit, summary),
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {"size": size_value},
+                "details": summary,
+            },
         }
 
-    data = json.decode(res.stdout)
-
-    if type(data) != "dict":
-        return {
-            "changed": False,
-            "msg": "failed to parse storcli JSON",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    controllers = data.get("Controllers", [])
-    if type(controllers) != "list":
-        return {
-            "changed": False,
-            "msg": "PDisk not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    found = False
-    disk_state = ""
-    size_val = 0.0
-    size_unit = "GB"
-
-    for ctrl in controllers:
-        if type(ctrl) != "dict":
-            continue
-        response_data = ctrl.get("Response Data", {})
-        if type(response_data) != "dict":
-            continue
-        drives = response_data.get("Drive Information", [])
-        if type(drives) != "list":
-            continue
-        controller_num = ctrl.get("Controller", 0)
-        if type(controller_num) != "int":
-            controller_num = 0
-        
-        for drive in drives:
-            if type(drive) != "dict":
-                continue
-            eid_slot = drive.get("EID:Slt", "")
-            device_id = drive.get("Device Id", "")
-            state = drive.get("State", "")
-            size_val = drive.get("Size (in GB)", 0)
-            if size_val == 0:
-                size_val = drive.get("Size", 0)
-                if type(size_val) == "int":
-                    size_val = float(size_val)
-                elif type(size_val) != "float":
-                    size_val = 0.0
-            
-            candidate_item = "C%d.%s-%s" % (controller_num, eid_slot, device_id)
-            
-            if candidate_item == item:
-                found = True
-                disk_state = state
-                size_unit = "GB"
-                break
-        if found:
-            break
-
-    if not found:
-        return {
-            "changed": False,
-            "msg": "PDisk not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Determine state
-    state_key = disk_state.lower()
-    status = state_map.get(state_key, 3)  # 3 = UNKNOWN
-    state_text = "OK" if status == 0 else ("WARN" if status == 1 else ("CRIT" if status == 2 else "UNKNOWN"))
-    
-    infotext = "Size: %s %s, Disk State: %s" % (str(size_val), size_unit, _expand_state(disk_state))
-    details = ""
-
-    # Add extra info for unknown states
-    if state_key not in state_map:
-        infotext += " (state '%s' not in thresholds)" % disk_state
-        details = "Disk state '%s' not known in thresholds." % disk_state
-
+    expanded = _expand_abbreviation(disk["state"])
+    summary = "Size: %s %s, Disk State: %s" % (size_value, size_unit, expanded)
     return {
         "changed": False,
-        "msg": infotext,
+        "msg": summary,
         "data": {
-            "state": state_text,
-            "metrics": {},
-            "details": details,
+            "state": state_str,
+            "metrics": {"size": size_value},
+            "details": summary,
         },
     }

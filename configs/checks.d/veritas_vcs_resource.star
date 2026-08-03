@@ -1,5 +1,12 @@
-# Constants for state mapping (Checkmk defaults)
-DEFAULT_MAP_STATES = {
+# Checkmk check: veritas_vcs_resource — VCS Resource monitor (read-only)
+# Translated to a Starlark check module. READ-ONLY: never mutates, never writes.
+
+MAP_FROZEN = {
+    "tfrozen": 1,
+    "frozen": 2,
+}
+
+STATE_MAPPING = {
     "ONLINE": 0,
     "RUNNING": 0,
     "OK": 0,
@@ -11,191 +18,256 @@ DEFAULT_MAP_STATES = {
     "default": 1,
 }
 
-DEFAULT_MAP_FROZEN = {
-    "tfrozen": 1,
-    "frozen": 2,
-}
+STATE_DOMINANCE = ["FAULTED", "UNKNOWN", "ONLINE", "RUNNING"]
 
-# Helper: boil down states with dominance rules
+
 def _boil_down_states(states):
-    if len(states) == 0:
-        return "default"
-    for dominant in ["FAULTED", "UNKNOWN", "ONLINE", "RUNNING"]:
+    if len(states) == 1:
+        return states[0]
+    for dominant in STATE_DOMINANCE:
         if dominant in states:
             return dominant
     return "default"
 
-# Helper: parse agent output
-def _parse_vcs_output(output):
-    parsed = {}
+
+def _state_level(value, mapping):
+    if value == None:
+        return 1
+    return mapping.get(value, mapping["default"])
+
+
+def _worst_level(levels):
+    worst = 0
+    for lv in levels:
+        if lv > worst:
+            worst = lv
+    return worst
+
+
+def _level_to_state(level):
+    if level == 0:
+        return "OK"
+    elif level == 1:
+        return "WARN"
+    elif level == 2:
+        return "CRIT"
+    else:
+        return "UNKNOWN"
+
+
+def _parse_vauxas(stdout):
+    section = {}
     cluster_name = None
-    section = None
-    section_name = None
-    attr_idx = None
-    value_idx = None
+    current_section = None
+    g_attr = ""
+    g_value = ""
+    attr_idx = 0
+    value_idx = 0
 
-    for line in output.splitlines():
-        stripped = line.strip()
-        if stripped == "" or stripped == "#":
+    for raw_line in stdout.splitlines():
+        line = raw_line.rstrip("\n")
+        if line == "":
             continue
-        parts = stripped.split()
-        if len(parts) == 0:
-            continue
-
-        if parts[0] == "ClusState":
-            section_name = "cluster"
-            section = parsed.setdefault(section_name, {})
-            attr = parts[0]
-            value = parts[1]
+        fields = line.split()
+        if fields == ["#"]:
             continue
 
-        elif parts[0] == "ClusterName":
-            cluster_name = parts[1]
-            if section_name == "cluster":
-                section.setdefault(cluster_name, []).append({"attr": "ClusState", "value": value, "cluster": None})
+        first = fields[0]
+
+        if first == "ClusState":
+            current_section = section.setdefault("cluster", {})
+            attr_idx = 0
+            value_idx = 1
+            g_attr = fields[0]
+            g_value = fields[1]
             continue
 
-        elif parts[0].startswith("#"):
-            section_name = parts[0][1:].lower()
-            section = parsed.setdefault(section_name, {})
-            # Find indices from header line (parts is tokenized, assume fixed format)
-            # Header is like "#Resource        Attribute      System       Value"
-            attr_idx = None
-            value_idx = None
-            for i, p in enumerate(parts):
-                if p == "Attribute":
-                    attr_idx = i
-                if p == "Value":
-                    value_idx = i
+        if first == "ClusterName":
+            cluster_name = fields[1]
+            if current_section == None:
+                current_section = section.setdefault("cluster", {})
+            if g_attr != "" and g_value != "":
+                current_section.setdefault(cluster_name, []).append({
+                    "attr": g_attr,
+                    "value": g_value,
+                    "cluster": None,
+                })
             continue
 
-        elif len(parts) > 2 and attr_idx != None and value_idx != None:
-            item_name = parts[0]
-            attr = parts[attr_idx]
-            value = parts[value_idx].replace("|", "")
-            if value.find("UNKNOWN") != -1:
-                value = "UNKNOWN"
-            section.setdefault(item_name, []).append({"attr": attr, "value": value, "cluster": cluster_name})
-        # else ignore malformed lines
+        if first.startswith("#"):
+            category = first[1:].lower()
+            current_section = section.setdefault(category, {})
+            if "Attribute" in fields:
+                attr_idx = fields.index("Attribute")
+            else:
+                attr_idx = 0
+            if "Value" in fields:
+                value_idx = fields.index("Value")
+            else:
+                value_idx = len(fields) - 1
+            continue
 
-    return parsed or None
+        if len(fields) > 2 and current_section != None:
+            item_name = fields[0]
+            attr = fields[attr_idx]
+            val = fields[value_idx].replace("|", "")
+            if "UNKNOWN" in val:
+                val = "UNKNOWN"
+            current_section.setdefault(item_name, []).append({
+                "attr": attr,
+                "value": val,
+                "cluster": cluster_name,
+            })
 
-# Helper: find cluster name from list of VCS entries (last non-None)
-def _cluster_name(entries):
+    return section if section else None
+
+
+def _gather_raw(ctx):
+    res1 = ctx.run(["hauxas"], mutates=False)
+    if res1.rc == 0 and res1.stdout != "":
+        return res1.stdout, False
+
+    res2 = ctx.run(["hacf", "-list"], mutates=False)
+    if res2.rc == 0 and res2.stdout != "":
+        return res2.stdout, False
+
+    return "", True
+
+
+def _subsection(section, kind):
+    if section == None:
+        return None
+    return section.get(kind, {})
+
+
+def _frozen_results(item_tuples, map_frozen):
+    results = []
+    for vcs in item_tuples:
+        attr_lower = vcs["attr"].lower()
+        if vcs["attr"].endswith("Frozen") and vcs["value"] != "0":
+            level = map_frozen.get(attr_lower, 1)
+            if attr_lower == "tfrozen":
+                summary = "frozen temporarily"
+            else:
+                summary = "frozen"
+            results.append({"summary": summary, "level": level})
+    return results
+
+
+def _cluster_name(item_tuples):
     name = None
-    for e in entries:
-        if e.get("cluster") != None:
-            name = e["cluster"]
+    for vcs in item_tuples:
+        if vcs["cluster"] != None:
+            name = vcs["cluster"]
     return name
 
-# Helper: yield frozen state results
-def _frozen_state_results(entries, map_frozen):
-    res = []
-    for e in entries:
-        if e.get("attr", "").endswith("Frozen") and e.get("value", "0") != "0":
-            attr_lower = e["attr"].lower()
-            if attr_lower in map_frozen:
-                state = map_frozen[attr_lower]
-                summary = e["attr"].replace("t", "temporarily ") if "T" in e["attr"] else e["attr"]
-                res.append({"state": state, "summary": summary})
-    return res
 
-# Helper: check one item
-def _check_one_item(item, params, subsection):
-    entries = subsection.get(item)
-    if entries == None:
-        return {
-            "state": "UNKNOWN",
-            "msg": "item not found",
-            "details": "",
-            "metrics": {}
-        }
+def _check_subsection(item, params, subsection):
+    if subsection == None:
+        return (3, "UNKNOWN", "no subsection data")
 
-    # Frozen state checks
-    frozen_results = _frozen_state_results(entries, params.get("map_frozen", DEFAULT_MAP_FROZEN))
-    frozen_states = [r["state"] for r in frozen_results]
-    state_texts = [r["summary"] for r in frozen_results]
+    item_tuples = subsection.get(item)
+    if item_tuples == None:
+        return (3, "UNKNOWN", "item vanished")
 
-    # State extraction and boiling down
-    states = []
-    for e in entries:
-        if e.get("attr", "").endswith("State"):
-            states.append(e["value"])
-
-    boil_down = _boil_down_states(states)
-    map_states = params.get("map_states", DEFAULT_MAP_STATES)
-    state_val = map_states.get(boil_down, map_states.get("default", 1))
-
-    # Final state (worst among frozen + boil-down)
-    all_states = frozen_states[:]
-    if boil_down != "default":
-        # map boil_down state to numeric
-        s_val = map_states.get(boil_down, map_states.get("default", 1))
-        all_states.append(s_val)
-
-    final_state = max(all_states) if len(all_states) > 0 else 0
-    # Map numeric to Checkmk string
-    state_map_num_to_str = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    state_str = state_map_num_to_str.get(final_state, "UNKNOWN")
-
-    # Build summary
+    levels = []
     summaries = []
-    for r in frozen_results:
-        summaries.append(r["summary"])
-    if len(states) > 0:
-        summaries.extend([s.lower() for s in states])
-    cluster_name = _cluster_name(entries)
-    if cluster_name != None:
-        summaries.append("cluster: %s" % cluster_name)
 
-    msg = ", ".join(summaries) if len(summaries) > 0 else "no data"
+    frozen = _frozen_results(item_tuples, params.get("map_frozen", MAP_FROZEN))
+    for fr in frozen:
+        levels.append(fr["level"])
+        summaries.append(fr["summary"])
 
-    return {
-        "state": state_str,
-        "msg": msg,
-        "details": "",
-        "metrics": {}
-    }
+    state_texts = []
+    for vcs in item_tuples:
+        if vcs["attr"].endswith("State"):
+            state_texts.append(vcs["value"])
+
+    if state_texts:
+        boiled = _boil_down_states(state_texts)
+        lvl = _worst_level([_state_level(boiled, params.get("map_states", STATE_MAPPING))])
+        levels.append(lvl)
+        lowered = []
+        for s in state_texts:
+            lowered.append(s.lower())
+        summaries.append(", ".join(lowered))
+    else:
+        lvl = _state_level(None, params.get("map_states", STATE_MAPPING))
+        levels.append(lvl)
+
+    cluster = _cluster_name(item_tuples)
+    if cluster != None:
+        summaries.append("cluster: " + cluster)
+
+    overall = _worst_level(levels)
+    detail = "; ".join(summaries)
+    return (overall, ", ".join(summaries), detail)
+
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/tmp/agent_output/veritas_vcs"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to read agent data", "data": {"discovery": []}}
-        parsed = _parse_vcs_output(res.stdout)
-        if parsed == None:
-            return {"changed": False, "msg": "no data", "data": {"discovery": []}}
-        # Discover items for each subsection (resource, system, group, cluster)
-        items = []
-        for subsection_name in ["resource", "system", "group", "cluster"]:
-            subsection = parsed.get(subsection_name, {})
-            for item in subsection.keys():
-                # Only resources are required by the task
-                if subsection_name == "resource":
-                    items.append({
-                        "item": item,
-                        "params": {"map_states": DEFAULT_MAP_STATES, "map_frozen": DEFAULT_MAP_FROZEN},
-                        "metrics": []
-                    })
-        return {"changed": False, "msg": "discovered %d resources" % len(items), "data": {"discovery": items}}
+        raw, missing = _gather_raw(ctx)
+        if missing or raw == "":
+            return {"changed": False, "msg": "no VCS data (hauxas/hacf not available)",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-    # Check mode (non-discovery)
+        section = _parse_vauxas(raw)
+        if section == None:
+            return {"changed": False, "msg": "parsed VCS section is empty",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        resource_sub = _subsection(section, "resource")
+        if resource_sub == None or len(resource_sub) == 0:
+            return {"changed": False, "msg": "no VCS resources discovered",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        discovery = []
+        for item_name in sorted(resource_sub.keys()):
+            discovery.append({
+                "item": item_name,
+                "params": {
+                    "map_frozen": {"tfrozen": 1, "frozen": 2},
+                    "map_states": {
+                        "ONLINE": 0, "RUNNING": 0, "OK": 0,
+                        "OFFLINE": 1, "EXITED": 1, "PARTIAL": 1,
+                        "FAULTED": 2, "UNKNOWN": 3, "default": 1,
+                    },
+                },
+                "metrics": [],
+            })
+
+        return {"changed": False, "msg": "discovered %d resources" % len(discovery),
+                "data": {"discovery": discovery, "host_labels": {"cmk/veritas_vcs": "present"}}}
+
     item = params.get("item", "")
-    res = ctx.run(["cat", "/tmp/agent_output/veritas_vcs"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to read agent data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    parsed = _parse_vcs_output(res.stdout)
-    if parsed == None:
-        return {"changed": False, "msg": "no data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item == "" or item == None:
+        return {"changed": False,
+                "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no item"}}
 
-    subsection = parsed.get("resource", {})
-    result = _check_one_item(item, params, subsection)
-    return {
-        "changed": False,
-        "msg": result["msg"],
-        "data": {
-            "state": result["state"],
-            "metrics": result["metrics"],
-            "details": result["details"]
-        }
-    }
+    raw, missing = _gather_raw(ctx)
+    if missing or raw == "":
+        return {"changed": False,
+                "msg": "no VCS data (hauxas/hacf not available)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no VCS data"}}
+
+    section = _parse_vauxas(raw)
+    if section == None:
+        return {"changed": False,
+                "msg": "parsed VCS section is empty",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "empty section"}}
+
+    resource_sub = _subsection(section, "resource")
+    if resource_sub == None:
+        return {"changed": False,
+                "msg": "no 'resource' subsection in VCS data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no resource subsection"}}
+
+    level, summary, details = _check_subsection(item, params, resource_sub)
+    if level == 3:
+        return {"changed": False, "msg": "VCS Resource %s: UNKNOWN" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": details}}
+
+    st = _level_to_state(level)
+    return {"changed": False, "msg": summary,
+            "data": {"state": st, "metrics": {}, "details": details}}

@@ -1,124 +1,113 @@
-# FJDARYE RLUN check - read-only Starlark translation
-# No imports, no exceptions, no mutations — only discovery + check
-
-# RLUN status mapping — third byte value -> (state, summary)
-FJDARYE_RLUNS_STATUS_MAPPING = {
-    "\x08": ("WARN", "RLUN is rebuilding"),
-    "\x07": ("WARN", "RLUN copyback in progress"),
-    "A": ("WARN", "RLUN spare is in use"),
-    "B": ("OK", "RLUN is in RAID0 state"),
-    "\x00": ("OK", "RLUN is in normal state"),
-}
-
-def _parse_raw_bytes(raw_str):
-    # Parse escaped hex string like "\\x08\\u00A0" into bytes
-    result = ""
-    i = 0
-    while i < len(raw_str):
-        if raw_str[i] == "\\" and i + 3 < len(raw_str) and raw_str[i+1:i+3] == "x":
-            hex_part = raw_str[i+3:i+5]
-            if hex_part[0].isdigit() or (hex_part[0].lower() in "abcdef") and hex_part[1].isdigit() or (hex_part[1].lower() in "abcdef"):
-                val = int(hex_part, 16)
-                result = result + chr(val)
-                i = i + 5
-            else:
-                result = result + raw_str[i]
-                i = i + 1
-        else:
-            result = result + raw_str[i]
-            i = i + 1
-    return result
-
 def main(ctx, params):
+    # Non-breaking space (U+00A0) as used throughout the Checkmk source
+    NBSP = "\u00a0"
+
     if params.get("_discover"):
-        # Discovery: walk all supported device OIDs and collect RLUNs with presence flag
-        supported_bases = [
-            ".1.3.6.1.4.1.211.1.21.1.60.3.4.2.1",
-            ".1.3.6.1.4.1.211.1.21.1.100.3.4.2.1",
-            ".1.3.6.1.4.1.211.1.21.1.101.3.4.2.1",
-        ]
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        rluns = []
-
-        for base in supported_bases:
-            res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base], mutates=False)
-            if res.rc != 0:
-                continue
-            for line in res.stdout.splitlines():
-                parts = line.strip().split(" = ")
-                if len(parts) != 2:
-                    continue
-                oid_part = parts[0].strip()
-                value_part = parts[1].strip()
-                if not oid_part.startswith(base):
-                    continue
-                index = oid_part.rsplit(".", 1)[-1]
-                raw_str = ""
-                if value_part.startswith("STRING: \""):
-                    raw_str = value_part[8:].rstrip("\"")
-                else:
-                    continue
-                raw_bytes = _parse_raw_bytes(raw_str)
-                if len(raw_bytes) >= 4 and ord(raw_bytes[3]) == 160:
-                    rluns.append({"item": index, "params": {}, "metrics": []})
-
-        return {
-            "changed": False,
-            "msg": "discovered %d RLUNs" % len(rluns),
-            "data": {"discovery": rluns},
-        }
-
-    # Check mode — single item
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    supported_bases = [
-        ".1.3.6.1.4.1.211.1.21.1.60.3.4.2.1",
-        ".1.3.6.1.4.1.211.1.21.1.100.3.4.2.1",
-        ".1.3.6.1.4.1.211.1.21.1.101.3.4.2.1",
-    ]
-    raw_bytes = ""
-
-    for base in supported_bases:
-        oid = base + "." + str(item)
-        res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
+        sysOID = ".1.3.6.1.2.1.1.2.0"
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", "-On", params.get("host", "localhost"), sysOID],
+            mutates=False,
+        )
         if res.rc != 0:
+            return {"changed": False, "msg": "no SNMP response from host",
+                    "data": {"discovery": []}}
+        sysOIDVal = res.stdout.strip()
+        supported = [
+            ".1.3.6.1.4.1.211.1.21.1.60",
+            ".1.3.6.1.4.1.211.1.21.1.100",
+            ".1.3.6.1.4.1.211.1.21.1.101",
+        ]
+        if sysOIDVal not in supported:
+            return {"changed": False, "msg": "not a supported FJDARY-E device",
+                    "data": {"discovery": []}}
+
+        baseOID = sysOIDVal + ".3.4.2.1"
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"), baseOID],
+            mutates=False,
+        )
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no RLUN table data",
+                    "data": {"discovery": []}}
+
+        discovery = []
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            val = parts[1]
+            index = oid[len(baseOID) + 1:]
+            if len(val) < 4:
+                continue
+            if val[3] == NBSP:
+                discovery.append({"item": index, "params": {},
+                                  "metrics": []})
+
+        return {"changed": False, "msg": "discovered %d RLUNs" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    sysOID = ".1.3.6.1.2.1.1.2.0"
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", "-On", params.get("host", "localhost"), sysOID],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False, "msg": "no SNMP response from host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sysOIDVal = res.stdout.strip()
+    supported = [
+        ".1.3.6.1.4.1.211.1.21.1.60",
+        ".1.3.6.1.4.1.211.1.21.1.100",
+        ".1.3.6.1.4.1.211.1.21.1.101",
+    ]
+    if sysOIDVal not in supported:
+        return {"changed": False, "msg": "not a supported FJDARY-E device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    baseOID = sysOIDVal + ".3.4.2.1"
+    resGet = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", "-On", params.get("host", "localhost"),
+         baseOID + "." + item + ".1", baseOID + "." + item + ".2"],
+        mutates=False,
+    )
+    if resGet.rc != 0:
+        return {"changed": False, "msg": "no RLUN data for index " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    lines = resGet.stdout.splitlines()
+    rawVal = ""
+    for ln in lines:
+        parts = ln.split(" ", 1)
+        if len(parts) < 2:
             continue
-        line = res.stdout.strip()
-        if not line:
-            continue
-        eq_idx = line.find(" = ")
-        if eq_idx == -1:
-            continue
-        value_part = line[eq_idx + 3:].strip()
-        if value_part.startswith("STRING: \""):
-            raw_str = value_part[8:].rstrip("\"")
-            raw_bytes = _parse_raw_bytes(raw_str)
-            break
+        oid = parts[0]
+        val = parts[1]
+        if oid.endswith(".2"):
+            rawVal = val
 
-    if not raw_bytes:
-        return {
-            "changed": False,
-            "msg": "RLUN %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if len(rawVal) < 4:
+        return {"changed": False, "msg": "RLUN data too short for index " + item,
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
 
-    # Presence check: 4th byte must be "\u00A0" (decimal 160)
-    if len(raw_bytes) < 4 or ord(raw_bytes[3]) != 160:
-        return {
-            "changed": False,
-            "msg": "RLUN %s is not present" % item,
-            "data": {"state": "CRIT", "metrics": {}, "details": ""},
-        }
+    if rawVal[3] != NBSP:
+        return {"changed": False, "msg": "RLUN %s is not present" % item,
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
 
-    # Status from third byte (index 2)
-    third_byte = raw_bytes[2] if len(raw_bytes) > 2 else "\x00"
-    state_summary = FJDARYE_RLUNS_STATUS_MAPPING.get(third_byte, ("CRIT", "RLUN in unknown state"))
-    state, summary = state_summary
-
-    return {
-        "changed": False,
-        "msg": "RLUN %s: %s" % (item, summary),
-        "data": {"state": state, "metrics": {}, "details": ""},
+    mapping = {
+        "\x08": {"state": "WARN", "summary": "RLUN is rebuilding"},
+        "\x07": {"state": "WARN", "summary": "RLUN copyback in progress"},
+        "A": {"state": "WARN", "summary": "RLUN spare is in use"},
+        "B": {"state": "OK", "summary": "RLUN is in RAID0 state"},
+        "\x00": {"state": "OK", "summary": "RLUN is in normal state"},
     }
+    stateChar = rawVal[2]
+    entry = mapping.get(stateChar, {"state": "CRIT", "summary": "RLUN in unknown state"})
+
+    return {"changed": False, "msg": "RLUN %s: %s" % (item, entry["summary"]),
+            "data": {"state": entry["state"], "metrics": {}, "details": ""}}

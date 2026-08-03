@@ -1,153 +1,108 @@
-# ===== Starlark check module for fjdarye_controller_modules_memory =====
-# Reads controller module status via SNMP and reports OK/WARN/CRIT/UNKNOWN
-
-# SNMP base OIDs per device type (from Checkmk source)
-FJDARYE_DEVICE_OIDS = {
-    ".1.3.6.1.4.1.211.1.21.1.60": ".2.3.2.1",   # fjdarye60
-    ".1.3.6.1.4.1.211.1.21.1.100": ".2.4.2.1",  # fjdarye100
-    ".1.3.6.1.4.1.211.1.21.1.101": ".2.4.2.1",  # fjdarye101
-    ".1.3.6.1.4.1.211.1.21.1.150": ".2.4.2.1",  # fjdarye500
-    ".1.3.6.1.4.1.211.1.21.1.153": ".2.4.2.1",  # fjdarye600
-}
-
-# Status mapping: "1" -> OK, "2" -> CRIT, "3" -> WARN, "4" -> CRIT, "5" -> CRIT, "6" -> CRIT
-FJDARYE_ITEM_STATUS = {
-    "1": "OK",
-    "2": "CRIT",
-    "3": "WARN",
-    "4": "CRIT",
-    "5": "CRIT",
-    "6": "CRIT",
-}
-
-
 def main(ctx, params):
-    # DISCOVERY MODE
     if params.get("_discover"):
-        # Probe SNMP for controller module memory status
-        # We try each base OID until one succeeds (only one device matches)
-        res = None
-        for device_oid, module_oid_suffix in FJDARYE_DEVICE_OIDS.items():
-            base_oid = device_oid + module_oid_suffix + ".1"
-            res = ctx.run([
-                "snmpwalk",
-                "-v2c",
-                "-c", params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                base_oid
-            ], mutates=False)
-            if res.rc == 0 and res.stdout:
-                break
-            res = None
-
-        if not res or not res.stdout:
-            return {
-                "changed": False,
-                "msg": "no SNMP data found",
-                "data": {"discovery": []}
-            }
-
-        # Parse snmpwalk output: lines like "<oid>.<index> = INTEGER: <status>"
-        discovery = []
+        if not _fjdarye_present(ctx):
+            return {"changed": False, "msg": "no FJDARY-E device found",
+                    "data": {"discovery": []}}
+        res = ctx.run(["snmpwalk", "-v2c",
+                       "-c", params.get("community", "public"),
+                       "-Oqn", "-OQ",
+                       params.get("host", "localhost"),
+                       ".1.3.6.1.4.1.211.1.21.1.1.60.2.3.2.1.1"],
+                      mutates=False)
+        items = []
         for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
+            f = line.split()
+            if len(f) < 2:
                 continue
-            # Split on " = " to separate OID+index from value
-            parts = line.rsplit(" = ", 1)
-            if len(parts) != 2:
+            oid = f[0]
+            idx = _index_from_oid(oid, "1.3.6.1.4.1.211.1.21.1.1.60.2.3.2.1.1")
+            if idx == "":
                 continue
-            value_part = parts[1]
-            # Extract index from OID (last component after last dot)
-            oid_part = parts[0]
-            idx = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-            # Extract status (INTEGER: <num>)
-            if not value_part.startswith("INTEGER: "):
-                continue
-            status = value_part[9:].strip()
-            # Skip invalid (status 4) per Checkmk source
-            if status == "4":
-                continue
-            # Item is the index (string)
-            discovery.append({
-                "item": idx,
-                "params": {},
-                "metrics": []
-            })
+            st = _read_status(ctx, params, "1.3.6.1.4.1.211.1.21.1.1.60.2.3.2.1.3", idx)
+            if st != "4":
+                items.append({"item": idx, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(items),
+                "data": {"discovery": items}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d controller modules" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-
-    # CHECK MODE
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    st = _read_status(ctx, params, _status_base(ctx, params), item)
+    if st == "":
+        return {"changed": False, "msg": "no such controller module: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": _status_msg(st),
+            "data": {"state": _status_state(st), "metrics": {}, "details": ""}}
 
-    # Run snmpget for the specific item's status OID
-    status_oid = None
-    for device_oid, module_oid_suffix in FJDARYE_DEVICE_OIDS.items():
-        base_oid = device_oid + module_oid_suffix + ".1"
-        status_oid = base_oid + "." + str(item)
-        break  # Only need one base to try (we don't know which device this host is)
-    # But to be safe, try all bases until one works (same logic as discovery)
-    res = None
-    for device_oid, module_oid_suffix in FJDARYE_DEVICE_OIDS.items():
-        base_oid = device_oid + module_oid_suffix + ".1"
-        oid = base_oid + "." + str(item)
-        res = ctx.run([
-            "snmpget",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            oid
-        ], mutates=False)
-        if res.rc == 0 and res.stdout and "No such object" not in res.stdout:
-            break
-        res = None
 
-    # No data found for item
-    if not res or not res.stdout or "No such object" in res.stdout:
-        return {
-            "changed": False,
-            "msg": "controller module %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+def _fjdarye_present(ctx):
+    res = ctx.run(["snmpget", "-v2c",
+                   "-c", "public", "-Oqv",
+                   "localhost", ".1.3.6.1.2.1.1.2.0"],
+                  mutates=False)
+    if res.rc == 127:
+        return False
+    if res.rc != 0:
+        return False
+    val = res.stdout.strip()
+    for oid in [".1.3.6.1.4.1.211.1.21.1.60",
+                ".1.3.6.1.4.1.211.1.21.1.100",
+                ".1.3.6.1.4.1.211.1.21.1.101",
+                ".1.3.6.1.4.1.211.1.21.1.150",
+                ".1.3.6.1.4.1.211.1.21.1.153"]:
+        if val == oid:
+            return True
+    return False
 
-    # Parse status value: "OID = INTEGER: <status>"
-    line = res.stdout.strip()
-    parts = line.rsplit(" = ", 1)
-    if len(parts) != 2 or not parts[1].startswith("INTEGER: "):
-        return {
-            "changed": False,
-            "msg": "invalid SNMP response for module %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
 
-    status = parts[1][9:].strip()  # Strip "INTEGER: " prefix
-    # Determine state
-    state = FJDARYE_ITEM_STATUS.get(status, "UNKNOWN")
-    summary = {
-        "OK": "Normal",
-        "WARN": "Warning",
-        "CRIT": "Invalid or Alarm",
-        "UNKNOWN": "Unknown status"
-    }.get(state, "Unknown")
+def _detect_base(ctx, params):
+    res = ctx.run(["snmpget", "-v2c",
+                   "-c", params.get("community", "public"), "-Oqv",
+                   params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+                  mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return ""
+    val = res.stdout.strip()
+    if val in [".1.3.6.1.4.1.211.1.21.1.60",
+               ".1.3.6.1.4.1.211.1.21.1.100",
+               ".1.3.6.1.4.1.211.1.21.1.101"]:
+        return "1.3.6.1.4.1.211.1.21.1.1.60"
+    if val in [".1.3.6.1.4.1.211.1.21.1.150",
+               ".1.3.6.1.4.1.211.1.21.1.153"]:
+        return "1.3.6.1.4.1.211.1.21.1.1.150"
+    return ""
 
-    return {
-        "changed": False,
-        "msg": "Module %s: %s" % (item, summary),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+
+def _status_base(ctx, params):
+    base = _detect_base(ctx, params)
+    if base == "1.3.6.1.4.1.211.1.21.1.1.60":
+        return "1.3.6.1.4.1.211.1.21.1.1.60.2.3.2.1.3"
+    return "1.3.6.1.4.1.211.1.21.1.1.150.2.4.2.1.3"
+
+
+def _read_status(ctx, params, base_oid, idx):
+    full = base_oid + "." + idx
+    res = ctx.run(["snmpget", "-v2c",
+                   "-c", params.get("community", "public"), "-Oqv",
+                   params.get("host", "localhost"), full],
+                  mutates=False)
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _index_from_oid(oid, col_base):
+    col_base = "." + col_base + "."
+    if oid.startswith(col_base):
+        return oid[len(col_base):]
+    return ""
+
+
+def _status_msg(st):
+    msgs = {"1": "Normal", "2": "Alarm", "3": "Warning",
+            "4": "Invalid", "5": "Maintenance", "6": "Undefined"}
+    return msgs.get(st, "Unknown")
+
+
+def _status_state(st):
+    states = {"1": "OK", "2": "CRIT", "3": "WARN",
+              "4": "CRIT", "5": "CRIT", "6": "CRIT"}
+    return states.get(st, "UNKNOWN")

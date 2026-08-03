@@ -1,217 +1,188 @@
+# Checkmk check: safenet_ntls_clients → read-only Starlark check module.
+#
+# Monitors SafeNet NTLS (network-attached HSM/luna) clients via SNMP.
+# Data source: SNMP subtree 1.3.6.1.4.1.12383.3.1.2 on the target host.
+# Discovery only yields services when the SafeNet NTLS product is present
+# (SysObjectID begins with .1.3.6.1.4.1.12383).
+
+# SNMP base OID for the SafeNet NTLS section.
+BASE_OID = "1.3.6.1.4.1.12383.3.1.2"
+# Individual column OIDs under BASE_OID.
+OID_OPERATION_STATUS = "1"
+OID_CONNECTED_CLIENTS = "2"
+OID_LINKS = "3"
+OID_SUCCESSFUL_CONNECTIONS = "4"
+OID_FAILED_CONNECTIONS = "5"
+OID_EXPIRATION_DATE = "6"
+
+# Checkmk detection prefixes for sysObjectID.
+SAFE_NET_PREFIX = ".1.3.6.1.4.1.12383"
+NET_SNMP_PREFIX = ".1.3.6.1.4.1.8072"
+
+
+def _snmp_get(ctx, params, oid):
+    res = ctx.run(
+        [
+            "snmpget", "-v2c",
+            "-c", params.get("community", "public"),
+            "-Oqv",
+            params.get("host", "localhost"),
+            oid,
+        ],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _detect_safenet(ctx, params):
+    value = _snmp_get(ctx, params, ".1.3.6.1.2.1.1.2.0")
+    if value == None:
+        return False
+    return value.startswith(SAFE_NET_PREFIX) or value.startswith(NET_SNMP_PREFIX)
+
+
+def _fetch_section(ctx, params):
+    operation_status = _snmp_get(ctx, params, BASE_OID + "." + OID_OPERATION_STATUS)
+    if operation_status == None:
+        return None
+
+    connected_clients = _snmp_get(ctx, params, BASE_OID + "." + OID_CONNECTED_CLIENTS)
+    links = _snmp_get(ctx, params, BASE_OID + "." + OID_LINKS)
+    successful_connections = _snmp_get(ctx, params, BASE_OID + "." + OID_SUCCESSFUL_CONNECTIONS)
+    failed_connections = _snmp_get(ctx, params, BASE_OID + "." + OID_FAILED_CONNECTIONS)
+    expiration_date = _snmp_get(ctx, params, BASE_OID + "." + OID_EXPIRATION_DATE)
+
+    if connected_clients == None or links == None or successful_connections == None or failed_connections == None or expiration_date == None:
+        return None
+
+    if not connected_clients.lstrip("-").isdigit() or not links.lstrip("-").isdigit() or not successful_connections.lstrip("-").isdigit() or not failed_connections.lstrip("-").isdigit():
+        return None
+
+    return {
+        "operation_status": operation_status,
+        "connected_clients": int(connected_clients),
+        "links": int(links),
+        "successful_connections": int(successful_connections),
+        "failed_connections": int(failed_connections),
+        "expiration_date": expiration_date,
+    }
+
+
+def _grade_levels(value, levels):
+    if levels == None:
+        return "OK"
+    warn = None
+    crit = None
+    if len(levels) >= 1:
+        warn = levels[0]
+    if len(levels) >= 2:
+        crit = levels[1]
+    if warn != None and value >= warn:
+        return "WARN"
+    if crit != None and value >= crit:
+        return "CRIT"
+    return "OK"
+
+
 def main(ctx, params):
-    # SNMP base configuration
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
+    if not _detect_safenet(ctx, params):
+        return {
+            "changed": False,
+            "msg": "SafeNet NTLS not detected on this host (sysObjectID mismatch)",
+            "data": {"discovery": []},
+        }
 
-    # OID for safenet_ntls section
-    base_oid = ".1.3.6.1.4.1.12383.3.1.2"
-    oids = ["1", "2", "3", "4", "5", "6"]
-
-    # Build complete OIDs
-    full_oids = [base_oid + "." + oid for oid in oids]
-
-    # Run snmpwalk for all required OIDs
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host
-    ] + full_oids, mutates=False)
-
-    # Parse snmpwalk output
-    # Expected format: "OID = TYPE: value"
-    data = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        if "=" not in line:
-            continue
-        left, right = line.split("=", 1)
-        oid = left.strip()
-        value = right.strip()
-        # Extract value after ": "
-        val = value.split(":", 1)[-1].strip() if ":" in value else value.strip()
-        # Map OID suffix to section field
-        suffix = oid.rsplit(".", 1)[-1] if "." in oid else oid
-        if suffix == "1":
-            data["operation_status"] = val
-        elif suffix == "2":
-            data["connected_clients"] = val
-        elif suffix == "3":
-            data["links"] = val
-        elif suffix == "4":
-            data["successful_connections"] = val
-        elif suffix == "5":
-            data["failed_connections"] = val
-        elif suffix == "6":
-            data["expiration_date"] = val
-
-    # If no data found, check for discovery mode
-    if not data:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {"changed": False, "msg": "no NTLS data found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Discovery mode
     if params.get("_discover"):
+        section = _fetch_section(ctx, params)
         discovery = []
-        # NTLS Clients service
-        discovery.append({
-            "item": "",
-            "params": {"levels": ("no_levels", None)},
-            "metrics": ["connections"]
-        })
-        # NTLS Links service
-        discovery.append({
-            "item": "",
-            "params": {"levels": ("no_levels", None)},
-            "metrics": ["connections"]
-        })
-        # NTLS Expiration Date service
-        discovery.append({
-            "item": "",
-            "params": {},
-            "metrics": []
-        })
-        # NTLS Connection Rate services
-        discovery.append({
-            "item": "successful",
-            "params": {},
-            "metrics": ["connections_rate"]
-        })
-        discovery.append({
-            "item": "failed",
-            "params": {},
-            "metrics": ["connections_rate"]
-        })
-        # NTLS Operation Status service
-        discovery.append({
-            "item": "",
-            "params": {},
-            "metrics": []
-        })
-        return {"changed": False, "msg": "discovered 6 items", "data": {"discovery": discovery}}
+        if section != None:
+            discovery = [
+                {"item": "connected clients", "params": {}, "metrics": ["connections"]},
+                {"item": "links", "params": {"levels": ("no_levels", None)}, "metrics": ["connections"]},
+                {"item": "operation status", "params": {}, "metrics": []},
+                {"item": "expiration date", "params": {}, "metrics": []},
+            ]
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
-    # Check mode
-    # Determine which service we're checking based on item and service name patterns
     item = params.get("item", "")
-
-    # Map params to defaults
-    levels = params.get("levels", ("no_levels", None))
-
-    # Check NTLS Clients (connected_clients)
-    if item == "" and "connected_clients" in data:
-        connected = int(data["connected_clients"]) if str(data["connected_clients"]).isdigit() else 0
-        state = "OK"
-        summary = "%d connected clients" % connected
-
-        # Apply levels if configured
-        if levels and levels[0] != "no_levels":
-            warn, crit = levels
-            if warn != None and crit != None:
-                if connected >= crit:
-                    state = "CRIT"
-                elif connected >= warn:
-                    state = "WARN"
-            elif warn != None:
-                if connected >= warn:
-                    state = "WARN"
-            elif crit != None:
-                if connected >= crit:
-                    state = "CRIT"
-
+    section = _fetch_section(ctx, params)
+    if section == None:
         return {
             "changed": False,
-            "msg": summary,
+            "msg": "SafeNet NTLS data not available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    if item == "connected clients":
+        value = section["connected_clients"]
+        levels = params.get("levels", ("no_levels", None))
+        state = _grade_levels(value, levels)
+        return {
+            "changed": False,
+            "msg": "%d connected clients" % value,
             "data": {
                 "state": state,
-                "metrics": {"connections": connected},
-                "details": ""
-            }
+                "metrics": {"connections": value},
+                "details": "",
+            },
         }
 
-    # Check NTLS Links
-    if item == "" and "links" in data:
-        links = int(data["links"]) if str(data["links"]).isdigit() else 0
-        state = "OK"
-        summary = "%d links" % links
-
-        # Apply levels if configured
-        if levels and levels[0] != "no_levels":
-            warn, crit = levels
-            if warn != None and crit != None:
-                if links >= crit:
-                    state = "CRIT"
-                elif links >= warn:
-                    state = "WARN"
-            elif warn != None:
-                if links >= warn:
-                    state = "WARN"
-            elif crit != None:
-                if links >= crit:
-                    state = "CRIT"
-
+    if item == "links":
+        value = section["links"]
+        levels = params.get("levels", ("no_levels", None))
+        state = _grade_levels(value, levels)
         return {
             "changed": False,
-            "msg": summary,
+            "msg": "%d links" % value,
             "data": {
                 "state": state,
-                "metrics": {"connections": links},
-                "details": ""
-            }
+                "metrics": {"connections": value},
+                "details": "",
+            },
         }
 
-    # Check NTLS Expiration Date
-    if item == "" and "expiration_date" in data:
-        exp_date = data["expiration_date"]
-        return {
-            "changed": False,
-            "msg": "The NTLS server certificate expires on " + exp_date,
-            "data": {
-                "state": "OK",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    # Check NTLS Connection Rate: successful/failed
-    if item in ["successful", "failed"]:
-        key = "successful_connections" if item == "successful" else "failed_connections"
-        if key in data:
-            count = int(data[key]) if str(data[key]).isdigit() else 0
-            # Return a synthetic rate based on the current value (checkmk uses get_rate but we don't have state persistence)
-            # For simplicity, we return a rate of 0.00 if no previous state is available
-            rate = 0.00
+    if item == "operation status":
+        operation_status = section["operation_status"]
+        if operation_status == "1":
             return {
                 "changed": False,
-                "msg": "%f connections/s" % rate,
-                "data": {
-                    "state": "OK",
-                    "metrics": {"connections_rate": rate},
-                    "details": ""
-                }
+                "msg": "Running",
+                "data": {"state": "OK", "metrics": {}, "details": ""},
             }
-
-    # Check NTLS Operation Status
-    if item == "" and "operation_status" in data:
-        op_status = data["operation_status"]
-        state = "UNKNOWN"
-        summary = "Unknown"
-
-        if op_status == "1":
-            state = "OK"
-            summary = "Running"
-        elif op_status == "2":
-            state = "CRIT"
-            summary = "Down"
-
+        if operation_status == "2":
+            return {
+                "changed": False,
+                "msg": "Down",
+                "data": {"state": "CRIT", "metrics": {}, "details": ""},
+            }
+        if operation_status == "3":
+            return {
+                "changed": False,
+                "msg": "Unknown",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
         return {
             "changed": False,
-            "msg": summary,
-            "data": {
-                "state": state,
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "Unknown operation status: %s" % operation_status,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Fallback
-    return {"changed": False, "msg": "unsupported service item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item == "expiration date":
+        expiration = section["expiration_date"]
+        return {
+            "changed": False,
+            "msg": "The NTLS server certificate expires on " + expiration,
+            "data": {"state": "OK", "metrics": {}, "details": ""},
+        }
+
+    return {
+        "changed": False,
+        "msg": "Unknown item: %s" % item,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+    }

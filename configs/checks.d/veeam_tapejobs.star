@@ -1,141 +1,100 @@
-_DAY = 86400  # 3600 * 24
+def _get_tape_jobs(ctx, params):
+    ps_res = ctx.run(
+        ["pwsh", "-Command", "Get-Module -ListAvailable -Name Veeam.Backup"],
+        mutates=False,
+    )
+    if ps_res.rc != 0:
+        ps_res = ctx.run(
+            ["powershell", "-Command", "Get-Module -ListAvailable -Name Veeam.Backup"],
+            mutates=False,
+        )
+        if ps_res.rc != 0:
+            return None
+
+    ps_query = (
+        "Import-Module Veeam.Backup; " +
+        "$jobs = Get-VBRTapeJob; " +
+        "foreach ($j in $jobs) { " +
+        "$last = Get-VBRTapeJob -Name $j.Name | Get-VBRSession -Last; " +
+        "$result = if ($last) { $last.Result.ToString() } else { 'None' }; " +
+        "$state = if ($last) { $last.State.ToString() } else { 'Idle' }; " +
+        "$j.Name + '|' + $result + '|' + $state " +
+        "}"
+    )
+    res = ctx.run(["pwsh", "-Command", ps_query], mutates=False)
+    if res.rc != 0:
+        res = ctx.run(["powershell", "-Command", ps_query], mutates=False)
+        if res.rc != 0:
+            return None
+
+    jobs = []
+    for line in res.stdout.splitlines():
+        parts = line.strip().split("|", 2)
+        if len(parts) < 3:
+            continue
+        name, result, state = parts
+        jobs.append({
+            "name": name,
+            "job_id": name,
+            "last_result": result,
+            "last_state": state,
+        })
+    return jobs
+
+_BACKUP_STATE = {
+    "Success": "OK",
+    "Warning": "WARN",
+    "Failed": "CRIT",
+}
+
+_DAY = 3600 * 24
 
 def main(ctx, params):
-    if params.get("_discover"):
-        section_path = "/var/lib/check-mk-agent/raw/veeam_tapejobs"
-        if not ctx.file_exists(section_path):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
+    is_discover = params.get("_discover", False)
 
-        raw = ctx.file_read(section_path)
-        lines = raw.split("\n")
-        if len(lines) < 2:
-            return {"changed": False, "msg": "discovered 0 items",
+    if is_discover:
+        jobs = _get_tape_jobs(ctx, params)
+        if jobs == None:
+            return {"changed": False, "msg": "VEEAM Backup not installed",
                     "data": {"discovery": []}}
-
-        columns = [s.lower() for s in lines[0].split()]
-        out = []
-        for line in lines[1:]:
-            fields = line.split()
-            if len(fields) < len(columns):
-                continue
-            name = " ".join(fields[: -(len(columns) - 1)])
-            job_id = fields[-(len(columns) - 1)]
-            last_result = fields[-(len(columns) - 2)]
-            last_state = fields[-(len(columns) - 3)]
-            out.append({"item": name, "params": {"levels_upper": (1 * _DAY, 2 * _DAY)},
-                        "metrics": ["running_time"]})
-        return {"changed": False, "msg": "discovered %d tape jobs" % len(out),
-                "data": {"discovery": out}}
+        discovery = []
+        for job in jobs:
+            discovery.append({
+                "item": job["name"],
+                "params": {"levels_upper": params.get("levels_upper", (_DAY, 2 * _DAY))},
+                "metrics": ["running_time"],
+            })
+        return {"changed": False, "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    section_path = "/var/lib/check-mk-agent/raw/veeam_tapejobs"
-    if not ctx.file_exists(section_path):
-        return {"changed": False, "msg": "no veeam_tapejobs section available",
+    jobs = _get_tape_jobs(ctx, params)
+    if jobs == None:
+        return {"changed": False, "msg": "VEEAM Backup not installed",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    raw = ctx.file_read(section_path)
-    lines = raw.split("\n")
-    if len(lines) < 2:
-        return {"changed": False, "msg": "no veeam_tapejobs section available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    columns = [s.lower() for s in lines[0].split()]
-    job_data = None
-    for line in lines[1:]:
-        fields = line.split()
-        if len(fields) < len(columns):
-            continue
-        name = " ".join(fields[: -(len(columns) - 1)])
-        if name == item:
-            job_id = fields[-(len(columns) - 1)]
-            last_result = fields[-(len(columns) - 2)]
-            last_state = fields[-(len(columns) - 3)]
-            job_data = {"job_id": job_id, "last_result": last_result, "last_state": last_state}
+    job = None
+    for j in jobs:
+        if j["name"] == item:
+            job = j
             break
 
-    if job_data == None:
-        return {"changed": False, "msg": "tape job not found: " + item,
+    if job == None:
+        return {"changed": False, "msg": "no such veeam tape job: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    job_id = job_data.get("job_id", "")
-    last_result = job_data.get("last_result", "")
-    last_state = job_data.get("last_state", "")
+    last_result = job["last_result"]
+    last_state = job["last_state"]
+    levels = params.get("levels_upper", (_DAY, 2 * _DAY))
+    warn_level = levels[0] if len(levels) > 0 else _DAY
+    crit_level = levels[1] if len(levels) > 1 else 2 * _DAY
 
-    def state_for_result(res):
-        if res == "Success":
-            return "OK"
-        elif res == "Warning":
-            return "WARN"
-        elif res == "Failed":
-            return "CRIT"
-        return "CRIT"
+    if last_result != "None" or last_state not in ("Working", "Idle"):
+        state = _BACKUP_STATE.get(last_result, "CRIT")
+        return {"changed": False,
+                "msg": "Last backup result: %s, Last state: %s" % (last_result, last_state),
+                "data": {"state": state, "metrics": {}, "details": ""}}
 
-    if last_result != "None" or (last_state not in ["Working", "Idle"]):
-        return {
-            "changed": False,
-            "msg": "Last backup result: " + last_result + ", Last state: " + last_state,
-            "data": {
-                "state": state_for_result(last_result),
-                "metrics": {},
-                "details": "Last state: " + last_state,
-            },
-        }
-
-    store_key = "veeam_tapejobs_" + job_id
-    store_path = "/tmp/" + store_key
-    running_since = None
-    if ctx.file_exists(store_path):
-        running_since_str = ctx.file_read(store_path)
-        if running_since_str.isdigit():
-            running_since = float(running_since_str)
-
-    now = 0.0
-    # Get current time via /proc/uptime on Linux or equivalent
-    if ctx.file_exists("/proc/uptime"):
-        uptime_raw = ctx.file_read("/proc/uptime")
-        parts = uptime_raw.split()
-        if len(parts) >= 1 and parts[0].replace(".", "").isdigit():
-            now = float(parts[0])
-    else:
-        # Fallback: use current Unix time via command (read-only)
-        res = ctx.run(["date", "+%s"])
-        if res.rc == 0:
-            now = float(res.stdout.strip())
-
-    if running_since == None:
-        running_since = now
-
-    # Do not persist running_since in check_mode
-    if not ctx.check_mode and running_since == now:
-        ctx.file_write(store_path, str(now))
-
-    running_time = now - running_since
-
-    warn, crit = params.get("levels_upper", (1 * _DAY, 2 * _DAY))
-    state = "CRIT" if running_time >= crit else ("WARN" if running_time >= warn else "OK")
-
-    def format_timespan(seconds):
-        days = int(seconds // 86400)
-        hours = int((seconds % 86400) // 3600)
-        mins = int((seconds % 3600) // 60)
-        secs = int(seconds % 60)
-        parts = []
-        if days > 0:
-            parts.append(str(days) + "d")
-        if hours > 0:
-            parts.append(str(hours) + "h")
-        if mins > 0:
-            parts.append(str(mins) + "m")
-        parts.append(str(secs) + "s")
-        return " ".join(parts)
-
-    return {
-        "changed": False,
-        "msg": "Backup in progress (currently " + last_state.lower() + "), Running time: " + format_timespan(running_time),
-        "data": {
-            "state": state,
-            "metrics": {"running_time": running_time},
-            "details": "",
-        },
-    }
+    return {"changed": False,
+            "msg": "Backup in progress (currently %s) - duration tracking requires persistent state" % last_state.lower(),
+            "data": {"state": "OK", "metrics": {"running_time": 0}, "details": ""}}

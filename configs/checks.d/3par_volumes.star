@@ -1,167 +1,71 @@
-PROVISIONING_MAP = {
-    1: "FULL",
-    2: "TPVV",
-    3: "SNP",
-    4: "PEER",
-    5: "UNKNOWN",
-    6: "TDVV",
-    7: "DDS",
-}
+# 3par_volumes — translated Checkmk check (read-only)
+STATES = {1: "OK", 2: "WARN", 3: "CRIT"}
+PROVISIONING_MAP = {1: "FULL", 2: "TPVV", 3: "SNP", 4: "PEER", 5: "UNKNOWN", 6: "TDVV", 7: "DDS"}
 
-STATE_MAP = {
-    1: "OK",
-    2: "WARN",
-    3: "CRIT",
-}
+def _to_int(s):
+    d = s.strip()
+    if d.isdigit() or (d.startswith("-") and d[1:].isdigit()):
+        return int(d)
+    return None
+
+def _to_float(s):
+    d = s.strip()
+    if d.replace(".", "", 1).replace("-", "", 1).isdigit():
+        return float(d)
+    return None
+
+def _show_volumes(ctx):
+    res = ctx.run(["3par", "showvv", "-d", "-f", "-space", "-tpvv", "-dedup", "-compaction", "-state", "-wwn"], mutates=False)
+    if res.rc == 127:
+        return None
+    volumes = []
+    for line in res.stdout.splitlines():
+        f = line.split()
+        if len(f) < 11:
+            continue
+        if not f[2].isdigit() or not f[3].isdigit() or not f[4].isdigit():
+            continue
+        volumes.append({"name": f[0], "is_system": f[1] == "1", "total": float(f[2]), "used": float(f[3]), "free": float(f[4]), "prov_type": PROVISIONING_MAP.get(_to_int(f[5]), "UNKNOWN"), "dedup": _to_float(f[6]), "compaction": _to_float(f[7]), "state": STATES.get(_to_int(f[8]), "UNKNOWN"), "wwn": f[9]})
+    return volumes
 
 def main(ctx, params):
-    par_host = params.get("host", "localhost")
-    port = params.get("port", 8080)
-    username = params.get("username", "3paradm")
-    password = params.get("password", "3pardata")
-    base_url = "https://%s:%d/api/v1" % (par_host, port)
-
-    auth_res = ctx.run([
-        "curl", "-sk", "--max-time", "30", "-X", "POST",
-        "-H", "Content-Type: application/json",
-        "-d", '{"user":"%s","password":"%s"}' % (username, password),
-        base_url + "/credentials",
-    ], mutates=False)
-
-    if auth_res.rc != 0 or not auth_res.stdout:
-        err = "3PAR API auth failed: " + auth_res.stderr
-        if params.get("_discover"):
-            return {"changed": False, "msg": err, "data": {"discovery": []}}
-        return {"changed": False, "msg": err,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    auth_data = json.decode(auth_res.stdout)
-    session_key = auth_data.get("key", "")
-    if not session_key:
-        err = "3PAR API returned no session key"
-        if params.get("_discover"):
-            return {"changed": False, "msg": err, "data": {"discovery": []}}
-        return {"changed": False, "msg": err,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    vols_res = ctx.run([
-        "curl", "-sk", "--max-time", "30",
-        "-H", "X-HP3PAR-WSAPI-SessionKey: " + session_key,
-        "-H", "Accept: application/json",
-        base_url + "/volumes",
-    ], mutates=False)
-
-    if vols_res.rc != 0 or not vols_res.stdout:
-        err = "3PAR API volumes fetch failed: " + vols_res.stderr
-        if params.get("_discover"):
-            return {"changed": False, "msg": err, "data": {"discovery": []}}
-        return {"changed": False, "msg": err,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    raw = json.decode(vols_res.stdout)
-    members = raw.get("members", [])
-
-    volumes = {}
-    for vol in members:
-        name = vol.get("name", "")
-        if not name:
-            continue
-        policies = vol.get("policies", {})
-        is_system = policies.get("system", False)
-
-        total_mib = float(vol.get("sizeMiB", 0))
-        user_space = vol.get("userSpace")
-        if user_space != None:
-            used_mib = float(user_space.get("usedMiB", 0))
-            raw_reserved_mib = float(user_space.get("rawReservedMiB", 0))
-        else:
-            used_mib = float(vol.get("totalUsedMiB", 0))
-            raw_reserved_mib = float(vol.get("totalReservedMiB", 0))
-        free_mib = total_mib - used_mib
-        provisioning_bytes = raw_reserved_mib * 1024 * 1024
-
-        cap_eff = vol.get("capacityEfficiency")
-        dedup = cap_eff.get("deduplication") if cap_eff != None else None
-        compaction = cap_eff.get("compaction") if cap_eff != None else None
-
-        prov_type_id = vol.get("provisioningType", 5)
-        ptype = PROVISIONING_MAP.get(prov_type_id, "UNKNOWN")
-        state_id = vol.get("state", 1)
-        vol_state = STATE_MAP.get(state_id, "UNKNOWN")
-        wwn = vol.get("wwn", "")
-
-        volumes[name] = {
-            "is_system": is_system,
-            "total_mib": total_mib,
-            "used_mib": used_mib,
-            "free_mib": free_mib,
-            "provisioning_bytes": provisioning_bytes,
-            "dedup": dedup,
-            "compaction": compaction,
-            "ptype": ptype,
-            "vol_state": vol_state,
-            "wwn": wwn,
-        }
-
+    volumes = _show_volumes(ctx)
     if params.get("_discover"):
+        if volumes == None:
+            return {"changed": False, "msg": "3par CLI not found", "data": {"discovery": []}}
         discovery = []
-        for name in volumes:
-            v = volumes[name]
-            if not v["is_system"]:
-                discovery.append({
-                    "item": name,
-                    "params": {"levels": (80.0, 90.0)},
-                    "metrics": ["used_percent", "fs_used", "fs_free", "fs_provisioning"],
-                })
-        return {"changed": False, "msg": "discovered %d volumes" % len(discovery),
-                "data": {"discovery": discovery}}
-
+        for v in volumes:
+            if v["is_system"]:
+                continue
+            discovery.append({"item": v["name"], "params": {"levels": params.get("levels", (80.0, 90.0))}, "metrics": ["fs_provisioning", "used_percent"]})
+        return {"changed": False, "msg": "discovered %d volumes" % len(discovery), "data": {"discovery": discovery}}
     item = params.get("item", "")
-    v = volumes.get(item)
-    if v == None:
-        return {"changed": False, "msg": "volume not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    total_mib = v["total_mib"]
-    used_mib = v["used_mib"]
-    free_mib = v["free_mib"]
-
-    if total_mib <= 0:
-        return {"changed": False, "msg": "volume has zero size",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    used_pct = (used_mib / total_mib) * 100.0
+    if volumes == None:
+        return {"changed": False, "msg": "3par CLI not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vol = None
+    for v in volumes:
+        if v["name"] == item:
+            vol = v
+            break
+    if vol == None:
+        return {"changed": False, "msg": "no such volume: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if vol["total"] > 0:
+        used_pct = (vol["total"] - vol["free"]) / vol["total"] * 100.0
+    else:
+        used_pct = 0.0
     levels = params.get("levels", (80.0, 90.0))
-    warn = levels[0]
-    crit = levels[1]
-    fs_state = "CRIT" if used_pct >= crit else ("WARN" if used_pct >= warn else "OK")
-
-    vol_state = v["vol_state"]
-    if vol_state == "CRIT":
-        fs_state = "CRIT"
-    elif vol_state == "WARN" and fs_state == "OK":
-        fs_state = "WARN"
-
-    parts = ["Used: %f of %f MiB (%f%%)" % (used_mib, total_mib, used_pct)]
-    parts.append("Type: %s" % v["ptype"])
-    parts.append("WWN: %s" % v["wwn"])
-
-    dedup = v["dedup"]
-    compaction = v["compaction"]
-    if dedup != None:
-        parts.append("Dedup: %s" % str(dedup))
-    if compaction != None:
-        parts.append("Compact: %s" % str(compaction))
-
-    metrics = {
-        "used_percent": used_pct,
-        "fs_used": used_mib,
-        "fs_free": free_mib,
-        "fs_provisioning": v["provisioning_bytes"],
-    }
-
-    return {
-        "changed": False,
-        "msg": ", ".join(parts),
-        "data": {"state": fs_state, "metrics": metrics, "details": ""},
-    }
+    warn = levels[0] if levels and len(levels) >= 1 else 80.0
+    crit = levels[1] if levels and len(levels) >= 2 else 90.0
+    state = "OK"
+    if (used_pct >= crit):
+        state = "CRIT"
+    elif (used_pct >= warn):
+        state = "WARN"
+    metrics = {"fs_provisioning": vol["used"], "used_percent": used_pct}
+    parts = ["Type: %s, WWN: %s" % (vol["prov_type"], vol["wwn"])]
+    if vol["dedup"] != None:
+        parts.append("Dedup: %s" % vol["dedup"])
+    if vol["compaction"] != None:
+        parts.append("Compact: %s" % vol["compaction"])
+    parts.append("Used: %d%%" % used_pct)
+    return {"changed": False, "msg": ", ".join(parts), "data": {"state": state, "metrics": metrics, "details": ", ".join(parts)}}

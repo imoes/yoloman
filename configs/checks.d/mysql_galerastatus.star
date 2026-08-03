@@ -1,52 +1,62 @@
+def _parse_mysql_status(output):
+    data = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        key = parts[0]
+        val = parts[1]
+        if val.lstrip("-").isdigit():
+            data[key] = int(val)
+        else:
+            data[key] = val
+    return data
+
+def _is_galera(data):
+    provider = data.get("wsrep_provider")
+    if provider == None:
+        return False
+    if provider == "none":
+        return False
+    return True
+
+def _read_wsrep_status(ctx):
+    res = ctx.run(["mysql", "-B", "-N", "-e", "SHOW VARIABLES LIKE 'wsrep%';"], mutates=False)
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return None
+    lines = res.stdout.splitlines()
+    wsrep_vars = {}
+    for line in lines:
+        f = line.split()
+        if len(f) < 2:
+            continue
+        name = f[0]
+        value = f[1]
+        if name.startswith("wsrep_"):
+            wsrep_vars[name] = value
+    if not wsrep_vars:
+        return None
+    return wsrep_vars
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["mysql", "-N", "-e", "SHOW VARIABLES LIKE 'wsrep_provider'; SHOW STATUS LIKE 'wsrep_local_state_comment'; SHOW STATUS LIKE 'wsrep_cluster_status';"], mutates=False)
-        lines = res.stdout.splitlines()
-        data = {}
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.split("\t", 1)
-            if len(parts) == 2:
-                key = parts[0].strip()
-                value = parts[1].strip()
-                data[key] = value
-        # Check if wsrep_provider is present and not 'none'
-        wsrep_provider = data.get("wsrep_provider")
-        if wsrep_provider == None or wsrep_provider == "none":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # Check for wsrep_cluster_status (required for this check)
-        if "wsrep_cluster_status" not in data:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # This is a single-service check with item "mysql"
-        return {"changed": False, "msg": "discovered 1 items",
-                "data": {"discovery": [
-                    {"item": "mysql", "params": {}, "metrics": []}
-                ]}}
-    
-    # Check mode (not discovery)
-    res = ctx.run(["mysql", "-N", "-e", "SHOW VARIABLES LIKE 'wsrep_provider'; SHOW STATUS LIKE 'wsrep_cluster_status';"], mutates=False)
-    lines = res.stdout.splitlines()
-    data = {}
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split("\t", 1)
-        if len(parts) == 2:
-            key = parts[0].strip()
-            value = parts[1].strip()
-            # Remove 'Variable_name' and 'Value' prefixes if present
-            if key.startswith("Variable_name"):
-                continue
-            data[key] = value
-    
-    wsrep_cluster_status = data.get("wsrep_cluster_status")
+        wsrep = _read_wsrep_status(ctx)
+        if wsrep == None:
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        if not _is_galera(wsrep):
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        if "wsrep_cluster_status" not in wsrep:
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        out = [{"item": "", "params": {}, "metrics": []}]
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
+
+    wsrep = _read_wsrep_status(ctx)
+    if wsrep == None:
+        return {"changed": False, "msg": "no Galera cluster status available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    wsrep_cluster_status = wsrep.get("wsrep_cluster_status")
     if wsrep_cluster_status == None:
-        return {"changed": False, "msg": "WSREP cluster status missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
+        return {"changed": False, "msg": "no Galera cluster status available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     state = "OK" if wsrep_cluster_status == "Primary" else "CRIT"
-    return {"changed": False, "msg": "WSREP cluster status: %s" % wsrep_cluster_status,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": "WSREP cluster status: %s" % wsrep_cluster_status, "data": {"state": state, "metrics": {}, "details": ""}}

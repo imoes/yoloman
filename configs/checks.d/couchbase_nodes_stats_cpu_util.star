@@ -1,106 +1,89 @@
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        # Fetch node stats from the same endpoint as Checkmk agent: Couchbase REST API
-        res = ctx.run([
-            "curl", "-s", "-f", "http://localhost:8091/pools/default/nodes"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items (couchbase endpoint unreachable)",
-                    "data": {"discovery": []}}
+        nodes = _read_nodes(ctx)
+        if not nodes:
+            return {"changed": False, "msg": "couchbase not running", "data": {"discovery": []}}
+        discovery = []
+        for name in sorted(nodes.keys()):
+            discovery.append({"item": name, "params": {}, "metrics": ["cpu_util"]})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        if not res.stdout:
-            return {"changed": False, "msg": "discovered 0 items (no data from couchbase)",
-                    "data": {"discovery": []}}
-
-        nodes = json.decode(res.stdout)
-
-        items = []
-        for node in nodes.get("nodes", []):
-            name = ""
-            hostname = node.get("hostname", "")
-            if hostname:
-                name = hostname.split(":")[0]
-            if not name:
-                name = node.get("nodeID", "")
-            if name:
-                items.append({
-                    "item": name,
-                    "params": {},
-                    "metrics": ["cpu_utilization_rate"]
-                })
-
-        return {"changed": False, "msg": "discovered %d nodes" % len(items),
-                "data": {"discovery": items}}
-
-    # Check mode: item is required
     item = params.get("item", "")
-    if item == "":
-        return {"changed": False, "msg": "item not specified",
+    nodes = _read_nodes(ctx)
+    if not nodes:
+        return {"changed": False, "msg": "couchbase not running",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Fetch node stats from the same endpoint
-    res = ctx.run([
-        "curl", "-s", "-f", "http://localhost:8091/pools/default/nodes"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "Couchbase endpoint unreachable for node %s" % item,
+    data = nodes.get(item)
+    if data == None:
+        return {"changed": False, "msg": "no such node: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if not res.stdout:
-        return {"changed": False, "msg": "no data from Couchbase for node %s" % item,
+    util = _to_float(data.get("cpu_utilization_rate"))
+    if util == None:
+        return {"changed": False, "msg": "no cpu data for " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    nodes = json.decode(res.stdout)
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
+    state = _grade_upper(util, warn, crit)
+    return {"changed": False,
+            "msg": "Couchbase CPU utilization of %s is %s%%" % (item, str(util)),
+            "data": {"state": state, "metrics": {"cpu_util": util}, "details": ""}}
 
-    data = None
-    for node in nodes.get("nodes", []):
-        name = ""
-        hostname = node.get("hostname", "")
-        if hostname:
-            name = hostname.split(":")[0]
-        if not name:
-            name = node.get("nodeID", "")
-        if name == item:
-            data = node
-            break
 
-    if not data:
-        return {"changed": False, "msg": "node %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    cpu_util_str = data.get("cpuUtilizationRate", data.get("cpu_utilization_rate", ""))
-    if cpu_util_str == "":
-        return {"changed": False, "msg": "cpu_utilization_rate missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    util = 0.0
-    if cpu_util_str.isdigit() or (cpu_util_str.replace(".", "", 1).isdigit() and cpu_util_str.count(".") <= 1):
-        util = float(cpu_util_str)
+def _read_nodes(ctx):
+    res = ctx.run(["curl", "-s", "-u", "Administrator:password",
+                   "http://localhost:8091/pools/default"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        res2 = ctx.run(["couchbase-cli", "server-list",
+                        "-c", "localhost:8091", "-u", "Administrator", "-p", "password"],
+                       mutates=False)
+        if res2.rc != 0 or not res2.stdout:
+            return {}
+        text = res2.stdout
     else:
-        return {"changed": False, "msg": "cpu_utilization_rate invalid: " + cpu_util_str,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        text = res.stdout
 
-    # Thresholds: Checkmk's cpu_utilization_multiitem default is (80.0, 90.0)
-    warn, crit = 80.0, 90.0
-    levels = params.get("levels", None)
-    if levels != None and type(levels) == "list" and len(levels) == 2:
-        warn = levels[0]
-        crit = levels[1]
+    if not text:
+        return {}
+    data = json.decode(text)
+    if type(data) != "dict" or not data:
+        return {}
 
-    state = "OK"
-    if util >= crit:
-        state = "CRIT"
-    elif util >= warn:
-        state = "WARN"
+    nodes = {}
+    node_list = data.get("nodes", [])
+    for node in node_list:
+        name = node.get("hostname") or node.get("name") or node.get("address")
+        if name == None:
+            continue
+        nodes[name] = node
+    if nodes:
+        return nodes
 
-    msg = "CPU utilization: %f%%" % util
-    if state == "OK":
-        msg += " (warn/crit at %f/%f%%)" % (warn, crit)
-    elif state == "WARN":
-        msg += " (warn/crit at %f/%f%%)" % (warn, crit)
-    else:
-        msg += " (warn/crit at %f/%f%%)" % (warn, crit)
+    if res.rc == 0 and res.stdout:
+        return _parse_cli_nodes(res.stdout)
+    return {}
 
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {"cpu_utilization_rate": util}, "details": ""}}
+
+def _parse_cli_nodes(text):
+    return {}
+
+
+def _to_float(v):
+    if type(v) == "int" or type(v) == "float":
+        return float(v)
+    if type(v) == "string":
+        try_val = v.replace(".", "", 1)
+        if try_val.isdigit():
+            return float(v)
+    return None
+
+
+def _grade_upper(value, warn, crit):
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"

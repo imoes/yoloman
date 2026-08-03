@@ -1,54 +1,48 @@
-# ===== check plugin: orion_batterytest =====
-# Starlark translation of Checkmk check cmk.plugins.orion.orion_batterytest
-
 def main(ctx, params):
-    # Discovery mode: yield a single service (no per-item breakdown)
+    base_oid = ".1.3.6.1.2.1.1.2.0"
+    sys_oid = ".1.3.6.1.4.1.20246"
+    col_oid = ".1.3.6.1.4.1.20246.2.3.1.1.1.2.5.2.2"
+
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 battery test service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
+        sys_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Ov", params.get("host", "localhost"), base_oid],
+            mutates=False,
+        )
+        if sys_res.rc != 0 or not sys_res.stdout.startswith(sys_oid):
+            return {"changed": False, "msg": "device not an Orion",
+                    "data": {"discovery": []}}
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"), col_oid + ".1"],
+            mutates=False,
+        )
+        if walk.rc != 0 or not walk.stdout:
+            return {"changed": False, "msg": "no battery test data",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered battery test",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}]}}
 
-    # Check mode: fetch SNMP data for orion_batterytest
-    # base OID: .1.3.6.1.4.1.20246.2.3.1.1.1.2.5.2.2
-    # OIDs: 1 (last_test_date), 2 (test_result)
-    res = ctx.run([
-        "snmpget", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.20246.2.3.1.1.1.2.5.2.2.1",
-        ".1.3.6.1.4.1.20246.2.3.1.1.1.2.5.2.2.2"
-    ], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    item = params.get("item", "")
+    date_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), col_oid + ".1.1"],
+        mutates=False,
+    )
+    result_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), col_oid + ".2.1"],
+        mutates=False,
+    )
+    if date_res.rc != 0 or result_res.rc != 0:
+        return {"changed": False, "msg": "no battery test data",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": ""}}
 
-    # Parse snmpget output: each line has OID = value
-    lines = res.stdout.splitlines()
-    if len(lines) < 2:
-        return {
-            "changed": False,
-            "msg": "SNMP response missing values",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    last_test_date = date_res.stdout.strip()
+    test_result = result_res.stdout.strip()
 
-    # Extract values (strip leading/trailing spaces and quotes)
-    def extract_value(line):
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            return ""
-        val = parts[1].strip()
-        # Remove quotes if present
-        if val.startswith('"') and val.endswith('"'):
-            val = val[1:-1]
-        return val
-
-    last_test_date = extract_value(lines[0])
-    test_result = extract_value(lines[1])
-
-    # Map test_result to state
     map_states = {
         "1": ("OK", "none"),
         "2": ("CRIT", "failed"),
@@ -57,21 +51,21 @@ def main(ctx, params):
         "5": ("OK", "OK"),
         "6": ("WARN", "aborted manual"),
         "7": ("WARN", "aborted ev ctrl charge"),
-        "8": ("WARN", "aborted inhibit ev")
+        "8": ("WARN", "aborted inhibit ev"),
     }
 
-    # test_result "1" means "no test result available"
+    entry = map_states.get(test_result)
     if test_result != "1":
-        state_str, state_readable = map_states.get(test_result, ("UNKNOWN", "unknown[" + test_result + "]"))
-        summary = "Last performed: " + last_test_date + ", Result: " + state_readable
-        return {
-            "changed": False,
-            "msg": summary,
-            "data": {"state": state_str, "metrics": {}, "details": ""}
-        }
+        if entry == None:
+            state = "UNKNOWN"
+            readable = "unknown[%s]" % test_result
+        else:
+            state = entry[0]
+            readable = entry[1]
+        msg = "Last performed: %s, Result: %s" % (last_test_date, readable)
     else:
-        return {
-            "changed": False,
-            "msg": "No test result available",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
+        state = "OK"
+        msg = "No test result available"
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {}, "details": ""}}

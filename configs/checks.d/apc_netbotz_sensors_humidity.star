@@ -1,172 +1,141 @@
-# ===== Starlark check: apc_netbotz_sensors_humidity =====
-# Translate Checkmk plugin cmk.plugins.apc.agent_based.apc_netbotz_sensors
-# Sensor type: humidity (%)
-# Read-only check — no state changes
+# Translated from Checkmk check: checkmk.apc_netbotz_sensors_humidity
+# Monitors APC Netbotz humidity sensor values via SNMP and grades against
+# humidity thresholds (warn/crit). Read-only: never mutates.
 
-# Default thresholds for humidity (from Checkmk plugin)
-DEFAULT_WARN = 60.0
-DEFAULT_CRIT = 65.0
-DEFAULT_WARN_LOWER = 35.0
-DEFAULT_CRIT_LOWER = 30.0
+HUMIDITY_BASE = ".1.3.6.1.4.1.5528.100.4.1.2.1"
+TEMP_BASE = ".1.3.6.1.4.1.5528.100.4.1.1.1"
+DEWPOINT_BASE = ".1.3.6.1.4.1.5528.100.4.1.3.1"
+SYS_OID_BASE = ".1.3.6.1.4.1.5528.100"
+NB50_SYS_OID = ".1.3.6.1.4.1.52674.500"
+
+
+def _snmp_get_oid(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", "-On", host, oid], mutates=False)
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _is_appc_netbotz(ctx, host, community):
+    sysoid = _snmp_get_oid(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if not sysoid:
+        return False
+    if sysoid.startswith(SYS_OID_BASE + ".20.10"):
+        return True
+    if sysoid.startswith(NB50_SYS_OID):
+        return True
+    return False
+
+
+def _walk_humidity(ctx, host, community):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On", host, HUMIDITY_BASE + ".7"], mutates=False)
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        val_str = ""
+        if len(parts) > 1:
+            val_str = parts[1].strip()
+        idx = oid[len(HUMIDITY_BASE + ".7") + 1:]
+        if not idx:
+            continue
+        rows.append((idx, val_str))
+    return rows
+
+
+def _get_label(ctx, host, community, idx):
+    oid = HUMIDITY_BASE + ".1." + idx
+    return _snmp_get_oid(ctx, host, community, oid)
+
+
+def _get_plugged(ctx, host, community, idx):
+    oid = HUMIDITY_BASE + ".2." + idx
+    val = _snmp_get_oid(ctx, host, community, oid)
+    if val == "":
+        return False
+    return int(val) != 0
+
+
+def _get_humidity_value(ctx, host, community, idx):
+    oid = HUMIDITY_BASE + ".7." + idx
+    val_str = _snmp_get_oid(ctx, host, community, oid)
+    if val_str == "":
+        return None
+    return float(val_str)
+
+
+def _grade_humidity(value, warn, crit, warn_low, crit_low):
+    if value == None:
+        return "UNKNOWN"
+    if crit != None and value >= crit:
+        return "CRIT"
+    if warn != None and value >= warn:
+        return "WARN"
+    if crit_low != None and value <= crit_low:
+        return "CRIT"
+    if warn_low != None and value <= warn_low:
+        return "WARN"
+    return "OK"
+
 
 def main(ctx, params):
-    # --- DISCOVERY MODE ---
-    if params.get("_discover"):
-        # Fetch all humidity sensors via SNMP
-        # Base OID for humidity: .1.3.6.1.4.1.5528.100.4.1.2.1 (netbotz v2)
-        # We need the label (OID 1) and plugged_in_state (OID 4) to decide if active
-        # We'll also fetch humidity reading (OID 2) and parse label+state
-        # For simplicity, use snmpwalk on the base OID and parse output
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.5528.100.4.1.2.1"
-
-        # Fetch humidity label (OID 1) and plugged_in_state (OID 4) via snmpwalk
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        # res.stdout lines look like: <oid>.<suffix> = STRING:<label>
-        # We need to collect items with non-zero plugged_in_state.
-
-        # Parse label and plugged_in_state lines
-        lines = res.stdout.split("\n")
-        # Map from suffix -> {label, plugged_in_state}
-        suffix_map = {}
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            # Split OID and value
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, value_part = parts
-            # Extract suffix (last component of OID)
-            suffix = oid_part.rsplit(".", 1)[-1]
-            # Determine type from OID
-            if oid_part.startswith(".1.3.6.1.4.1.5528.100.4.1.2.1.1."):  # label
-                label = value_part.strip().strip('"')
-                suffix_map.setdefault(suffix, {})["label"] = label
-            elif oid_part.startswith(".1.3.6.1.4.1.5528.100.4.1.2.1.4."):  # plugged_in_state
-                # Plugged in state is 1 for true, 0 for false or empty
-                val_str = value_part.strip()
-                if val_str.isdigit():
-                    suffix_map.setdefault(suffix, {})["plugged_in_state"] = int(val_str)
-                else:
-                    suffix_map.setdefault(suffix, {})["plugged_in_state"] = 0
-
-        # Build list of items (humidity sensors)
-        out = []
-        for suffix, data in suffix_map.items():
-            if data.get("plugged_in_state", 0) != 1:
-                continue
-            item = data.get("label", suffix)
-            out.append({
-                "item": item,
-                "params": {
-                    "warn": DEFAULT_WARN,
-                    "crit": DEFAULT_CRIT,
-                    "levels_lower": (DEFAULT_WARN_LOWER, DEFAULT_CRIT_LOWER)
-                },
-                "metrics": ["humidity"]
-            })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d humidity sensors" % len(out),
-            "data": {"discovery": out}
-        }
-
-    # --- CHECK MODE ---
-    # item name is in params
-    item = params.get("item", "")
-    warn = params.get("warn", DEFAULT_WARN)
-    crit = params.get("crit", DEFAULT_CRIT)
-    levels_lower = params.get("levels_lower", (DEFAULT_WARN_LOWER, DEFAULT_CRIT_LOWER))
-    warn_lower, crit_lower = levels_lower[0], levels_lower[1]
-
-    # Fetch humidity sensor reading via SNMP
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    # Humidity reading base OID: .1.3.6.1.4.1.5528.100.4.1.2.1.7.<suffix>
-    # We need to find the suffix for this item's label.
+    community = params.get("community", "public")
 
-    # First get label -> suffix mapping by walking labels again (simple approach)
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.5528.100.4.1.2.1.1"], mutates=False)
-    lines = res.stdout.split("\n")
-    label_to_suffix = {}
-    for line in lines:
-        line = line.strip()
-        if not line:
+    if not _is_appc_netbotz(ctx, host, community):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no APC Netbotz detected", "data": {"discovery": []}}
+        return {"changed": False, "msg": "no APC Netbotz detected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "APC Netbotz not found"}}
+
+    if params.get("_discover"):
+        rows = _walk_humidity(ctx, host, community)
+        discovered = []
+        for idx, val_str in rows:
+            if not _get_plugged(ctx, host, community, idx):
+                continue
+            if val_str == "":
+                continue
+            label = _get_label(ctx, host, community, idx)
+            discovered.append({
+                "item": label if label else idx,
+                "params": {"warn": 60, "crit": 65, "warn_low": 35, "crit_low": 30},
+                "metrics": ["humidity"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d humidity sensors" % len(discovered),
+                "data": {"discovery": discovered}}
+
+    item = params.get("item", "")
+    warn = params.get("warn", 60)
+    crit = params.get("crit", 65)
+    warn_low = params.get("warn_low", 35)
+    crit_low = params.get("crit_low", 30)
+
+    rows = _walk_humidity(ctx, host, community)
+    found_value = None
+    found_label = None
+    for idx, val_str in rows:
+        if not _get_plugged(ctx, host, community, idx):
             continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, value_part = parts
-        suffix = oid_part.rsplit(".", 1)[-1]
-        label = value_part.strip().strip('"')
-        label_to_suffix[label] = suffix
+        label = _get_label(ctx, host, community, idx)
+        display = label if label else idx
+        if display == item or idx == item:
+            if val_str != "":
+                found_value = float(val_str)
+                found_label = label
+                break
 
-    # Find suffix for requested item
-    if item not in label_to_suffix:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    if found_value == None:
+        return {"changed": False, "msg": "no humidity sensor reading for item %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    suffix = label_to_suffix[item]
-    read_oid = ".1.3.6.1.4.1.5528.100.4.1.2.1.7." + suffix
-
-    # Fetch humidity reading (value in tenths of a percent)
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, read_oid], mutates=False)
-    lines = res.stdout.split("\n")
-    humidity = None
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, value_part = parts
-        if oid_part == read_oid:
-            val_str = value_part.strip()
-            # Check for empty/no value
-            if val_str.isdigit():
-                humidity = float(val_str) / 10.0
-            else:
-                humidity = None
-            break
-
-    # If humidity reading is missing, report UNKNOWN
-    if humidity == None:
-        return {
-            "changed": False,
-            "msg": "sensor reading unavailable for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Determine state: humidity % should be within [lower_warn, upper_warn]
-    state = "OK"
-    # Upper levels: warn/crit above
-    if humidity >= crit:
-        state = "CRIT"
-    elif humidity >= warn:
-        state = "WARN"
-    # Lower levels: warn/crit below
-    if humidity <= crit_lower and state == "OK":
-        state = "CRIT"
-    elif humidity <= warn_lower and state == "OK":
-        state = "WARN"
-
-    # Build message: "Humidity 37.0 %"
-    msg = "Humidity %f%%" % humidity
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"humidity": humidity},
-            "details": ""
-        },
-    }
+    state = _grade_humidity(found_value, warn, crit, warn_low, crit_low)
+    details = "[%s]" % found_label if found_label else ""
+    return {"changed": False,
+            "msg": "%s %f%%" % (details, found_value) if found_label else "%f%%" % found_value,
+            "data": {"state": state, "metrics": {"humidity": found_value}, "details": details}}

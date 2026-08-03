@@ -1,71 +1,74 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "psql", "-U", "postgres", "-d", "postgres", "-t", "-c",
-            "SELECT datid, datname, numbackends, xact_commit, xact_rollback, blks_read, blks_hit, tup_returned, tup_fetched, tup_inserted, tup_updated, tup_deleted FROM pg_stat_database;"
-        ], mutates=False)
+        res = ctx.run(["psql", "-Atq", "-c",
+                       "SELECT datid, datname, xact_commit, blks_read, tup_fetched, tup_inserted, tup_updated, tup_deleted, pg_database_size(datname) AS datsize FROM pg_stat_database JOIN pg_database USING (datname)"],
+                      mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "psql not available", "data": {"discovery": []}}
         out = []
         for line in res.stdout.splitlines():
-            fields = line.strip().split("|")
-            if len(fields) < 12:
+            f = line.split("|")
+            if len(f) < 10:
                 continue
-            datid, datname = fields[0], fields[1]
-            xact_commit_str = fields[3]
-            xact_commit = int(xact_commit_str) if xact_commit_str.isdigit() else 0
-            if datid != "0" and xact_commit > 0:
-                name = datname if datname != "" else "access_to_shared_objects"
-                out.append({
-                    "item": name,
-                    "params": {},
-                    "metrics": ["size"]
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d databases" % len(out),
-            "data": {"discovery": out}
-        }
+            if f[0] == "datid" or not f[0] or f[0] == "0":
+                continue
+            xact_commit = int(f[2]) if f[2].strip().isdigit() else 0
+            if xact_commit <= 0:
+                continue
+            db_name = f[1] if f[1] else "access_to_shared_objects"
+            out.append({"item": db_name, "params": {"database_size": None},
+                        "metrics": ["size"]})
+        return {"changed": False, "msg": "discovered %d databases" % len(out),
+                "data": {"discovery": out}}
 
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no database item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    res = ctx.run(["psql", "-Atq", "-c",
+                   "SELECT datid, datname, xact_commit, blks_read, tup_fetched, tup_inserted, tup_updated, tup_deleted, pg_database_size(datname) AS datsize FROM pg_stat_database JOIN pg_database USING (datname)"],
+                  mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "psql query failed: " + res.stderr,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    safe_item = item.replace("'", "''")
-    res = ctx.run([
-        "psql", "-U", "postgres", "-d", "postgres", "-t", "-c",
-        "SELECT pg_database_size('%s')" % safe_item
-    ], mutates=False)
-    size_str = res.stdout.strip()
-    size = int(size_str) if size_str.isdigit() else 0
+    found = None
+    for line in res.stdout.splitlines():
+        f = line.split("|")
+        if len(f) < 10:
+            continue
+        if f[0] == "datid" or not f[0] or f[0] == "0":
+            continue
+        db_name = f[1] if f[1] else "access_to_shared_objects"
+        if db_name == item:
+            found = f
+            break
 
-    levels = params.get("database_size")
-    warn, crit = None, None
-    if levels != None:
-        warn = levels[0]
-        crit = levels[1]
+    if found == None:
+        return {"changed": False, "msg": "Database not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
+    datsize = found[9]
+    if datsize in ["", None, "0"]:
+        return {"changed": False, "msg": "Database size is not available",
+                "data": {"state": "WARN", "metrics": {}, "details": ""}}
+
+    size = int(datsize)
+    levels = params.get("database_size", None)
     state = "OK"
-    if size == 0 and size_str == "":
-        state = "WARN"
-        msg = "Database size is not available."
-    elif crit != None and size >= crit:
-        state = "CRIT"
-        msg = "Size: " + str(size) + "B (crit at " + str(crit) + "B)"
-    elif warn != None and size >= warn:
-        state = "WARN"
-        msg = "Size: " + str(size) + "B (warn at " + str(warn) + "B)"
-    else:
-        msg = "Size: " + str(size) + "B"
+    if levels != None:
+        warn, crit = levels[0], levels[1]
+        if size >= crit:
+            state = "CRIT"
+        elif size >= warn:
+            state = "WARN"
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"size": size},
-            "details": ""
-        }
-    }
+    return {"changed": False,
+            "msg": "%s Size: %s" % (item, _render_bytes(size)),
+            "data": {"state": state, "metrics": {"size": size}, "details": ""}}
+
+def _render_bytes(n):
+    units = ["B", "kB", "MB", "GB", "TB", "PB"]
+    val = float(n)
+    i = 0
+    while val >= 1024 and i < len(units) - 1:
+        val = val / 1024.0
+        i = i + 1
+    return "%f %s" % (val, units[i])

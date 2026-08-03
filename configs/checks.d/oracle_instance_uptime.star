@@ -1,150 +1,99 @@
-# oracle_instance_uptime: queries V$INSTANCE for uptime via sqlplus '/ as sysdba'
-
-_SQL = """SET PAGESIZE 0 FEEDBACK OFF VERIFY OFF HEADING OFF LINESIZE 200 TRIMOUT ON
-SELECT ROUND((SYSDATE-STARTUP_TIME)*86400) FROM V$INSTANCE;
-EXIT;"""
-
-def _parse_oratab(ctx):
-    entries = []
-    if not ctx.file_exists("/etc/oratab"):
-        return entries
-    for line in ctx.file_read("/etc/oratab").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split(":")
-        if len(parts) >= 2 and parts[0].strip() and parts[0].strip() != "*":
-            entries.append({"sid": parts[0].strip(), "home": parts[1].strip()})
-    return entries
-
-def _active_sids(ctx):
-    res = ctx.run(["pgrep", "-l", "ora_pmon"], mutates=False, ok_codes=[0, 1])
-    sids = []
-    if res.rc != 0:
-        return sids
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) >= 2 and "ora_pmon_" in parts[1]:
-            sid = parts[1].split("ora_pmon_")[1]
-            if sid and not sid.startswith("+"):
-                sids.append(sid)
-    return sids
-
-def _oracle_home(ctx, sid):
-    for e in _parse_oratab(ctx):
-        if e["sid"] == sid:
-            return e["home"]
-    res = ctx.run(["pgrep", "-l", "ora_pmon_" + sid], mutates=False, ok_codes=[0, 1])
-    if res.rc != 0 or not res.stdout.strip():
-        return None
-    pid = res.stdout.strip().split()[0]
-    env_file = "/proc/%s/environ" % pid
-    if not ctx.file_exists(env_file):
-        return None
-    for part in ctx.file_read(env_file).split("\x00"):
-        if part.startswith("ORACLE_HOME="):
-            return part[12:]
-    return None
-
-def _query_uptime(ctx, sid, oracle_home):
-    sqlplus = oracle_home + "/bin/sqlplus"
-    if not ctx.file_exists(sqlplus):
-        return None
-    cmd = "ORACLE_SID=%s ORACLE_HOME=%s %s -s '/ as sysdba' << 'EOSQL'\n%s\nEOSQL" % (
-        sid, oracle_home, sqlplus, _SQL
-    )
-    res = ctx.run(["bash", "-c", cmd], mutates=False, ok_codes=[0, 1])
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        candidate = line.lstrip("-")
-        if candidate and candidate.isdigit():
-            return int(line)
-    return None
-
-def _fmt_uptime(s):
-    d = s // 86400
-    s = s % 86400
-    h = s // 3600
-    s = s % 3600
-    m = s // 60
-    s = s % 60
-    if d > 0:
-        return "%dd %dh %dm %ds" % (d, h, m, s)
-    if h > 0:
-        return "%dh %dm %ds" % (h, m, s)
-    if m > 0:
-        return "%dm %ds" % (m, s)
-    return "%ds" % s
-
 def main(ctx, params):
+    # Probe for the real data source: sqlplus binary
+    probe = ctx.run(["which", "sqlplus"], mutates=False)
+    if probe.rc != 0:
+        return {"changed": False, "msg": "sqlplus not found",
+                "data": {"discovery": [], "host_labels": {}}}
+
     if params.get("_discover"):
-        found = []
-        for sid in _active_sids(ctx):
-            home = _oracle_home(ctx, sid)
-            if home == None:
-                continue
-            up = _query_uptime(ctx, sid, home)
-            if up != None and up != -1:
-                found.append({"item": sid, "params": {}, "metrics": ["uptime"]})
-        return {
-            "changed": False,
-            "msg": "discovered %d oracle instances with uptime" % len(found),
-            "data": {"discovery": found},
-        }
+        # Discovery: enumerate Oracle instances with uptime
+        discovery = []
+        res = ctx.run(
+            ["sqlplus", "-s", "/", "as", "sysdba", "@-", "<<<END_SQL",
+             "SET HEADING OFF",
+             "SET FEEDBACK OFF",
+             "SELECT INSTANCE_NAME, UPTIME FROM V$INSTANCE;",
+             "EXIT",
+             "END_SQL"],
+            mutates=False
+        )
+        if res.rc == 0:
+            lines = res.stdout.splitlines()
+            for line in lines:
+                parts = line.split()
+                if len(parts) >= 2:
+                    instance_name = parts[0]
+                    uptime_str = parts[1]
+                    up_seconds = int(uptime_str) if uptime_str.isdigit() else -1
+                    if up_seconds != None and up_seconds != -1:
+                        discovery.append({
+                            "item": instance_name,
+                            "params": {"min": None, "max": None},
+                            "metrics": ["uptime"]
+                        })
+        return {"changed": False, "msg": "discovered %d instances" % len(discovery),
+                "data": {"discovery": discovery, "host_labels": {}}}
 
     item = params.get("item", "")
-    home = params.get("oracle_home")
-    if home == None:
-        home = _oracle_home(ctx, item)
-    if home == None:
-        return {
-            "changed": False,
-            "msg": "Login into database failed: oracle_home not found for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Check mode: get uptime for specific instance
+    res = ctx.run(
+        ["sqlplus", "-s", "/", "as", "sysdba", "@-", "<<<END_SQL",
+         "SET HEADING OFF",
+         "SET FEEDBACK OFF",
+         "SELECT INSTANCE_NAME, UPTIME FROM V$INSTANCE WHERE INSTANCE_NAME = '%s';" % item,
+         "EXIT",
+         "END_SQL"],
+        mutates=False
+    )
 
-    up = _query_uptime(ctx, item, home)
-    if up == None:
-        return {
-            "changed": False,
-            "msg": "Login into database failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "no data for instance %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "Could not retrieve instance data"}}
 
-    if up < 0:
-        return {
-            "changed": False,
-            "msg": "Uptime: invalid negative value (%ds)" % up,
-            "data": {"state": "WARN", "metrics": {"uptime": up}, "details": ""},
-        }
+    lines = res.stdout.splitlines()
+    up_seconds = None
+    for line in lines:
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] == item:
+            up_seconds_str = parts[1]
+            up_seconds = int(up_seconds_str) if up_seconds_str.isdigit() else None
+            break
+
+    if up_seconds == None:
+        return {"changed": False, "msg": "instance %s not found or invalid data" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "Instance data unavailable"}}
+
+    if up_seconds < 0:
+        return {"changed": False, "msg": "Uptime: invalid negative value (%ds)" % up_seconds,
+                "data": {"state": "WARN", "metrics": {}, "details": "Invalid uptime value"}}
+
+    # Apply thresholds from checkmk uptime_multiitem levels
+    min_levels = params.get("min", None)
+    max_levels = params.get("max", None)
 
     state = "OK"
-    min_levels = params.get("min")
-    if min_levels != None:
-        warn_min = min_levels[0]
-        crit_min = min_levels[1]
-        if up < crit_min:
+    up_since = ctx.run(["date", "+%s"], mutates=False)
+    current_time = int(up_since.stdout) if up_since.stdout and up_since.stdout.strip().isdigit() else 0
+    details = "Up since: %d seconds ago" % (current_time - up_seconds)
+
+    # Apply lower thresholds (warn, crit)
+    if min_levels:
+        warn_lower, crit_lower = min_levels
+        if crit_lower != None and up_seconds <= crit_lower:
             state = "CRIT"
-        elif up < warn_min:
+        elif warn_lower != None and up_seconds <= warn_lower:
             state = "WARN"
 
-    max_levels = params.get("max")
-    if max_levels != None:
-        warn_max = max_levels[0]
-        crit_max = max_levels[1]
-        if up >= crit_max:
+    # Apply upper thresholds (warn, crit)
+    if max_levels:
+        warn_upper, crit_upper = max_levels
+        if crit_upper != None and up_seconds >= crit_upper:
             state = "CRIT"
-        elif (up >= warn_max) and state != "CRIT":
+        elif warn_upper != None and up_seconds >= warn_upper:
             state = "WARN"
 
-    return {
-        "changed": False,
-        "msg": "Uptime: " + _fmt_uptime(up),
-        "data": {
-            "state": state,
-            "metrics": {"uptime": up},
-            "details": "",
-        },
-    }
+    metrics = {"uptime": up_seconds}
+    msg = "Up for %d seconds" % up_seconds
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": details}}

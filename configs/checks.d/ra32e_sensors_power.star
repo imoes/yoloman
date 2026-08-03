@@ -1,132 +1,198 @@
-# Starlark check module: checkmk.ra32e_sensors_power
-# Read-only check for power state per digital sensor
+def _get_oid_value(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout.strip():
+        return None
+    return res.stdout.strip()
 
-# SNMP OIDs for ra32e sensors
-_BASE_OID_INTERNAL = ".1.3.6.1.4.1.20916.1.8.1.1"
-_BASE_OID_DIGITAL = ".1.3.6.1.4.1.20916.1.8.1.2"
 
-def _parse_ra32e_section(ctx, params):
-    """Fetch and parse ra32e_sensors SNMP data (internal + digital sensors)."""
+def _walk_table(ctx, community, host, column_oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        oid = line[:sp]
+        value = line[sp + 1:]
+        rows.append({"oid": oid, "value": value})
+    return rows
+
+
+def _safe_float(s):
+    if s == None or s == "":
+        return None
+    s = s.strip()
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    if not s.replace(".", "", 1).isdigit():
+        return None
+    v = float(s)
+    if neg:
+        v = -v
+    return v
+
+
+def _safe_int(s):
+    if s == None or s == "":
+        return None
+    s = s.strip()
+    if not s.isdigit():
+        return None
+    return int(s)
+
+
+def _parse_internal(ctx, params):
     community = params.get("community", "public")
     host = params.get("host", "localhost")
 
-    # Fetch internal section: temperature, humidity, heat index (oids: 1, 2, 4.2)
-    res_internal = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        _BASE_OID_INTERNAL + ".1", _BASE_OID_INTERNAL + ".2", _BASE_OID_INTERNAL + ".4.2"
-    ], mutates=False)
-    
-    # Parse internal section (first three OIDs: temp, humidity, heat_index)
-    internal_lines = res_internal.stdout.splitlines()
-    internal = None
-    if len(internal_lines) >= 3:
-        temp_str = internal_lines[0].strip().split()[-1].strip('"')
-        hum_str = internal_lines[1].strip().split()[-1].strip('"')
-        heat_str = internal_lines[2].strip().split()[-1].strip('"')
-        
-        if temp_str != "" and hum_str != "" and heat_str != "":
-            # Validate string formats before conversion
-            temp_valid = temp_str.replace('.', '').replace('-', '').isdigit()
-            hum_valid = hum_str.replace('.', '').replace('-', '').isdigit()
-            heat_valid = heat_str.replace('.', '').replace('-', '').isdigit()
-            
-            if temp_valid and hum_valid and heat_valid:
-                internal = {
-                    "temperature": float(temp_str) / 100.0,
-                    "humidity": float(hum_str) / 100.0,
-                    "heat_index": float(heat_str) / 100.0,
-                }
+    t_v = _get_oid_value(ctx, community, host, ".1.3.6.1.4.1.20916.1.8.1.1.1.2")
+    h_v = _get_oid_value(ctx, community, host, ".1.3.6.1.4.1.20916.1.8.1.1.2.1")
+    hi_v = _get_oid_value(ctx, community, host, ".1.3.6.1.4.1.20916.1.8.1.1.4.2")
 
-    # Fetch all digital sensor data for sensors 1-8 (each has 5 OIDs: temp, temp_F, status, etc.)
-    digital_sections = []
-    for i in range(1, 9):
-        base = _BASE_OID_DIGITAL + "." + str(i)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base + ".1", base + ".2", base + ".3", base + ".4", base + ".5"
-        ], mutates=False)
-        
-        lines = res.stdout.splitlines()
-        section = None
-        if len(lines) >= 3:
-            temp_str = lines[0].strip().split()[-1].strip('"')
-            power_str = lines[2].strip().split()[-1].strip('"')
-            
-            # Only create section if we have temp and power data (temp/active_power type)
-            if temp_str != "" and power_str != "":
-                # Parse temperature
-                temp_valid = temp_str.replace('.', '').replace('-', '').isdigit()
-                if temp_valid:
-                    temp = float(temp_str) / 100.0
-                    power = power_str == "1"
-                    section = {"temperature": temp, "power": power}
-        digital_sections.append(section)
-    
-    return {"internal": internal, "digital": digital_sections}
-
-def _index_to_sensor(index):
-    return "Sensor " + str(index + 1)
-
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        parsed = _parse_ra32e_section(ctx, params)
-        discovery = []
-        if parsed.get("digital") != None:
-            for i, section in enumerate(parsed["digital"]):
-                if section != None and section.get("power") != None:
-                    discovery.append({
-                        "item": _index_to_sensor(i),
-                        "params": {},
-                        "metrics": ["device_state"]
-                    })
-        return {
-            "changed": False,
-            "msg": "discovered %d power sensors" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-
-    # Check mode
-    item = params.get("item", "")
-    index = None
-    if item.startswith("Sensor "):
-        suffix = item[7:]
-        if suffix.isdigit():
-            index = int(suffix) - 1
-    
-    if index == None:
-        return {
-            "changed": False,
-            "msg": "item not recognized: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    parsed = _parse_ra32e_section(ctx, params)
-    if parsed.get("digital") == None or index >= len(parsed["digital"]):
-        return {
-            "changed": False,
-            "msg": "sensor index out of range: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    section = parsed["digital"][index]
-    if section == None or section.get("power") == None:
-        return {
-            "changed": False,
-            "msg": "power sensor data unavailable: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    power = section["power"]
-    state = "OK" if power else "CRIT"
-    msg = "power detected" if power else "no power detected"
+    temps = []
+    for v in [t_v, h_v, hi_v]:
+        fv = _safe_float(v)
+        if fv == None:
+            return None
+        temps.append(fv)
 
     return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"device_state": 0 if power else 1},
-            "details": ""
-        }
+        "temperature": temps[0] / 100.0,
+        "humidity": temps[1] / 100.0,
+        "heat_index": temps[2] / 100.0,
     }
+
+
+def _parse_digital(ctx, params, i):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    col_base = ".1.3.6.1.4.1.20916.1.8.1.2.%d" % i
+    rows = _walk_table(ctx, community, host, col_base)
+    if not rows:
+        return None
+
+    values = {}
+    for r in rows:
+        suffix = r["oid"][len(col_base) + 1:]
+        values[suffix] = r["value"]
+
+    sensor_data = [
+        values.get("1", ""),
+        values.get("2", ""),
+        values.get("3", ""),
+        values.get("4", ""),
+        values.get("5", ""),
+    ]
+
+    def has(n):
+        return sensor_data[n] != None and sensor_data[n] != ""
+
+    sec = None
+    if has(0) and has(1) and not (has(2) or has(3) or has(4)):
+        t = _safe_float(sensor_data[0])
+        if t != None:
+            sec = {"temperature": t / 100.0}
+    elif has(0) and has(1) and has(2) and not (has(3) or has(4)):
+        t = _safe_float(sensor_data[0])
+        if t != None and sensor_data[2] in ("0", "1"):
+            sec = {"temperature": t / 100.0, "power": sensor_data[2] == "1"}
+    elif has(0) and has(1) and has(2) and has(3) and not has(4):
+        t = _safe_float(sensor_data[0])
+        v = _safe_int(sensor_data[2])
+        if t != None and v != None:
+            sec = {"temperature": t / 100.0, "voltage": v}
+    elif has(0) and has(1) and has(2) and has(3) and has(4):
+        t = _safe_float(sensor_data[0])
+        h = _safe_float(sensor_data[2])
+        hi = _safe_float(sensor_data[4])
+        if t != None and h != None and hi != None:
+            sec = {"temperature": t / 100.0, "humidity": h / 100.0, "heat_index": hi / 100.0}
+
+    return sec
+
+
+def _parse_section(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+
+    sys_oid_value = _get_oid_value(ctx, community, host, ".1.3.6.1.2.1.1.2.0")
+    if sys_oid_value == None or "1.3.6.1.4.1.20916.1.8" not in sys_oid_value:
+        return None
+
+    internal = _parse_internal(ctx, params)
+    digital = []
+    for i in range(1, 9):
+        digital.append(_parse_digital(ctx, params, i))
+
+    if internal == None and not any(digital):
+        return None
+    return {"internal": internal, "digital": digital}
+
+
+def _index_to_sensor(index):
+    return "Sensor %d" % (index + 1)
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        section = _parse_section(ctx, params)
+        if section == None:
+            return {"changed": False, "msg": "not a RoomAlert RA32E device", "data": {"discovery": [], "host_labels": {}}}
+
+        discovery = []
+        for i, ds in enumerate(section["digital"]):
+            if ds == None or ds.get("power") == None:
+                continue
+            discovery.append({"item": _index_to_sensor(i), "params": {}, "metrics": ["power"]})
+
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {
+                "discovery": discovery,
+                "host_labels": {"cmk/os_family": "linux"},
+            },
+        }
+
+    item = params.get("item", "")
+    section = _parse_section(ctx, params)
+    if section == None:
+        return {"changed": False, "msg": "not a RoomAlert RA32E device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if not item.startswith("Sensor "):
+        return {"changed": False, "msg": "unknown item: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    idx = None
+    tail = item[len("Sensor "):]
+    if tail != None and tail != "" and tail.isdigit():
+        idx = int(tail) - 1
+
+    if idx == None or idx < 0 or idx >= len(section["digital"]):
+        return {"changed": False, "msg": "sensor %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    ds = section["digital"][idx]
+    if ds == None or ds.get("power") == None:
+        return {"changed": False, "msg": "no power data for %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    power = ds["power"]
+    if power:
+        state = "OK"
+        msg = "Power State %s: power detected" % item
+    else:
+        state = "CRIT"
+        msg = "Power State %s: no power detected" % item
+
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"power": 1 if power else 0}, "details": ""}}

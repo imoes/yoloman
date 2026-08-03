@@ -1,284 +1,305 @@
-# ===== Starlark check module: mssql_transactionlogs =====
-# Read-only translation of Checkmk's mssql_transactionlogs check
-# Gathers data via agent_section_mssql_transactionlogs format from host
+# Copyright (C) 2019 Checkmk GmbH - License: GNU General Public License v2
+# Translated to Starlark for the yolo-man agent. READ-ONLY: never mutates.
 
-# Agent section format (6 or 8 columns):
-# 6-col: database file_name physical_name max_size allocated_size used_size
-# 8-col: instance database file_name physical_name max_size allocated_size used_size unlimited_flag
+# Default check parameters (from Checkmk source: check_default_parameters)
+DEFAULT_USED_LEVELS = [80.0, 90.0]  # warn, crit in percent
+DEFAULT_SUMMARIZE_TXLOGS = False
 
-def _format_item_mssql_datafiles(inst, database, file_name):
-    if inst == None:
-        return database + "." + file_name
-    if file_name == None:
-        return inst + "." + database
-    return inst + "." + database + "." + file_name
-
-def _effective_max_size(max_size, free_size, used_size, unlimited):
-    max_size_float = max_size if max_size != None else 0.0
-    if free_size == None:
-        return max_size_float
-    total_size = free_size + used_size
-    if unlimited:
-        return total_size
-    return min(max_size_float, total_size)
-
-def _datafile_usage(instances, available_bytes):
-    max_size_sum = 0.0
-    allocated_size_sum = 0.0
-    used_size_sum = 0.0
-    unlimited = False
-    used_mountpoints = []
-    for inst_dict in instances:
-        unlimited = unlimited or inst_dict["unlimited"]
-        allocated_size_sum = allocated_size_sum + (inst_dict["allocated_size"] if inst_dict["allocated_size"] != None else 0.0)
-        used_size = inst_dict["used_size"] if inst_dict["used_size"] != None else 0.0
-        used_size_sum = used_size_sum + used_size
-        mountpoint = inst_dict["mountpoint"].lower()
-        filesystem_free_size = available_bytes.get(mountpoint)
-        found_mp = False
-        for mp in used_mountpoints:
-            if mp == mountpoint:
-                found_mp = True
-                break
-        if found_mp:
-            filesystem_free_size = 0.0
-        else:
-            used_mountpoints.append(mountpoint)
-        max_size = _effective_max_size(inst_dict["max_size"], filesystem_free_size, used_size, inst_dict["unlimited"])
-        max_size_sum = max_size_sum + max_size
-    return {"used": used_size_sum, "allocated": allocated_size_sum, "max": max_size_sum}
+# Metric name for used percentage
+METRIC_USED_PERCENT = "used_percent"
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/mk-transactionlogs"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "cannot read transactionlogs agent section",
-                    "data": {"discovery": []}}
-        lines = res.stdout.splitlines()
-        section = {}
-        for line in lines:
-            fields = line.split("\t")
-            if len(fields) != 6 and len(fields) != 8:
+        tools = _find_mssql_tools(ctx)
+        if tools == None:
+            return {
+                "changed": False,
+                "msg": "MSSQL tools not found; no transaction logs discovered",
+                "data": {"discovery": []},
+            }
+
+        rows = _query_transaction_logs(ctx, tools)
+        if rows == None:
+            return {
+                "changed": False,
+                "msg": "failed to query MSSQL transaction logs",
+                "data": {"discovery": []},
+            }
+
+        summarize = params.get("summarize_transactionlogs", DEFAULT_SUMMARIZE_TXLOGS)
+        discovery = []
+        seen = set()
+        for inst_db_fn in rows:
+            inst = inst_db_fn[0]
+            database = inst_db_fn[1]
+            file_name = inst_db_fn[2]
+            item = _format_item(inst, database, None if summarize else file_name)
+            if item in seen:
                 continue
-            if fields[-1].startswith("ERROR: "):
-                continue
-            if len(fields) == 6:
-                inst = None
-                database = fields[0]
-                file_name = fields[1]
-                physical_name = fields[2]
-                max_size_str = fields[3]
-                allocated_size_str = fields[4]
-                used_size_str = fields[5]
-                unlimited = False
-            else:
-                inst = fields[0]
-                database = fields[1]
-                file_name = fields[2]
-                physical_name = fields[3]
-                max_size_str = fields[4]
-                allocated_size_str = fields[5]
-                used_size_str = fields[6]
-                unlimited = fields[7] == "1"
-            key = (inst, database, file_name)
-            mssql_instance = section.setdefault(key, {
-                "unlimited": unlimited,
-                "max_size": None,
-                "allocated_size": None,
-                "used_size": None,
-                "mountpoint": physical_name.lower()
+            seen.add(item)
+            discovery.append({
+                "item": item,
+                "params": {"used_levels": DEFAULT_USED_LEVELS},
+                "metrics": [METRIC_USED_PERCENT],
             })
-            if max_size_str.isdigit() or (max_size_str.startswith("-") and max_size_str[1:].isdigit()):
-                mssql_instance["max_size"] = float(max_size_str) * 1024 * 1024
-            if allocated_size_str.isdigit() or (allocated_size_str.startswith("-") and allocated_size_str[1:].isdigit()):
-                mssql_instance["allocated_size"] = float(allocated_size_str) * 1024 * 1024
-            if used_size_str.isdigit() or (used_size_str.startswith("-") and used_size_str[1:].isdigit()):
-                mssql_instance["used_size"] = float(used_size_str) * 1024 * 1024
-
-        summarize = params.get("summarize_transactionlogs", False)
-        out = []
-        for key in section:
-            inst, database, file_name = key
-            item = _format_item_mssql_datafiles(inst, database, None if summarize else file_name)
-            out.append({"item": item, "params": {"used_levels": (80.0, 90.0)}, "metrics": ["data_size", "allocated_size", "allocated_used"]})
-        return {"changed": False, "msg": "discovered %d transactionlogs" % len(out),
-                "data": {"discovery": out}}
-
-    # Check mode: one item
-    res = ctx.run(["cat", "/var/lib/mk-transactionlogs"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "cannot read transactionlogs agent section",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    lines = res.stdout.splitlines()
-    section = {}
-    for line in lines:
-        fields = line.split("\t")
-        if len(fields) != 6 and len(fields) != 8:
-            continue
-        if fields[-1].startswith("ERROR: "):
-            continue
-        if len(fields) == 6:
-            inst = None
-            database = fields[0]
-            file_name = fields[1]
-            physical_name = fields[2]
-            max_size_str = fields[3]
-            allocated_size_str = fields[4]
-            used_size_str = fields[5]
-            unlimited = False
-        else:
-            inst = fields[0]
-            database = fields[1]
-            file_name = fields[2]
-            physical_name = fields[3]
-            max_size_str = fields[4]
-            allocated_size_str = fields[5]
-            used_size_str = fields[6]
-            unlimited = fields[7] == "1"
-        key = (inst, database, file_name)
-        mssql_instance = section.setdefault(key, {
-            "unlimited": unlimited,
-            "max_size": None,
-            "allocated_size": None,
-            "used_size": None,
-            "mountpoint": physical_name.lower()
-        })
-        if max_size_str.isdigit() or (max_size_str.startswith("-") and max_size_str[1:].isdigit()):
-            mssql_instance["max_size"] = float(max_size_str) * 1024 * 1024
-        if allocated_size_str.isdigit() or (allocated_size_str.startswith("-") and allocated_size_str[1:].isdigit()):
-            mssql_instance["allocated_size"] = float(allocated_size_str) * 1024 * 1024
-        if used_size_str.isdigit() or (used_size_str.startswith("-") and used_size_str[1:].isdigit()):
-            mssql_instance["used_size"] = float(used_size_str) * 1024 * 1024
+        return {
+            "changed": False,
+            "msg": "discovered %d MSSQL transaction log(s)" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
     item = params.get("item", "")
-    if len(section) == 0:
-        return {"changed": False, "msg": "no data found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    tools = _find_mssql_tools(ctx)
+    if tools == None:
+        return {
+            "changed": False,
+            "msg": "MSSQL tools not found on host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    instances_for_item = []
-    for key in section:
-        inst, database, file_name = key
-        key_item = _format_item_mssql_datafiles(inst, database, file_name)
-        key_item_sum = _format_item_mssql_datafiles(inst, database, None)
-        if key_item == item or key_item_sum == item:
-            instances_for_item.append(section[key])
+    rows = _query_transaction_logs(ctx, tools)
+    if rows == None:
+        return {
+            "changed": False,
+            "msg": "failed to query MSSQL transaction logs",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    if len(instances_for_item) == 0:
-        return {"changed": False, "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    instances = []
+    for inst_db_fn in rows:
+        inst = inst_db_fn[0]
+        database = inst_db_fn[1]
+        file_name = inst_db_fn[2]
+        if _format_item(inst, database, file_name) == item or \
+           _format_item(inst, database, None) == item:
+            instances.append((inst, database, file_name))
 
-    # Read df section data
-    res_df = ctx.run(["df", "-Pk"], mutates=False)
-    df_dict = {}
-    if res_df.rc == 0:
-        for line in res_df.stdout.splitlines()[1:]:
-            parts = line.split()
-            if len(parts) >= 6:
-                mount = parts[5].rstrip("/")
-                if parts[3].isdigit():
-                    avail_mb = float(parts[3])
-                    df_dict[mount] = {"avail_mb": avail_mb}
+    if len(instances) == 0:
+        return {
+            "changed": False,
+            "msg": "no transaction log found for item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    available_bytes = {}
-    for mount in df_dict:
-        available_bytes[mount] = df_dict[mount]["avail_mb"] * 1024 * 1024
+    file_data = _query_file_details(ctx, tools, instances)
+    if file_data == None:
+        return {
+            "changed": False,
+            "msg": "failed to query MSSQL file details",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    usage = _datafile_usage(instances_for_item, available_bytes)
+    used_sum = 0.0
+    allocated_sum = 0.0
+    max_sum = 0.0
+    unlimited = False
 
-    # Process levels
-    params_map = params
-    used_levels_raw = params_map.get("used_levels", (80.0, 90.0))
-    allocated_used_levels_raw = params_map.get("allocated_used_levels", (None, None))
-    allocated_levels_raw = params_map.get("allocated_levels", (None, None))
+    for inst_db_fn in instances:
+        inst = inst_db_fn[0]
+        database = inst_db_fn[1]
+        file_name = inst_db_fn[2]
+        data = file_data.get(_format_item(inst, database, file_name))
+        if data == None:
+            continue
+        if data["unlimited"]:
+            unlimited = True
+        allocated = data["allocated_size"]
+        if allocated == None:
+            allocated = 0.0
+        used = data["used_size"]
+        if used == None:
+            used = 0.0
+        allocated_sum += allocated
+        used_sum += used
 
-    acc_state = {"value": "OK"}
+        max_size = data["max_size"]
+        if max_size == None:
+            max_size = 0.0
+        if data["unlimited"] and data["free_size"] != None:
+            max_size = max(max_size, data["free_size"] + used)
+        max_sum += max_size
 
-    def calculate_levels(levels, reference_value):
-        if isinstance(levels[0], float):
-            if reference_value != None and reference_value != 0:
-                warn = levels[0] * reference_value / 100.0
-                crit = levels[1] * reference_value / 100.0
-                return (warn, crit)
-        elif levels[0] != None:
-            warn = levels[0] * 1024 * 1024
-            crit = levels[1] * 1024 * 1024
-            return (warn, crit)
-        return None
+    raw_levels = params.get("used_levels", DEFAULT_USED_LEVELS)
+    warn_pct, crit_pct = _coerce_levels(raw_levels, DEFAULT_USED_LEVELS)
 
-    def check_levels(value, levels):
-        if levels == None:
-            return
-        warn_val = levels[0]
-        crit_val = levels[1]
-        if value >= crit_val:
-            acc_state["value"] = "CRIT"
-        elif value >= warn_val and acc_state["value"] != "CRIT":
-            acc_state["value"] = "WARN"
-
-    # Used
-    if isinstance(used_levels_raw, list):
-        levels = None
-        for level_set in used_levels_raw:
-            if usage["max"] > level_set[0]:
-                levels = calculate_levels(level_set[1], usage["max"])
-                break
+    if max_sum > 0:
+        used_pct = used_sum * 100.0 / max_sum
     else:
-        levels = calculate_levels(used_levels_raw, usage["max"])
-    check_levels(usage["used"], levels)
+        used_pct = 0.0
 
-    # Allocated used
-    if isinstance(allocated_used_levels_raw, list):
-        levels = None
-        for level_set in allocated_used_levels_raw:
-            if usage["allocated"] > level_set[0]:
-                levels = calculate_levels(level_set[1], usage["allocated"])
-                break
-    else:
-        levels = calculate_levels(allocated_used_levels_raw, usage["allocated"])
-    check_levels(usage["used"], levels)
+    state = _grade_upper(used_pct, warn_pct, crit_pct)
 
-    # Allocated
-    if isinstance(allocated_levels_raw, list):
-        levels = None
-        for level_set in allocated_levels_raw:
-            if usage["max"] > level_set[0]:
-                levels = calculate_levels(level_set[1], usage["max"])
-                break
-    else:
-        levels = calculate_levels(allocated_levels_raw, usage["max"])
-    check_levels(usage["allocated"], levels)
-
-    # Render bytes
-    def render_bytes(b):
-        if b >= 1024*1024*1024*1024:
-            return "%f TB" % (b/(1024*1024*1024*1024))
-        elif b >= 1024*1024*1024:
-            return "%f GB" % (b/(1024*1024*1024))
-        elif b >= 1024*1024:
-            return "%f MB" % (b/(1024*1024))
-        elif b >= 1024:
-            return "%f KB" % (b/1024)
-        return "%f B" % b
-
-    msg_parts = []
-    if usage["used"] != None:
-        msg_parts.append("Used: " + render_bytes(usage["used"]))
-    if usage["allocated"] != None:
-        msg_parts.append("Allocated: " + render_bytes(usage["allocated"]))
-    msg_parts.append("Maximum size: " + render_bytes(usage["max"]))
-
-    metrics = {
-        "data_size": usage["used"],
-        "allocated_size": usage["allocated"],
-        "allocated_used": usage["used"]
-    }
+    msg = "Used: %s of %s (%f%%)" % (
+        _render_bytes(used_sum),
+        _render_bytes(max_sum),
+        used_pct,
+    )
 
     return {
         "changed": False,
-        "msg": ", ".join(msg_parts),
+        "msg": msg,
         "data": {
-            "state": acc_state["value"],
-            "metrics": metrics,
-            "details": ""
-        }
+            "state": state,
+            "metrics": {METRIC_USED_PERCENT: used_pct},
+            "details": msg,
+        },
     }
+
+
+def _find_mssql_tools(ctx):
+    res = ctx.run(["sh", "-c", "command -v sqlcmd"], mutates=False)
+    if res.rc == 0 and res.stdout.strip() != "":
+        sqlcmd_path = res.stdout.strip()
+        return {"tool": "sqlcmd", "path": sqlcmd_path}
+    return None
+
+def _query_transaction_logs(ctx, tools):
+    path = tools["path"]
+    q = "SET NOCOUNT ON; " + \
+        "DECLARE @db sysname; " + \
+        "DECLARE db_cur CURSOR FOR SELECT name FROM sys.databases; " + \
+        "CREATE TABLE #logfiles (inst sysname, db sysname, fname sysname); " + \
+        "OPEN db_cur; " + \
+        "FETCH NEXT FROM db_cur INTO @db; " + \
+        "WHILE @@FETCH_STATUS = 0 BEGIN " + \
+        "  INSERT INTO #logfiles " + \
+        "  EXEC('USE [' + @db + ']; SELECT DB_NAME(), name, physical_name " + \
+        "    FROM sys.database_files WHERE type_desc = ''LOG'';'); " + \
+        "  FETCH NEXT FROM db_cur INTO @db; " + \
+        "END; " + \
+        "CLOSE db_cur; DEALLOCATE db_cur; " + \
+        "SELECT inst, db, fname FROM #logfiles;"
+    res = ctx.run(
+        [path, "-S", "localhost", "-E", "-Q", q, "-W", "-s", " "],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+
+    rows = []
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 2)
+        if len(parts) < 3:
+            continue
+        database = parts[0]
+        file_name = parts[1]
+        rows.append([None, database, file_name])
+    return rows
+
+def _query_file_details(ctx, tools, instances):
+    path = tools["path"]
+    result = {}
+    for inst_db_fn in instances:
+        inst = inst_db_fn[0]
+        database = inst_db_fn[1]
+        file_name = inst_db_fn[2]
+        q = "USE [" + database + "]; " + \
+            "SELECT name, physical_name, type_desc, " + \
+            "max_size, size*8.0/1024 AS allocated_mb, " + \
+            "CAST(FILEPROPERTY(name, 'SpaceUsed') AS float)*8.0/1024 AS used_mb, " + \
+            "is_percent_growth, max_size " + \
+            "FROM sys.database_files WHERE name = '" + file_name + "';"
+        res = ctx.run(
+            [path, "-S", "localhost", "-E", "-Q", q, "-W", "-s", " "],
+            mutates=False,
+        )
+        if res.rc != 0:
+            continue
+
+        lines = res.stdout.splitlines()
+        if len(lines) < 2:
+            continue
+        data_line = lines[1].split(" ")
+        if len(data_line) < 6:
+            continue
+
+        max_size_str = data_line[3]
+        allocated_str = data_line[4]
+        used_str = data_line[5]
+        if not _is_numeric(max_size_str) or not _is_numeric(allocated_str) or not _is_numeric(used_str):
+            continue
+
+        max_size = float(max_size_str)
+        allocated = float(allocated_str)
+        used = float(used_str)
+
+        unlimited = max_size < 0
+        max_bytes = None
+        if not unlimited:
+            max_bytes = max_size * 1024.0 * 1024.0
+        allocated_bytes = allocated * 1024.0 * 1024.0
+        used_bytes = used * 1024.0 * 1024.0
+
+        key = _format_item(inst, database, file_name)
+        result[key] = {
+            "unlimited": unlimited,
+            "max_size": max_bytes,
+            "allocated_size": allocated_bytes,
+            "used_size": used_bytes,
+            "free_size": None,
+        }
+    return result
+
+def _format_item(inst, database, file_name):
+    if inst == None:
+        if file_name == None:
+            return "%s.NULL" % database
+        return "%s.%s" % (database, file_name)
+    if file_name == None:
+        return "%s.%s" % (inst, database)
+    return "%s.%s.%s" % (inst, database, file_name)
+
+def _grade_upper(value, warn, crit):
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+def _coerce_levels(raw, default):
+    if type(raw) == "list":
+        if len(raw) >= 2 and _is_numeric(raw[0]) and _is_numeric(raw[1]):
+            return (float(raw[0]), float(raw[1]))
+        if len(raw) > 0 and type(raw[0]) == "list":
+            for level_set in raw:
+                if type(level_set) == "list" and len(level_set) >= 2:
+                    return (float(level_set[0]), float(level_set[1]))
+    return (default[0], default[1])
+
+def _is_numeric(s):
+    if s == None:
+        return False
+    if type(s) == "int" or type(s) == "float":
+        return True
+    stripped = s.strip() if type(s) == "string" else ""
+    if stripped == "":
+        return False
+    # Check for valid float format: optional sign, digits, optional decimal
+    parts = stripped.split(".")
+    if len(parts) > 2:
+        return False
+    for part in parts:
+        digits = part.lstrip("+-")
+        if digits == "":
+            continue
+        if not digits.isdigit():
+            return False
+    # Must contain at least one digit
+    has_digit = False
+    for c in stripped:
+        if c.isdigit():
+            has_digit = True
+            break
+    return has_digit
+
+def _render_bytes(n):
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    size = float(n)
+    idx = 0
+    limit = len(units) - 1
+    while size >= 1024.0 and idx < limit:
+        size = size / 1024.0
+        idx = idx + 1
+    if idx == 0:
+        return "%d %s" % (int(size), units[idx])
+    return "%f %s" % (size, units[idx])

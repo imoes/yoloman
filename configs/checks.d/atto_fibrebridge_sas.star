@@ -1,238 +1,76 @@
-# Module-level maps (constant) - reproduce Checkmk state mappings
-_operstate_map = {
-    -1: "unknown",
-    1: "online",
-    2: "offline",
-    3: "degraded",
-}
-
-_adminstate_map = {
-    -1: "unknown",
-    1: "disabled",
-    2: "enabled",
-}
-
-_operstate_severity = {
-    "unknown": "UNKNOWN",
-    "online": "OK",
-    "degraded": "WARN",
-    "offline": "CRIT",
-}
-
-
 def main(ctx, params):
     if params.get("_discover"):
-        # Discover mode: fetch SAS port data via SNMP and enumerate enabled ports
-        base_oid = ".1.3.6.1.4.1.4547.2.3.3.3.1"
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            base_oid
-        ], mutates=False)
-        
-        # If no output, nothing to discover
-        if not res.stdout:
-            return {
-                "changed": False,
-                "msg": "discovered 0 SAS ports",
-                "data": {"discovery": []}
-            }
-        
-        # Parse SNMP walk output: OID = TYPE: value
-        lines = res.stdout.splitlines()
-        
-        # Collect all port data by parsing SNMP walk output
-        ports = {}  # index -> {name, admin_state, oper_state, phy1, phy2, phy3, phy4}
-        for line in lines:
-            if not line:
+        res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        sys_oid = res.stdout.strip()
+        if res.rc == 127 or res.rc != 0 or not sys_oid.startswith(".1.3.6.1.4.1.4547"):
+            return {"changed": False, "msg": "not an Atto Fibrebridge", "data": {"discovery": []}}
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn", "-On", params.get("host", "localhost"), ".1.3.6.1.4.1.4547.2.3.3.3.1"], mutates=False)
+        discovery = []
+        indices = {}
+        for line in walk.stdout.splitlines():
+            oid_val = line.split(" ", 1)
+            if len(oid_val) < 2:
                 continue
-            parts = line.strip().split(" = ")
+            oid = oid_val[0]
+            rest = oid[len(".1.3.6.1.4.1.4547.2.3.3.3.1"):]
+            parts = rest.split(".")
             if len(parts) < 2:
                 continue
-            oid_full = parts[0]
-            value = parts[1].strip()
-            
-            # Extract value after type
-            if ":" in value:
-                value = value.split(": ", 1)[-1].strip().strip('"')
-            
-            # Skip if not our OID
-            if not oid_full.startswith(base_oid + "."):
+            col = parts[1]
+            idx = parts[2]
+            indices[idx] = True
+        for idx in indices:
+            base = ".1.3.6.1.4.1.4547.2.3.3.3.1"
+            cols = {}
+            ok = True
+            for col_idx, col_name in enumerate(["2", "3", "4", "5", "6", "7", "8"]):
+                g = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), base + "." + col_name + "." + idx], mutates=False)
+                if g.rc != 0:
+                    ok = False
+                    break
+                cols[col_idx] = g.stdout.strip()
+            if not ok:
                 continue
-            
-            # Extract index and field suffix
-            rest = oid_full[len(base_oid) + 1:]
-            if "." not in rest:
+            sas_adminstates = {-1: "unknown", 1: "disabled", 2: "enabled"}
+            admin_val = cols[6]
+            if not admin_val.lstrip("-").isdigit():
                 continue
-            
-            # Find the field number after the base
-            parts_rest = rest.split(".")
-            if len(parts_rest) < 1:
+            admin_int = int(admin_val)
+            if sas_adminstates.get(admin_int, "unknown") != "enabled":
                 continue
-            
-            # Parse index - guard against non-digit
-            idx_str = parts_rest[0]
-            idx = int(idx_str) if idx_str.isdigit() else 0
-            
-            # Determine which field we have based on remaining suffix
-            if len(parts_rest) == 1:
-                # This is field 2 (port name)
-                field = "2"
-            else:
-                # Get the next part which indicates the field
-                field = parts_rest[1] if len(parts_rest) > 1 else ""
-            
-            if field == "2":
-                ports.setdefault(idx, {})["name"] = value
-            elif field == "3":
-                oper_val = int(value) if value.isdigit() else -1
-                ports.setdefault(idx, {})["oper_state"] = _operstate_map.get(oper_val, "unknown")
-            elif field == "4":
-                ports.setdefault(idx, {})["phy1"] = value
-            elif field == "5":
-                ports.setdefault(idx, {})["phy2"] = value
-            elif field == "6":
-                ports.setdefault(idx, {})["phy3"] = value
-            elif field == "7":
-                ports.setdefault(idx, {})["phy4"] = value
-            elif field == "8":
-                admin_val = int(value) if value.isdigit() else -1
-                ports.setdefault(idx, {})["admin_state"] = _adminstate_map.get(admin_val, "unknown")
-        
-        # Build discovery list for ports with admin_state == "enabled"
-        discovery_list = []
-        for idx, port in ports.items():
-            name = port.get("name", "")
-            admin = port.get("admin_state", "unknown")
-            if admin == "enabled":
-                discovery_list.append({
-                    "item": name,
-                    "params": {},
-                    "metrics": []
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d SAS ports" % len(discovery_list),
-            "data": {"discovery": discovery_list}
-        }
-    
-    # Check mode: verify one SAS port
+            discovery.append({"item": idx, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    base_oid = ".1.3.6.1.4.1.4547.2.3.3.3.1"
-    
-    # Fetch data via snmpwalk
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        base_oid
-    ], mutates=False)
-    
-    # If no output, item not found
-    if not res.stdout:
-        return {
-            "changed": False,
-            "msg": "port not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse SNMP walk output
-    lines = res.stdout.splitlines()
-    ports = {}  # index -> {name, oper_state, admin_state, phy1, phy2, phy3, phy4}
-    
-    for line in lines:
-        if not line:
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) < 2:
-            continue
-        oid_full = parts[0]
-        value = parts[1].strip()
-        
-        # Extract value after type
-        if ":" in value:
-            value = value.split(": ", 1)[-1].strip().strip('"')
-        
-        # Skip if not our OID
-        if not oid_full.startswith(base_oid + "."):
-            continue
-        
-        # Extract index and field
-        rest = oid_full[len(base_oid) + 1:]
-        if "." not in rest:
-            continue
-        
-        parts_rest = rest.split(".")
-        if len(parts_rest) < 1:
-            continue
-        
-        # Parse index - guard against non-digit
-        idx_str = parts_rest[0]
-        idx = int(idx_str) if idx_str.isdigit() else 0
-        
-        # Determine field
-        if len(parts_rest) == 1:
-            field = "2"
-        else:
-            field = parts_rest[1] if len(parts_rest) > 1 else ""
-        
-        # Build port entry
-        if field == "2":
-            ports.setdefault(idx, {})["name"] = value
-        elif field == "3":
-            oper_val = int(value) if value.isdigit() else -1
-            ports.setdefault(idx, {})["oper_state"] = _operstate_map.get(oper_val, "unknown")
-        elif field == "4":
-            ports.setdefault(idx, {})["phy1"] = value
-        elif field == "5":
-            ports.setdefault(idx, {})["phy2"] = value
-        elif field == "6":
-            ports.setdefault(idx, {})["phy3"] = value
-        elif field == "7":
-            ports.setdefault(idx, {})["phy4"] = value
-        elif field == "8":
-            admin_val = int(value) if value.isdigit() else -1
-            ports.setdefault(idx, {})["admin_state"] = _adminstate_map.get(admin_val, "unknown")
-    
-    # Find the requested item
-    port_data = None
-    for idx, port in ports.items():
-        if port.get("name", "") == item:
-            port_data = port
-            break
-    
-    # If item not found or disabled, return UNKNOWN
-    if port_data == None or port_data.get("admin_state") != "enabled":
-        return {
-            "changed": False,
-            "msg": "port not found or admin_state != enabled: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get port info
-    oper_state = port_data.get("oper_state", "unknown")
-    state = _operstate_severity.get(oper_state, "UNKNOWN")
-    
-    # Build summary msg
-    msg_parts = ["Operational state: " + oper_state]
-    for i in range(1, 5):
-        phy_key = "phy" + str(i)
-        phy_val = port_data.get(phy_key, "unknown")
-        # Clean value if it's an integer code
-        if phy_val.isdigit():
-            phy_val = _operstate_map.get(int(phy_val), "unknown")
-        msg_parts.append("PHY%d operational state: %s" % (i, phy_val))
-    
-    msg = "; ".join(msg_parts)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""}
-    }
+    base = ".1.3.6.1.4.1.4547.2.3.3.3.1"
+    cols = {}
+    for col_idx, col_name in enumerate(["2", "3", "4", "5", "6", "7", "8"]):
+        g = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), base + "." + col_name + "." + item], mutates=False)
+        if g.rc != 0:
+            return {"changed": False, "msg": "item not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        cols[col_idx] = g.stdout.strip()
+
+    phy_operstates = {-1: "unknown", 1: "online", 2: "offline"}
+    sas_operstates = {-1: "unknown", 1: "online", 2: "offline", 3: "degraded"}
+    sas_adminstates = {-1: "unknown", 1: "disabled", 2: "enabled"}
+    operstate_severities = {"unknown": "UNKNOWN", "online": "OK", "degraded": "WARN", "offline": "CRIT"}
+
+    oper_val = cols[1]
+    admin_val = cols[6]
+    if not oper_val.lstrip("-").isdigit():
+        return {"changed": False, "msg": "invalid oper state value", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if not admin_val.lstrip("-").isdigit():
+        return {"changed": False, "msg": "invalid admin state value", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    oper_state = sas_operstates.get(int(oper_val), "unknown")
+    state = operstate_severities.get(oper_state, "UNKNOWN")
+    msg = "Operational state: " + oper_state
+
+    details = []
+    for phy_index in range(1, 5):
+        phy_raw = cols[phy_index + 1]
+        phy_val_int = int(phy_raw) if phy_raw.lstrip("-").isdigit() else -1
+        phy_val = phy_operstates.get(phy_val_int, "unknown")
+        details.append("PHY%d operational state: %s" % (phy_index, phy_val))
+
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {}, "details": ", ".join(details)}}

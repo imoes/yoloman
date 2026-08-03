@@ -1,74 +1,56 @@
-def _parse_uptime_value(output):
-    start = output.find("<NewUptime>")
-    if start == -1:
-        return None
-    start += len("<NewUptime>")
-    end = output.find("</NewUptime>", start)
-    if end == -1:
-        return None
-    val = output[start:end]
-    if not val.isdigit():
-        return None
-    return val
+def _parse_fritz_lines(lines):
+    section = {}
+    for line in lines:
+        parts = line.split()
+        if len(parts) > 1:
+            section[parts[0]] = " ".join(parts[1:])
+    return section
+
+def _uptime_state(uptime_sec, warn, crit):
+    state = "OK"
+    if warn != None and uptime_sec < warn:
+        state = "WARN"
+    if crit != None and uptime_sec < crit:
+        state = "CRIT"
+    return state
+
+def _format_uptime(uptime_sec):
+    days = int(uptime_sec / 86400)
+    hours = int((uptime_sec % 86400) / 3600)
+    minutes = int((uptime_sec % 3600) / 60)
+    return "%dd %dh %dm" % (days, hours, minutes)
+
+def _get_fritz_section(ctx):
+    section = {}
+    res = ctx.run(["upnpc", "-l"], mutates=False)
+    if res.rc == 0:
+        section = _parse_fritz_lines(res.stdout.splitlines())
+    if not section:
+        res = ctx.run(["curl", "-s", "http://fritz.box:49000"], mutates=False)
+        if res.rc == 0 and res.stdout:
+            section = _parse_fritz_lines(res.stdout.splitlines())
+    if not section:
+        res = ctx.run(["tr", "0", "1"], mutates=False)
+    return section
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["curl", "-s", "-k", "https://fritz.box:49443/upnp/control/base"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items (HTTP fetch failed)",
-                    "data": {"discovery": []}}
-        uptime_str = _parse_uptime_value(res.stdout)
-        if uptime_str == None:
-            return {"changed": False, "msg": "discovered 0 items (no uptime data in response)",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 items",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["uptime"]}]}}
-    
-    res = ctx.run(["curl", "-s", "-k", "https://fritz.box:49443/upnp/control/base"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "uptime data unavailable (HTTP fetch failed)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    uptime_str = _parse_uptime_value(res.stdout)
-    if uptime_str == None:
-        return {"changed": False, "msg": "uptime data unavailable (parsing failed)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    uptime_sec = float(uptime_str)
-    
-    # Get current timestamp via /proc/uptime if available, otherwise assume now
-    current_sec = 0.0
-    if ctx.file_exists("/proc/uptime"):
-        content = ctx.file_read("/proc/uptime")
-        parts = content.split()
-        if len(parts) >= 1 and parts[0].isdigit():
-            current_sec = float(parts[0])
-    else:
-        # Fallback: use system date command
-        date_res = ctx.run(["date", "+%s"], mutates=False)
-        if date_res.rc == 0 and date_res.stdout.strip().isdigit():
-            current_sec = float(date_res.stdout.strip())
-    
-    if current_sec == 0.0:
-        return {"changed": False, "msg": "uptime data unavailable (cannot determine current time)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    age = int(current_sec - uptime_sec)
-    
-    # Default thresholds from Checkmk: warn_below=86400 (1d), crit_below=43200 (12h)
-    warn = params.get("levels", (86400, 43200))[0]
-    crit = params.get("levels", (86400, 43200))[1]
-    
-    state = "OK"
-    if age <= crit:
-        state = "CRIT"
-    elif age <= warn:
-        state = "WARN"
-    
-    days = int(age // 86400)
-    hours = int((age % 86400) // 3600)
-    minutes = int((age % 3600) // 60)
-    duration_str = "%d d %d h %d m" % (days, hours, minutes)
-    
-    return {"changed": False, "msg": "Uptime: %s, Age: %s" % (uptime_str, duration_str),
-            "data": {"state": state, "metrics": {"uptime": uptime_sec}, "details": ""}}
+        section = _get_fritz_section(ctx)
+        if "NewUptime" not in section:
+            return {"changed": False, "msg": "no fritz device found", "data": {"discovery": []}}
+        discovery = [
+            {"item": "", "params": {}, "metrics": ["uptime"]},
+        ]
+        return {"changed": False, "msg": "discovered uptime", "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    section = _get_fritz_section(ctx)
+    if "NewUptime" not in section:
+        return {"changed": False, "msg": "no uptime data available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    uptime_str = section.get("NewUptime")
+    uptime_sec = float(uptime_str) if uptime_str else 0.0
+    warn = params.get("warn")
+    crit = params.get("crit")
+    state = _uptime_state(uptime_sec, warn, crit)
+    msg = "Uptime: %s" % _format_uptime(uptime_sec)
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"uptime": uptime_sec}, "details": ""}}

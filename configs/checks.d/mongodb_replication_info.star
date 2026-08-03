@@ -1,135 +1,134 @@
-def _format_bytes(n):
-    n = int(n)
-    if n < 1024:
-        return "%d B" % n
-    if n < 1048576:
-        return "%f KB" % (float(n) / 1024.0)
-    if n < 1073741824:
-        return "%f MB" % (float(n) / 1048576.0)
-    if n < 1099511627776:
-        return "%f GB" % (float(n) / 1073741824.0)
-    return "%f TB" % (float(n) / 1099511627776.0)
-
-def _format_timespan(secs):
-    secs = int(secs)
-    if secs < 0:
-        secs = 0
-    if secs < 60:
-        return "%d seconds" % secs
-    if secs < 3600:
-        return "%d minutes %d seconds" % (secs // 60, secs % 60)
-    if secs < 86400:
-        return "%d hours %d minutes" % (secs // 3600, (secs % 3600) // 60)
-    return "%d days %d hours" % (secs // 86400, (secs % 86400) // 3600)
-
-def _int_or(v, default):
-    return int(v) if v != None else default
-
-EVAL_SCRIPT = "var i=db.getReplicationInfo();" + \
-    "if(i.errmsg){print(JSON.stringify({error:i.errmsg}))}" + \
-    "else{" + \
-    "var tf=i.tFirst,tl=i.tLast;" + \
-    "if(typeof tf==='object'&&tf!==null)tf=Math.floor(tf.getTime()/1000);" + \
-    "if(typeof tl==='object'&&tl!==null)tl=Math.floor(tl.getTime()/1000);" + \
-    "print(JSON.stringify({" + \
-    "logSizeBytes:Math.round((i.logSizeMB||0)*1048576)," + \
-    "usedBytes:Math.round((i.usedMB||0)*1048576)," + \
-    "tFirst:tf||0,tLast:tl||0," + \
-    "now:Math.floor(new Date().getTime()/1000)" + \
-    "}));}"
-
-def _build_argv(params):
-    binary = params.get("binary", "mongosh")
-    host = params.get("host", "localhost")
-    port = str(int(params.get("port", 27017)))
-    username = params.get("username", "")
-    password = params.get("password", "")
-    auth_db = params.get("auth_db", "admin")
-    argv = [binary, "--host", host, "--port", port, "--quiet", "--norc", "--eval", EVAL_SCRIPT]
-    if username != "":
-        argv = argv + ["--username", username, "--password", password, "--authenticationDatabase", auth_db]
-    return argv
-
-def _parse_json_line(raw):
-    for line in raw.splitlines():
-        line = line.strip()
-        if line.startswith("{"):
-            return json.decode(line)
-    return None
-
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(_build_argv(params), mutates=False, ok_codes=[0, 1, 2, 127])
-        if not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        data = _parse_json_line(res.stdout)
-        if data == None or data.get("error") != None:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [{
-                "item": "",
-                "params": {},
-                "metrics": [
-                    "mongodb_replication_info_log_size",
-                    "mongodb_replication_info_used",
-                    "mongodb_replication_info_time_diff",
-                ],
-            }]},
-        }
+        res = ctx.run(
+            [
+                "mongo",
+                "--quiet",
+                "--eval",
+                "var o=db.oplog.rs.stats(); var ts=db.oplog.rs.find().sort({$natural:1}).limit(1).next().ts.t; var tl=db.oplog.rs.find().sort({$natural:-1}).limit(1).next().ts.t; printjson({tFirst:NumberLong(ts), tLast:NumberLong(tl), now:NumberLong(new Date().getTime()), usedBytes:NumberLong(o.size), logSizeBytes:NumberLong(o.maxSize)})",
+            ],
+            mutates=False,
+        )
+        if res.rc == 127 or not res.stdout:
+            return {"changed": False, "msg": "mongo not found or no data",
+                    "data": {"discovery": []}}
+        section = None
+        for line in res.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("{") and line.endswith("}"):
+                section = json.decode(line)
+                break
+        if not section:
+            return {"changed": False, "msg": "no oplog data", "data": {"discovery": []}}
 
-    res = ctx.run(_build_argv(params), mutates=False, ok_codes=[0, 1])
-    if not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "no output from mongosh (rc=%d): %s" % (res.rc, res.stderr.strip()),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        metrics = ["mongodb_replication_info_log_size",
+                   "mongodb_replication_info_used",
+                   "mongodb_replication_info_time_diff"]
+        return {"changed": False,
+                "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": metrics}
+                ]}}
 
-    data = _parse_json_line(res.stdout)
-    if data == None:
-        return {
-            "changed": False,
-            "msg": "could not parse mongosh output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    item = params.get("item", "")
+    res = ctx.run(
+        [
+            "mongo",
+            "--quiet",
+            "--eval",
+            "var o=db.oplog.rs.stats(); var ts=db.oplog.rs.find().sort({$natural:1}).limit(1).next().ts.t; var tl=db.oplog.rs.find().sort({$natural:-1}).limit(1).next().ts.t; printjson({tFirst:NumberLong(ts), tLast:NumberLong(tl), now:NumberLong(new Date().getTime()), usedBytes:NumberLong(o.size), logSizeBytes:NumberLong(o.maxSize)})",
+        ],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return {"changed": False, "msg": "mongo shell not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "mongo query failed: " + res.stderr,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if data.get("error") != None:
-        return {
-            "changed": False,
-            "msg": "MongoDB replication info: " + str(data.get("error", "")),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    section = None
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if line.startswith("{") and line.endswith("}"):
+            section = json.decode(line)
+            break
+    if not section:
+        return {"changed": False, "msg": "no replication info data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    log_size = _int_or(data.get("logSizeBytes"), 0)
-    used = _int_or(data.get("usedBytes"), 0)
-    t_first = _int_or(data.get("tFirst"), 0)
-    t_last = _int_or(data.get("tLast"), 0)
-    time_diff = t_last - t_first
-    if time_diff < 0:
-        time_diff = 0
+    def _as_int(d, key):
+        v = d.get(key)
+        if v == None:
+            return 0
+        if type(v) == "int":
+            return v
+        if type(v) == "string":
+            return int(v) if v.lstrip("-").isdigit() else 0
+        return 0
 
-    oplog_summary = "Oplog size: %s of %s used" % (_format_bytes(used), _format_bytes(log_size))
-    time_summary = "Time difference: %s between the first and last operation on oplog" % _format_timespan(time_diff)
+    def _bytes_human_readable(d, key):
+        v = _as_int(d, key)
+        if v < 1024:
+            return str(v) + " B"
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        u = 0
+        val = float(v)
+        while val >= 1024 and u < len(units) - 1:
+            val = val / 1024.0
+            u = u + 1
+        return "%f %s" % (val, units[u])
 
-    details = "\nOperations log (oplog):\n"
-    details = details + "- Total amount of space allocated: %s\n" % _format_bytes(log_size)
-    details = details + "- Total amount of space currently used: %s\n" % _format_bytes(used)
-    details = details + "- Timestamp for the first operation: %d\n" % t_first
-    details = details + "- Timestamp for the last operation: %d\n" % t_last
-    details = details + "- Difference between the first and last operation: %s\n" % _format_timespan(time_diff)
+    def _timestamp_human_readable(d, key):
+        v = _as_int(d, key)
+        return str(v)
 
-    return {
-        "changed": False,
-        "msg": oplog_summary + ", " + time_summary,
-        "data": {
-            "state": "OK",
-            "metrics": {
-                "mongodb_replication_info_log_size": log_size,
-                "mongodb_replication_info_used": used,
-                "mongodb_replication_info_time_diff": time_diff,
-            },
-            "details": details,
-        },
+    def _timespan_human(seconds):
+        if seconds < 60:
+            return str(seconds) + " s"
+        if seconds < 3600:
+            return "%d min" % (seconds / 60)
+        if seconds < 86400:
+            return "%d h" % (seconds / 3600)
+        return "%d d" % (seconds / 86400)
+
+    def _calc_time_diff(v1, v2):
+        if v1 == None or v2 == None:
+            return "n/a"
+        return _timespan_human(v1 - v2)
+
+    log_size = _bytes_human_readable(section, "logSizeBytes")
+    used = _bytes_human_readable(section, "usedBytes")
+    oplog_size = "Oplog size: " + used + " of " + log_size + " used"
+
+    t_first = _as_int(section, "tFirst")
+    t_last = _as_int(section, "tLast")
+    time_difference_sec = t_last - t_first
+    time_diff = "Time difference: " + _timespan_human(time_difference_sec) + \
+        " between the first and last operation on oplog"
+
+    ts_first = _timestamp_human_readable(section, "tFirst")
+    ts_last = _timestamp_human_readable(section, "tLast")
+    ts_now = _timestamp_human_readable(section, "now")
+    td_str = _calc_time_diff(t_last, t_first)
+
+    long_output = []
+    long_output.append("Operations log (oplog):")
+    long_output.append("- Total amount of space allocated: " + log_size)
+    long_output.append("- Total amount of space currently used: " + used)
+    long_output.append("- Timestamp for the first operation: " + ts_first)
+    long_output.append("- Timestamp for the last operation: " + ts_last)
+    long_output.append("- Difference between the first and last operation: " + td_str)
+    long_output.append("")
+    long_output.append("- Current time on host: " + ts_now)
+    details = "\n" + "\n".join(long_output)
+
+    metrics = {
+        "mongodb_replication_info_log_size": _as_int(section, "logSizeBytes"),
+        "mongodb_replication_info_used": _as_int(section, "usedBytes"),
+        "mongodb_replication_info_time_diff": time_difference_sec,
     }
+
+    msg = oplog_size + ", " + time_diff
+    return {"changed": False, "msg": msg,
+            "data": {"state": "OK", "metrics": metrics, "details": details}}

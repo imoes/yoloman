@@ -1,25 +1,26 @@
-# ===== Starlark translation of checkmk.cisco_ucs_faults =====
-
-# SNMP OID constants for Cisco UCS fault section
-_BASE_OID = ".1.3.6.1.4.1.9.9.719.1.1.1.1"
-_OID_5 = ".1.3.6.1.4.1.9.9.719.1.1.1.1.5"   # cucsFaultAffectedObjectDn
-_OID_6 = ".1.3.6.1.4.1.9.9.719.1.1.1.1.6"   # cucsFaultAck
-_OID_9 = ".1.3.6.1.4.1.9.9.719.1.1.1.1.9"   # cucsFaultCode
-_OID_11 = ".1.3.6.1.4.1.9.9.719.1.1.1.1.11" # cucsFaultDescription
-_OID_20 = ".1.3.6.1.4.1.9.9.719.1.1.1.1.20" # cucsFaultSeverity
-
-# Severity mapping: code -> (state, name)
-_SEVERITY_MAP = {
-    "0": ("OK", "cleared"),
-    "1": ("OK", "info"),
-    "3": ("WARN", "warning"),
-    "4": ("WARN", "minor"),
-    "5": ("CRIT", "major"),
-    "6": ("CRIT", "critical"),
+# FaultSeverity string -> Checkmk State (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
+_SEVERITY_STATE = {
+    "0": "OK",    # cleared
+    "1": "OK",    # info
+    "3": "WARN",  # warning
+    "4": "WARN",  # minor
+    "5": "CRIT",  # major
+    "6": "CRIT",  # critical
 }
 
-# Detect OIDs for Cisco UCS devices
-_UCS_DETECT_OIDS = [
+# OID base for the fault table and the column OID suffixes (relative to base)
+_FAULT_BASE = ".1.3.6.1.4.1.9.9.719.1.1.1.1"
+_FAULT_COLS = {
+    "5": "objectDn",      # cucsFaultAffectedObjectDn
+    "6": "ack",           # cucsFaultAck
+    "9": "code",          # cucsFaultCode
+    "11": "description",  # cucsFaultDescription
+    "20": "severity",     # cucsFaultSeverity
+}
+
+# sysObjectID prefix that identifies Cisco UCS (from the checkmk lib DECTE)
+_UCS_OID_PREFIX = ".1.3.6.1.2.1.1.2.0"
+_UCS_OID_VALUES = [
     ".1.3.6.1.4.1.9.1.1682",
     ".1.3.6.1.4.1.9.1.1683",
     ".1.3.6.1.4.1.9.1.1684",
@@ -33,162 +34,135 @@ _UCS_DETECT_OIDS = [
 ]
 
 
-def _get_host_oid(ctx, community, host):
-    """Get sysObjectID to detect if this is a Cisco UCS device."""
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, ".1.3.6.1.2.1.1.2.0"],
-                  mutates=False)
-    if res.rc != 0:
-        return ""
-    # Output format: OID = STRING: "..."
-    line = res.stdout.strip()
-    parts = line.split(" = ", 1)
-    if len(parts) != 2:
-        return ""
-    oid_str = parts[1].strip().strip('"')
-    return oid_str
-
-
-def _discover(ctx, community, host):
-    # Check if this is a Cisco UCS device
-    host_oid = _get_host_oid(ctx, community, host)
-    if host_oid == "":
-        return []
-    
-    for ucs_oid in _UCS_DETECT_OIDS:
-        if host_oid.endswith(ucs_oid):
-            # This is a Cisco UCS device; discover one service
-            return [{"item": "", "params": {}, "metrics": []}]
-    return []
-
-
-def _check_item(ctx, item, community, host):
-    # For single-service check, item is ""
-    if item != "":
-        return {
-            "changed": False,
-            "msg": "no such item",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Walk the fault section via SNMP
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, _BASE_OID],
-                  mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Parse snmpwalk output lines: "<oid> = <type>: <value>"
-    lines = res.stdout.splitlines()
-    # Group values by instance index (4th OID component after base)
-    faults = []
-    current_fault = {"dn": "", "ack": "0", "code": "", "description": "", "severity": "0"}
-
-    for line in lines:
-        if not line.strip():
-            continue
-        # Parse: .1.3.6.1.4.1.9.9.719.1.1.1.1.5.1 = STRING: "..."
-        dot_idx = line.find(".")
-        if dot_idx == -1:
-            continue
-        
-        # Extract OID and value
-        eq_idx = line.find(" = ")
-        if eq_idx == -1:
-            continue
-        oid = line[:eq_idx].strip()
-        value_part = line[eq_idx + 3:].strip()
-        
-        # Extract value (strip quotes for STRING type)
-        if value_part.startswith('"') and value_part.endswith('"'):
-            value = value_part[1:-1]
-        else:
-            # Remove type prefix (e.g., "STRING: " or "OBJECT IDENTIFIER: ")
-            colon_idx = value_part.find(": ")
-            if colon_idx != -1:
-                value = value_part[colon_idx + 2:].strip().strip('"')
-            else:
-                value = value_part.strip().strip('"')
-        
-        # Determine OID type by checking the full OID path
-        if oid.startswith(_OID_5):
-            # Save previous fault if exists
-            if current_fault["code"] != "":
-                faults.append(current_fault.copy())
-            # Start new fault record
-            current_fault = {"dn": value, "ack": "0", "code": "", "description": "", "severity": "0"}
-        elif oid.startswith(_OID_6):
-            current_fault["ack"] = value
-        elif oid.startswith(_OID_9):
-            current_fault["code"] = value
-        elif oid.startswith(_OID_11):
-            current_fault["description"] = value
-        elif oid.startswith(_OID_20):
-            current_fault["severity"] = value
-
-    # Save last fault
-    if current_fault["code"] != "":
-        faults.append(current_fault.copy())
-
-    # Check faults and compute state
-    max_state = "OK"
-    notices = []
-
-    for fault in faults:
-        severity = fault["severity"]
-        if severity in _SEVERITY_MAP:
-            state, _ = _SEVERITY_MAP[severity]
-            if state == "CRIT":
-                max_state = "CRIT"
-            elif state == "WARN" and max_state != "CRIT":
-                max_state = "WARN"
-        else:
-            state = "OK"
-
-        # Build notice string
-        if fault["code"] != "":
-            notice = "Fault: %s - %s" % (fault["code"], fault["description"])
-            notices.append(notice)
-
-    # Build summary
-    if not faults:
-        msg = "No faults"
-    elif max_state == "OK":
-        msg = "No faults"
-    else:
-        msg = "%d fault(s) found" % len(faults)
-
-    details = ""
-    if notices:
-        details = "\n".join(notices)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": max_state,
-            "metrics": {},
-            "details": details,
-        },
-    }
+def _strip_type(value):
+    # Remove a leading "<TYPE>: " tag (e.g. "INTEGER:", "STRING:") and
+    # surrounding quotes from a raw SNMP value.
+    v = value.strip()
+    if v.startswith("Hex-STRING") or v.startswith("STRING") or \
+       v.startswith("INTEGER") or v.startswith("IpAddress") or \
+       v.startswith("OID") or v.startswith("Timeticks") or \
+       v.startswith("Counter32") or v.startswith("Counter64") or \
+       v.startswith("Gauge32") or v.startswith("Gauge64") or \
+       v.startswith("TruthValue") or v.startswith("DisplayString") or \
+       v.startswith("PhysAddress") or v.startswith("ObjectIdentifier"):
+        idx = v.find(":")
+        if idx >= 0:
+            v = v[idx + 1:].strip()
+    if len(v) >= 2 and v[0] == "'" and v[-1] == "'":
+        v = v[1:-1]
+    elif len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+        v = v[1:-1]
+    return v
 
 
 def main(ctx, params):
-    # Get configuration parameters with defaults
+    host = params.get("host", params.get("hostname", "localhost"))
     community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Discovery mode
-    if params.get("_discover"):
-        discovered = _discover(ctx, community, host)
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(discovered),
-            "data": {"discovery": discovered},
-        }
 
-    # Check mode
+    # --- DISCOVERY MODE ---
+    if params.get("_discover"):
+        sys_res = ctx.run(["snmpget", "-v", "2c", "-c", community, "-Oqv",
+                           "-v", "2c", host, _UCS_OID_PREFIX], mutates=False)
+        is_ucs = False
+        if sys_res.rc == 0:
+            sys_oid = _strip_type(sys_res.stdout)
+            for ucs_val in _UCS_OID_VALUES:
+                if sys_oid == ucs_val or sys_oid.startswith(ucs_val):
+                    is_ucs = True
+                    break
+        if not is_ucs:
+            return {"changed": False, "msg": "no Cisco UCS device found",
+                    "data": {"discovery": []}}
+
+        # Walk the fault table columns to enumerate distinct fault objects.
+        walk = ctx.run(["snmpwalk", "-v", "2c", "-c", community, "-Oq",
+                        "-O", "qv", "-v", "2c", host, _FAULT_BASE + ".5"],
+                       mutates=False)
+        items = []
+        seen = {}
+        if walk.rc == 0:
+            for line in walk.stdout.splitlines():
+                # "<OID> <value>" — first space separates OID from value
+                sp = line.find(" ")
+                if sp < 0:
+                    continue
+                oid = line[:sp]
+                idx = oid
+                for col in _FAULT_COLS:
+                    full = _FAULT_BASE + "." + col
+                    if idx.startswith(full):
+                        idx = idx[len(full) + 1:]
+                        break
+                val = _strip_type(line[sp + 1:])
+                seen[idx] = val
+
+        for idx, name in seen.items():
+            items.append({"item": name, "params": {}, "metrics": []})
+
+        return {"changed": False,
+                "msg": "discovered %d faults" % len(items),
+                "data": {"discovery": items}}
+
+    # --- CHECK MODE ---
     item = params.get("item", "")
-    return _check_item(ctx, item, community, host)
+
+    sys_res = ctx.run(["snmpget", "-v", "2c", "-c", community, "-Oqv",
+                       host, _UCS_OID_PREFIX], mutates=False)
+    is_ucs = False
+    if sys_res.rc == 0:
+        sys_oid = _strip_type(sys_res.stdout)
+        for ucs_val in _UCS_OID_VALUES:
+            if sys_oid == ucs_val or sys_oid.startswith(ucs_val):
+                is_ucs = True
+                break
+    if not is_ucs:
+        return {"changed": False, "msg": "no Cisco UCS device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Determine the index for this item by walking the objectDn column.
+    walk = ctx.run(["snmpwalk", "-v", "2c", "-c", community, "-Oq",
+                    "-O", "qv", host, _FAULT_BASE + ".5"], mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "no faults",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    target_idx = None
+    for line in walk.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        name = _strip_type(line[sp + 1:])
+        idx = oid
+        for col in _FAULT_COLS:
+            full = _FAULT_BASE + "." + col
+            if idx.startswith(full):
+                idx = idx[len(full) + 1:]
+                break
+        if name == item:
+            target_idx = idx
+            break
+
+    if target_idx == None:
+        return {"changed": False, "msg": "fault object not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Fetch all columns for this index.
+    fault = {}
+    for col, label in _FAULT_COLS.items():
+        res = ctx.run(["snmpget", "-v", "2c", "-c", community, "-Oqv",
+                       host, _FAULT_BASE + "." + col + "." + target_idx],
+                      mutates=False)
+        if res.rc == 0:
+            fault[label] = _strip_type(res.stdout)
+        else:
+            fault[label] = ""
+
+    severity = fault.get("severity", "1")
+    state = _SEVERITY_STATE.get(severity, "UNKNOWN")
+    notice = "Fault: " + fault.get("code", "") + " - " + fault.get("description", "")
+    if fault.get("ack") == "1":
+        notice = notice + " (acknowledged)"
+
+    return {"changed": False, "msg": notice,
+            "data": {"state": state, "metrics": {}, "details": notice}}

@@ -1,54 +1,20 @@
+# ===== translated Checkmk check: acme_sbc =====
+# READ-ONLY Starlark check module.
+# The original parses the `<<<acme_sbc>>>` Checkmk agent section, which only
+# exists when the proprietary "acme_sbc" system is present and emitting that
+# section through its special agent. There is no on-host binary to probe, so on
+# hosts without that setup discovery yields nothing and the check reports UNKNOWN.
+
 def main(ctx, params):
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {}, "metrics": []},
-                ]
-            },
-        }
+        # The `<<<acme_sbc>>>` section is produced by a Checkmk special agent for
+        # the proprietary acme_sbc product. Without that agent/section present,
+        # this check does not apply — return an empty discovery list (never a
+        # placeholder item, never a hardcoded name).
+        return {"changed": False, "msg": "no acme_sbc source found",
+                "data": {"discovery": []}}
 
-    res = ctx.run(["show", "health"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to retrieve health information",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
-        }
-
-    states = {}
-    settings = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) == 2:
-            for what in ["Health", "State"]:
-                if parts[0] == what:
-                    states[what] = parts[1]
-        elif len(parts) == 3 and parts[1] == "Synchronized":
-            settings[parts[0]] = parts[2]
-
-    health = states.get("Health", "0")
-    state_val = states.get("State", "Unknown")
-
-    health_num = int(health)
-
-    if health_num == 100:
-        state = "OK"
-    else:
-        state = "CRIT"
-
-    return {
-        "changed": False,
-        "msg": "Health at %d %% (State: %s)" % (health_num, state_val),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
-    }
+    # No on-host source for the real data: report UNKNOWN, never OK/zero metrics.
+    return {"changed": False,
+            "msg": "acme_sbc section not available on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

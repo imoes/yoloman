@@ -1,190 +1,220 @@
-# Module-level constants
-FORTIGATE_KEY_TO_TITLE_MAP = {
-    "av_age": "AV",
-    "ips_age": "IPS",
-    "av_ext_age": "AV Extended",
-    "ips_ext_age": "IPS Extended",
-}
+FORTIGATE_SYS_OID_PREFIX = "1.3.6.1.4.1.12356.101.1"
+SIGNATURE_OID_BASE = ".1.3.6.1.4.1.12356.101.4.2"
+
+OID_KEYS = [
+    ("1", "av_age", "AV"),
+    ("2", "ips_age", "IPS"),
+    ("3", "av_ext_age", "AV Extended"),
+    ("4", "ips_ext_age", "IPS Extended"),
+]
 
 DEFAULT_LEVELS = {
     "av_age": (86400, 172800),
     "ips_age": (86400, 172800),
+    "av_ext_age": None,
+    "ips_ext_age": None,
 }
 
-def _parse_version(version_string):
-    # sample: 27.00768(2015-09-01 15:10)
-    # Checkmk uses re.compile but Starlark has no re; use string methods
-    if version_string.find("(") == -1 or version_string.find(")") == -1:
+
+def _days_in_month(year, month):
+    if month in (1, 3, 5, 7, 8, 10, 12):
+        return 31
+    if month in (4, 6, 9, 11):
+        return 30
+    if month == 2:
+        leap = (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0))
+        return 29 if leap else 28
+    return 0
+
+
+def _datetime_to_epoch(year, month, day, hour, minute):
+    days = 0
+    y = 1970
+    while y < year:
+        leap = (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0))
+        days = days + (366 if leap else 365)
+        y = y + 1
+    m = 1
+    while m < month:
+        days = days + _days_in_month(year, m)
+        m = m + 1
+    days = days + (day - 1)
+    return days * 86400 + hour * 3600 + minute * 60
+
+
+def _now_epoch(ctx):
+    res = ctx.run(["date", "+%s"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return None
+    now_str = res.stdout.strip()
+    if not now_str.isdigit():
+        return None
+    return int(now_str)
+
+
+def _parse_version(ctx, value):
+    if value == None or value == "":
         return None, None
-    
-    # Split into version and timestamp parts
-    paren_idx = version_string.find("(")
-    version = version_string[:paren_idx]
-    timestamp_str = version_string[paren_idx+1:-1]  # Remove closing paren
-    
-    # Validate timestamp format "YYYY-MM-DD HH:MM"
-    if len(timestamp_str) != 19:
+    open_pos = value.find("(")
+    close_pos = value.find(")")
+    if open_pos < 0 or close_pos < 0 or close_pos <= open_pos:
         return None, None
-    if timestamp_str[4] != "-" or timestamp_str[7] != "-" or timestamp_str[10] != " " or timestamp_str[13] != ":":
+    version = value[:open_pos].strip()
+    date_str = value[open_pos + 1:close_pos].strip()
+    parts = date_str.split(" ")
+    if len(parts) != 2:
         return None, None
-    
-    # Guard before parsing integers
-    year_str = timestamp_str[0:4]
-    month_str = timestamp_str[5:7]
-    day_str = timestamp_str[8:10]
-    hour_str = timestamp_str[11:13]
-    minute_str = timestamp_str[14:16]
-    
-    # Check all are numeric
-    if not year_str.isdigit() or not month_str.isdigit() or not day_str.isdigit() or not hour_str.isdigit() or not minute_str.isdigit():
+    date_part = parts[0]
+    time_part = parts[1]
+    dp = date_part.split("-")
+    tp = time_part.split(":")
+    if len(dp) != 3 or len(tp) != 2:
         return None, None
-    
-    year = int(year_str)
-    month = int(month_str)
-    day = int(day_str)
-    hour = int(hour_str)
-    minute = int(minute_str)
-    
-    # Simplified time calculation (days since epoch * 86400)
-    # Approximate calculation for Starlark compatibility
-    days = (year - 1970) * 365 + (year - 1969) // 4
-    days += [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334][month - 1] + day - 1
-    if month > 2 and ((year % 4 == 0 and year % 100 != 0) or year % 400 == 0):
-        days += 1
-    age = days * 86400 + hour * 3600 + minute * 60
-    return version, age
+    if not (dp[0].isdigit() and dp[1].isdigit() and dp[2].isdigit()):
+        return None, None
+    if not (tp[0].isdigit() and tp[1].isdigit()):
+        return None, None
+    year = int(dp[0])
+    month = int(dp[1])
+    day = int(dp[2])
+    hour = int(tp[0])
+    minute = int(tp[1])
+    if month < 1 or month > 12:
+        return None, None
+    if day < 1 or day > 31:
+        return None, None
+    if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+        return None, None
+    ts = _datetime_to_epoch(year, month, day, hour, minute)
+    now = _now_epoch(ctx)
+    if now == None:
+        return None, None
+    return version, float(now - ts)
+
+
+def _grade_age(age, levels):
+    if levels == None or age == None:
+        return "OK"
+    warn, crit = levels[0], levels[1]
+    if age >= crit:
+        return "CRIT"
+    if age >= warn:
+        return "WARN"
+    return "OK"
+
+
+def _render_timespan(seconds):
+    if seconds == None:
+        return "unknown"
+    seconds = int(seconds)
+    if seconds < 0:
+        sign = "-"
+        seconds = -seconds
+    else:
+        sign = ""
+    days = seconds // 86400
+    seconds = seconds % 86400
+    hours = seconds // 3600
+    seconds = seconds % 3600
+    minutes = seconds // 60
+    secs = seconds % 60
+    parts = []
+    if days:
+        parts.append("%dd" % days)
+    if hours:
+        parts.append("%dh" % hours)
+    if minutes:
+        parts.append("%dm" % minutes)
+    parts.append("%ds" % secs)
+    return sign + " ".join(parts)
+
+
+def _is_fortigate(ctx, host, community):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", "-On", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    oid = res.stdout.strip().replace('"', "").strip()
+    if oid.endswith(".0"):
+        oid = oid[:-2]
+    return oid.startswith(FORTIGATE_SYS_OID_PREFIX)
+
+
+def _default_params():
+    return {"av_age": [86400, 172800], "ips_age": [86400, 172800]}
+
 
 def main(ctx, params):
-    if params.get("_discover"):
-        # Discovery mode: check if we can get signature data
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.12356.101.4.2"
-        ], mutates=False)
-        
-        # Check if we got any data
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 services",
-                    "data": {"discovery": []}}
-        
-        # Count number of signature entries (4 OIDs expected)
-        lines = res.stdout.splitlines()
-        if len(lines) >= 4:
-            return {"changed": False, "msg": "discovered 1 service",
-                    "data": {"discovery": [{"item": "", "params": {}, "metrics": ["av_age", "ips_age", "av_ext_age", "ips_ext_age"]}]}}
-        return {"changed": False, "msg": "discovered 0 services",
-                "data": {"discovery": []}}
-    
-    # Check mode: get signature data and evaluate thresholds
-    item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.12356.101.4.2"
-    ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "no data available",
+    community = params.get("community", "public")
+
+    if params.get("_discover"):
+        if not _is_fortigate(ctx, host, community):
+            return {"changed": False, "msg": "not a FortiGate device",
+                    "data": {"discovery": []}}
+        metrics = [_k[1] for _k in OID_KEYS]
+        return {"changed": False, "msg": "discovered Signatures service",
+                "data": {"discovery": [
+                    {"item": "", "params": _default_params(), "metrics": metrics},
+                ]}}
+
+    item = params.get("item", "")
+
+    if not _is_fortigate(ctx, host, community):
+        return {"changed": False, "msg": "no FortiGate device found at " + host,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse SNMP output: map OIDs to values
-    # .1.3.6.1.4.1.12356.101.4.2.1.0 = "27.00768(2015-09-01 15:10)"
-    # .1.3.6.1.4.1.12356.101.4.2.2.0 = "6.00689(2015-09-01 00:15)"
-    # .1.3.6.1.4.1.12356.101.4.2.3.0 = ...
-    # .1.3.6.1.4.1.12356.101.4.2.4.0 = ...
-    
-    oids_map = {}
-    for line in res.stdout.splitlines():
-        if line.find("=") == -1:
+
+    entries = {}
+    for oid_idx, key, title in OID_KEYS:
+        oid = SIGNATURE_OID_BASE + "." + oid_idx + ".0"
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+            mutates=False,
+        )
+        if res.rc != 0:
+            entries[key] = {"version": None, "age": None}
             continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        value = parts[1].strip()
-        if value.startswith("\"") and value.endswith("\""):
-            value = value[1:-1]
-        
-        # Extract the number after .1.3.6.1.4.1.12356.101.4.2.
-        if oid.startswith(".1.3.6.1.4.1.12356.101.4.2."):
-            suffix = oid[32:]  # Get the last part after base OID
-            if suffix == "1.0":
-                oids_map["av_age"] = value
-            elif suffix == "2.0":
-                oids_map["ips_age"] = value
-            elif suffix == "3.0":
-                oids_map["av_ext_age"] = value
-            elif suffix == "4.0":
-                oids_map["ips_ext_age"] = value
-    
-    # Process each signature type
-    state = "OK"
-    details_lines = []
+        version, age = _parse_version(ctx, res.stdout.strip())
+        entries[key] = {"version": version, "age": age}
+
     metrics = {}
-    
-    for key in ["av_age", "ips_age", "av_ext_age", "ips_ext_age"]:
-        value = oids_map.get(key)
-        if value == None or value == "":
-            continue
-        
-        version, age = _parse_version(value)
+    states = []
+    msgs = []
+    details_lines = []
+    for oid_idx, key, title in OID_KEYS:
+        entry = entries[key]
+        age = entry["age"]
         if age == None:
             continue
-        
-        # Get levels for this key
-        levels = params.get(key)
-        if levels == None:
-            default = DEFAULT_LEVELS.get(key, (86400, 172800))
-            warn, crit = default
-        else:
-            # Checkmk uses tuple[int, int] or None for each level
-            warn, crit = levels[0] if levels[0] != None else None, levels[1] if levels[1] != None else None
-        
-        # Determine state based on age
+        levels = params.get(key, DEFAULT_LEVELS[key])
+        state = _grade_age(age, levels)
+        states.append(state)
+        metrics[key] = int(age)
+        version = entry["version"]
+        label = "[" + str(version) + "] " + title + " age"
+        rendered = _render_timespan(age)
+        detail_line = label + ": " + rendered
         if age < 0:
-            # Future age - system time issue
-            summary = "The age of the signature appears to be %f seconds. Since this is in the future you should check your system time." % age
-            msg_part = "[Future time]"
-            details_lines.append(summary)
-            if state == "OK":
-                state = "WARN"
+            msgs.append(label + ": " + rendered + " (in the future, check system time)")
+            details_lines.append(detail_line)
             continue
-        
-        # Apply levels
-        if crit != None and age >= crit:
-            msg_part = "[%s] %s age: %f seconds (warn at %f, crit at %f)" % (
-                version, FORTIGATE_KEY_TO_TITLE_MAP[key], age,
-                warn if warn != None else 0, crit)
-            details_lines.append("%s age: %f seconds (warn at %f, crit at %f)" % (
-                FORTIGATE_KEY_TO_TITLE_MAP[key], age,
-                warn if warn != None else 0, crit))
-            state = "CRIT"
-            metrics[key] = age
-        elif warn != None and age >= warn:
-            msg_part = "[%s] %s age: %f seconds (warn at %f)" % (
-                version, FORTIGATE_KEY_TO_TITLE_MAP[key], age, warn)
-            details_lines.append("%s age: %f seconds (warn at %f)" % (
-                FORTIGATE_KEY_TO_TITLE_MAP[key], age, warn))
-            if state == "OK":
-                state = "WARN"
-            metrics[key] = age
-        else:
-            # OK state
-            msg_part = "[%s] %s age: %f seconds" % (version, FORTIGATE_KEY_TO_TITLE_MAP[key], age)
-            if state == "OK":
-                details_lines.append("%s age: %f seconds" % (FORTIGATE_KEY_TO_TITLE_MAP[key], age))
-            metrics[key] = age
-    
-    # Build message
-    if state == "OK":
-        msg = "All signature ages within limits"
-    elif state == "WARN":
-        msg = "Some signature ages approaching limits"
-    else:  # CRIT
-        msg = "Some signature ages exceed limits"
-    
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": metrics, "details": "; ".join(details_lines)}}
+        msgs.append(label + ": " + rendered)
+        details_lines.append(detail_line)
+
+    if len(states) == 0:
+        return {"changed": False, "msg": "no signature data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    worst = "OK"
+    for s in states:
+        if s == "CRIT":
+            worst = "CRIT"
+        elif worst != "CRIT" and s == "WARN":
+            worst = "WARN"
+
+    return {"changed": False,
+            "msg": ", ".join(msgs),
+            "data": {"state": worst, "metrics": metrics,
+                     "details": "\n".join(details_lines)}}

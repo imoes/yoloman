@@ -1,142 +1,128 @@
 def main(ctx, params):
-    # ===== DISCOVERY MODE =====
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        use_desc = params.get("use_sensor_description", False)
-        
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.2606.7.4.2.2.1.3.2.9"
-        ], mutates=False)
-        
-        instances = {}
-        for line in res.stdout.splitlines():
-            if not line or "=" not in line:
-                continue
-            oid_part, value_part = line.split("=", 1)
-            oid = oid_part.strip()
-            value = value_part.strip().lstrip(" ")
-            parts = oid.split(".")
-            if len(parts) < 15:
-                continue
-            leaf_str = parts[-1]
-            idx_str = parts[-2]
-            if not leaf_str.isdigit() or not idx_str.isdigit():
-                continue
-            leaf = int(leaf_str)
-            idx = int(idx_str)
-            
-            val = None
-            if value.startswith("STRING: "):
-                val = value[8:].strip().strip('"')
-            elif value.startswith("INTEGER: "):
-                if value[9:].isdigit():
-                    val = int(value[9:])
-                else:
-                    continue
-            else:
-                continue
-            
-            if idx not in instances:
-                instances[idx] = {"DescName": "", "Location": ""}
-            
-            if leaf == 10:
-                instances[idx]["DescName"] = val
-            elif leaf == 2:
-                instances[idx]["Location"] = val
-        
-        out = []
-        for idx, sensor in sorted(instances.items()):
-            if use_desc:
-                item_name = "%s-%d %s" % (sensor["Location"], idx, sensor["DescName"])
-            else:
-                item_name = str(idx)
-            out.append({
-                "item": item_name,
-                "params": {"_item_key": str(idx)},
-                "metrics": ["status", "delay"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d leakage sensors" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # ===== CHECK MODE =====
-    item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    sensor_id = str(params.get("_item_key", item))
-    if params.get("_item_key") == None and not sensor_id.isdigit():
-        parts = item.split("-")
-        if len(parts) > 1 and parts[-2].isdigit():
-            sensor_id = parts[-2]
-        else:
-            for part in reversed(item.split()):
-                if part.isdigit():
-                    sensor_id = part
-                    break
-    
-    status_oid = ".1.3.6.1.4.1.2606.7.4.2.2.1.3.2.9.%s.8" % sensor_id
-    delay_oid = ".1.3.6.1.4.1.2606.7.4.2.2.1.3.2.9.%s.15" % sensor_id
-    
-    res_status = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, status_oid
-    ], mutates=False)
-    
-    res_delay = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, delay_oid
-    ], mutates=False)
-    
-    status_val = None
-    for line in res_status.stdout.splitlines():
-        if line and "=" in line:
-            value = line.split("=", 1)[1].strip().lstrip(" ")
-            if value.startswith("INTEGER: "):
-                status_val = value[9:]
-            elif value.startswith("STRING: "):
-                status_val = value[8:].strip().strip('"')
-    
-    delay_val = ""
-    for line in res_delay.stdout.splitlines():
-        if line and "=" in line:
-            value = line.split("=", 1)[1].strip().lstrip(" ")
-            if value.startswith("INTEGER: "):
-                delay_val = value[9:]
-            elif value.startswith("STRING: "):
-                delay_val = value[8:].strip().strip('"')
-    
-    if status_val == None:
+    community = params.get("community", "public")
+    use_sensor_description = params.get("use_sensor_description", False)
+
+    def snmp_walk(oid):
+        res = ctx.run([
+            "snmpwalk", "-v2c", "-c", community,
+            "-Oqn", host, oid
+        ], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return []
+        rows = []
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            full_oid = parts[0]
+            value = parts[1]
+            rows.append((full_oid, value))
+        return rows
+
+    def snmp_get(oid):
+        res = ctx.run([
+            "snmpget", "-v2c", "-c", community,
+            "-Oqv", host, oid
+        ], mutates=False)
+        if res.rc != 0:
+            return None
+        return res.stdout.strip()
+
+    # Probe for the real thing — Rittal LCP device
+    sys_descr = snmp_get(".1.3.6.1.2.1.1.1.0")
+    if sys_descr == None or not sys_descr.startswith("Rittal LCP"):
+        if not params.get("_discover"):
+            return {
+                "changed": False,
+                "msg": "not a Rittal LCP device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no Rittal LCP device found"},
+            }
+        return {"changed": False, "msg": "no Rittal LCP detected", "data": {"discovery": [], "host_labels": {}}}
+
+    # Determine the leakage table column OIDs
+    # Based on Rittal CMCIII MIB: leakage table at .1.3.6.1.4.1.2606.7.4.2.2.1.3.5
+    # Columns: DescName(.1), Status(.2), Delay(.3)
+    leakage_table_base = ".1.3.6.1.4.1.2606.7.4.2.2.1.3.5"
+    descname_oid = leakage_table_base + ".1"
+    status_oid = leakage_table_base + ".2"
+    delay_oid = leakage_table_base + ".3"
+
+    # Walk the DescName column to discover leakage sensor items
+    desc_rows = snmp_walk(descname_oid)
+    # Also walk Status to build index->status mapping
+    status_rows = snmp_walk(status_oid)
+    delay_rows = snmp_walk(delay_oid)
+
+    # Build index -> {field: value} mapping
+    def build_map(rows):
+        m = {}
+        for full_oid, value in rows:
+            index = full_oid[len(leakage_table_base) + 1:]
+            m[index] = value
+        return m
+
+    desc_map = build_map(desc_rows)
+    status_map = build_map(status_rows)
+    delay_map = build_map(delay_rows)
+
+    # Collect all indices
+    all_indices = list(desc_map.keys())
+    # Also include indices from status/delay that aren't in desc
+    for idx in status_map:
+        if idx not in desc_map:
+            all_indices.append(idx)
+    for idx in delay_map:
+        if idx not in desc_map and idx not in status_map:
+            all_indices.append(idx)
+
+    # Discovery mode
+    if params.get("_discover"):
+        discovery = []
+        for idx in all_indices:
+            desc = desc_map.get(idx, "")
+            if use_sensor_description:
+                location = desc_map.get("Location", "")  # not available
+                item = "%s" % idx
+            else:
+                item = idx
+            discovery.append({
+                "item": item,
+                "params": {"_item_key": idx},
+                "metrics": ["status", "delay"],
+            })
         return {
             "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d leakage sensors" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    status_text = status_val
-    if status_val == "4":
-        status_text = "OK"
-    elif status_val == "5":
-        status_text = "Alarm"
-    elif status_val == "24":
-        status_text = "Probe Open"
-    elif status_val == "1":
-        status_text = "Not Available"
-    
+
+    # Check mode
+    item = params.get("item", "")
+    item_key = params.get("_item_key", item)
+
+    # Find the sensor entry
+    status = status_map.get(item_key)
+    delay = delay_map.get(item_key)
+
+    if status == None and delay == None:
+        return {
+            "changed": False,
+            "msg": "no leakage sensor found for item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "sensor not found"},
+        }
+
+    status_text = status if status != None else "notAvail"
+    delay_text = delay if delay != None else "unknown"
+
     state = "CRIT" if status_text != "OK" else "OK"
-    msg = "Status: %s, Delay: %s" % (status_text, delay_val if delay_val else "unknown")
-    
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Status: %s, Delay: %s" % (status_text, delay_text),
         "data": {
             "state": state,
             "metrics": {},
-            "details": ""
-        }
+            "details": "",
+        },
     }

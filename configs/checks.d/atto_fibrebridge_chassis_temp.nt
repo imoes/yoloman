@@ -2,32 +2,27 @@ name: atto_fibrebridge_chassis_temp
 fqcn: checkmk.atto_fibrebridge_chassis_temp
 collection: checkmk
 short_description: Temperature %s
-description:
-    > ## Overview  
-    > Monitors the internal chassis temperature of an ATTO FibreBridge SAN-to-SAN bridge device via SNMP, ensuring it stays within safe operating limits to prevent hardware failure or performance degradation.  
-    >
-    > ## What it monitors  
-    > - Internal chassis temperature (°C) of the ATTO FibreBridge device  
-    > - Minimum and maximum operating temperature thresholds (used for alerting)  
-    >
-    > ## How it works  
-    > The check uses `snmpwalk` to query four specific OIDs on the local host (SNMP community: `public`). In discovery mode, it verifies presence of all required OIDs to confirm the chassis is detectable. In check mode, it reads the current chassis temperature (OID `.1.3.6.1.4.1.4547.2.3.2.8`) and compares it against the min/max operating thresholds (OIDs `.1.3.6.1.4.1.4547.2.3.2.4` and `.1.3.6.1.4.1.4547.2.3.2.5`), using those thresholds directly as warning and critical limits.  
-    >
-    > ## Parameters  
-    > None.  
-    >
-    > ## States  
-    > - **OK**: Temperature is between the min/max operating thresholds (inclusive).  
-    > - **WARN**: Temperature equals or exceeds upper threshold or equals or falls below lower threshold.  
-    > - **CRIT**: Temperature exceeds upper threshold or falls below lower threshold (same logic as WARN per current code).  
-    > - **UNKNOWN**: SNMP query fails or required OIDs are missing.  
-    >
-    > ## Metrics  
-    > - `temperature` — Current chassis temperature in °C.
+description: Checkmk check 'atto_fibrebridge_chassis_temp' (service: Temperature %s), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    warn:
+        type: number
+        default: 70
+        description: warn (from the check's parameters).
+    crit:
+        type: number
+        default: 80
+        description: crit (from the check's parameters).
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Hardware & Sensors
+execution: snmp
+prompt_version: c21f0f5a7229

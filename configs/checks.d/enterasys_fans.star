@@ -1,129 +1,93 @@
-# ===== Starlark check: enterasys_fans =====
-
-FAN_STATES = {
-    "1": "info not available",
-    "2": "not installed",
-    "3": "installed and operating",
-    "4": "installed and not operating",
-}
+def _snmp_get_table(ctx, community, host, column_oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    rows = []
+    if res.rc != 0:
+        return rows
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp+1:]
+        idx = oid[len(column_oid)+1:]
+        if idx:
+            rows.append({"index": idx, "oid": oid, "value": val})
+    return rows
 
 def main(ctx, params):
-    if params.get("_discover"):
-        # Discovery: walk FAN table via SNMP
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.52.4.3.1.3.1.1"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-
-        # Parse snmpwalk output: "OID = TYPE: value"
-        fans = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            # Split into OID and value part
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            value_str = parts[1].strip()
-            # Extract numeric fan index from OID end
-            # OID ends with .<fan_index>
-            fan_num = oid_part.rsplit(".", 1)
-            if len(fan_num) != 2:
-                continue
-            fan_num = fan_num[1]
-
-            # Skip if fan_num is not a digit
-            if not fan_num.isdigit():
-                continue
-
-            # Extract value type and content
-            if ":" in value_str:
-                value = value_str.split(":", 1)[1].strip()
-            else:
-                value = value_str.strip()
-
-            # State == "2" means installed and operating (OK), skip it
-            # We discover only FANs that are NOT in state "2"
-            if value != "2":
-                fans.append({
-                    "item": fan_num,
-                    "params": {},
-                    "metrics": []
-                })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(fans),
-            "data": {"discovery": fans}
-        }
-
-    # Check mode: single item
-    item = params.get("item", "")
-
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.52.4.3.1.3.1.1." + item
-    ], mutates=False)
-    if res.rc != 0:
+    base = ".1.3.6.1.4.1.52.4.3.1.3.1.1"
+    num_col = base + ".1"
+
+    if params.get("_discover"):
+        rows = _snmp_get_table(ctx, community, host, num_col)
+        out = []
+        for r in rows:
+            state_val = None
+            state_res = ctx.run(
+                ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                 base + ".2." + r["index"]],
+                mutates=False,
+            )
+            if state_res.rc == 0:
+                state_val = state_res.stdout.strip()
+            if state_val == "2":
+                continue
+            out.append({
+                "item": r["index"],
+                "params": {"warn": 4, "crit": 4},
+                "metrics": ["fan_state"],
+            })
         return {
             "changed": False,
-            "msg": "SNMP get failed for FAN " + item + ": " + res.stderr,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "discovered %d fans" % len(out),
+            "data": {"discovery": out},
         }
 
-    # Parse snmpget: ".1.3.6.1.4.1.52.4.3.1.3.1.1.1 = INTEGER: 3"
-    line = res.stdout.strip()
-    if not line or "=" not in line:
+    item = params.get("item", "")
+    state_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         base + ".2." + item],
+        mutates=False,
+    )
+    if state_res.rc != 0:
         return {
             "changed": False,
-            "msg": "malformed snmpget response for FAN " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "no fan data for item: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    value_str = line.split(":", 1)[1].strip()
-    state = value_str.split(" ")[-1]  # e.g., "INTEGER: 3" -> "3"
+    state = state_res.stdout.strip()
+    fan_states = {
+        "1": "info not available",
+        "2": "not installed",
+        "3": "installed and operating",
+        "4": "installed and not operating",
+    }
+    label = fan_states.get(state, "unknown")
+    message = "FAN State: " + label
 
-    state = state.strip()
-    if state not in FAN_STATES:
-        return {
-            "changed": False,
-            "msg": "unknown FAN state " + state + " for FAN " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    message = "FAN State: " + FAN_STATES[state]
     if state in ["1", "2"]:
-        result_state = "UNKNOWN"
+        verdict = "UNKNOWN"
     elif state == "4":
-        result_state = "CRIT"
+        verdict = "CRIT"
     else:
-        result_state = "OK"
+        verdict = "OK"
+
+    state_int = 0
+    if state.isdigit():
+        state_int = int(state)
 
     return {
         "changed": False,
         "msg": message,
         "data": {
-            "state": result_state,
-            "metrics": {},
-            "details": ""
-        }
+            "state": verdict,
+            "metrics": {"fan_state": state_int},
+            "details": "",
+        },
     }

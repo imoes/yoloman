@@ -1,273 +1,190 @@
+def _parse_value(value_string):
+    s = value_string.strip()
+    if s == "N/A" or s.lower() == "not supported":
+        return [None, None]
+    parts = s.split(" ")
+    if len(parts) >= 3:
+        val = parts[0]
+        num_str = val.lstrip("-").replace(".", "")
+        if num_str != "" and num_str.isdigit():
+            v = float(val)
+            status = parts[2]
+            return [v, status]
+    return [None, None]
+
+def _walk_table(ctx, host, community, column_oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    entries = {}
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid_part = line[:sp]
+        val_part = line[sp + 1:]
+        if not oid_part.startswith(column_oid + "."):
+            continue
+        index = oid_part[len(column_oid) + 1:]
+        if index == "":
+            continue
+        entries[index] = val_part
+    return entries
+
+def _gather_section(ctx, host, community):
+    if_info_descr = _walk_table(ctx, host, community, ".1.3.6.1.2.1.2.2.1.2")
+    if_info_type = _walk_table(ctx, host, community, ".1.3.6.1.2.1.2.2.1.3")
+    if_info_oper = _walk_table(ctx, host, community, ".1.3.6.1.2.1.2.2.1.8")
+    data1_res = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.6.1.1")
+    data2_res = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.6.1.2")
+    data3_res = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.6.1.3")
+    section = {}
+    for index in if_info_descr:
+        entry = {}
+        entry["temp"] = _parse_value(data1_res.get(index, "N/A"))
+        entry["tx_light"] = _parse_value(data2_res.get(index, "N/A"))
+        entry["rx_light"] = _parse_value(data3_res.get(index, "N/A"))
+        entry["port_type"] = if_info_type.get(index, "")
+        entry["description"] = if_info_descr[index]
+        entry["operational_status"] = if_info_oper.get(index, "")
+        section[index] = entry
+    ids1 = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.9.1.1")
+    ids4 = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.9.1.4")
+    ids5 = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.9.1.5")
+    for index in section:
+        section[index]["type"] = ids1.get(index, "")
+        section[index]["part"] = ids4.get(index, "")
+        section[index]["serial"] = ids5.get(index, "")
+    lane_temp = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.10.1.2")
+    lane_tx = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.10.1.3")
+    lane_rx = _walk_table(ctx, host, community, ".1.3.6.1.4.1.1991.1.1.3.3.10.1.4")
+    lanes_by_port = {}
+    for oid_index, val in lane_temp.items():
+        if "." not in oid_index:
+            continue
+        port_id, lane_str = oid_index.rsplit(".", 1)
+        if not lane_str.isdigit():
+            continue
+        lane_num = int(lane_str)
+        lane_entry = {
+            "temp": _parse_value(val),
+            "tx_light": _parse_value(lane_tx.get(oid_index, "N/A")),
+            "rx_light": _parse_value(lane_rx.get(oid_index, "N/A")),
+        }
+        lanes_by_port.setdefault(port_id, {})[lane_num] = lane_entry
+    for port_id, lanes in lanes_by_port.items():
+        if port_id in section:
+            section[port_id]["lanes"] = lanes
+    return section
+
+def _monitoring_state(reading, temp_alert):
+    if reading[0] == None:
+        return 3
+    if temp_alert:
+        status = reading[1].lower()
+        if status == "normal":
+            return 0
+        if status.endswith("warn"):
+            return 1
+        return 2
+    return 0
+
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.2.1.2.2.1"
-        ], mutates=False)
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
         if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-
-        if_info = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_val = parts[0].strip()
-            val = parts[1].strip()
-            if not oid_val.startswith(".1.3.6.1.2.1.2.2.1."):
-                continue
-            suffix = oid_val.rsplit(".", 1)[1]
-            if suffix in ["1", "2", "3", "8"]:
-                if suffix == "1":
-                    current_idx = val.strip()
-                    if_info[current_idx] = {}
-                elif suffix == "2":
-                    if current_idx in if_info:
-                        if_info[current_idx]["description"] = val.strip('"')
-                elif suffix == "3":
-                    if current_idx in if_info:
-                        if_info[current_idx]["type"] = val.strip('"')
-                elif suffix == "8":
-                    if current_idx in if_info:
-                        if_info[current_idx]["oper_status"] = val
-
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.1991.1.1.3.3.6.1"
-        ], mutates=False)
-        if_data = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_val = parts[0].strip()
-            val = parts[1].strip()
-            if not oid_val.startswith(".1.3.6.1.4.1.1991.1.1.3.3.6.1."):
-                continue
-            suffix = oid_val.rsplit(".", 1)[1]
-            if suffix in ["1", "2", "3"]:
-                if_id = oid_val.rsplit(".", 2)[1]
-                val_stripped = val.strip().rstrip('"')
-                if if_id not in if_data:
-                    if_data[if_id] = {}
-                if suffix == "1":
-                    if_data[if_id]["temp"] = val_stripped
-                elif suffix == "2":
-                    if_data[if_id]["tx_light"] = val_stripped
-                elif suffix == "3":
-                    if_data[if_id]["rx_light"] = val_stripped
-
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.1991.1.1.3.3.9.1"
-        ], mutates=False)
-        media_data = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_val = parts[0].strip()
-            val = parts[1].strip()
-            if not oid_val.startswith(".1.3.6.1.4.1.1991.1.1.3.3.9.1."):
-                continue
-            suffix = oid_val.rsplit(".", 1)[1]
-            if suffix in ["1", "4", "5"]:
-                if_id = oid_val.rsplit(".", 2)[1]
-                val_stripped = val.strip().rstrip('"')
-                if if_id not in media_data:
-                    media_data[if_id] = {}
-                if suffix == "1":
-                    media_data[if_id]["type"] = val_stripped
-                elif suffix == "4":
-                    media_data[if_id]["part"] = val_stripped
-                elif suffix == "5":
-                    media_data[if_id]["serial"] = val_stripped
-
-        out = []
-        for if_id, info in if_info.items():
-            if if_id in if_data or if_id in media_data:
-                params_for_item = {
-                    "temp": False,
-                    "tx_light": False,
-                    "rx_light": False,
-                    "lanes": False
-                }
-                metrics = ["tx_light", "rx_light"]
-                if if_id in if_data and "temp" in if_data[if_id]:
-                    metrics.append("temp")
-                out.append({
-                    "item": if_id,
-                    "params": params_for_item,
-                    "metrics": metrics
-                })
-
-        return {"changed": False, "msg": "discovered %d optical ports" % len(out),
-                "data": {"discovery": out}}
-
-    item = params.get("item", "").lstrip("0")
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.2.1.2.2.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    if_info = None
-    for line in res.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_val = parts[0].strip()
-        val = parts[1].strip()
-        if not oid_val.startswith(".1.3.6.1.2.1.2.2.1."):
-            continue
-        suffix = oid_val.rsplit(".", 1)[1]
-        if suffix == "1":
-            idx = val.strip()
-            if idx == item or idx.lstrip("0") == item.lstrip("0"):
-                if_info = {"ifIndex": idx}
-        elif if_info != None:
-            if suffix == "2":
-                if_info["description"] = val.strip('"')
-            elif suffix == "3":
-                if_info["type"] = val.strip('"')
-            elif suffix == "8":
-                if_info["oper_status"] = val
-                break
-    
-    if if_info == None:
-        return {"changed": False, "msg": "interface not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.1991.1.1.3.3.6.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    optical_data = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_val = parts[0].strip()
-        val = parts[1].strip()
-        if not oid_val.startswith(".1.3.6.1.4.1.1991.1.1.3.3.6.1."):
-            continue
-        suffix = oid_val.rsplit(".", 1)[1]
-        if suffix in ["1", "2", "3"]:
-            if_id = oid_val.rsplit(".", 2)[1]
-            if if_id == item or if_id.lstrip("0") == item.lstrip("0"):
-                val_stripped = val.strip().rstrip('"')
-                if suffix == "1":
-                    optical_data["temp"] = val_stripped
-                elif suffix == "2":
-                    optical_data["tx_light"] = val_stripped
-                elif suffix == "3":
-                    optical_data["rx_light"] = val_stripped
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.1991.1.1.3.3.9.1"
-    ], mutates=False)
-    media_data = {}
-    if res.rc == 0:
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_val = parts[0].strip()
-            val = parts[1].strip()
-            if not oid_val.startswith(".1.3.6.1.4.1.1991.1.1.3.3.9.1."):
-                continue
-            suffix = oid_val.rsplit(".", 1)[1]
-            if suffix in ["1", "4", "5"]:
-                if_id = oid_val.rsplit(".", 2)[1]
-                if if_id == item or if_id.lstrip("0") == item.lstrip("0"):
-                    val_stripped = val.strip().rstrip('"')
-                    if suffix == "1":
-                        media_data["type"] = val_stripped
-                    elif suffix == "4":
-                        media_data["part"] = val_stripped
-                    elif suffix == "5":
-                        media_data["serial"] = val_stripped
-    
-    def parse_value(val_str):
-        if val_str == "N/A" or val_str.lower() == "not supported":
-            return None, None
-        parts = val_str.split()
-        if len(parts) >= 3:
-            val_part = parts[0]
-            status_part = parts[2]
-            if val_part.lstrip('-').replace('.','').isdigit():
-                return float(val_part), status_part
-        return None, None
-    
-    add_info = []
-    if "serial" in media_data:
-        add_info.append("S/N " + media_data["serial"])
-    if "part" in media_data:
-        add_info.append("P/N " + media_data["part"])
-    
-    oper_status_map = {
+            return {"changed": False, "msg": "not a brocade mlx device",
+                    "data": {"discovery": []}}
+        sys_oid = res.stdout.strip()
+        if not sys_oid:
+            return {"changed": False, "msg": "no sysOid",
+                    "data": {"discovery": []}}
+        if not sys_oid.startswith(".1.3.6.1.4.1.1991.1."):
+            return {"changed": False, "msg": "not a brocade mlx device",
+                    "data": {"discovery": []}}
+        if_info_descr = _walk_table(ctx, host, community, ".1.3.6.1.2.1.2.2.1.2")
+        items = []
+        for index in if_info_descr:
+            items.append({
+                "item": index,
+                "params": {"temp_warn": 60, "temp_crit": 80,
+                           "tx_warn": -3, "tx_crit": -6,
+                           "rx_warn": -3, "rx_crit": -6,
+                           "temp": False, "tx_light": False, "rx_light": False,
+                           "lanes": False},
+                "metrics": ["temp", "tx_light", "rx_light"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d items" % len(items),
+                "data": {"discovery": items}}
+    item = params.get("item", "")
+    section = _gather_section(ctx, host, community)
+    if item not in section:
+        return {"changed": False,
+                "msg": "item not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    iface = section[item]
+    metrics = {}
+    details = []
+    state = "OK"
+    oper = iface.get("operational_status", "")
+    oper_map = {
         "1": "up", "2": "down", "3": "testing", "4": "unknown",
         "5": "dormant", "6": "not present", "7": "lower layer down",
-        "8": "degraded", "9": "admin down"
+        "8": "degraded", "9": "admin down",
     }
-    oper_status = if_info.get("oper_status", "4")
-    oper_status_readable = oper_status_map.get(oper_status, "unknown[%s]" % oper_status)
-    
-    msg_parts = ["Operational %s" % oper_status_readable]
-    if len(add_info) > 0:
-        msg_parts[0] = "[{}] ".format(", ".join(add_info)) + msg_parts[0]
-    
-    state = "OK"
-    metrics = {}
-    
-    temp_val, temp_status = parse_value(optical_data.get("temp", "N/A Normal"))
-    if temp_val != None:
-        temp_warn = params.get("temp_warn", 70.0)
-        temp_crit = params.get("temp_crit", 80.0)
-        if temp_val >= temp_crit:
+    oper_readable = oper_map.get(oper, "unknown[" + str(oper) + "]")
+    if oper_readable != "up":
+        state = "WARN"
+    if iface.get("serial"):
+        details.append("S/N " + iface["serial"])
+    if iface.get("part"):
+        details.append("P/N " + iface["part"])
+    details.append("Operational " + oper_readable)
+    temp = iface.get("temp")
+    if temp[0] != None:
+        metrics["temp"] = temp[0]
+        t_state = _monitoring_state(temp, params.get("temp", False))
+        if t_state == 1:
+            state = "WARN"
+        elif t_state == 2:
             state = "CRIT"
-        elif temp_val >= temp_warn:
-            if state != "CRIT":
-                state = "WARN"
-        metrics["temperature"] = temp_val
-    
-    tx_val, tx_status = parse_value(optical_data.get("tx_light", "N/A Normal"))
-    if tx_val != None:
-        tx_warn = params.get("tx_light_warn", -10.0)
-        tx_crit = params.get("tx_light_crit", -20.0)
-        if tx_val <= tx_crit:
+        details.append("Temperature %f C (%s)" % (temp[0], temp[1]))
+    tx = iface.get("tx_light")
+    if tx[0] != None:
+        metrics["tx_light"] = tx[0]
+        tx_state = _monitoring_state(tx, params.get("tx_light", False))
+        if tx_state == 1:
+            state = "WARN"
+        elif tx_state == 2:
             state = "CRIT"
-        elif tx_val <= tx_warn:
-            if state != "CRIT":
-                state = "WARN"
-        metrics["tx_light"] = tx_val
-    
-    rx_val, rx_status = parse_value(optical_data.get("rx_light", "N/A Normal"))
-    if rx_val != None:
-        rx_warn = params.get("rx_light_warn", -10.0)
-        rx_crit = params.get("rx_light_crit", -20.0)
-        if rx_val <= rx_crit:
+        details.append("TX Light %f dBm (%s)" % (tx[0], tx[1]))
+    rx = iface.get("rx_light")
+    if rx[0] != None:
+        metrics["rx_light"] = rx[0]
+        rx_state = _monitoring_state(rx, params.get("rx_light", False))
+        if rx_state == 1:
+            state = "WARN"
+        elif rx_state == 2:
             state = "CRIT"
-        elif rx_val <= rx_warn:
-            if state != "CRIT":
-                state = "WARN"
-        metrics["rx_light"] = rx_val
-    
-    if state == "OK":
-        details = ""
-    else:
-        details = ""
-    
-    return {"changed": False, "msg": "; ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": details}}
+        details.append("RX Light %f dBm (%s)" % (rx[0], rx[1]))
+    if params.get("lanes") and iface.get("lanes"):
+        for num, lane in iface["lanes"].items():
+            lt = lane["temp"]
+            if lt[0] != None:
+                metrics["port_temp_" + str(num)] = lt[0]
+            ltx = lane["tx_light"]
+            if ltx[0] != None:
+                metrics["tx_light_" + str(num)] = ltx[0]
+            lrx = lane["rx_light"]
+            if lrx[0] != None:
+                metrics["rx_light_" + str(num)] = lrx[0]
+    msg = "; ".join(details)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": "\n".join(details)}}

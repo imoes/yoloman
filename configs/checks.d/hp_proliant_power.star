@@ -1,143 +1,134 @@
+# Translated Checkmk check hp_proliant_power -> read-only Starlark check module
+# Monitors an HP ProLiant server power meter via SNMP (cpqHePowerMeterStatus / cpqHePowerMeterCurrReading).
+
+# cpqHePowerMeterStatus textual values (OID .2 under .1.3.6.1.4.1.232.6.2.15)
+_STATUS_TABLE = {
+    "1": "other",
+    "2": "present",
+    "3": "absent",
+}
+
+# SNMP base OID for cpqHePowerMeter group
+_BASE_OID = ".1.3.6.1.4.1.232.6.2.15"
+
+
+def _snmp_get_int(ctx, host, community, oid):
+    """Run an SNMP GET with -Oqv and return the bare integer value, or None on failure."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    out = res.stdout.strip()
+    if out == "":
+        return None
+    if not out.isdigit():
+        return None
+    return int(out)
+
+
+def _snmp_get_str(ctx, host, community, oid):
+    """Run an SNMP GET with -Oqv and return the bare (stripped, unquoted) string value, or None on failure."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    out = res.stdout.strip()
+    if out == "":
+        return None
+    # -Oqv may still wrap a value in quotes for OCTET STRINGs; strip surrounding quotes.
+    if len(out) >= 2 and out[0] == '"' and out[-1] == '"':
+        out = out[1:-1]
+    return out
+
+
 def main(ctx, params):
-    # Discover mode
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        # Walk both required OIDs for hp_proliant_power section
-        status_res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.232.6.2.15.2"
-        ], mutates=False)
-        reading_res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.232.6.2.15.3"
-        ], mutates=False)
-
-        # Parse status OID output: ".1.3.6.1.4.1.232.6.2.15.2.0 = INTEGER: 2"
-        status_value = None
-        for line in status_res.stdout.splitlines():
-            if line.strip():
-                parts = line.strip().split()
-                if len(parts) >= 4 and parts[-2] == "=":
-                    status_value = parts[-1].strip()
-                    break
-
-        # Parse reading OID output: ".1.3.6.1.4.1.232.6.2.15.3.0 = INTEGER: 450"
-        reading_value = None
-        for line in reading_res.stdout.splitlines():
-            if line.strip():
-                parts = line.strip().split()
-                if len(parts) >= 4 and parts[-2] == "=":
-                    reading_value = parts[-1].strip()
-                    break
-
-        # Determine status string
-        status_map = {"1": "other", "2": "present", "3": "absent"}
-        status = status_map.get(status_value, "other")
-
-        # If status is not "absent", we have a service to discover
-        if status != "absent":
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {"levels": None},
-                            "metrics": ["power"]
-                        }
-                    ]
-                }
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no service discovered - power meter absent",
-                "data": {"discovery": []}
-            }
-
-    # Check mode
-    community = params.get("community", "public")
+    # Read-only: never mutate, always changed=False.
     host = params.get("host", "localhost")
-    warn = params.get("levels")
-    
-    # Fetch both required OIDs
-    status_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.232.6.2.15.2"
-    ], mutates=False)
-    reading_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.232.6.2.15.3"
-    ], mutates=False)
+    community = params.get("community", "public")
+    levels = params.get("levels")  # (warn, crit) upper levels or None
 
-    # Parse status value
-    status_value = None
-    for line in status_res.stdout.splitlines():
-        if line.strip():
-            parts = line.strip().split()
-            if len(parts) >= 4 and parts[-2] == "=":
-                status_value = parts[-1].strip()
-                break
+    if params.get("_discover"):
+        # Discovery: probe whether the power meter is present (status != "absent").
+        status_code = _snmp_get_str(ctx, host, community, _BASE_OID + ".2")
+        if status_code == None:
+            # No SNMP access / device not reachable -> nothing to discover.
+            return {
+                "changed": False,
+                "msg": "no SNMP data found",
+                "data": {"discovery": []},
+            }
 
-    # Parse reading value
-    reading_value = None
-    for line in reading_res.stdout.splitlines():
-        if line.strip():
-            parts = line.strip().split()
-            if len(parts) >= 4 and parts[-2] == "=":
-                reading_value = parts[-1].strip()
-                break
+        status = _STATUS_TABLE.get(status_code.strip(), "other")
+        if status == "absent":
+            # Power meter data not available -> not a service for this host.
+            return {
+                "changed": False,
+                "msg": "hp_proliant_power not present",
+                "data": {"discovery": []},
+            }
 
-    # Map status code to status string
-    status_map = {"1": "other", "2": "present", "3": "absent"}
-    status = status_map.get(status_value, "other")
+        # Service exists (status == other or present). Metric exposed: power.
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {"discovery": [
+                {
+                    "item": "",
+                    "params": {"levels": levels},
+                    "metrics": ["power"],
+                }
+            ]},
+        }
 
-    # Check status first
+    # ---- CHECK MODE (single service, item is "") ----
+    status_code = _snmp_get_str(ctx, host, community, _BASE_OID + ".2")
+    reading = _snmp_get_int(ctx, host, community, _BASE_OID + ".3")
+
+    if status_code == None or reading == None:
+        return {
+            "changed": False,
+            "msg": "no power meter data reachable via SNMP",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    status = _STATUS_TABLE.get(status_code.strip(), "other")
+
     if status != "present":
         return {
             "changed": False,
-            "msg": "Power Meter state: %s" % status,
-            "data": {
-                "state": "CRIT",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "Power Meter state: " + str(status),
+            "data": {"state": "CRIT", "metrics": {}, "details": "status=" + str(status)},
         }
 
-    # Parse reading as integer safely
-    reading = int(reading_value) if reading_value and reading_value.isdigit() else None
-    if reading == None:
-        return {
-            "changed": False,
-            "msg": "Power Meter state: present, reading not available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    # Apply levels if provided
+    # status == "present": grade the current reading against upper levels.
+    metric_reading = reading
     state = "OK"
-    if warn != None and type(warn) == "list" and len(warn) >= 2:
-        upper_warn = warn[0]
-        upper_crit = warn[1]
-        if reading >= upper_crit:
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+        if metric_reading >= crit:
             state = "CRIT"
-        elif reading >= upper_warn:
+        elif metric_reading >= warn:
             state = "WARN"
-    
-    # Build message
-    msg = "Current reading: %d Watts" % reading
-    
+
+    render = "%d Watts" % metric_reading
+    if levels != None:
+        details = "Current reading: %s (warn=%s, crit=%s)" % (
+            render, str(levels[0]), str(levels[1]),
+        )
+    else:
+        details = "Current reading: " + render
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Power: " + render,
         "data": {
             "state": state,
-            "metrics": {"power": reading},
-            "details": ""
-        }
+            "metrics": {"power": metric_reading},
+            "details": details,
+        },
     }

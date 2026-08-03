@@ -1,106 +1,89 @@
 def main(ctx, params):
-    # This is a single-service SNMP check (no per-item breakdown in discovery)
-    # We need to determine if this is a 5142 or 5171 device by checking sysDescr
-    # Since we can't do SNMP directly, we assume the agent provides the data
-    # However, the check plugin relies on SNMP sections. The yolo-man agent
-    # doesn't run SNMP. But the instructions say to translate the check logic.
-    # The "agent_based" plugin in Checkmk 2.0 usually means it reads from the agent.
-    # But this specific plugin uses SimpleSNMPSection, which means it expects
-    # the agent to have fetched that SNMP data.
-    #
-    # Since yolo-man is a Go agent that doesn't support SNMP natively in this
-    # simplified translation context, and the prompt asks to translate the
-    # "check plugin" logic, we must assume the data source is available via
-    # ctx.run or similar.
-    #
-    # Looking at the check source, it's an SNMP check. The agent must have
-    # retrieved the SNMP data and made it available. Usually, this would be
-    # in a file or a specific command output.
-    #
-    # However, the prompt says "Translate this Checkmk check". The check uses
-    # SNMP. The yolo-man agent doesn't do SNMP.
-    #
-    # Let's re-read the prompt's context: "You translate Checkmk check plugins
-    # into read-only Starlark check modules for the yolo-man agent."
-    #
-    # If the underlying data is SNMP, and the agent doesn't support SNMP,
-    # we might not be able to get the data. But perhaps the agent has a
-    # way to retrieve SNMP data? Or perhaps this check is not applicable
-    # to the yolo-man agent's typical environment?
-    #
-    # Actually, looking at the "agent_based" prefix, in Checkmk 2.0,
-    # agent_based checks are run on the agent side. If it uses SNMP,
-    # the agent must be able to do SNMP.
-    #
-    # Since I cannot assume the agent has SNMP capabilities or a specific
-    # command to retrieve this data, and the prompt doesn't specify a
-    # command, I will assume that the data is NOT available via standard
-    # ctx.run commands like "snmpwalk".
-    #
-    # However, to provide a valid module, I will implement the discovery
-    # and check logic assuming the data is available via a hypothetical
-    # command or file. But since no such command is specified, I will
-    # return UNKNOWN state because the required SNMP data is not accessible
-    # via the ctx API provided (which is for local file/process execution).
-    #
-    # Wait, the prompt says "Reproduce the check's discovery + core threshold
-    # logic". It doesn't say I must successfully monitor a Ciena device if
-    # the agent can't talk SNMP. It says translate the logic.
-    #
-    # The logic is:
-    # 1. Discovery: Always yields one service (single-service check).
-    # 2. Check: Parse SNMP data, extract CPU util, compare to thresholds.
-    #
-    # Since I cannot fetch SNMP data, I will simulate the "data not available"
-    # path which results in UNKNOWN state.
-    #
-    # However, a better approach for a translation exercise is to assume
-    # the data is available via a command that the agent MIGHT support,
-    # or to simply return UNKNOWN.
-    #
-    # Let's look at the discovery function: `yield Service()`. It always
-    # yields one service.
-    #
-    # The check function calls `check_cpu_util`. This function takes `util`,
-    # `params`, `this_time`, `value_store`.
-    #
-    # Since I don't have `value_store` (Checkmk internal) and the agent
-    # doesn't persist state like Checkmk does, I will simplify and just
-    # report the current state without history-based smoothing.
-    #
-    # The thresholds are: warn at 80%, crit at 90%.
-    #
-    # I will implement a version that tries to read CPU utilization from
-    # a hypothetical agent output file or command. But since none is
-    # specified, I will return UNKNOWN.
-    #
-    # Actually, let's assume the agent provides CPU utilization via a
-    # standard command like `top` or `/proc/stat` or a custom script.
-    # But the check is for Ciena devices.
-    #
-    # I will implement the discovery as yielding one service.
-    # I will implement the check as returning UNKNOWN because I cannot
-    # fetch SNMP data.
-
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {"util": [80.0, 90.0]}, "metrics": ["util_percent"]}
-                ]
-            },
-        }
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        probe = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             ".1.3.6.1.4.1.1271.2.1.5.1.2.1.4.5.1.4"],
+            mutates=False,
+        )
+        if probe.rc != 0 or not probe.stdout.strip():
+            return {"changed": False, "msg": "no ciena cpu util 5171 on this host",
+                    "data": {"discovery": []}}
+        warn = params.get("warn", 80.0)
+        crit = params.get("crit", 90.0)
+        return {"changed": False,
+                "msg": "discovered 1 cpu utilization item",
+                "data": {"discovery": [
+                    {"item": "",
+                     "params": {"warn": warn, "crit": crit},
+                     "metrics": ["utilization"]},
+                ]}}
 
-    # Check mode
-    # Since we can't fetch SNMP data, we return UNKNOWN
-    return {
-        "changed": False,
-        "msg": "CPU utilization could not be determined (SNMP data not available via agent)",
-        "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": "",
-        },
-    }
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+         ".1.3.6.1.4.1.1271.2.1.5.1.2.1.4.5.1.4"],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False,
+                "msg": "no ciena 5171 cpu util data (snmp unreachable or no data)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    util = None
+    cores = []
+    base_oid = ".1.3.6.1.4.1.1271.2.1.5.1.2.1.4.5.1.4"
+    lines = res.stdout.split("\n")
+    for line in lines:
+        if not line.strip():
+            continue
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid = parts[0]
+        value = parts[1]
+        suffix = oid[len(base_oid) + 1:]
+        idx = suffix.split(".")[0]
+        if idx == "1":
+            util = int(value) if value.lstrip("-").isdigit() else 0
+        else:
+            index_minus_2 = str(int(idx) - 2) if idx.lstrip("-").isdigit() else idx
+            cores.append((index_minus_2, int(value) if value.lstrip("-").isdigit() else 0))
+
+    if util == None:
+        return {"changed": False,
+                "msg": "could not determine ciena 5171 cpu utilization",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    warn = params.get("warn", 80.0)
+    crit = params.get("crit", 90.0)
+
+    if util >= crit:
+        state = "CRIT"
+    elif util >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    core_metrics = {}
+    for name, val in cores:
+        core_metrics["cpu_" + str(name)] = val
+
+    metrics = {"utilization": util}
+    metrics.update(core_metrics)
+
+    core_summary = ", ".join(["cpu%s=%d" % (n, v) for n, v in cores])
+    msg = "CPU utilization: %d%%" % util
+    if core_summary:
+        msg = msg + " (" + core_summary + ")"
+
+    details = "Overall CPU utilization: %d%%\n" % util
+    if cores:
+        details = details + "Per-core utilization:\n"
+        for name, val in cores:
+            details = details + "  cpu%s: %d%%\n" % (name, val)
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": details}}

@@ -1,152 +1,214 @@
-def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.3417.2.1.1.1.1.1"
+def _fmt_v(x):
+    return "%f" % x
 
-    def _pow(base, exp):
-        result = 1.0
-        i = 0
-        while i < int(exp):
-            result *= base
-            i += 1
-        return result
-
-    # Discovery mode
-    if params.get("_discover"):
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-
-        data_by_index = {}
-        for line in res.stdout.splitlines():
-            if len(line.strip()) == 0:
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            full_oid, value_str = parts
-            if not full_oid.startswith(base_oid + "."):
-                continue
-            suffix = full_oid[len(base_oid) + 1:]
-            last_dot = suffix.rfind(".")
-            if last_dot == -1:
-                continue
-            oid_suffix = suffix[:last_dot]
-            index = suffix[last_dot + 1:]
-            value = value_str.strip().strip('"')
-            if index not in data_by_index:
-                data_by_index[index] = {}
-            data_by_index[index][oid_suffix] = value
-
-        temperature_items = []
-        other_items = []
-        for idx, sensor_data in data_by_index.items():
-            if not ("9" in sensor_data and "5" in sensor_data and "7" in sensor_data and "4" in sensor_data and "3" in sensor_data):
-                continue
-            name = sensor_data["9"]
-            reading = sensor_data["5"]
-            status = sensor_data["7"]
-            scale = sensor_data["4"]
-            unit = sensor_data["3"]
-
-            sensor_name = name.replace(" temperature", "")
-
-            scale_float = float(scale) if scale.replace(".", "", 1).lstrip("-").isdigit() else 0.0
-            multiplier = _pow(10.0, scale_float)
-            value = float(reading) * multiplier if reading.replace(".", "", 1).lstrip("-").isdigit() else 0.0
-
-            is_ok = status == "1"
-
-            if unit == "5":
-                temperature_items.append({"item": sensor_name, "params": {}, "metrics": ["temperature"]})
-            elif unit == "4":
-                other_items.append({"item": sensor_name, "params": {}, "metrics": ["voltage"]})
+def _is_num(s):
+    if s == None or len(s) == 0:
+        return False
+    i = 0
+    if s[0] == "-" or s[0] == "+":
+        i = 1
+        if len(s) == 1:
+            return False
+    dot = False
+    hasd = False
+    for j in range(i, len(s)):
+        c = s[j]
+        if c == ".":
+            if dot:
+                return False
+            dot = True
+        else:
+            code = ord(c)
+            if code >= 48 and code <= 57:
+                hasd = True
             else:
-                other_items.append({"item": sensor_name, "params": {}, "metrics": []})
+                return False
+    return hasd
 
-        return {
-            "changed": False,
-            "msg": "discovered %d sensors" % len(other_items),
-            "data": {"discovery": other_items},
-        }
+def _to_float(s):
+    if not _is_num(s):
+        return None
+    neg = False
+    st = s
+    if st[0] == "-":
+        neg = True
+        st = st[1:]
+    elif st[0] == "+":
+        st = st[1:]
+    ip = ""
+    frac = ""
+    after = False
+    for c in st:
+        if c == ".":
+            after = True
+        elif after:
+            frac = frac + c
+        else:
+            ip = ip + c
+    v = 0
+    if ip == "":
+        ip = "0"
+    for c in ip:
+        v = v * 10 + (ord(c) - 48)
+    fracv = 0
+    fl = 0
+    for c in frac:
+        fracv = fracv * 10 + (ord(c) - 48)
+        fl = fl + 1
+    f = float(fracv)
+    k = 1
+    for _ in range(0, fl):
+        k = k * 10
+    result = v + f / k
+    if neg:
+        result = -result
+    return result
 
-    # Check mode (non-discovery)
-    item = params.get("item", "")
+def _pow10(e):
+    r = 1.0
+    i = 0
+    while i < e:
+        r = r * 10.0
+        i = i + 1
+    return r
 
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-        data_by_index = {}
-        for line in res.stdout.splitlines():
-            if len(line.strip()) == 0:
+    base = ".1.3.6.1.4.1.3417.2.1.1.1.1.1"
+    detect_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ov", host,
+         ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if detect_res.rc == 127:
+        return {"changed": False, "msg": "snmpget not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "snmp not available"}}
+    if detect_res.rc != 0:
+        return {"changed": False, "msg": "detection failed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if detect_res.stdout.find("1.3.6.1.4.1.3417.1.1") == -1:
+        return {"changed": False, "msg": "not a bluecoat device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    cols = ["9", "5", "7", "4", "3"]
+    col_oids = [base + "." + c for c in cols]
+
+    table = {}
+    for ci in range(0, len(col_oids)):
+        wres = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oids[ci]],
+            mutates=False,
+        )
+        if wres.rc != 0:
+            return {"changed": False, "msg": "walk failed for " + col_oids[ci],
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        for line in wres.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
                 continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            full_oid, value_str = parts
-            if not full_oid.startswith(base_oid + "."):
-                continue
-            suffix = full_oid[len(base_oid) + 1:]
-            last_dot = suffix.rfind(".")
-            if last_dot == -1:
-                continue
-            oid_suffix = suffix[:last_dot]
-            index = suffix[last_dot + 1:]
-            value = value_str.strip().strip('"')
-            if index not in data_by_index:
-                data_by_index[index] = {}
-            data_by_index[index][oid_suffix] = value
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            idx = oid[len(col_oids[ci]) + 1:]
+            if idx not in table:
+                table[idx] = [None, None, None, None, None]
+            table[idx][ci] = val
 
+    temperature_sensors = {}
     other_sensors = {}
-    for idx, sensor_data in data_by_index.items():
-        if not ("9" in sensor_data and "5" in sensor_data and "7" in sensor_data and "4" in sensor_data and "3" in sensor_data):
+    for idx in sorted(table.keys()):
+        row = table[idx]
+        if len(row) < 5 or row[0] == None or row[1] == None or row[2] == None or row[3] == None or row[4] == None:
             continue
-        name = sensor_data["9"]
-        reading = sensor_data["5"]
-        status = sensor_data["7"]
-        scale = sensor_data["4"]
-        unit = sensor_data["3"]
-
+        name = row[0]
+        reading = row[1]
+        status = row[2]
+        scale = row[3]
+        unit = row[4]
         sensor_name = name.replace(" temperature", "")
+        rv = _to_float(reading)
+        if rv == None:
+            continue
+        sv = _to_float(scale)
+        if sv == None:
+            continue
+        if sv == 0:
+            value = rv
+        elif sv > 0:
+            value = rv * _pow10(int(sv))
+        else:
+            value = rv / _pow10(int(-sv))
+        is_ok = (status == "1")
 
-        scale_float = float(scale) if scale.replace(".", "", 1).lstrip("-").isdigit() else 0.0
-        multiplier = _pow(10.0, scale_float)
-        value = float(reading) * multiplier if reading.replace(".", "", 1).lstrip("-").isdigit() else 0.0
+        if unit == "5":
+            temperature_sensors[sensor_name] = {"value": value, "is_ok": is_ok}
+        else:
+            other_sensors[sensor_name] = {"value": value, "is_ok": is_ok,
+                                          "type": "voltage" if unit == "4" else "other"}
 
-        is_ok = status == "1"
+    if params.get("_discover"):
+        plugin = params.get("plugin", "")
+        if plugin == "bluecoat_sensors_temp":
+            td = []
+            for sensor_name in sorted(temperature_sensors.keys()):
+                td.append({
+                    "item": sensor_name,
+                    "params": {"levels": (params.get("temp_warn", 60), params.get("temp_crit", 80))},
+                    "metrics": ["temperature"],
+                })
+            return {"changed": False,
+                    "msg": "discovered %d items" % len(td),
+                    "data": {"discovery": td}}
+        discovery = []
+        for sensor_name in sorted(other_sensors.keys()):
+            mt = []
+            if other_sensors[sensor_name]["type"] == "voltage":
+                mt = ["voltage"]
+            discovery.append({
+                "item": sensor_name,
+                "params": {},
+                "metrics": mt,
+            })
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        if unit == "4":
-            other_sensors[sensor_name] = {"value": value, "is_ok": is_ok, "is_voltage": True}
-        elif unit != "5":
-            other_sensors[sensor_name] = {"value": value, "is_ok": is_ok, "is_voltage": False}
+    plugin = params.get("plugin", "")
+    if plugin == "bluecoat_sensors_temp":
+        item = params.get("item", "")
+        sensor = temperature_sensors.get(item)
+        if sensor == None:
+            return {"changed": False, "msg": "no such sensor: " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        warn = params.get("warn", 60)
+        crit = params.get("crit", 80)
+        val = sensor["value"]
+        if val >= crit:
+            state = "CRIT"
+        elif val >= warn:
+            state = "WARN"
+        else:
+            state = "OK"
+        return {"changed": False, "msg": "%s" % _fmt_v(val),
+                "data": {"state": state, "metrics": {"temperature": val}, "details": ""}}
 
+    item = params.get("item", "")
     sensor = other_sensors.get(item)
     if sensor == None:
-        return {
-            "changed": False,
-            "msg": "sensor not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        return {"changed": False, "msg": "no such sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    state = "OK" if sensor["is_ok"] else "CRIT"
-    summary = "%f" % sensor["value"]
+    if sensor["is_ok"]:
+        state = "OK"
+    else:
+        state = "CRIT"
+    val = _fmt_v(sensor["value"])
     metrics = {}
-
-    if sensor["is_voltage"]:
-        summary = "%f V" % sensor["value"]
-        metrics["voltage"] = sensor["value"]
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    if sensor["type"] == "voltage":
+        summary = val + " V"
+        metrics = {"voltage": sensor["value"]}
+    else:
+        summary = val
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

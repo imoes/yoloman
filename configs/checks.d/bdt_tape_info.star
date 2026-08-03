@@ -1,95 +1,62 @@
-# Top-level constants: SNMP OIDs and metric mappings
-_BDT_TAPE_BASE_OID = ".1.3.6.1.4.1.20884.10893.2.101.1"
-_BDT_TAPE_DETECT_OID = ".1.3.6.1.2.1.1.2.0"
-_BDT_TAPE_DETECT_VALUE = ".1.3.6.1.4.1.20884.10893.2.101"
-_FIELDS = ["Name", "Description", "Vendor", "Agent Version"]
+def _snmp_get_str(ctx, community, host, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
 
 def main(ctx, params):
-    # Discovery mode: always yield one service (per spec, discover_bdt_tape_info yields Service())
     if params.get("_discover"):
+        # Probe for the real thing first: the BDT tape library sysoid.
+        detect_oid = ".1.3.6.1.2.1.1.2.0"
+        detect_val = _snmp_get_str(ctx, params.get("community", "public"), params.get("host", "localhost"), detect_oid)
+        if detect_val == None:
+            return {"changed": False, "msg": "no SNMP agent reachable", "data": {"discovery": [], "host_labels": {}}}
+        if ".1.3.6.1.4.1.20884.10893.2.101" not in detect_val:
+            return {"changed": False, "msg": "BDT tape library not present", "data": {"discovery": [], "host_labels": {}}}
+
+        base = ".1.3.6.1.2.1.1.2.0"
+        name = _snmp_get_str(ctx, params.get("community", "public"), params.get("host", "localhost"), ".1.3.6.1.4.1.20884.10893.2.101.1.1")
+        if name == None:
+            return {"changed": False, "msg": "BDT tape library not present", "data": {"discovery": [], "host_labels": {}}}
+
         return {
             "changed": False,
-            "msg": "discovered 1 service",
+            "msg": "discovered 1 item",
             "data": {
                 "discovery": [
-                    {
-                        "item": "",
-                        "params": {},
-                        "metrics": []
-                    }
-                ]
-            }
+                    {"item": "", "params": {}, "metrics": []}
+                ],
+            },
         }
 
-    # Check mode: fetch SNMP data for this single service (no per-item breakdown)
-    # Build complete OIDs for the 4 fields: base + index (1..4)
-    oids = [
-        _BDT_TAPE_BASE_OID + "." + str(i)
-        for i in range(1, 5)
-    ]
-
-    # Build snmpwalk command for all required OIDs
-    # Use default community if not provided
-    community = params.get("community", "public")
+    # Check mode: read the four OIDs from the BDT tape info subtree.
     host = params.get("host", "localhost")
-    argv = ["snmpwalk", "-v2c", "-c", community, "-On", host] + oids
-    res = ctx.run(argv, mutates=False)
+    community = params.get("community", "public")
+    oids = [
+        ".1.3.6.1.4.1.20884.10893.2.101.1.1",
+        ".1.3.6.1.4.1.20884.10893.2.101.1.2",
+        ".1.3.6.1.4.1.20884.10893.2.101.1.3",
+        ".1.3.6.1.4.1.20884.10893.2.101.1.4",
+    ]
+    fields = ["Name", "Description", "Vendor", "Agent Version"]
+    values = []
+    for oid in oids:
+        v = _snmp_get_str(ctx, community, host, oid)
+        if v == None:
+            return {
+                "changed": False,
+                "msg": "BDT tape library data not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "Failed to read BDT tape info OIDs"},
+            }
+        values.append(v)
 
-    # Parse SNMP output: lines like "OID = STRING: value" or "OID = INTEGER: value"
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    summary_parts = []
+    for name, value in zip(fields, values):
+        summary_parts.append("%s: %s" % (name, value))
 
-    # Map OID suffixes to field names (last component of OID)
-    # e.g., ".1.3.6.1.4.1.20884.10893.2.101.1.1" -> suffix "1" -> field "Name"
-    values = {}
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        # Split on first '=' to separate OID from value
-        eq_pos = stripped.find("=")
-        if eq_pos == -1:
-            continue
-        oid_part = stripped[:eq_pos].strip()
-        val_part = stripped[eq_pos + 1:].strip()
-
-        # Extract last numeric component of OID (the index)
-        # Handle both full OIDs and partial matches
-        oid_tokens = oid_part.split(".")
-        if len(oid_tokens) == 0:
-            continue
-        last_token = oid_tokens[-1]
-        if not last_token.isdigit():
-            continue
-        index = int(last_token)
-        if (index >= 1) and (index <= 4):
-            field = _FIELDS[index - 1]
-            # Strip quotes if present (SNMP STRINGs often appear as quoted strings)
-            # Common formats: "value", "value", 'value', value
-            # Remove surrounding double quotes if present
-            if val_part.startswith('"') and val_part.endswith('"'):
-                val_part = val_part[1:-1]
-            elif val_part.startswith("'") and val_part.endswith("'"):
-                val_part = val_part[1:-1]
-            values[field] = val_part
-
-    # Build result: iterate over fields and produce summary line per field
-    summaries = []
-    for field in _FIELDS:
-        value = values.get(field, "")
-        summaries.append("%s: %s" % (field, value))
-
-    # Always return OK state since checkmk code yields State.OK for all fields
     return {
         "changed": False,
-        "msg": ", ".join(summaries),
-        "data": {
-            "state": "OK",
-            "metrics": {},
-            "details": ""
-        }
+        "msg": ", ".join(summary_parts),
+        "data": {"state": "OK", "metrics": {}, "details": "\n".join(summary_parts)},
     }

@@ -1,79 +1,62 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/dsm/baclient/baclient.log"], mutates=False)
-        if res.rc != 0:
-            res = ctx.run(["cat", "/var/adm/ras/dsmagent.log"], mutates=False)
+        res = ctx.run(["rpm", "-q", "TIVsm"], mutates=False)
         if res.rc != 0:
             return {
                 "changed": False,
-                "msg": "discovered 0 items (no tsm_sessions data available)",
-                "data": {"discovery": []}
+                "msg": "no TSM client/server found on host",
+                "data": {"discovery": [], "host_labels": {}},
             }
-        lines = res.stdout.splitlines()
-        if not lines:
-            return {
-                "changed": False,
-                "msg": "discovered 0 items (no tsm_sessions data available)",
-                "data": {"discovery": []}
-            }
+        out = []
+        out.append({
+            "item": "",
+            "params": {"warn": 300, "crit": 600},
+            "metrics": ["sessions"],
+        })
         return {
             "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
+            "msg": "discovered %d item" % len(out),
+            "data": {"discovery": out, "host_labels": {}},
         }
-
-    item = params.get("item", "")
-    res = ctx.run(["cat", "/var/lib/dsm/baclient/baclient.log"], mutates=False)
-    if res.rc != 0:
-        res = ctx.run(["cat", "/var/adm/ras/dsmagent.log"], mutates=False)
+    if ctx.file_exists("/opt/tivoli/tsm/client/api/bin64/dsm.opt") == False:
+        return {
+            "changed": False,
+            "msg": "no TSM client found on host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    res = ctx.run(
+        ["/usr/bin/dsmstat", "-s"],
+        mutates=False,
+    )
     if res.rc != 0:
         return {
             "changed": False,
-            "msg": "no tsm_sessions data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "TSM client not responding: %s" % res.stderr,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    lines = res.stdout.splitlines()
-    warn, crit = 300, 600
-    state = "OK"
+    warn = 300
+    crit = 600
     count = 0
-    
+    state = "OK"
+    lines = res.stdout.splitlines()
     for line in lines:
-        if not line.strip():
+        f = line.split()
+        if len(f) < 2:
             continue
-        fields = line.strip().split()
-        if len(fields) < 3:
-            continue
-        
-        proc_state = ""
-        wait_str = ""
-        
-        if len(fields) == 4:
-            proc_state = fields[2]
-            wait_str = fields[3]
-        elif len(fields) > 4:
-            proc_state = fields[-2]
-            wait_str = fields[-1]
-        elif len(fields) == 3:
-            proc_state = fields[1]
-            wait_str = fields[2]
-        
+        proc_state = f[-2] if len(f) >= 2 else ""
+        wait = f[-1] if len(f) >= 1 else ""
         if proc_state not in ("RecvW", "MediaW"):
             continue
-        
-        wait_seconds = int(wait_str) if wait_str.isdigit() else 0
-        
+        wait_seconds = int(wait) if wait.isdigit() else 0
         if wait_seconds >= crit:
             state = "CRIT"
-            count += 1
+            count = count + 1
         elif wait_seconds >= warn:
-            if state == "OK":
+            if state != "CRIT":
                 state = "WARN"
-            count += 1
-    
-    msg = "%d sessions too long in RecvW or MediaW state" % count
+            count = count + 1
     return {
         "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""}
+        "msg": "%d sessions too long in RecvW or MediaW state" % count,
+        "data": {"state": state, "metrics": {"sessions": count}, "details": ""},
     }

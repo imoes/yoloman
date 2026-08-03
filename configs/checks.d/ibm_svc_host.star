@@ -1,115 +1,130 @@
-# Constants for status mapping
-STATUS_ACTIVE = "active"
-STATUS_ONLINE = "online"
-STATUS_DEGRADED = "degraded"
-STATUS_OFFLINE = "offline"
-STATUS_INACTIVE = "inactive"
+def _parse_section(res):
+    header = [
+        "id",
+        "name",
+        "port_count",
+        "iogrp_count",
+        "status",
+        "site_id",
+        "site_name",
+        "host_cluster_id",
+        "host_cluster_name",
+    ]
+    parsed = {}
+    for line in res.stdout.splitlines():
+        fields = line.split(":")
+        if len(fields) < 2:
+            continue
+        if fields[0] in ["id", "node_id", "mdisk_id", "enclosure_id"]:
+            header = fields
+            continue
+        row_id = fields[0]
+        data = dict(zip(header[1:], fields[1:]))
+        parsed.setdefault(row_id, []).append(data)
+    return parsed
+
+
+def _grade_count(value, levels, is_lower):
+    if levels == None:
+        return "OK"
+    warn, crit = levels[0], levels[1]
+    if is_lower:
+        if value <= crit:
+            return "CRIT"
+        if value <= warn:
+            return "WARN"
+        return "OK"
+    else:
+        if value >= crit:
+            return "CRIT"
+        if value >= warn:
+            return "WARN"
+        return "OK"
+
 
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/driver/ibm_svc_host"], mutates=False)
+        res = ctx.run(["svcinfo", "lsthost", "-nohdr", "-quiet"], mutates=False)
         if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 hosts",
-                    "data": {"discovery": []}}
-        
-        found = False
-        for line in res.stdout.splitlines():
-            if line.strip() == "" or line.startswith("<<<") or line.startswith(">>>"):
-                continue
-            parts = line.split(":")
-            if len(parts) >= 5 and parts[0].isdigit():
-                found = True
-                break
-        
-        if found:
-            return {"changed": False, "msg": "discovered 1 service",
-                    "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
-        else:
-            return {"changed": False, "msg": "discovered 0 hosts",
-                    "data": {"discovery": []}}
-    
-    # Check mode
+            return {"changed": False, "msg": "IBM SVC not present", "data": {"discovery": [], "host_labels": {}}}
+        section = _parse_section(res)
+        if len(section) == 0:
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": [], "host_labels": {}}}
+        metrics = ["active", "inactive", "degraded", "offline", "other"]
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {"discovery": [{"item": "", "params": {}, "metrics": metrics}], "host_labels": {}},
+        }
+
     item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/driver/ibm_svc_host"], mutates=False)
-    
-    if res.rc != 0 or res.stdout == "":
-        return {"changed": False, "msg": "No data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
+    res = ctx.run(["svcinfo", "lsthost", "-nohdr", "-quiet"], mutates=False)
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "IBM SVC host data ungatherable (rc=%d)" % res.rc,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
+        }
+
+    section = _parse_section(res)
+    if len(section) == 0:
+        return {
+            "changed": False,
+            "msg": "no IBM SVC hosts found",
+            "data": {"state": "OK", "metrics": {}, "details": ""},
+        }
+
     degraded = 0
     offline = 0
     active = 0
     inactive = 0
     other = 0
-    
-    for line in res.stdout.splitlines():
-        if line.strip() == "":
-            continue
-        parts = line.split(":")
-        if len(parts) >= 5:
-            status = parts[4].strip()
-            if status == STATUS_DEGRADED:
+    for rows in section.values():
+        for data in rows:
+            status = data.get("status", "")
+            if status == "degraded":
                 degraded += 1
-            elif status == STATUS_OFFLINE:
+            elif status == "offline":
                 offline += 1
-            elif status == STATUS_ACTIVE or status == STATUS_ONLINE:
+            elif status in ["active", "online"]:
                 active += 1
-            elif status == STATUS_INACTIVE:
+            elif status == "inactive":
                 inactive += 1
             else:
                 other += 1
-    
-    # Default thresholds - none specified, use defaults
-    active_levels = params.get("active_hosts")
-    inactive_levels = params.get("inactive_hosts")
-    degraded_levels = params.get("degraded_hosts")
-    offline_levels = params.get("offline_hosts")
-    other_levels = params.get("other_hosts")
-    
-    state = "OK"
-    summary_parts = []
-    
-    # Active hosts - lower levels (more is better)
-    if active_levels:
-        warn, crit = active_levels
-        if active <= crit:
-            state = "CRIT"
-        elif active <= warn:
-            state = "WARN" if state != "CRIT" else state
-        summary_parts.append("%d active" % active)
+
+    states = []
+    states.append(_grade_count(active, params.get("active_hosts"), True))
+    states.append(_grade_count(inactive, params.get("inactive_hosts"), False))
+    states.append(_grade_count(degraded, params.get("degraded_hosts"), False))
+    states.append(_grade_count(offline, params.get("offline_hosts"), False))
+    states.append(_grade_count(other, params.get("other_hosts"), False))
+
+    if "CRIT" in states:
+        state = "CRIT"
+    elif "WARN" in states:
+        state = "WARN"
     else:
-        summary_parts.append("%d active" % active)
-    
-    # Inactive, degraded, offline, other - upper levels (less is better)
-    for name, value, levels in [
-        ("inactive", inactive, inactive_levels),
-        ("degraded", degraded, degraded_levels),
-        ("offline", offline, offline_levels),
-        ("other", other, other_levels),
-    ]:
-        if levels:
-            warn, crit = levels
-            if value >= crit:
-                state = "CRIT"
-            elif value >= warn:
-                state = "WARN" if state != "CRIT" else state
-        summary_parts.append("%d %s" % (value, name))
-    
+        state = "OK"
+
     metrics = {
         "active": active,
         "inactive": inactive,
         "degraded": degraded,
         "offline": offline,
-        "other": other
+        "other": other,
     }
-    
+
+    details = "%d active, %d inactive, %d degraded, %d offline, %d other" % (
+        active,
+        inactive,
+        degraded,
+        offline,
+        other,
+    )
+
     return {
         "changed": False,
-        "msg": ", ".join(summary_parts),
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+        "msg": details,
+        "data": {"state": state, "metrics": metrics, "details": details},
     }

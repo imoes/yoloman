@@ -1,493 +1,266 @@
-# Top-level constants and helpers
-_BASE_OID = ".1.3.6.1.4.1.35491.30"
-
-_SENSORS_IDS = {
-    20: ("digital", "Schloss"),
-    22: ("digital", "Relaisadapter AC"),
-    23: ("digital", "Digitalausgang"),
-    24: ("digital", "Steckdosenleiste"),
-    38: ("digital", "Transponderleser"),
-    39: ("digital", "Tastatur"),
-    50: ("analog", "Temperatursensor"),
-    51: ("digital", "Digitaleingang"),
-    60: ("analog", "Feuchtesensor"),
-    61: ("digital", "Netzspannungs Messadapter"),
-    62: ("digital", "Sauerstoffsensor"),
-    63: ("analog", "Analogsensor"),
-    64: ("digital", "Wechselstromzaehler"),
-    70: ("digital", "Zugangssensor (Tuerkontakt)"),
-    71: ("digital", "Erschuetterungssensor"),
-    72: ("digital", "Rauchmelder"),
-    80: ("digital", "LHX 20 RS232"),
-}
-
-_SUPPORTED_SENSORS = {
-    50: "temp",
-    60: "humidity",
-    72: "smoke",
-}
-
-def _safe_int(s):
-    if s == None:
+def to_int(s):
+    s = s if type(s) == "string" else str(s)
+    s = s.strip()
+    if len(s) == 0 or (s[0] == "-" and len(s) == 1):
         return 0
-    s = str(s).strip()
-    if s == "":
-        return 0
-    is_negative = False
-    if s.startswith("-"):
-        is_negative = True
+    if s[0] == "-":
+        rest = s[1:]
+    else:
+        rest = s
+    if rest.isdigit():
+        return int(s)
+    return 0
+
+def to_float(s):
+    s = s if type(s) == "string" else str(s)
+    s = s.strip()
+    if len(s) == 0:
+        return None
+    neg = False
+    if s[0] == "-":
+        neg = True
         s = s[1:]
-    if s == "":
+    elif s[0] == "+":
+        s = s[1:]
+    digit_part = s
+    if "." in digit_part:
+        dot_parts = digit_part.split(".")
+        if len(dot_parts) == 2:
+            int_part = dot_parts[0]
+            frac_part = dot_parts[1]
+            if int_part == "" and frac_part == "":
+                return None
+            if int_part == "" and frac_part.isdigit():
+                return float(s) if not neg else -float(s)
+            if int_part.isdigit() and frac_part == "":
+                return float(s) if not neg else -float(s)
+            if int_part.isdigit() and frac_part.isdigit():
+                return float(s) if not neg else -float(s)
+    else:
+        if s.isdigit():
+            return float(s) if not neg else -float(s)
+    return None
+
+def strip_quotes(s):
+    s = s.strip()
+    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+        return s[1:-1]
+    if len(s) >= 2 and s[0] == "'" and s[-1] == "'":
+        return s[1:-1]
+    return s
+
+def to_sensor_id(s):
+    s = strip_quotes(s).strip()
+    if len(s) == 0:
         return 0
-    for c in s:
-        if c < "0" or c > "9":
-            return 0
-    result = int(s)
-    return -result if is_negative else result
-
-def _safe_float(s):
-    if s == None:
-        return 0.0
-    s = str(s).strip()
-    if s == "" or s == "-" or s == "." or s == "-.":
-        return 0.0
-    has_point = False
-    has_digit = False
-    for c in s:
-        if c >= "0" and c <= "9":
-            has_digit = True
-        elif c == ".":
-            if has_point:
-                return 0.0
-            has_point = True
-        elif c != "-":
-            return 0.0
-    if not has_digit:
-        return 0.0
-    return float(s)
-
+    hex_str = s.encode("utf-8").hex()
+    return to_int(hex_str)
 
 def main(ctx, params):
-    if params.get("_discover") == True:
-        return _discover(ctx, params)
-    return _check(ctx, params)
+    check_type = params.get("check", "smoke")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
+    sys_oid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sys_oid_res.rc != 0:
+        if sys_oid_res.rc == 127:
+            return {"changed": False, "msg": "snmpget not found on host",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": "snmpget binary not installed"}}
+        return {"changed": False, "msg": "SNMP query failed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": sys_oid_res.stderr}}
 
-def _discover(ctx, params):
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        _BASE_OID
-    ], mutates=False)
-    
-    lines = res.stdout.splitlines()
-    sensor_data = {}
+    sys_oid = sys_oid_res.stdout.strip()
+    if not sys_oid.startswith("1.3.6.1.4.1.35491"):
+        return {"changed": False, "msg": "not a security master device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "sysObjectId is " + sys_oid}}
+
+    walk_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.35491.30.3"],
+        mutates=False,
+    )
+    if walk_res.rc != 0:
+        return {"changed": False, "msg": "SNMP walk failed for sensors",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": walk_res.stderr}}
+
+    supported_sensors = {50: "temp", 60: "humidity", 72: "smoke"}
+    sensor_type_map = {}
+    for k in supported_sensors:
+        sensor_type_map[supported_sensors[k]] = k
+    target_id = sensor_type_map.get(check_type, 72)
+
+    sensors = {}
+    lines = walk_res.stdout.splitlines()
     for line in lines:
-        if line == None or line == "":
+        parts = line.split(None, 1)
+        if len(parts) < 2:
             continue
-        eq_idx = line.find("=")
-        if eq_idx <= 0:
+        oid = parts[0]
+        value = parts[1].strip()
+
+        oid_parts = oid.split(".")
+        if len(oid_parts) < 14:
             continue
-        oid_part = line[:eq_idx].strip()
-        value_part = line[eq_idx+1:].strip()
-        
-        if not oid_part.startswith(_BASE_OID):
+        if oid_parts[10] != "1":
             continue
-        tail = oid_part[len(_BASE_OID):].strip()
-        
-        parts = tail.split(".")
-        if len(parts) < 5:
+        sensor_num_str = oid_parts[11]
+        field_str = oid_parts[12]
+
+        if not sensor_num_str.lstrip("-").isdigit():
             continue
-        sensor_num_str = parts[1]
-        field_idx = int(parts[2])
-        
-        if field_idx != 3:
+        sensor_num = int(sensor_num_str)
+        if not field_str.lstrip("-").isdigit():
             continue
-        
-        idx = int(parts[3])
-        
-        if sensor_data.get(sensor_num_str) == None:
-            sensor_data[sensor_num_str] = {
+        field = int(field_str)
+
+        if sensor_num not in sensors:
+            sensors[sensor_num] = {
                 "id": None,
                 "value": None,
                 "name": None,
-                "alarm": None,
-                "crit_low": None,
-                "warn_low": None,
-                "warn_high": None,
-                "crit_high": None,
+                "alarm": -1,
+                "crit_low": 0.0,
+                "warn_low": 0.0,
+                "warn_high": 0.0,
+                "crit_high": 0.0,
             }
-        
-        field = int(parts[4])
-        
-        val = value_part
-        if val.startswith("STRING:"):
-            val = val[7:].strip('"')
-        elif val.startswith("INTEGER:"):
-            val = val[8:].strip()
-        elif val.startswith("Gauge32:"):
-            val = val[8:].strip()
-        elif val.startswith("Counter32:"):
-            val = val[10:].strip()
-        elif val.startswith("OID:"):
-            val = val[4:].strip()
-        
-        if field == 1:
-            sensor_data[sensor_num_str]["id"] = _safe_int(val)
+
+        s = sensors[sensor_num]
+
+        if field == 5:
+            s["name"] = strip_quotes(value)
+        elif field == 1:
+            s["id"] = to_sensor_id(value)
         elif field == 2:
-            sensor_data[sensor_num_str]["value"] = _safe_float(val)
-        elif field == 5:
-            sensor_data[sensor_num_str]["name"] = val
+            fval = to_float(value)
+            if fval != None:
+                s["value"] = fval
         elif field == 6:
-            sensor_data[sensor_num_str]["alarm"] = _safe_int(val)
+            ival = to_int(value)
+            s["alarm"] = ival
         elif field == 7:
-            sensor_data[sensor_num_str]["crit_low"] = _safe_float(val) / 1000.0
+            ival = to_int(value)
+            s["crit_low"] = ival / 1000.0
         elif field == 8:
-            sensor_data[sensor_num_str]["warn_low"] = _safe_float(val) / 1000.0
+            ival = to_int(value)
+            s["warn_low"] = ival / 1000.0
         elif field == 9:
-            sensor_data[sensor_num_str]["warn_high"] = _safe_float(val) / 1000.0
+            ival = to_int(value)
+            s["warn_high"] = ival / 1000.0
         elif field == 10:
-            sensor_data[sensor_num_str]["crit_high"] = _safe_float(val) / 1000.0
-    
-    discovered = []
-    for num_str, data in sensor_data.items():
-        sensor_id = data["id"]
-        if sensor_id == None or _SUPPORTED_SENSORS.get(sensor_id) == None:
-            continue
-        
-        sensor_type = _SUPPORTED_SENSORS[sensor_id]
-        if sensor_type == "smoke":
-            item = num_str + " " + (data["name"] or "SmokeSensor")
-            discovered.append({
-                "item": item,
-                "params": {},
-                "metrics": ["smoke_detected"]
-            })
-        elif sensor_type == "humidity":
-            item = num_str + " " + (data["name"] or "HumiditySensor")
-            discovered.append({
-                "item": item,
-                "params": {},
-                "metrics": ["humidity"]
-            })
-        elif sensor_type == "temp":
-            item = num_str + " " + (data["name"] or "TempSensor")
-            discovered.append({
-                "item": item,
-                "params": {},
-                "metrics": ["temperature"]
-            })
-    
-    return {
-        "changed": False,
-        "msg": "discovered %d sensors" % len(discovered),
-        "data": {"discovery": discovered}
-    }
+            ival = to_int(value)
+            s["crit_high"] = ival / 1000.0
 
+    target_sensors = {}
+    for sensor_num in sensors:
+        s = sensors[sensor_num]
+        if s["id"] == target_id:
+            display_name = s["name"] if s["name"] != None and len(s["name"]) > 0 else ""
+            service_name = "%d %s" % (sensor_num, display_name)
+            target_sensors[service_name] = s
 
-def _check(ctx, params):
+    if not target_sensors:
+        return {"changed": False, "msg": "no %s sensors found" % check_type,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no %s sensors discovered" % check_type}}
+
     item = params.get("item", "")
-    
-    parts = item.split(" ", 1)
-    if len(parts) < 1:
-        return {
-            "changed": False,
-            "msg": "invalid item format",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    sensor_num_str = parts[0]
-    sensor_type = None
-    
-    if len(parts) > 1:
-        name = parts[1]
-        if name.find("Smoke") != -1:
-            sensor_type = "smoke"
-        elif name.find("Humidity") != -1 or name.find("Feucht") != -1:
-            sensor_type = "humidity"
-        elif name.find("Temp") != -1:
-            sensor_type = "temp"
-    
-    if sensor_type == None:
-        sensor_type = "smoke"
-    
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        _BASE_OID
-    ], mutates=False)
-    
-    lines = res.stdout.splitlines()
-    sensor_data = {}
-    for line in lines:
-        if line == None or line == "":
-            continue
-        eq_idx = line.find("=")
-        if eq_idx <= 0:
-            continue
-        oid_part = line[:eq_idx].strip()
-        value_part = line[eq_idx+1:].strip()
-        
-        if not oid_part.startswith(_BASE_OID):
-            continue
-        tail = oid_part[len(_BASE_OID):].strip()
-        
-        parts_oid = tail.split(".")
-        if len(parts_oid) < 5:
-            continue
-        
-        num = parts_oid[1]
-        field = int(parts_oid[2])
-        
-        if field != 3:
-            continue
-        
-        idx = int(parts_oid[3])
-        
-        val = value_part
-        if val.startswith("STRING:"):
-            val = val[7:].strip('"')
-        elif val.startswith("INTEGER:"):
-            val = val[8:].strip()
-        elif val.startswith("Gauge32:"):
-            val = val[8:].strip()
-        elif val.startswith("Counter32:"):
-            val = val[10:].strip()
-        elif val.startswith("OID:"):
-            val = val[4:].strip()
-        
-        field_idx = int(parts_oid[4])
-        
-        if sensor_data.get(num) == None:
-            sensor_data[num] = {
-                "id": None,
-                "value": None,
-                "name": None,
-                "alarm": None,
-                "crit_low": None,
-                "warn_low": None,
-                "warn_high": None,
-                "crit_high": None,
-            }
-        
-        if field_idx == 1:
-            sensor_data[num]["id"] = _safe_int(val)
-        elif field_idx == 2:
-            sensor_data[num]["value"] = _safe_float(val)
-        elif field_idx == 5:
-            sensor_data[num]["name"] = val
-        elif field_idx == 6:
-            sensor_data[num]["alarm"] = _safe_int(val)
-        elif field_idx == 7:
-            sensor_data[num]["crit_low"] = _safe_float(val) / 1000.0
-        elif field_idx == 8:
-            sensor_data[num]["warn_low"] = _safe_float(val) / 1000.0
-        elif field_idx == 9:
-            sensor_data[num]["warn_high"] = _safe_float(val) / 1000.0
-        elif field_idx == 10:
-            sensor_data[num]["crit_high"] = _safe_float(val) / 1000.0
-    
-    sensor = None
-    if sensor_data.get(sensor_num_str) != None:
-        sensor = sensor_data[sensor_num_str]
-    
-    if sensor == None or sensor["id"] == None:
-        return {
-            "changed": False,
-            "msg": "sensor not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    sensor_id = sensor["id"]
-    if _SUPPORTED_SENSORS.get(sensor_id) == None:
-        return {
-            "changed": False,
-            "msg": "unsupported sensor type",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    detected_type = _SUPPORTED_SENSORS[sensor_id]
-    if sensor_type != detected_type and detected_type in ["smoke", "humidity", "temp"]:
-        sensor_type = detected_type
-    
-    if sensor_type == "smoke":
-        return _check_smoke(item, sensor)
-    elif sensor_type == "humidity":
-        return _check_humidity(item, sensor, params)
-    elif sensor_type == "temp":
-        return _check_temp(item, sensor, params)
-    else:
-        return {
-            "changed": False,
-            "msg": "unknown sensor type",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    sensor = target_sensors.get(item)
+    if sensor == None:
+        return {"changed": False, "msg": "Sensor %s not found in SNMP output" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "sensor not found"}}
 
+    if check_type == "smoke":
+        if sensor["alarm"] == 99:
+            return {"changed": False, "msg": "Smoke Sensor is not ready or bus element removed",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        value = sensor["value"]
+        if value == None:
+            return {"changed": False, "msg": "No Value for Sensor",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        if value == 0:
+            return {"changed": False, "msg": "No Smoke",
+                    "data": {"state": "OK", "metrics": {"smoke": 0}, "details": ""}}
+        elif value == 1:
+            return {"changed": False, "msg": "Smoke detected",
+                    "data": {"state": "CRIT", "metrics": {"smoke": 1}, "details": ""}}
+        else:
+            return {"changed": False, "msg": "No Value for Sensor",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-def _check_smoke(item, sensor):
-    alarm = sensor["alarm"]
-    value = sensor["value"]
-    
-    if alarm == 99:
-        return {
-            "changed": False,
-            "msg": "Smoke Sensor is not ready or bus element removed",
-            "data": {"state": "UNKNOWN", "metrics": {"smoke_detected": 0}, "details": ""}
-        }
-    
-    if value == 0:
-        return {
-            "changed": False,
-            "msg": "No Smoke",
-            "data": {"state": "OK", "metrics": {"smoke_detected": 0}, "details": ""}
-        }
-    elif value == 1:
-        return {
-            "changed": False,
-            "msg": "Smoke detected",
-            "data": {"state": "CRIT", "metrics": {"smoke_detected": 1}, "details": ""}
-        }
-    else:
-        return {
-            "changed": False,
-            "msg": "No Value for Sensor",
-            "data": {"state": "UNKNOWN", "metrics": {"smoke_detected": 0}, "details": ""}
-        }
+    elif check_type == "humidity":
+        value = sensor["value"]
+        if value == None:
+            return {"changed": False, "msg": "Sensor value not in SNMP output",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
+        levels = params.get("levels", None)
+        levels_lower = params.get("levels_lower", None)
 
-def _check_humidity(item, sensor, params):
-    value = sensor["value"]
-    if value == None:
-        return {
-            "changed": False,
-            "msg": "Sensor value is not in SNMP-WALK",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    levels = sensor.get("levels") or (70.0, 80.0)
-    levels_lower = sensor.get("levels_low") or (20.0, 15.0)
-    
-    warn_high = None
-    crit_high = None
-    warn_low = None
-    crit_low = None
-    
-    levels_param = params.get("levels")
-    if type(levels_param) == "list" and len(levels_param) >= 2:
-        warn_high = levels_param[0]
-        crit_high = levels_param[1]
-    elif type(levels_param) == "dict":
-        warn_high = levels_param.get("upper")
-        crit_high = levels_param.get("upper_critical")
-    
-    levels_lower_param = params.get("levels_lower")
-    if type(levels_lower_param) == "list" and len(levels_lower_param) >= 2:
-        warn_low = levels_lower_param[0]
-        crit_low = levels_lower_param[1]
-    elif type(levels_lower_param) == "dict":
-        warn_low = levels_lower_param.get("lower")
-        crit_low = levels_lower_param.get("lower_critical")
-    
-    if warn_high == None:
-        warn_high = levels[0]
-    if crit_high == None:
-        crit_high = levels[1]
-    if warn_low == None:
-        warn_low = levels_lower[0]
-    if crit_low == None:
-        crit_low = levels_lower[1]
-    
-    state = "OK"
-    if crit_high != None and value >= crit_high:
-        state = "CRIT"
-    elif warn_high != None and value >= warn_high:
-        state = "WARN"
-    elif crit_low != None and value <= crit_low:
-        state = "CRIT"
-    elif warn_low != None and value <= warn_low:
-        state = "WARN"
-    
-    msg = "Humidity: %f%%" % value
-    details = ""
-    if warn_low != None or crit_low != None:
-        details += " Lower limits: warning=%f%% critical=%f%%" % (warn_low, crit_low)
-    if warn_high != None or crit_high != None:
-        details += " Upper limits: warning=%f%% critical=%f%%" % (warn_high, crit_high)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {"humidity": value}, "details": details.strip()}
-    }
+        if sensor["alarm"] != None and sensor["alarm"] > -1:
+            if levels == None:
+                levels = (sensor["warn_high"], sensor["crit_high"])
+            if levels_lower == None:
+                levels_lower = (sensor["warn_low"], sensor["crit_low"])
 
+        state = "OK"
+        msg = "Humidity: %f%%" % value
 
-def _check_temp(item, sensor, params):
-    value = sensor["value"]
-    if value == None:
-        return {
-            "changed": False,
-            "msg": "Sensor value is not in SNMP-WALK",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    levels = sensor.get("levels") or (30.0, 35.0)
-    levels_lower = sensor.get("levels_low") or (10.0, 5.0)
-    
-    warn_high = None
-    crit_high = None
-    warn_low = None
-    crit_low = None
-    
-    levels_param = params.get("levels")
-    if type(levels_param) == "list" and len(levels_param) >= 2:
-        warn_high = levels_param[0]
-        crit_high = levels_param[1]
-    elif type(levels_param) == "dict":
-        warn_high = levels_param.get("upper")
-        crit_high = levels_param.get("upper_critical")
-    
-    levels_lower_param = params.get("levels_lower")
-    if type(levels_lower_param) == "list" and len(levels_lower_param) >= 2:
-        warn_low = levels_lower_param[0]
-        crit_low = levels_lower_param[1]
-    elif type(levels_lower_param) == "dict":
-        warn_low = levels_lower_param.get("lower")
-        crit_low = levels_lower_param.get("lower_critical")
-    
-    if warn_high == None:
-        warn_high = levels[0]
-    if crit_high == None:
-        crit_high = levels[1]
-    if warn_low == None:
-        warn_low = levels_lower[0]
-    if crit_low == None:
-        crit_low = levels_lower[1]
-    
-    state = "OK"
-    if crit_high != None and value >= crit_high:
-        state = "CRIT"
-    elif warn_high != None and value >= warn_high:
-        state = "WARN"
-    elif crit_low != None and value <= crit_low:
-        state = "CRIT"
-    elif warn_low != None and value <= warn_low:
-        state = "WARN"
-    
-    msg = "Temperature: %f C" % value
-    details = ""
-    if warn_low != None or crit_low != None:
-        details += " Lower limits: warning=%f C critical=%f C" % (warn_low, crit_low)
-    if warn_high != None or crit_high != None:
-        details += " Upper limits: warning=%f C critical=%f C" % (warn_high, crit_high)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {"temperature": value}, "details": details.strip()}
-    }
+        if levels != None:
+            warn_high = levels[0]
+            crit_high = levels[1]
+            if value >= crit_high:
+                state = "CRIT"
+            elif value >= warn_high:
+                state = "WARN"
+
+        if levels_lower != None:
+            warn_low = levels_lower[0]
+            crit_low = levels_lower[1]
+            if value <= crit_low:
+                state = "CRIT"
+            elif value <= warn_low:
+                state = "WARN"
+
+        return {"changed": False, "msg": msg,
+                "data": {"state": state, "metrics": {"humidity": value}, "details": ""}}
+
+    elif check_type == "temp":
+        value = sensor["value"]
+        if value == None:
+            return {"changed": False, "msg": "Sensor value is not in SNMP-WALK",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+        levels = params.get("levels", None)
+        levels_lower = params.get("levels_lower", None)
+
+        if levels == None:
+            levels = (sensor["warn_high"], sensor["crit_high"])
+        if levels_lower == None:
+            levels_lower = (sensor["warn_low"], sensor["crit_low"])
+
+        state = "OK"
+        msg = "Temperature: %f C" % value
+
+        if levels != None:
+            warn_high = levels[0]
+            crit_high = levels[1]
+            if value >= crit_high:
+                state = "CRIT"
+            elif value >= warn_high:
+                state = "WARN"
+
+        if levels_lower != None:
+            warn_low = levels_lower[0]
+            crit_low = levels_lower[1]
+            if value <= crit_low:
+                state = "CRIT"
+            elif value <= warn_low:
+                state = "WARN"
+
+        return {"changed": False, "msg": msg,
+                "data": {"state": state, "metrics": {"temperature": value}, "details": ""}}
+
+    return {"changed": False, "msg": "unknown check type: %s" % check_type,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

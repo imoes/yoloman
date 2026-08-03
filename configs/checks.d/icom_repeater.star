@@ -1,257 +1,256 @@
+def _safe_float(s):
+    if not s:
+        return 0.0
+    sign = 1
+    i = 0
+    if s[0] == "-":
+        sign = -1
+        i = 1
+    elif s[0] == "+":
+        i = 1
+    digits = ""
+    seen_dot = False
+    while i < len(s):
+        c = s[i]
+        if c >= "0" and c <= "9":
+            digits = digits + c
+        elif c == "." and not seen_dot:
+            digits = digits + c
+            seen_dot = True
+        else:
+            break
+        i = i + 1
+    if not digits:
+        return 0.0
+    return sign * _str_to_float(digits)
+
+def _str_to_float(s):
+    if "." in s:
+        parts = s.split(".")
+        int_part = parts[0]
+        frac_part = parts[1]
+        val = 0.0
+        for c in int_part:
+            val = val * 10.0
+            d = ord(c) - ord("0")
+            val = val + d
+        frac_val = 0.0
+        for c in reversed(frac_part):
+            d = ord(c) - ord("0")
+            frac_val = (frac_val + d) / 10.0
+        return val + frac_val
+    val = 0.0
+    for c in s:
+        val = val * 10.0
+        d = ord(c) - ord("0")
+        val = val + d
+    return val
+
+def _safe_int(s):
+    if not s:
+        return None
+    sign = 1
+    i = 0
+    if s[0] == "-":
+        sign = -1
+        i = 1
+    elif s[0] == "+":
+        i = 1
+    digits = ""
+    while i < len(s):
+        c = s[i]
+        if c >= "0" and c <= "9":
+            digits = digits + c
+        else:
+            break
+        i = i + 1
+    if not digits:
+        return None
+    val = 0
+    for c in digits:
+        val = val * 10
+        d = ord(c) - ord("0")
+        val = val + d
+    return sign * val
+
+def _safe_float_opt(s):
+    if not s:
+        return None
+    return _safe_float(s)
+
 def main(ctx, params):
-    community = params.get("community", "public")
+    comm = params.get("community", "public")
     host = params.get("host", "localhost")
-    warn_temp, crit_temp = params.get("levels", (50.0, 55.0))
-    warn_temp_lower, crit_temp_lower = params.get("levels_lower", (-20.0, -25.0))
-    ps_levels_upper = params.get("levels_upper", (14.1, 14.4))
-    ps_levels_lower = params.get("levels_lower", (13.5, 13.2))
-    pll_params = params.get("pll_levels", {})
-
     if params.get("_discover"):
-        return _discover(ctx, community, host)
-
+        sysdesc = ctx.run(["snmpget", "-v2c", "-c", comm, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"], mutates=False)
+        if sysdesc.rc != 0 or "fr5000" not in sysdesc.stdout:
+            return {"changed": False, "msg": "no icom repeater", "data": {"discovery": [], "host_labels": {}}}
+        base = ".1.3.6.1.4.1.2021.8.1"
+        res = ctx.run(["snmpwalk", "-v2c", "-c", comm, "-Oqn", host, base + ".1"], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no icom repeater data", "data": {"discovery": [], "host_labels": {}}}
+        rows = {}
+        for line in res.stdout.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            val = parts[1]
+            idx = oid[len(base) + ".0"]
+            if idx not in rows:
+                rows[idx] = {}
+            rows[idx]["label"] = val
+        parsed = _parse_section(ctx, rows, base, comm, host)
+        items = []
+        if "temp" in parsed:
+            items.append({"item": "System", "params": {"levels": (50.0, 55.0), "levels_lower": (-20.0, -25.0)}, "metrics": ["temperature"]})
+        if "ps_voltage" in parsed:
+            items.append({"item": "", "params": {"levels_lower": (13.5, 13.2), "levels_upper": (14.1, 14.4)}, "metrics": ["voltage"]})
+        if "tx_pll_lock_voltage" in parsed:
+            items.append({"item": "TX", "params": {}, "metrics": ["voltage"]})
+        if "rx_pll_lock_voltage" in parsed:
+            items.append({"item": "RX", "params": {}, "metrics": ["voltage"]})
+        items.append({"item": "", "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d services" % len(items), "data": {"discovery": items, "host_labels": {"cmk/os_family": "linux"}}}
     item = params.get("item", "")
+    parsed = _fetch_full(ctx, params)
+    if not parsed or "esnno" not in parsed:
+        return {"changed": False, "msg": "no icom repeater data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item == "System":
+        return _check_temp(parsed, params)
     if item == "":
-        return _check_repeater_info(ctx, community, host)
-    elif item == "System":
-        return _check_temperature(ctx, community, host, warn_temp, crit_temp, warn_temp_lower, crit_temp_lower)
-    elif item.upper() == "PS":
-        return _check_ps_volt(ctx, community, host, ps_levels_upper, ps_levels_lower)
-    elif item.upper() in ["RX", "TX"]:
-        return _check_pll_volt(ctx, community, host, item.upper(), pll_params)
-    else:
-        fail("unknown item: " + item)
+        return _check_info(parsed)
+    return _check_pll(parsed, item, params)
 
+def _fetch_full(ctx, params):
+    comm = params.get("community", "public")
+    host = params.get("host", "localhost")
+    base = ".1.3.6.1.4.1.2021.8.1"
+    res = ctx.run(["snmpwalk", "-v2c", "-c", comm, "-Oqn", host, base + ".1"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {}
+    rows = {}
+    for line in res.stdout.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        val = parts[1]
+        idx = oid[len(base) + ".0"]
+        if idx not in rows:
+            rows[idx] = {}
+        rows[idx]["label"] = val
+    return _parse_section(ctx, rows, base, comm, host)
 
-def _discover(ctx, community, host):
-    section = _parse_icom_repeater_real(ctx, community, host)
-
-    out = []
-    if section:
-        out.append({"item": "", "params": {}, "metrics": ["repeater_operation_status"]})
-    if "temp" in section:
-        out.append({"item": "System", "params": {"levels": (50.0, 55.0), "levels_lower": (-20.0, -25.0)},
-                    "metrics": ["temp"]})
-    if "ps_voltage" in section:
-        out.append({"item": "", "params": {"levels_upper": (14.1, 14.4), "levels_lower": (13.5, 13.2)},
-                    "metrics": ["voltage"]})
-    if "rx_pll_lock_voltage" in section:
-        out.append({"item": "RX", "params": {}, "metrics": ["voltage"]})
-    if "tx_pll_lock_voltage" in section:
-        out.append({"item": "TX", "params": {}, "metrics": ["voltage"]})
-
-    return {"changed": False, "msg": "discovered %d services" % len(out), "data": {"discovery": out}}
-
-
-def _parse_icom_repeater_real(ctx, community, host):
+def _parse_section(ctx, rows, base, comm, host):
     parsed = {}
-
-    names_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.2021.8.1.101.1"
-    ], mutates=False)
-
-    values_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.2021.8.1.101.2"
-    ], mutates=False)
-
-    if names_res.rc != 0 or values_res.rc != 0:
-        return parsed
-
-    names = _extract_snmp_values(names_res.stdout)
-    values = _extract_snmp_values(values_res.stdout)
-
-    for i in range(min(len(names), len(values))):
-        name = names[i].strip()
-        value = values[i].strip()
-        if name.startswith('"') and name.endswith('"'):
-            name = name[1:-1]
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-
-        name_lower = name.lower()
-        if "temperature" in name_lower:
-            if len(value) > 1:
-                temp_str = value[:-1]
-                if temp_str.replace(".", "").replace("-", "").isdigit():
-                    parsed["temp"] = float(temp_str)
-                    parsed["temp_devunit"] = value[-1].lower()
-        elif "esn number" in name_lower:
-            parsed["esnno"] = value
-        elif "repeater operation" in name_lower:
-            parsed["repop"] = value.lower()
-        elif "abnormal temperature detection" in name_lower:
-            if value == "Not detected":
-                parsed["temp_devstatus"] = 0
-            else:
-                parsed["temp_devstatus"] = 2
-        elif "power-supply voltage" in name_lower:
-            if len(value) > 1:
-                volt_str = value[:-1]
-                if volt_str.replace(".", "").replace("-", "").isdigit():
-                    parsed["ps_voltage"] = float(volt_str)
-        elif "abnormal power-supply voltage detection" in name_lower:
-            if value == "Not detected":
-                parsed["ps_volt_devstatus"] = 0
-            else:
-                parsed["ps_volt_devstatus"] = 2
-        elif "tx pll lock voltage" in name_lower:
-            if len(value) > 1:
-                volt_str = value[:-1]
-                if volt_str.replace(".", "").replace("-", "").isdigit():
-                    parsed["tx_pll_lock_voltage"] = float(volt_str)
-        elif "rx pll lock voltage" in name_lower:
-            if len(value) > 1:
-                volt_str = value[:-1]
-                if volt_str.replace(".", "").replace("-", "").isdigit():
-                    parsed["rx_pll_lock_voltage"] = float(volt_str)
-        elif "repeater frequency" in name_lower:
-            freqs = {}
-            parts = value.split(",")
-            for part in parts:
-                kv = part.strip().split(":")
-                if len(kv) == 2:
-                    k = kv[0].lower()
-                    if kv[1].isdigit():
-                        freqs[k] = int(kv[1])
-            parsed["repeater_frequency"] = freqs
-
+    for idx, fields in rows.items():
+        label = fields["label"]
+        res2 = ctx.run(["snmpget", "-v2c", "-c", comm, "-Oqv", host, base + ".2." + idx], mutates=False)
+        if res2.rc != 0:
+            continue
+        field_name = res2.stdout.strip() if res2.stdout else ""
+        res3 = ctx.run(["snmpget", "-v2c", "-c", comm, "-Oqv", host, base + ".101." + idx], mutates=False)
+        if res3.rc != 0:
+            continue
+        field_val = res3.stdout.strip() if res3.stdout else ""
+        if field_name == "Temperature":
+            parsed["temp"] = _safe_float(field_val[:-1])
+            parsed["temp_devunit"] = field_val[-1].lower()
+        elif field_name == "ESN number":
+            parsed["esnno"] = field_val
+        elif field_name == "Repeater operation":
+            parsed["repop"] = field_val.lower()
+        elif field_name == "Abnormal temperature detection":
+            parsed["temp_devstatus"] = 0 if field_val == "Not detected" else 2
+        elif field_name == "Power-supply voltage":
+            parsed["ps_voltage"] = _safe_float(field_val[:-1])
+        elif field_name == "Abnormal power-supply voltage detection":
+            parsed["ps_volt_devstatus"] = 0 if field_val == "Not detected" else 2
+        elif field_name == "TX PLL lock voltage":
+            v = _safe_float_opt(field_val[:-1])
+            if v != None:
+                parsed["tx_pll_lock_voltage"] = v
+        elif field_name == "RX PLL lock voltage":
+            v = _safe_float_opt(field_val[:-1])
+            if v != None:
+                parsed["rx_pll_lock_voltage"] = v
+        elif field_name == "Repeater frequency":
+            freq = {}
+            parts = field_val.split(",")
+            for b in parts:
+                b = b.strip()
+                if ":" in b:
+                    k = b.split(":")[0].lower()
+                    num = _safe_int(b.split(":")[1])
+                    if num != None:
+                        freq[k] = num
+            if freq:
+                parsed["repeater_frequency"] = freq
     return parsed
 
+def _check_temp(parsed, params):
+    reading = parsed.get("temp", 0.0)
+    levels = params.get("levels", (50.0, 55.0))
+    levels_lower = params.get("levels_lower", (-20.0, -25.0))
+    warn = levels[0]
+    crit = levels[1]
+    warn_l = levels_lower[0]
+    crit_l = levels_lower[1]
+    dev_status = parsed.get("temp_devstatus", 0)
+    status = 0
+    if dev_status != 0:
+        status = 2
+    if reading >= crit or reading <= crit_l:
+        status = 2
+    elif reading >= warn or reading <= warn_l:
+        status = 1
+    unit = parsed.get("temp_devunit", "c")
+    state_names = ["OK", "WARN", "CRIT", "UNKNOWN"]
+    msg = "%f %s" % (reading, unit)
+    details = "Temperature %f %s (dev_status=%d, warn=%f/%f, crit=%f/%f)" % (reading, unit, dev_status, warn, warn_l, crit, crit_l)
+    return {"changed": False, "msg": msg, "data": {"state": state_names[status], "metrics": {"temperature": reading}, "details": details}}
 
-def _extract_snmp_values(output):
-    out = []
-    for line in output.splitlines():
-        eq = line.find("=")
-        if eq == -1:
-            continue
-        val = line[eq+1:].strip()
-        colon = val.find(":")
-        if colon != -1:
-            val = val[colon+1:].strip()
-        val = val.strip('"')
-        out.append(val)
-    return out
-
-
-def _check_repeater_info(ctx, community, host):
-    section = _parse_icom_repeater_real(ctx, community, host)
-    if not section:
-        return {"changed": False, "msg": "no SNMP data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    esn = section.get("esnno", "N/A")
-    repop = section.get("repop", "")
-    state = "OK"
-    summary = "ESN Number: %s; Operation: %s" % (esn, repop)
+def _check_info(parsed):
+    esn = parsed.get("esnno", "unknown")
+    repop = parsed.get("repop", "")
     if repop == "off":
-        state = "CRIT"
-        summary = "Repeater operation status: off"
+        status = 2
     elif repop == "on":
-        state = "OK"
-        summary = "Repeater operation status: on"
+        status = 0
     else:
-        state = "UNKNOWN"
-        summary = "Repeater operation status unknown"
+        status = 3
+    state_names = ["OK", "WARN", "CRIT", "UNKNOWN"]
+    msg = "ESN Number: %s" % esn
+    details = "Repeater operation status: %s" % repop
+    return {"changed": False, "msg": msg, "data": {"state": state_names[status], "metrics": {}, "details": details}}
 
-    metrics = {}
-    if repop == "on":
-        metrics["repeater_operation_status"] = 0
-    elif repop == "off":
-        metrics["repeater_operation_status"] = 2
-    else:
-        metrics["repeater_operation_status"] = 3
-
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
-
-
-def _check_temperature(ctx, community, host, warn, crit, warn_lower, crit_lower):
-    section = _parse_icom_repeater_real(ctx, community, host)
-    if "temp" not in section:
-        return {"changed": False, "msg": "temperature data missing", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    reading = section["temp"]
-    dev_status = section.get("temp_devstatus", 0)
-
-    state = "OK"
-    summary = "%f C" % reading
-    if dev_status == 2:
-        state = "CRIT"
-        summary = "Abnormal temperature detection: %f C" % reading
-    else:
-        if reading >= crit or reading <= crit_lower:
-            state = "CRIT"
-        elif reading >= warn or reading <= warn_lower:
-            state = "WARN"
-
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {"temp": reading}, "details": ""}}
-
-
-def _check_ps_volt(ctx, community, host, levels_upper, levels_lower):
-    section = _parse_icom_repeater_real(ctx, community, host)
-    if "ps_voltage" not in section:
-        return {"changed": False, "msg": "power supply voltage data missing", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    voltage = section["ps_voltage"]
-    warn_u, crit_u = levels_upper
-    warn_l, crit_l = levels_lower
-
-    state = "OK"
-    summary = "%f V" % voltage
-    if voltage >= crit_u or voltage <= crit_l:
-        state = "CRIT"
-    elif voltage >= warn_u or voltage <= warn_l:
-        state = "WARN"
-
-    if state != "OK":
-        summary += " (warn/crit below %f/%f V and at or above %f/%f V)" % (warn_l, crit_l, warn_u, crit_u)
-
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {"voltage": voltage}, "details": ""}}
-
-
-def _check_pll_volt(ctx, community, host, item, pll_params):
-    section = _parse_icom_repeater_real(ctx, community, host)
-    key = item.lower() + "_pll_lock_voltage"
-    if key not in section:
-        return {"changed": False, "msg": item + " PLL lock voltage data missing", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    voltage = section[key]
-    freq = section.get("repeater_frequency", {}).get(item.lower(), 0)
-
-    paramlist = pll_params.get(item.lower(), [])
-
+def _check_pll(parsed, item, params):
+    key = item.lower()
+    voltage = parsed.get(key + "_pll_lock_voltage", 0.0)
+    freq_map = parsed.get("repeater_frequency", {})
+    freq_val = freq_map.get(key, 0) if freq_map else 0
+    paramlist = params.get(key, None)
     if not paramlist:
-        return {"changed": False, "msg": "Please specify parameters for PLL voltage",
-                "data": {"state": "WARN", "metrics": {"voltage": voltage}, "details": ""}}
-
-    warn_lower, crit_lower, warn, crit = (0.0, 0.0, 0.0, 0.0)
-    i = 0
-    found = False
-    while i < len(paramlist):
-        if paramlist[i][0] >= freq:
-            if i > 0:
-                _, warn_lower, crit_lower, warn, crit = paramlist[i - 1]
-            found = True
+        details = "voltage=%f" % voltage
+        return {"changed": False, "msg": "Please specify parameters for PLL voltage", "data": {"state": "WARN", "metrics": {"voltage": voltage}, "details": details}}
+    warn_lower = 0.0
+    crit_lower = 0.0
+    warn = 0.0
+    crit = 0.0
+    for entry in paramlist:
+        if len(entry) >= 5 and entry[0] >= freq_val:
+            warn_lower = entry[1]
+            crit_lower = entry[2]
+            warn = entry[3]
+            crit = entry[4]
             break
-        i += 1
-
-    if not found and paramlist:
-        _, warn_lower, crit_lower, warn, crit = paramlist[-1]
-
-    summary = "%f V" % voltage
-    levelstext = " (warn/crit below %f/%f V and at or above %f/%f V)" % (warn_lower, crit_lower, warn, crit)
+    status = 0
     if voltage < crit_lower or voltage >= crit:
-        state = "CRIT"
+        status = 2
     elif voltage < warn_lower or voltage >= warn:
-        state = "WARN"
-    else:
-        state = "OK"
-
-    if state != "OK":
-        summary += levelstext
-
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {"voltage": voltage}, "details": ""}}
+        status = 1
+    state_names = ["OK", "WARN", "CRIT", "UNKNOWN"]
+    msg = "%f V" % voltage
+    details = "Voltage %f V (freq=%d, warn=%f/%f, crit=%f/%f)" % (voltage, freq_val, warn_lower, crit_lower, warn, crit)
+    return {"changed": False, "msg": msg, "data": {"state": state_names[status], "metrics": {"voltage": voltage}, "details": details}}

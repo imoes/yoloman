@@ -1,204 +1,178 @@
-# Module-level constants (required for SNMP OID mapping and state labels)
-_HUAWEI_WLC_OIDS = {
-    "ap_info_base": ".1.3.6.1.4.1.2011.6.139.13.3.3.1",
-    "radio_info_base": ".1.3.6.1.4.1.2011.6.139.16.1.2.1",
-    "sys_oid": ".1.3.6.1.2.1.1.2.0",
-    "detect_oid": ".1.3.6.1.4.1.2011.2.240.17",
+# Huawei WLC APs Temperature check — read-only Starlark translation
+# Source check: checkmk.huawei_wlc_aps_temp
+# Data source: SNMP (Huawei WLAN Controller AP table)
+
+_AP_STATE_MAP = {
+    "1": ("Idle", "CRIT"),
+    "2": ("Auto find", "WARN"),
+    "3": ("Type not match", "CRIT"),
+    "4": ("Fault", "CRIT"),
+    "5": ("Config", "CRIT"),
+    "6": ("Config failed", "CRIT"),
+    "7": ("Download", "WARN"),
+    "8": ("Normal", "OK"),
+    "9": ("Committing", "CRIT"),
+    "10": ("Commit failed", "CRIT"),
+    "11": ("Standy", "WARN"),
+    "12": ("Version mismatch", "CRIT"),
+    "13": ("Name conflicted", "CRIT"),
+    "14": ("Invalid", "CRIT"),
+    "15": ("Country code mismatch", "CRIT"),
 }
 
-_AP_STATE_LABELS = {
-    "1": "Idle",
-    "2": "Auto find",
-    "3": "Type not match",
-    "4": "Fault",
-    "5": "Config",
-    "6": "Config failed",
-    "7": "Download",
-    "8": "Normal",
-    "9": "Committing",
-    "10": "Commit failed",
-    "11": "Standy",
-    "12": "Version mismatch",
-    "13": "Name conflicted",
-    "14": "Invalid",
-    "15": "Country code mismatch",
-}
+def _to_float(s):
+    if s == None or s == "":
+        return None
+    cleaned = s.strip()
+    if cleaned == "":
+        return None
+    neg = False
+    start = 0
+    if cleaned.startswith("-"):
+        neg = True
+        start = 1
+    body = cleaned[start:]
+    valid = True
+    has_dot = False
+    for ch in body:
+        if ch == ".":
+            if has_dot:
+                valid = False
+                break
+            has_dot = True
+        elif ch < "0" or ch > "9":
+            valid = False
+            break
+    if not valid:
+        return None
+    return float(cleaned)
 
-_AP_STATE_TO_OKWARNCRIT = {
-    "1": "CRIT",  # Idle -> CRIT
-    "2": "WARN",  # Auto find -> WARN
-    "3": "CRIT",  # Type not match -> CRIT
-    "4": "CRIT",  # Fault -> CRIT
-    "5": "CRIT",  # Config -> CRIT
-    "6": "CRIT",  # Config failed -> CRIT
-    "7": "WARN",  # Download -> WARN
-    "8": "OK",    # Normal -> OK
-    "9": "CRIT",  # Committing -> CRIT
-    "10": "CRIT", # Commit failed -> CRIT
-    "11": "WARN", # Standy -> WARN
-    "12": "CRIT", # Version mismatch -> CRIT
-    "13": "CRIT", # Name conflicted -> CRIT
-    "14": "CRIT", # Invalid -> CRIT
-    "15": "CRIT", # Country code mismatch -> CRIT
-}
+def _grade_temp(value, levels):
+    warn = levels[0]
+    crit = levels[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
 
-_RADIO_STATE_LABELS = {
-    "1": "up",
-    "2": "down",
-}
+def _get_ap_table(ctx, host, community):
+    base1 = ".1.3.6.1.4.1.2011.6.139.13.3.3.1"
+    cols1 = ["6", "40", "41", "43", "44"]
+    col_data = {}
+    for col in cols1:
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base1 + "." + col],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return None
+        lines = res.stdout.strip().splitlines()
+        for line in lines:
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            full_oid = parts[0]
+            val = parts[1].strip()
+            prefix = base1 + "." + col
+            if full_oid.startswith(prefix + "."):
+                idx = full_oid[len(prefix) + 1:]
+            else:
+                idx = ""
+            row = col_data.get(idx)
+            if row == None:
+                row = {}
+                col_data[idx] = row
+            row[col] = val
 
-_RADIO_STATE_TO_OKWARNCRIT = {
-    "1": "OK",
-    "2": "CRIT",
-}
+    base2 = ".1.3.6.1.4.1.2011.6.139.16.1.2.1"
+    res2 = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base2 + ".3"],
+        mutates=False,
+    )
+    ap_id_map = {}
+    if res2.rc == 0:
+        for line in res2.stdout.strip().splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            full_oid = parts[0]
+            val = parts[1].strip()
+            if full_oid.startswith(base2 + ".3."):
+                idx = full_oid[len(base2 + ".3") + 1:]
+            else:
+                idx = ""
+            ap_id_map[idx] = val
 
-
-def _get_snmp_value(lines, base_oid):
-    """Convert snmpwalk output lines into a dict: OID -> value."""
-    result = {}
-    for line in lines:
-        if line.find(" = ") < 0:
-            continue
-        idx = line.find(" = ")
-        oid_part = line[:idx].strip()
-        value_part = line[idx + 3:].strip()
-        # Extract suffix after base_oid
-        base_clean = base_oid.rstrip(".")
-        if oid_part.startswith(base_clean):
-            suffix = oid_part[len(base_clean):].lstrip(".")
-        else:
-            suffix = oid_part
-        result[suffix] = value_part
-
-
-def _is_huawei_wlc_device(ctx):
-    # Detect Huawei WLC via sysObjectID
-    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-On", "localhost", _HUAWEI_WLC_OIDS["sys_oid"]], mutates=False)
-    if res.rc != 0:
-        return False
-    output = res.stdout.strip()
-    if output.find(_HUAWEI_WLC_OIDS["detect_oid"]) >= 0:
-        return True
-    return False
-
+    table = {}
+    for idx, cols in col_data.items():
+        ap_id = ap_id_map.get(idx, idx)
+        table[ap_id] = {
+            "status": cols.get("6", ""),
+            "mem": cols.get("40", ""),
+            "cpu": cols.get("41", ""),
+            "temp": cols.get("43", ""),
+            "con_users": cols.get("44", ""),
+        }
+    return table
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+
     if params.get("_discover"):
-        # Detect device type
-        if not _is_huawei_wlc_device(ctx):
-            return {"changed": False, "msg": "no Huawei WLC detected", "data": {"discovery": []}}
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {"changed": False, "msg": "discovery failed", "data": {"discovery": []}}
+        sysoid = res.stdout.strip()
+        if sysoid.find("2011.2.240.17") == -1 and sysoid.find("2011.6.139.13") == -1:
+            return {"changed": False, "msg": "not a Huawei WLC", "data": {"discovery": []}}
 
-        # Fetch both tables
-        res1 = ctx.run(["snmpwalk", "-v2c", "-c", "public", "-On", "localhost",
-                        _HUAWEI_WLC_OIDS["ap_info_base"]], mutates=False)
-        if res1.rc != 0:
-            return {"changed": False, "msg": "AP info table fetch failed", "data": {"discovery": []}}
+        table = _get_ap_table(ctx, host, community)
+        if table == None:
+            return {"changed": False, "msg": "could not fetch AP table", "data": {"discovery": []}}
 
-        res2 = ctx.run(["snmpwalk", "-v2c", "-c", "public", "-On", "localhost",
-                        _HUAWEI_WLC_OIDS["radio_info_base"]], mutates=False)
-        if res2.rc != 0:
-            return {"changed": False, "msg": "Radio info table fetch failed", "data": {"discovery": []}}
-
-        # Parse AP table
-        ap_raw = _get_snmp_value(res1.stdout.splitlines(), _HUAWEI_WLC_OIDS["ap_info_base"])
-        # Parse radio table
-        radio_raw = _get_snmp_value(res2.stdout.splitlines(), _HUAWEI_WLC_OIDS["radio_info_base"])
-
-        # Extract AP IDs (from radio table base)
-        ap_ids = set()
-        for suffix in radio_raw.keys():
-            # Radio table structure: apID.radioIdx OID suffix
-            parts = suffix.split(".")
-            if len(parts) >= 2 and parts[0].isdigit():
-                ap_ids.add(parts[0])
-
-        # Build discovery list
-        items = []
-        for ap_id in sorted(ap_ids):
-            items.append({
+        discovery = []
+        for ap_id in sorted(table.keys()):
+            discovery.append({
                 "item": ap_id,
-                "params": {
-                    "levels": (70.0, 75.0),
-                },
+                "params": {"levels": [70.0, 75.0]},
                 "metrics": ["temperature"],
             })
-
         return {
             "changed": False,
-            "msg": "discovered %d APs" % len(items),
-            "data": {"discovery": items},
+            "msg": "discovered %d APs" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {"cmk/os_family": "huawei_wlc"}},
         }
 
-    # --- CHECK MODE ---
-    item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "item must be provided",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    levels = params.get("levels", [70.0, 75.0])
+    table = _get_ap_table(ctx, host, community)
+    if table == None:
+        return {"changed": False, "msg": "not a Huawei WLC or no data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Fetch both tables again for this check
-    res1 = ctx.run(["snmpwalk", "-v2c", "-c", "public", "-On", "localhost",
-                    _HUAWEI_WLC_OIDS["ap_info_base"]], mutates=False)
-    if res1.rc != 0:
-        return {
-            "changed": False,
-            "msg": "AP info table fetch failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    data = table.get(item)
+    if data == None:
+        return {"changed": False, "msg": "AP %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    res2 = ctx.run(["snmpwalk", "-v2c", "-c", "public", "-On", "localhost",
-                    _HUAWEI_WLC_OIDS["radio_info_base"]], mutates=False)
-    if res2.rc != 0:
-        return {
-            "changed": False,
-            "msg": "Radio info table fetch failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    temp_raw = data["temp"]
+    if temp_raw == "255":
+        return {"changed": False, "msg": "AP " + item + " Temperature: not available", "data": {"state": "OK", "metrics": {}, "details": "temperature sensor reports invalid (255)"}}
 
-    # Parse data
-    ap_raw = _get_snmp_value(res1.stdout.splitlines(), _HUAWEI_WLC_OIDS["ap_info_base"])
-    radio_raw = _get_snmp_value(res2.stdout.splitlines(), _HUAWEI_WLC_OIDS["radio_info_base"])
+    temp = _to_float(temp_raw)
+    if temp == None:
+        return {"changed": False, "msg": "AP " + item + " Temperature: " + str(temp_raw), "data": {"state": "OK", "metrics": {}, "details": str(temp_raw)}}
 
-    # Find AP's temp OID: ap_id.43 -> temp value
-    temp_oid_suffix = item + ".43"
-    temp_str = ap_raw.get(temp_oid_suffix, "")
-
-    # "invalid" (255) maps to "invalid" string; anything else parsed as float
-    temp_value = "invalid"
-    if temp_str == "255":
-        temp_value = "invalid"
-    elif temp_str.isdigit() or (temp_str.startswith("-") and temp_str[1:].isdigit()):
-        temp_value = float(temp_str)
-
-    # Extract thresholds from params
-    levels = params.get("levels", (70.0, 75.0))
-    warn, crit = levels
-
-    # Determine state and message
-    if temp_value == "invalid":
-        state = "OK"
-        msg = "invalid"
-    else:
-        # Temperature check: upper levels
-        if temp_value >= crit:
-            state = "CRIT"
-        elif temp_value >= warn:
-            state = "WARN"
-        else:
-            state = "OK"
-        msg = "%f C" % temp_value
-
-    # Build metrics
-    metrics = {"temperature": temp_value} if temp_value != "invalid" else {}
-
+    state = _grade_temp(temp, levels)
     return {
         "changed": False,
-        "msg": "AP %s temperature: %s" % (item, msg),
+        "msg": "AP " + item + " Temperature: %f C" % temp,
         "data": {
             "state": state,
-            "metrics": metrics,
-            "details": "",
+            "metrics": {"temperature": temp},
+            "details": "AP %s temperature: %f C" % (item, temp),
         },
     }

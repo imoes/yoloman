@@ -1,103 +1,139 @@
-def _state_max(a, b):
-    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
-    if order.get(b, 0) > order.get(a, 0):
-        return b
-    return a
-
 def main(ctx, params):
+    # Discovery mode: probe for check_tcp binary
     if params.get("_discover"):
-        return {"changed": False, "msg": "active check (assign with parameters)", "data": {"discovery": []}}
-
-    host = params.get("host") or ""
-    port = int(params.get("port") or 0)
-    timeout_s = params.get("timeout_s") or 10
-    use_ssl = params.get("ssl") or False
-    send_string = params.get("send_string") or ""
-
-    if params.get("escape_send_string"):
-        send_string = send_string.replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
-
-    probe = ctx.probe("tcp", {
-        "host": host,
-        "port": port,
-        "timeout_s": timeout_s,
-        "send": send_string,
-        "tls": use_ssl,
-        "verify_tls": use_ssl,
-    })
-
-    err = probe.get("error") or ""
-    if err:
-        refuse_state = (params.get("refuse_state") or "crit").upper()
-        if "refused" in err.lower():
-            return {
-                "changed": False,
-                "msg": refuse_state,
-                "data": {
-                    "state": refuse_state,
-                    "metrics": {},
-                    "details": "Connection refused to %s:%d" % (host, port),
-                },
-            }
+        probe = ctx.run(["which", "check_tcp"], mutates=False)
+        if probe.rc != 0:
+            return {"changed": False, "msg": "check_tcp not installed", "data": {"discovery": []}}
+        
+        port = params.get("port", 80)
         return {
             "changed": False,
-            "msg": "CRIT",
-            "data": {"state": "CRIT", "metrics": {}, "details": err},
+            "msg": "discovered TCP port check",
+            "data": {
+                "discovery": [
+                    {
+                        "item": str(port),
+                        "params": {
+                            "port": port,
+                            "warn": 1.0,
+                            "crit": 2.0,
+                        },
+                        "metrics": ["response_time"],
+                    }
+                ]
+            },
         }
-
-    connect_ms = float(probe.get("connect_ms") or 0)
-    state = "OK"
-    problems = []
-    metrics = {"connect_ms": connect_ms}
-
-    resp_warn = params.get("response_time_warn_s")
-    resp_crit = params.get("response_time_crit_s")
-    if resp_crit != None and connect_ms >= resp_crit * 1000:
-        state = _state_max(state, "CRIT")
-        problems.append("response time %d ms" % int(connect_ms))
-    elif resp_warn != None and connect_ms >= resp_warn * 1000:
-        state = _state_max(state, "WARN")
-        problems.append("response time %d ms" % int(connect_ms))
-
-    expect = params.get("expect") or []
-    if expect:
-        received = probe.get("received") or ""
-        jail = params.get("jail") or False
-        mismatch_state = (params.get("mismatch_state") or "warn").upper()
-        expect_all = params.get("expect_all") or False
-
-        if expect_all:
-            missing = [s for s in expect if s not in received]
-            if missing:
-                state = _state_max(state, mismatch_state)
-                problems.append("missing: " + ", ".join(missing))
-        else:
-            found = False
-            for s in expect:
-                if s in received:
-                    found = True
-                    break
-            if not found:
-                state = _state_max(state, mismatch_state)
-                problems.append("none of expected strings found")
-
-        if not jail and received:
-            problems.append("response: " + received[:200])
-
-    cert_days_left = probe.get("cert_days_left")
-    if use_ssl and cert_days_left != None:
-        metrics["cert_days_left"] = float(cert_days_left)
-        cert_crit = params.get("cert_days_crit")
-        cert_warn = params.get("cert_days_warn")
-        if cert_crit != None and cert_days_left <= cert_crit:
-            state = _state_max(state, "CRIT")
-            problems.append("cert expires in %d days" % int(cert_days_left))
-        elif cert_warn != None and cert_days_left <= cert_warn:
-            state = _state_max(state, "WARN")
-            problems.append("cert expires in %d days" % int(cert_days_left))
-
-    detail = "TCP %s:%d connected in %d ms" % (host, port, int(connect_ms))
-    if problems:
-        detail += " | " + "; ".join(problems)
-
-    return {"changed": False, "msg": state, "data": {"state": state, "metrics": metrics, "details": detail}}
+    
+    # Check mode: run check_tcp and parse result
+    port = int(params.get("item", params.get("port", 80)))
+    host = params.get("host", "localhost")
+    warn_default = params.get("warn", 1.0)
+    crit_default = params.get("crit", 2.0)
+    
+    # Verify check_tcp is available
+    probe = ctx.run(["which", "check_tcp"], mutates=False)
+    if probe.rc != 0:
+        return {
+            "changed": False,
+            "msg": "check_tcp not installed on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    
+    # Build check_tcp arguments
+    args = ["-p", str(port), "-H", host]
+    
+    timeout = params.get("timeout")
+    if timeout != None:
+        args = args + ["-t", str(int(timeout))]
+    
+    warn = params.get("warn")
+    crit = params.get("crit")
+    if warn != None and crit != None:
+        args = args + ["-w", str(warn), "-c", str(crit)]
+    elif warn != None:
+        args = args + ["-w", str(warn)]
+    elif crit != None:
+        args = args + ["-c", str(crit)]
+    
+    expect = params.get("expect", [])
+    if expect != None:
+        for e in expect:
+            args = args + ["-e", e]
+    
+    send_string = params.get("send_string")
+    if send_string != None:
+        args = args + ["-s", send_string]
+    
+    quit_string = params.get("quit_string")
+    if quit_string != None:
+        args = args + ["-q", quit_string]
+    
+    # Run check_tcp
+    res = ctx.run(["check_tcp"] + args, mutates=False)
+    
+    # Parse output: check_tcp format is "PORT STATUS - message | perfdata"
+    stdout = res.stdout
+    stderr = res.stderr
+    output = stdout
+    if not output or output.strip() == "":
+        output = stderr
+    
+    # check_tcp exit codes: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN
+    if res.rc == 0:
+        state = "OK"
+    elif res.rc == 1:
+        state = "WARN"
+    elif res.rc == 2:
+        state = "CRIT"
+    else:
+        state = "UNKNOWN"
+    
+    # Parse response time from perfdata if available
+    response_time = 0.0
+    metrics = {}
+    details = output.strip()
+    
+    # Try to extract perfdata from the output
+    if "|" in details:
+        parts = details.split("|")
+        if len(parts) >= 2:
+            perfdata = parts[-1].strip()
+            # Check for response_time in perfdata
+            tokens = perfdata.split()
+            for t in tokens:
+                if t.startswith("rta=") or t.startswith("response_time="):
+                    val_part = t.split("=")[1] if "=" in t else ""
+                    # Take the numeric part before any unit
+                    val_str = ""
+                    for ch in val_part:
+                        if ch.isdigit() or ch == ".":
+                            val_str = val_str + ch
+                        elif val_str != "":
+                            break
+                    if val_str != "" and val_str != ".":
+                        response_time = float(val_str)
+                        metrics["response_time"] = response_time
+                        break
+    
+    # Apply threshold logic if we have warn/crit levels for response_time
+    if response_time > 0 and (warn != None or crit != None):
+        w = warn if warn != None else warn_default
+        c = crit if crit != None else crit_default
+        if response_time >= c:
+            state = "CRIT"
+        elif response_time >= w:
+            state = "WARN"
+    
+    msg_parts = []
+    if "|" in details:
+        msg_parts.append(details.split("|")[0].strip())
+    else:
+        msg_parts.append(details)
+    if response_time > 0:
+        msg_parts.append("rta=%fs" % response_time)
+    
+    return {
+        "changed": False,
+        "msg": " ".join(msg_parts),
+        "data": {"state": state, "metrics": metrics, "details": details},
+    }

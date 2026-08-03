@@ -1,142 +1,53 @@
-# Top-level constant for SNMP OID base
-PALO_ALTO_OID_BASE = ".1.3.6.1.4.1.25461.2.1.2.5.1"
+def _levels(params):
+    levels = params.get("levels", "ignore")
+    if levels == "ignore":
+        return None, None
+    kind = levels[0]
+    thr = levels[1]
+    if kind == "abs_user":
+        return thr, None
+    if kind == "perc_user":
+        return None, thr
+    return None, None
+
+def _grade_upper(value, levels):
+    if levels == None:
+        return "OK"
+    warn = levels[0]
+    crit = levels[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
 
 def main(ctx, params):
-    # Determine mode: discovery or check
-    if params.get("_discover") == True:
-        # Discovery: always yields one service
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {"levels": "ignore"},
-                        "metrics": ["num_user", "max_user", "user_perc"]
-                    }
-                ]
-            }
-        }
-    
-    # Check mode
-    # Fetch SNMP data: panGPGWUtilizationMaxTunnels (2.0) and panGPGWUtilizationActiveTunnels (3.0)
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        PALO_ALTO_OID_BASE
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse output lines to extract the two values
-    max_users = None
-    num_users = None
-    for line in res.stdout.splitlines():
-        if line == "":
-            continue
-        # Format: OID = STRING: value
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        # Extract the numeric suffix from the OID
-        suffix = oid_part.rsplit(".", 1)[-1]
-        if suffix == "2.0":
-            # panGPGWUtilizationMaxTunnels
-            value_str = value_part.split(": ")[-1] if ": " in value_part else value_part
-            if value_str.isdigit():
-                max_users = int(value_str)
-        elif suffix == "3.0":
-            # panGPGWUtilizationActiveTunnels
-            value_str = value_part.split(": ")[-1] if ": " in value_part else value_part
-            if value_str.isdigit():
-                num_users = int(value_str)
-    
-    if max_users == None or num_users == None:
-        return {
-            "changed": False,
-            "msg": "could not parse SNMP data for Palo Alto users",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    if max_users <= 0:
-        return {
-            "changed": False,
-            "msg": "max users is zero or negative",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    user_perc = float(num_users) / float(max_users) * 100.0
-    
-    # Extract levels from params; default is "ignore"
-    levels = params.get("levels", "ignore")
-    abs_levels = None
-    perc_levels = None
-    
-    if levels == "ignore":
-        abs_levels = None
-        perc_levels = None
-    elif type(levels) == "list" and len(levels) >= 2:
-        # Handle legacy format: [type, thresholds] where type is "abs_user" or "perc_user"
-        level_type = levels[0]
-        thresholds = levels[1]
-        if level_type == "abs_user" and thresholds != None:
-            abs_levels = thresholds
-            perc_levels = None
-        elif level_type == "perc_user" and thresholds != None:
-            abs_levels = None
-            perc_levels = thresholds
+    if params.get("_discover"):
+        sys_oid = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        if sys_oid.rc != 0 or "25461" not in sys_oid.stdout:
+            return {"changed": False, "msg": "Palo Alto device not found", "data": {"discovery": []}}
+        max_users_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.25461.2.1.2.5.1.2.0"], mutates=False)
+        num_users_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.25461.2.1.2.5.1.3.0"], mutates=False)
+        if max_users_res.rc != 0 or num_users_res.rc != 0:
+            return {"changed": False, "msg": "Palo Alto users OID not available", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [{"item": "", "params": {"levels": "ignore"}, "metrics": ["num_user", "max_user"]}]}}
+
+    item = params.get("item", "")
+    max_users_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.25461.2.1.2.5.1.2.0"], mutates=False)
+    num_users_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.25461.2.1.2.5.1.3.0"], mutates=False)
+    if max_users_res.rc != 0 or num_users_res.rc != 0:
+        return {"changed": False, "msg": "no Palo Alto users data found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    max_users = int(max_users_res.stdout.strip())
+    num_users = int(num_users_res.stdout.strip())
+    user_perc = num_users / max_users * 100 if max_users > 0 else 0
+    abs_levels, perc_levels = _levels(params)
+    state_abs = _grade_upper(num_users, abs_levels)
+    state_perc = _grade_upper(user_perc, perc_levels)
+    if state_abs == "CRIT" or state_perc == "CRIT":
+        state = "CRIT"
+    elif state_abs == "WARN" or state_perc == "WARN":
+        state = "WARN"
     else:
-        abs_levels = None
-        perc_levels = None
-    
-    # Determine state based on levels
-    state = "OK"
-    details = ""
-    
-    # Absolute levels check (upper bounds only)
-    if abs_levels != None:
-        if len(abs_levels) >= 1 and num_users >= abs_levels[0]:
-            state = "WARN"
-            details = "absolute users exceed warn threshold"
-        if len(abs_levels) >= 2 and num_users >= abs_levels[1]:
-            state = "CRIT"
-            details = "absolute users exceed crit threshold"
-    
-    # Relative levels check (upper bounds only)
-    if state == "OK" and perc_levels != None:
-        if len(perc_levels) >= 1 and user_perc >= perc_levels[0]:
-            state = "WARN"
-            details = "percentage users exceed warn threshold"
-        if len(perc_levels) >= 2 and user_perc >= perc_levels[1]:
-            state = "CRIT"
-            details = "percentage users exceed crit threshold"
-    
-    # Build summary
-    summary = "Number of logged in users: %f%% - %d of %d" % (user_perc, num_users, max_users)
-    
-    metrics = {
-        "num_user": num_users,
-        "max_user": max_users,
-        "user_perc": user_perc
-    }
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": details
-        }
-    }
+        state = "OK"
+    msg = "Number of logged in users: %f%% - %d of %d" % (user_perc, num_users, max_users)
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"num_user": num_users, "max_user": max_users}, "details": ""}}

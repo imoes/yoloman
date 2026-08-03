@@ -1,98 +1,167 @@
-# ===== Constants for alarm definitions =====
+# Translation of Checkmk check ups_modulys_alarms -> read-only Starlark check module.
+# SNMP-based check for Modulys UPS alarms at .1.3.6.1.4.1.2254.2.4.
+
 OIDDEF = {
-    "1": {"state": "CRIT", "summary": "Disconnect"},
-    "2": {"state": "CRIT", "summary": "Input power failure"},
-    "3": {"state": "CRIT", "summary": "Low batteries"},
-    "4": {"state": "WARN", "summary": "High load"},
-    "5": {"state": "CRIT", "summary": "Severley high load"},
-    "6": {"state": "CRIT", "summary": "On bypass"},
-    "7": {"state": "CRIT", "summary": "General failure"},
-    "8": {"state": "CRIT", "summary": "Battery ground fault"},
-    "9": {"state": "OK", "summary": "UPS test in progress"},
-    "10": {"state": "CRIT", "summary": "UPS test failure"},
-    "11": {"state": "CRIT", "summary": "Fuse failure"},
-    "12": {"state": "CRIT", "summary": "Output overload"},
-    "13": {"state": "CRIT", "summary": "Output overcurrent"},
-    "14": {"state": "CRIT", "summary": "Inverter abnormal"},
-    "15": {"state": "CRIT", "summary": "Rectifier abnormal"},
-    "16": {"state": "CRIT", "summary": "Reserve abnormal"},
-    "17": {"state": "WARN", "summary": "On reserve"},
-    "18": {"state": "CRIT", "summary": "Overheating"},
-    "19": {"state": "CRIT", "summary": "Output abnormal"},
-    "20": {"state": "CRIT", "summary": "Bypass bad"},
-    "21": {"state": "OK", "summary": "In standby mode"},
-    "22": {"state": "CRIT", "summary": "Charger failure"},
-    "23": {"state": "CRIT", "summary": "Fan failure"},
-    "24": {"state": "OK", "summary": "In economic mode"},
-    "25": {"state": "WARN", "summary": "Output turned off"},
-    "26": {"state": "WARN", "summary": "Smart shutdown in progress"},
-    "27": {"state": "CRIT", "summary": "Emergency power off"},
-    "28": {"state": "WARN", "summary": "Shutdown"},
-    "29": {"state": "CRIT", "summary": "Output breaker open"},
+    "1": ("CRIT", "Disconnect"),
+    "2": ("CRIT", "Input power failure"),
+    "3": ("CRIT", "Low batteries"),
+    "4": ("WARN", "High load"),
+    "5": ("CRIT", "Severley high load"),
+    "6": ("CRIT", "On bypass"),
+    "7": ("CRIT", "General failure"),
+    "8": ("CRIT", "Battery ground fault"),
+    "9": ("OK", "UPS test in progress"),
+    "10": ("CRIT", "UPS test failure"),
+    "11": ("CRIT", "Fuse failure"),
+    "12": ("CRIT", "Output overload"),
+    "13": ("CRIT", "Output overcurrent"),
+    "14": ("CRIT", "Inverter abnormal"),
+    "15": ("CRIT", "Rectifier abnormal"),
+    "16": ("CRIT", "Reserve abnormal"),
+    "17": ("WARN", "On reserve"),
+    "18": ("CRIT", "Overheating"),
+    "19": ("CRIT", "Output abnormal"),
+    "20": ("CRIT", "Bypass bad"),
+    "21": ("OK", "In standby mode"),
+    "22": ("CRIT", "Charger failure"),
+    "23": ("CRIT", "Fan failure"),
+    "24": ("OK", "In economic mode"),
+    "25": ("WARN", "Output turned off"),
+    "26": ("WARN", "Smart shutdown in progress"),
+    "27": ("CRIT", "Emergency power off"),
+    "28": ("WARN", "Shutdown"),
+    "29": ("CRIT", "Output breaker open"),
 }
 
+BASE_OID = ".1.3.6.1.4.1.2254.2.4"
+ALARM_COL_OID = BASE_OID + ".9"
+MODULYS_SYSOID = ".1.3.6.1.4.1.2254.2.4"
+
+
+def _split_first(s, sep):
+    idx = s.find(sep)
+    if idx < 0:
+        return None, None
+    return s[:idx], s[idx + len(sep):]
+
+
+def _is_modulys_up(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+    res = ctx.run(
+        ["snmpget", "-v" + version, "-c", community, "-Ovqn", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False, res
+    val = res.stdout.strip()
+    if not val:
+        return False, res
+    if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        val = val[1:-1]
+    return val == MODULYS_SYSOID, res
+
+
+def _probe_alarms(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+    res = ctx.run(
+        ["snmpwalk", "-v" + version, "-c", community, "-Oqn", host, ALARM_COL_OID],
+        mutates=False,
+    )
+    rows = []
+    if res.rc == 0 and res.stdout:
+        lines = res.stdout.splitlines()
+        for idx in range(len(lines)):
+            line = lines[idx]
+            stripped = line.strip()
+            if not stripped:
+                continue
+            oid, rest = _split_first(stripped, " ")
+            if oid == None:
+                continue
+            suffix = oid[len(ALARM_COL_OID) + 1:]
+            value = rest.strip()
+            rows.append((suffix, value))
+    return rows, res
+
+
+def _worst_state(alarms):
+    state_rank = {"OK": 0, "WARN": 1, "CRIT": 2}
+    worst = "OK"
+    for entry in alarms:
+        s = entry[0]
+        if state_rank.get(s, 2) > state_rank.get(worst, 0):
+            worst = s
+    return worst
+
+
+def _join_summaries(alarms):
+    parts = []
+    for entry in alarms:
+        parts.append(entry[1])
+    return ", ".join(parts)
+
+
 def main(ctx, params):
-    # Discovery mode
+    # ---- DISCOVERY ----
     if params.get("_discover"):
-        res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost", ".1.3.6.1.4.1.2254.2.4", "9"], mutates=False)
-        # Check if any data is present by probing the OID tree
-        if not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 item",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
-    
-    # Check mode (single service)
-    res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost", ".1.3.6.1.4.1.2254.2.4", "9"], mutates=False)
-    lines = res.stdout.splitlines() if res.stdout else []
-    
-    # Parse snmpwalk output: each line is "oid.oidend value"
-    found_any = False
-    result_lines = []
-    state_crit = False
-    state_warn = False
-    
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.strip().split()
-        if len(parts) < 2:
-            continue
-        oidend = parts[0].rsplit(".", 1)[-1]
-        flag = parts[1]
-        
-        # Only process if flag is a non-zero integer and not "NULL"
-        if flag != "NULL" and flag.isdigit() and int(flag) != 0:
-            found_any = True
-            alarm = OIDDEF.get(oidend, {"state": "UNKNOWN", "summary": "Unknown alarm"})
-            result_lines.append(alarm["summary"])
-            if alarm["state"] == "CRIT":
-                state_crit = True
-            elif alarm["state"] == "WARN":
-                state_warn = True
-    
-    # Determine overall state
-    if not found_any:
-        state = "OK"
-        msg = "No alarms"
-        details = ""
-    else:
-        # Checkmk style: CRIT takes precedence over WARN over OK
-        if state_crit:
-            state = "CRIT"
-        elif state_warn:
-            state = "WARN"
-        else:
-            state = "OK"
-        msg = ", ".join(result_lines) if result_lines else "Alarms detected"
-        details = ""
-    
+        is_modulys, _det = _is_modulys_up(ctx, params)
+        if not is_modulys:
+            return {
+                "changed": False,
+                "msg": "not a Modulys UPS (sysObjectID match failed or unreachable)",
+                "data": {"discovery": []},
+            }
+        _rows, _walk = _probe_alarms(ctx, params)
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": [],
+                    }
+                ],
+            },
+        }
+
+    # ---- CHECK (single service, item "") ----
+    is_modulys, _det = _is_modulys_up(ctx, params)
+    if not is_modulys:
+        return {
+            "changed": False,
+            "msg": "no Modulys UPS found (sysObjectID mismatch or unreachable)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    rows, _walk = _probe_alarms(ctx, params)
+    alarms = []
+    for entry in rows:
+        suffix = entry[0]
+        flag = entry[1]
+        if flag and flag != "NULL" and flag.isdigit() and int(flag):
+            desc = OIDDEF.get(suffix)
+            if desc != None:
+                alarms.append(desc)
+            else:
+                alarms.append(("CRIT", "Unknown alarm (" + suffix + ")"))
+
+    if not alarms:
+        return {
+            "changed": False,
+            "msg": "No alarms",
+            "data": {"state": "OK", "metrics": {}, "details": ""},
+        }
+
+    worst = _worst_state(alarms)
+    summaries = _join_summaries(alarms)
     return {
         "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": details,
-        },
+        "msg": summaries,
+        "data": {"state": worst, "metrics": {}, "details": summaries},
     }

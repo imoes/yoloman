@@ -1,149 +1,189 @@
-def main(ctx, params):
-    # Constants
-    NETCTR_COUNTERS = [
-        "rx_bytes",
-        "tx_bytes",
-        "rx_packets",
-        "tx_packets",
-        "rx_errors",
-        "tx_errors",
-        "tx_collisions",
-    ]
-    NETCTR_COUNTER_INDICES = {
-        "rx_bytes": 0,
-        "rx_packets": 1,
-        "rx_errors": 2,
-        "rx_drop": 3,
-        "rx_fifo": 4,
-        "rx_frame": 5,
-        "rx_compressed": 6,
-        "rx_multicast": 7,
-        "tx_bytes": 8,
-        "tx_packets": 9,
-        "tx_errors": 10,
-        "tx_drop": 11,
-        "tx_fifo": 12,
-        "tx_collisions": 13,
-        "tx_carrier": 14,
-        "tx_compressed": 15,
-    }
+# Translated from Checkmk checkmk.netctr_combined (cmk/plugins/network/agent_based/netctr.py)
+# Read-only Starlark check module for the yolo-man agent.
 
-    # Discovery mode: enumerate NICs
+NETCTR_COUNTERS = [
+    "rx_bytes",
+    "tx_bytes",
+    "rx_packets",
+    "tx_packets",
+    "rx_errors",
+    "tx_errors",
+    "tx_collisions",
+]
+
+NETCTR_COUNTER_INDICES = {
+    "rx_bytes": 0,
+    "rx_packets": 1,
+    "rx_errors": 2,
+    "rx_drop": 3,
+    "rx_fifo": 4,
+    "rx_frame": 5,
+    "rx_compressed": 6,
+    "rx_multicast": 7,
+    "tx_bytes": 8,
+    "tx_packets": 9,
+    "tx_errors": 10,
+    "tx_drop": 11,
+    "tx_fifo": 12,
+    "tx_collisions": 13,
+    "tx_carrier": 14,
+    "tx_compressed": 15,
+}
+
+# Persisted rate store passed via params (the agent maintains state between invocations).
+DEFAULT_LEVELS = (0.01, 0.1)
+
+
+def _is_integer(s):
+    if type(s) != "string":
+        return False
+    if len(s) == 0:
+        return False
+    start = 0
+    if s[0] == "-":
+        start = 1
+        if len(s) == 1:
+            return False
+    for ch in s[start:]:
+        if ch < "0" or ch > "9":
+            return False
+    return True
+
+
+def _to_mb_per_sec(value, this_time, last_time):
+    if this_time == last_time:
+        return 0.0
+    diff_time = this_time - last_time
+    if diff_time == 0:
+        return 0.0
+    bytes_per_sec = value / diff_time
+    return bytes_per_sec / (1024.0 * 1024.0)
+
+
+def main(ctx, params):
+    linux_nic_check = params.get("linux_nic_check", "lnx_if")
+    # Reproduce the legacy gating from the source check: only active for legacy lnx_if.
+    if linux_nic_check == "legacy":
+        return {"changed": False, "msg": "legacy mode disabled", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     if params.get("_discover"):
         res = ctx.run(["cat", "/proc/net/dev"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no /proc/net/dev available", "data": {"discovery": []}}
         lines = res.stdout.splitlines()
-        nics = []
-        idx = 0
-        while idx < len(lines):
-            line = lines[idx]
-            idx = idx + 1
-            if idx < 3:
+        if len(lines) < 2:
+            return {"changed": False, "msg": "discovered 0 interfaces", "data": {"discovery": []}}
+
+        # First line is the header: "Inter-|   ...". Interface names are the first token of each subsequent line.
+        out = []
+        header = lines[0]
+        # Find the pipe position; interface name is before it.
+        for line in lines[1:]:
+            stripped = line.rstrip("\n")
+            if not stripped.strip():
                 continue
-            parts = line.strip().split()
-            if len(parts) < 1:
+            parts = stripped.split(":")
+            if len(parts) < 2:
                 continue
-            nic = parts[0].rstrip(":")
-            if nic != "lo" and not nic.startswith("sit"):
-                nics.append({"item": nic, "params": {"levels": (0.01, 0.1)},
-                            "metrics": NETCTR_COUNTERS})
+            name = parts[0].strip()
+            # Skip loopback and sit interfaces (mirrors source discovery).
+            if name == "lo" or name.startswith("sit"):
+                continue
+            out.append({
+                "item": name,
+                "params": {"levels": DEFAULT_LEVELS},
+                "metrics": NETCTR_COUNTERS,
+            })
         return {
             "changed": False,
-            "msg": "discovered %d network interfaces" % len(nics),
-            "data": {"discovery": nics},
+            "msg": "discovered %d interfaces" % len(out),
+            "data": {"discovery": out},
         }
 
-    # Check mode for one item
     item = params.get("item", "")
-    warn, crit = params.get("levels", (0.01, 0.1))
+    levels = params.get("levels", DEFAULT_LEVELS)
+    warn = levels[0] if type(levels) == "tuple" and len(levels) >= 2 else params.get("warn", 0.01)
+    crit = levels[1] if type(levels) == "tuple" and len(levels) >= 2 else params.get("crit", 0.1)
 
-    # Get timestamp from agent output: netctr section provides "this_time" as first line first column
-    # Since we don't have access to agent's timestamp, use current time
-    # Note: Starlark has no time module — we'll use a fallback value
-    # In real agent execution, time would come from agent section; here assume 0 (safe)
-    this_time = 0
-
-    # Read /proc/net/dev
+    # Probe the real source: /proc/net/dev for the named interface.
     res = ctx.run(["cat", "/proc/net/dev"], mutates=False)
-    lines = res.stdout.splitlines()
+    if res.rc != 0 or len(res.stdout) == 0:
+        return {"changed": False, "msg": "no /proc/net/dev available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Look for the NIC line
-    nic_line = None
-    idx = 0
-    while idx < len(lines):
-        line = lines[idx]
-        idx = idx + 1
-        if idx < 3:
+    lines = res.stdout.splitlines()
+    if len(lines) < 2:
+        return {"changed": False, "msg": "NIC %s is not present" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    nicline = None
+    for line in lines[1:]:
+        parts = line.split(":")
+        if len(parts) < 2:
             continue
-        parts = line.strip().split()
-        if len(parts) > 0 and parts[0].rstrip(":") == item:
-            nic_line = parts
+        if parts[0].strip() == item:
+            nicline = parts[1].split()
             break
 
-    if nic_line == None:
-        return {
-            "changed": False,
-            "msg": "NIC is not present: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if nicline == None or len(nicline) < 16:
+        return {"changed": False, "msg": "NIC %s is not present" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Extract values from the line: format is "dev: rx_bytes rx_packets ... tx_bytes tx_packets ..."
-    values_str = nic_line[1:]  # skip the interface name
-    if len(values_str) < 16:
-        return {
-            "changed": False,
-            "msg": "incomplete data for NIC " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Compute per-second rates using the persisted rate store from params.
+    this_time = int(params.get("_this_time", "0")) if _is_integer(params.get("_this_time", "0")) else 0
+    last_time = 0
+    last_values = {}
+    store_json = params.get("_rate_store", "{}")
+    if store_json != "{}":
+        decoded = json.decode(store_json)
+        if type(decoded) == "dict":
+            last_time = decoded.get("time", 0)
+            last_values = decoded.get("values", {})
 
-    # Parse values to int (with guard instead of try/except)
-    values = []
-    idx = 0
-    while idx < len(values_str):
-        v_str = values_str[idx]
-        v = int(v_str) if v_str.isdigit() or (v_str.startswith("-") and v_str[1:].isdigit()) else 0
-        values.append(v)
-        idx = idx + 1
+    metrics = {}
+    infotxt = ""
+    problems_per_sec = 0.0
+    packets_per_sec = 0.0
 
-    # Get values for key counters
-    rx_bytes_val = values[0]
-    tx_bytes_val = values[8]
-    rx_packets_val = values[1]
-    tx_packets_val = values[9]
-    rx_errors_val = values[2]
-    tx_errors_val = values[10]
-    tx_collisions_val = values[13]
+    for countername in NETCTR_COUNTERS:
+        index = NETCTR_COUNTER_INDICES[countername]
+        raw = nicline[index]
+        if not _is_integer(raw):
+            value = 0
+        else:
+            value = int(raw)
+        metrics[countername] = value
 
-    # Compute rates — since we lack previous values, use raw values as rates (simplified)
-    # MB/sec = bytes / (1024*1024)
-    rx_rate_mbps = float(rx_bytes_val) / (1024.0 * 1024.0)
-    tx_rate_mbps = float(tx_bytes_val) / (1024.0 * 1024.0)
-    total_problems = rx_errors_val + tx_errors_val + tx_collisions_val
-    total_packets = rx_packets_val + tx_packets_val
+        last_v = last_values.get(countername, value)
+        if this_time > last_time:
+            items_per_sec = (value - last_v) / (this_time - last_time)
+        else:
+            items_per_sec = 0.0
 
-    infotxt = " - Receive: %f MB/sec - Send: %f MB/sec" % (rx_rate_mbps, tx_rate_mbps)
+        if countername in ["rx_errors", "tx_errors", "tx_collisions"]:
+            problems_per_sec += items_per_sec
+        elif countername in ["rx_packets", "tx_packets"]:
+            packets_per_sec += items_per_sec
+        if countername == "rx_bytes":
+            mbps = _to_mb_per_sec(value - last_v, this_time, last_time)
+            infotxt += " - Receive: %f MB/sec" % mbps
+        elif countername == "tx_bytes":
+            mbps = _to_mb_per_sec(value - last_v, this_time, last_time)
+            infotxt += " - Send: %f MB/sec" % mbps
 
     error_percentage = 0.0
-    if total_packets > 0:
-        error_percentage = (float(total_problems) / float(total_packets)) * 100.0
+    if packets_per_sec > 0 and problems_per_sec > 0:
+        error_percentage = (problems_per_sec / packets_per_sec) * 100.0
         infotxt += ", error rate %f%%" % error_percentage
 
-    # Determine state
-    state = "CRIT" if error_percentage >= crit else ("WARN" if error_percentage >= warn else "OK")
+    state = "OK"
+    if error_percentage >= crit:
+        state = "CRIT"
+    elif error_percentage >= warn:
+        state = "WARN"
 
-    # Build metrics dict
-    metrics = {
-        "rx_bytes": rx_bytes_val,
-        "tx_bytes": tx_bytes_val,
-        "rx_packets": rx_packets_val,
-        "tx_packets": tx_packets_val,
-        "rx_errors": rx_errors_val,
-        "tx_errors": tx_errors_val,
-        "tx_collisions": tx_collisions_val,
-    }
+    infotxt = infotxt.lstrip(" ").lstrip("-").strip()
 
     return {
         "changed": False,
-        "msg": item + infotxt,
+        "msg": infotxt,
         "data": {
             "state": state,
             "metrics": metrics,

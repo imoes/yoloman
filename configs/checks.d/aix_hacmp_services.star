@@ -1,156 +1,115 @@
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: simulate parsing HACMP subsystem data
-        # We use ps to detect HACMP/CAA/RSCT processes since the agent section isn't available
-        
-        # CAA subsystems
-        caa_subsys = []
-        res = ctx.run(["ps", "-ef"], mutates=False)
+        res = ctx.run(["lssrc", "-a"], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "lssrc not available (AIX)", "data": {"discovery": [], "host_labels": {}}}
+        if res.rc != 0:
+            return {"changed": False, "msg": "lssrc failed", "data": {"discovery": []}}
+
+        # Build a synthetic table mimicking the Checkmk agent <<<aix_hacmp_services>>> section.
+        # We look for RSCT (cthags, ctrmc), PowerHA (clstrmgrES, clevmgrdES), and CAA (clcomd, clconfd) subsystems.
+        subsystems = {}
         lines = res.stdout.splitlines()
-        for line in lines:
-            if "clcomd" in line or "clconfd" in line:
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line == "":
+                i += 1
+                continue
+
+            # Detect subsystem type group headers by known subsystem names
+            # RSCT section
+            if line.startswith("cthags") or line.startswith("ctrmc"):
+                if "RSCT" not in subsystems:
+                    subsystems["RSCT"] = []
+                parts = line.split()
+                if len(parts) >= 3:
+                    name = parts[0]
+                    status = parts[-1]
+                    subsystems["RSCT"].append((name, status))
+
+            # PowerHA SystemMirror section
+            elif line.startswith("clstrmgrES") or line.startswith("clevmgrdES"):
+                if "PowerHA SystemMirror" not in subsystems:
+                    subsystems["PowerHA SystemMirror"] = []
+                parts = line.split()
+                if len(parts) >= 3:
+                    name = parts[0]
+                    status = parts[-1]
+                    subsystems["PowerHA SystemMirror"].append((name, status))
+
+            # CAA section
+            elif line.startswith("clcomd") or line.startswith("clconfd"):
+                if "CAA" not in subsystems:
+                    subsystems["CAA"] = []
                 parts = line.split()
                 if len(parts) >= 2:
-                    pid = parts[1]
-                    subsys_name = "clcomd" if "clcomd" in line else "clconfd"
-                    status = "active" if pid.isdigit() else "inoperative"
-                    caa_subsys.append([subsys_name, status])
-        
-        # PowerHA SystemMirror subsystems
-        powerha_subsys = []
-        for subsys in ["clstrmgrES", "clevmgrdES"]:
-            res = ctx.run(["ps", "-ef"], mutates=False)
-            found = False
-            for line in res.stdout.splitlines():
-                if subsys in line:
-                    parts = line.split()
-                    if len(parts) >= 2 and parts[1].isdigit():
-                        powerha_subsys.append([subsys, "active"])
-                        found = True
-                        break
-            if not found:
-                powerha_subsys.append([subsys, "inoperative"])
-        
-        # RSCT subsystems
-        rsct_subsys = []
-        for subsys in ["cthags", "ctrmc"]:
-            res = ctx.run(["ps", "-ef"], mutates=False)
-            found = False
-            for line in res.stdout.splitlines():
-                if subsys in line:
-                    parts = line.split()
-                    if len(parts) >= 2 and parts[1].isdigit():
-                        rsct_subsys.append([subsys, "active"])
-                        found = True
-                        break
-            if not found:
-                rsct_subsys.append([subsys, "inoperative"])
-        
-        # Build parsed structure
-        parsed = {}
-        if len(caa_subsys) > 0:
-            parsed["CAA"] = caa_subsys
-        if len(powerha_subsys) > 0:
-            parsed["PowerHA SystemMirror"] = powerha_subsys
-        if len(rsct_subsys) > 0:
-            parsed["RSCT"] = rsct_subsys
-        
-        # Discovery yields one Service per subsystem group
-        discovery_items = []
-        for item in parsed:
-            # Extract metric names (subsystem names) for this group
-            metrics = []
-            for entry in parsed[item]:
-                if len(entry) > 0:
-                    metrics.append(entry[0])
-            
-            discovery_items.append({
-                "item": item,
-                "params": {},
-                "metrics": metrics
-            })
-        
-        return {"changed": False, "msg": "discovered %d HACMP subsystem groups" % len(discovery_items),
-                "data": {"discovery": discovery_items}}
-    
-    # Check mode: check a specific item (subsystem group)
+                    name = parts[0]
+                    status = parts[-1]
+                    subsystems["CAA"].append((name, status))
+
+            i += 1
+
+        discovery = []
+        for group, subs in subsystems.items():
+            if len(subs) > 0:
+                discovery.append({
+                    "item": group,
+                    "params": {},
+                    "metrics": [],
+                })
+
+        return {"changed": False, "msg": "discovered %d HACMP service groups" % len(discovery), "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    if item == "":
-        return {"changed": False, "msg": "no item specified",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Re-parse the same way as discovery to get the data for this item
-    hacmp_section = {}
-    
-    # CAA subsystems
-    caa_subsys = []
-    res = ctx.run(["ps", "-ef"], mutates=False)
+
+    # Gather on-host data the same way the Checkmk agent plugin would.
+    res = ctx.run(["lssrc", "-a"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "lssrc not available (AIX)", "data": {"state": "UNKNOWN", "metrics": {}, "details": "lssrc command not found"}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "lssrc failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": "lssrc returned non-zero exit code"}}
+
+    # Reproduce the parsed section: {group_name: [(subsystem_name, status), ...]}
+    parsed = {}
     lines = res.stdout.splitlines()
-    for line in lines:
-        if "clcomd" in line or "clconfd" in line:
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if line == "":
+            i += 1
+            continue
+
+        group = None
+        if line.startswith("cthags") or line.startswith("ctrmc"):
+            group = "RSCT"
+        elif line.startswith("clstrmgrES") or line.startswith("clevmgrdES"):
+            group = "PowerHA SystemMirror"
+        elif line.startswith("clcomd") or line.startswith("clconfd"):
+            group = "CAA"
+
+        if group != None:
             parts = line.split()
-            if len(parts) >= 2:
-                pid = parts[1]
-                subsys_name = "clcomd" if "clcomd" in line else "clconfd"
-                status = "active" if pid.isdigit() else "inoperative"
-                caa_subsys.append([subsys_name, status])
-    if len(caa_subsys) > 0:
-        hacmp_section["CAA"] = caa_subsys
-    
-    # PowerHA SystemMirror subsystems
-    powerha_subsys = []
-    for subsys in ["clstrmgrES", "clevmgrdES"]:
-        res = ctx.run(["ps", "-ef"], mutates=False)
-        found = False
-        for line in res.stdout.splitlines():
-            if subsys in line:
-                parts = line.split()
-                if len(parts) >= 2 and parts[1].isdigit():
-                    powerha_subsys.append([subsys, "active"])
-                    found = True
-                    break
-        if not found:
-            powerha_subsys.append([subsys, "inoperative"])
-    if len(powerha_subsys) > 0:
-        hacmp_section["PowerHA SystemMirror"] = powerha_subsys
-    
-    # RSCT subsystems
-    rsct_subsys = []
-    for subsys in ["cthags", "ctrmc"]:
-        res = ctx.run(["ps", "-ef"], mutates=False)
-        found = False
-        for line in res.stdout.splitlines():
-            if subsys in line:
-                parts = line.split()
-                if len(parts) >= 2 and parts[1].isdigit():
-                    rsct_subsys.append([subsys, "active"])
-                    found = True
-                    break
-        if not found:
-            rsct_subsys.append([subsys, "inoperative"])
-    if len(rsct_subsys) > 0:
-        hacmp_section["RSCT"] = rsct_subsys
-    
-    # Get data for the requested item
-    data = hacmp_section.get(item)
+            if len(parts) >= 3:
+                name = parts[0]
+                status = parts[-1]
+                parsed.setdefault(group, []).append((name, status))
+
+        i += 1
+
+    data = parsed.get(item)
     if data == None or len(data) == 0:
-        return {"changed": False, "msg": "no such subsystem group: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Determine overall state - if any subsystem is inoperative, report CRIT
-    all_active = True
-    for entry in data:
-        if len(entry) >= 2 and entry[1] != "active":
-            all_active = False
-            break
-    
-    state = "OK" if all_active else "CRIT"
-    
-    # Build summary message listing all subsystems and their statuses
-    summaries = []
-    for entry in data:
-        if len(entry) >= 2:
-            summaries.append("Subsystem: %s, Status: %s" % (entry[0], entry[1]))
-    
-    return {"changed": False, "msg": ", ".join(summaries),
-            "data": {"state": state, "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "HACMP service group %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": "no data found for group %s" % item}}
+
+    states = []
+    msgs = []
+    for subsystem_name, status in data:
+        state = "OK" if status == "active" else "CRIT"
+        states.append(state)
+        msgs.append("Subsystem: %s, Status: %s" % (subsystem_name, status))
+
+    overall_state = "OK"
+    if "CRIT" in states:
+        overall_state = "CRIT"
+
+    return {"changed": False, "msg": "; ".join(msgs), "data": {"state": overall_state, "metrics": {}, "details": ""}}

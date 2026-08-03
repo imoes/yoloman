@@ -1,206 +1,155 @@
-# Memory usage for Arris CMTS modules (SNMP-based)
+def _is_float(s):
+    if s == "":
+        return False
+    body = s
+    if body.startswith("-") or body.startswith("+"):
+        body = body[1:]
+    if body.count(".") > 1:
+        return False
+    parts = body.split(".")
+    for p in parts:
+        if p == "":
+            continue
+        if not p.isdigit():
+            return False
+    return True
 
-DISCOVERY_METRIC = "mem_used"
 
 def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
-        
-        items = []
-        # Parse snmpwalk output lines: "<oid> = INTEGER: <value>" or similar
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if line == "":
-                continue
-            # Expect format: ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1.<id> = INTEGER: <cid>"
-            parts = line.split("=")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            # Extract last OID component (the module ID)
-            base_oid = ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1."
-            if not oid_part.startswith(base_oid):
-                continue
-            cid_str = oid_part[len(base_oid):].strip()
-            # Guard before converting to int
-            cid = int(cid_str) if cid_str.isdigit() else 0
-            module_id = str(cid - 1)  # Checkmk parses 0-based
-            
-            # Now fetch the corresponding heap and heap_free values
-            heap_oid = ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1." + str(cid) + ".2"
-            heap_free_oid = ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1." + str(cid) + ".3"
-            
-            heap_res = ctx.run([
-                "snmpget",
-                "-v2c",
-                "-c", params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                heap_oid
-            ], mutates=False)
-            heap_free_res = ctx.run([
-                "snmpget",
-                "-v2c",
-                "-c", params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                heap_free_oid
-            ], mutates=False)
-            
-            if heap_res.rc != 0 or heap_free_res.rc != 0:
-                continue
-            
-            # Parse single OID result: "<oid> = <type>: <value>"
-            heap_val = parse_snmp_value(heap_res.stdout)
-            heap_free_val = parse_snmp_value(heap_free_res.stdout)
-            
-            if heap_val == None or heap_free_val == None:
-                continue
-            
-            # Guard before float conversion
-            heap_f = float(heap_val) if heap_val.replace(".", "").replace("-", "").isdigit() else 0.0
-            heap_free_f = float(heap_free_val) if heap_free_val.replace(".", "").replace("-", "").isdigit() else 0.0
-            mem_used = heap_f - heap_free_f
-            mem_total = heap_f
-            
-            # Suggested default params
-            items.append({
-                "item": module_id,
-                "params": {"levels": (80.0, 90.0)},
-                "metrics": [DISCOVERY_METRIC]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d memory modules" % len(items),
-            "data": {"discovery": items}
-        }
-
-    # CHECK MODE
-    item = params.get("item", "")
-    levels = params.get("levels")
-    warn_pct = 80.0
-    crit_pct = 90.0
-    
-    if levels != None and type(levels) == "list" and len(levels) == 2:
-        warn_pct = float(levels[0])
-        crit_pct = float(levels[1])
-    
-    # Get data for this module by walking the SNMP tree
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "snmpwalk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Guard before converting item to int
-    module_id = str(int(item) + 1) if item.isdigit() else "0"
-    
-    base_oid = ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1." + module_id + "."
-    
-    heap_val = None
-    heap_free_val = None
-    
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if line == "":
-            continue
-        parts = line.split("=")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        
-        if oid_part.endswith(".2"):  # heap
-            heap_val = parse_snmp_value(value_part)
-        elif oid_part.endswith(".3"):  # heap_free
-            heap_free_val = parse_snmp_value(value_part)
-    
-    if heap_val == None or heap_free_val == None:
-        return {
-            "changed": False,
-            "msg": "no data for module " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Guard before float conversion
-    heap_f = float(heap_val) if heap_val.replace(".", "").replace("-", "").isdigit() else 0.0
-    heap_free_f = float(heap_free_val) if heap_free_val.replace(".", "").replace("-", "").isdigit() else 0.0
-    mem_used = heap_f - heap_free_f
-    mem_total = heap_f
-    
-    if mem_total == 0:
-        return {
-            "changed": False,
-            "msg": "total memory is zero for module " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    mem_used_pct = (mem_used / mem_total) * 100.0
-    
-    # Determine state based on thresholds
-    if mem_used_pct >= crit_pct:
-        state = "CRIT"
-    elif mem_used_pct >= warn_pct:
-        state = "WARN"
-    else:
-        state = "OK"
-    
-    msg = "Module %s Usage: %f%% (Total: %f MB, Used: %f MB)" % (
-        item, mem_used_pct, mem_total / (1024*1024), mem_used / (1024*1024)
+    sysid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", "-OQv", params.get("host", "localhost"),
+         ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
     )
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"mem_used": mem_used, "mem_used_pct": mem_used_pct},
-            "details": ""
-        }
-    }
+    sysid = ""
+    if sysid_res.rc == 0:
+        sysid = sysid_res.stdout.strip()
 
+    if sysid != ".1.3.6.1.4.1.4998.2.1":
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not an Arris CMTS (sysObjectID mismatch)",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no Arris CMTS detected at %s" % params.get("host", "localhost"),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-def parse_snmp_value(value_part):
-    # Extract numeric value from strings like "INTEGER: 123456789" or "gauge32: 123456789"
-    value_part = value_part.strip()
-    if value_part == None or value_part == "":
-        return None
-    
-    # Remove leading type prefix (e.g., "INTEGER:", "gauge32:", "Counter32:")
-    idx = value_part.find(":")
-    if idx >= 0:
-        value_part = value_part[idx + 1:].strip()
-    
-    # Remove trailing units or comments
-    parts = value_part.split()
-    val_str = parts[0].strip() if len(parts) > 0 else value_part
-    
-    # Strip any non-digit characters except decimal point and minus
-    cleaned = ""
-    for c in val_str:
-        if c.isdigit() or c in ".-+":
-            cleaned += c
-        else:
-            break  # Stop at first non-numeric char (e.g., unit)
-    
-    return cleaned if cleaned != "" else None
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.4998.1.1.5.3.2.1.1"
+
+    walk_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".2"],
+        mutates=False,
+    )
+    if walk_res.rc != 0:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "snmpwalk failed for heap table",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "cannot read heap table from %s" % host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    col_cid = {}
+    col_heap = {}
+    col_heap_free = {}
+    for line in walk_res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:].strip()
+        suffix = oid[len(base + ".2") + 1:]
+        if suffix == "":
+            continue
+        col_oid = oid[:oid.rfind("." + suffix)]
+        if col_oid == base + ".2":
+            col_cid[suffix] = val
+        elif col_oid == base + ".3":
+            col_heap[suffix] = val
+        elif col_oid == base + ".4":
+            col_heap_free[suffix] = val
+
+    for col_oid, target in [(base + ".3", col_heap), (base + ".4", col_heap_free)]:
+        r = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oid],
+                    mutates=False)
+        if r.rc != 0:
+            continue
+        for line in r.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            suffix = oid[len(col_oid) + 1:]
+            if suffix == "":
+                continue
+            target[suffix] = val
+
+    parsed = {}
+    for suffix, cid_val in col_cid.items():
+        cid_int = int(cid_val) if cid_val.isdigit() else 0
+        item = str(cid_int - 1)
+        heap_s = col_heap.get(suffix, "")
+        hf_s = col_heap_free.get(suffix, "")
+        heap_f = float(heap_s) if _is_float(heap_s) else 0.0
+        hf_f = float(hf_s) if _is_float(hf_s) else 0.0
+        parsed[item] = {"mem_used": heap_f - hf_f, "mem_total": heap_f}
+
+    if params.get("_discover"):
+        discovery = []
+        for item in sorted(parsed.keys()):
+            discovery.append({"item": item, "params": {"levels": (80.0, 90.0)},
+                              "metrics": ["mem_used"]})
+        return {"changed": False,
+                "msg": "discovered %d memory modules" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    if item not in parsed:
+        return {"changed": False, "msg": "no data for Memory Module %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    data = parsed[item]
+    mem_used = data["mem_used"]
+    mem_total = data["mem_total"]
+    levels = params.get("levels", (80.0, 90.0))
+    mode = "abs_used"
+    mem_levels = None
+    if type(levels) == "list" and len(levels) == 2:
+        if type(levels[0]) == "float" or type(levels[0]) == "int":
+            first = levels[0]
+            if type(first) == "float":
+                mode = "perc_used"
+            mem_levels = (mode, levels)
+    elif type(levels) == "tuple" and len(levels) == 2:
+        first = levels[0]
+        if type(first) == "float":
+            mode = "perc_used"
+        mem_levels = (mode, levels)
+
+    state = "OK"
+    details = "Usage: %s of %s bytes" % (str(mem_used), str(mem_total))
+    if mem_total > 0:
+        pct = (mem_used / mem_total) * 100.0
+        if mode == "perc_used" and mem_levels != None:
+            warn, crit = mem_levels[1][0], mem_levels[1][1]
+            if pct >= crit:
+                state = "CRIT"
+            elif pct >= warn:
+                state = "WARN"
+            details = "Usage: %f%%" % pct
+        elif mode == "abs_used" and mem_levels != None:
+            warn, crit = mem_levels[1][0], mem_levels[1][1]
+            if mem_used >= crit:
+                state = "CRIT"
+            elif mem_used >= warn:
+                state = "WARN"
+        metrics = {"mem_used": mem_used, "mem_total": mem_total}
+        if mode == "perc_used":
+            metrics = {"mem_used": mem_used, "mem_total": mem_total, "mem_used_pct": pct}
+    else:
+        metrics = {"mem_used": mem_used, "mem_total": mem_total}
+
+    return {"changed": False, "msg": details,
+            "data": {"state": state, "metrics": metrics, "details": details}}

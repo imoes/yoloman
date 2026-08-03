@@ -1,113 +1,125 @@
+# Starlark check module: bluecat_ha — HA State (Checkmk SNMP translation)
+# Read-only monitor of a Bluecat HA device operational state via SNMP.
+# Never mutates the system; always returns changed=False.
+
+# OID base for the Bluecat HA operational-state scalar.
+_HA_BASE = ".1.3.6.1.4.1.13315.3.1.5.2.1"
+_HA_OPER_STATE_OID = _HA_BASE + ".1"
+
+# SysObjectID that identifies a Bluecat device (used by DETECT_BLUECAT).
+_BLUECAT_SYS_OBJECTID_OID = ".1.3.6.1.2.1.1.2.0"
+_BLUECAT_SYS_OBJECTID_VALUE = ".1.3.6.1.4.1.13315.2.1"
+
+# Operational-state code -> human-readable label.
 _OPER_STATE_MAP = {
-    1: "standalone",
-    2: "active",
-    3: "passiv",
-    4: "stopped",
-    5: "stopping",
-    6: "becoming active",
-    7: "becomming passive",
-    8: "fault",
+    "1": "standalone",
+    "2": "active",
+    "3": "passiv",
+    "4": "stopped",
+    "5": "stopping",
+    "6": "becoming active",
+    "7": "becomming passive",
+    "8": "fault",
 }
 
-# Checkmk default parameters
-_DEFAULT_OPER_STATES = {
-    "warning": [5, 6, 7],
-    "critical": [8, 4],
-}
+# Default threshold mapping (Checkmk check_default_parameters).
+_DEFAULT_WARN = [5, 6, 7]
+_DEFAULT_CRIT = [8, 4]
+
+
+def _snmpget_scalar(ctx, host, community, version, oid):
+    res = ctx.run(
+        ["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        fail("snmpget failed for " + oid + ": " + res.stderr)
+    return res.stdout.strip()
+
+
+def _probe_bluecat(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+    val = _snmpget_scalar(ctx, host, community, version, _BLUECAT_SYS_OBJECTID_OID)
+    return val == _BLUECAT_SYS_OBJECTID_VALUE
 
 
 def main(ctx, params):
-    # Discovery mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.13315.3.1.5.2.1.1"
-        ], mutates=False)
-        
-        # Check if we got any results
-        lines = res.stdout.splitlines() if res.stdout else []
-        if len(lines) > 0 and lines[0].find(" = ") != -1:
-            # HA service exists and is not in standalone mode (state != 1)
-            # Extract state value
-            first_line = lines[0]
-            state_str = first_line[first_line.rfind(" = ") + 3:].strip()
-            # Guard against non-digit state_str
-            if state_str.isdigit():
-                state = int(state_str)
-                if state != 1:
-                    return {
-                        "changed": False,
-                        "msg": "discovered 1 item",
-                        "data": {"discovery": [
-                            {"item": "", "params": {}, "metrics": []}
-                        ]}
+        if not _probe_bluecat(ctx, params):
+            return {
+                "changed": False,
+                "msg": "no Bluecat device detected",
+                "data": {"discovery": []},
+            }
+
+        oper_state = _snmpget_scalar(ctx, host, community, version, _HA_OPER_STATE_OID)
+        if oper_state == "1":
+            return {
+                "changed": False,
+                "msg": "device is standalone, no HA service",
+                "data": {"discovery": []},
+            }
+
+        return {
+            "changed": False,
+            "msg": "discovered HA State service",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {
+                            "warn": params.get("warn", _DEFAULT_WARN),
+                            "crit": params.get("crit", _DEFAULT_CRIT),
+                        },
+                        "metrics": [],
                     }
-        
-        # No service to discover (standalone or no data)
+                ]
+            },
+        }
+
+    if not _probe_bluecat(ctx, params):
         return {
             "changed": False,
-            "msg": "discovered 0 items",
-            "data": {"discovery": []}
+            "msg": "no Bluecat device detected",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Check mode
-    # Get SNMP data
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.13315.3.1.5.2.1.1"
-    ], mutates=False)
-    
-    # Parse state from SNMP output
-    lines = res.stdout.splitlines() if res.stdout else []
-    if len(lines) == 0 or lines[0].find(" = ") == -1:
+
+    oper_state_raw = _snmpget_scalar(ctx, host, community, version, _HA_OPER_STATE_OID)
+    if oper_state_raw not in _OPER_STATE_MAP:
         return {
             "changed": False,
-            "msg": "HA state data not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "unknown operational state code: " + str(oper_state_raw),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    first_line = lines[0]
-    state_str = first_line[first_line.rfind(" = ") + 3:].strip()
-    # Guard: only parse if string contains digits
-    if not state_str.isdigit():
+
+    oper_state = int(oper_state_raw)
+    label = _OPER_STATE_MAP[oper_state_raw]
+
+    if oper_state == 1:
         return {
             "changed": False,
-            "msg": "HA state data not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "State is " + label,
+            "data": {"state": "OK", "metrics": {}, "details": "device is standalone"},
         }
-    
-    oper_state = int(state_str)
-    
-    # Get operational state thresholds from params, use defaults
-    oper_states = params.get("oper_states", _DEFAULT_OPER_STATES)
-    warn_list = oper_states.get("warning", _DEFAULT_OPER_STATES["warning"])
-    crit_list = oper_states.get("critical", _DEFAULT_OPER_STATES["critical"])
-    
-    # Determine state
-    state = "OK"
-    if oper_state in crit_list:
+
+    warn_states = params.get("warn", _DEFAULT_WARN)
+    crit_states = params.get("crit", _DEFAULT_CRIT)
+
+    if oper_state in crit_states:
         state = "CRIT"
-    elif oper_state in warn_list:
+    elif oper_state in warn_states:
         state = "WARN"
-    
-    # Get state description
-    state_desc = _OPER_STATE_MAP.get(oper_state, "unknown")
-    msg = "State is " + state_desc
-    
+    else:
+        state = "OK"
+
     return {
         "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
+        "msg": "State is " + label,
+        "data": {"state": state, "metrics": {}, "details": ""},
     }

@@ -1,118 +1,81 @@
 def main(ctx, params):
-    # SNMP OIDs from the Checkmk plugin
-    base_oid = ".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1"
-    temp_oid = base_oid + ".2.190"   # temperature value (1/10 degree C)
-    name_oid = base_oid + ".6.190"   # item name
-
-    # Discovery mode: enumerate all temperature sensors
     if params.get("_discover"):
-        # Walk both OIDs to get temperature and name pairs
-        temp_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                           "-On", params.get("host", "localhost"), temp_oid], mutates=False)
-        name_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                           "-On", params.get("host", "localhost"), name_oid], mutates=False)
-
-        # Parse snmpwalk output: "OID = TYPE: value"
-        temp_items = _parse_snmpwalk(temp_res.stdout)
-        name_items = _parse_snmpwalk(name_res.stdout)
-
-        # Match items by index (last number in OID)
-        discovered = []
-        for oid_name, name_val in name_items.items():
-            idx = oid_name.rsplit(".", 1)[-1]
-            temp_oid_full = base_oid + ".2." + idx
-            name_oid_full = base_oid + ".6." + idx
-
-            if temp_oid_full in temp_items and name_oid_full in name_items:
-                temp_val = temp_items[temp_oid_full]
-                item_name = name_items[name_oid_full].strip('"')
-                # Validate temperature is numeric
-                # Guard instead of try/except
-                if temp_val.isdigit() or (temp_val.count('.') == 1 and temp_val.replace('.','').isdigit()):
-                    temp_float = float(temp_val) / 10.0
-                    discovered.append({
-                        "item": item_name,
-                        "params": {"levels": (70.0, 80.0)},
-                        "metrics": ["temp"]
-                    })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(discovered),
-            "data": {"discovery": discovered}
-        }
-
-    # Check mode: verify one item's temperature
+        sysoid = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                          "-Oqv", params.get("host", "localhost"),
+                          ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        if sysoid.rc != 0 or ".1.3.6.1.4.1.2011.2.25.1" not in sysoid.stdout:
+            return {"changed": False, "msg": "not a Huawei OSN device",
+                    "data": {"discovery": [], "host_labels": {}}}
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"),
+                        ".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.2.190"], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no temperature data found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        discovery = []
+        seen = {}
+        for line in walk.stdout.splitlines():
+            sp = line.split()
+            if len(sp) < 2:
+                continue
+            oid = sp[0]
+            idx = oid[len(".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.2.190") + 1:]
+            name_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                                "-Oqv", params.get("host", "localhost"),
+                                ".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.6.190." + idx], mutates=False)
+            name = name_res.stdout.strip() if name_res.rc == 0 else idx
+            key = name
+            n = 1
+            while key in seen:
+                n += 1
+                key = name + "_" + str(n)
+            seen[key] = True
+            discovery.append({"item": key, "params": {"levels": (70.0, 80.0)},
+                              "metrics": ["temperature"]})
+        return {"changed": False, "msg": "discovered %d temperature sensors" % len(discovery),
+                "data": {"discovery": discovery, "host_labels": {"cmk/os_family": "huawei_osn"}}}
     item = params.get("item", "")
-    # Get temperature and name for this item by walking and filtering
-    temp_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                       "-On", params.get("host", "localhost"), base_oid], mutates=False)
-
-    # Parse entire walk and find the item
-    parsed = _parse_snmpwalk(temp_res.stdout)
-    temp = None
-    for oid, val in parsed.items():
-        if oid.endswith(".6.190"):
-            # This is a name OID; extract base index
-            idx = oid.rsplit(".", 2)[-2]
-            temp_oid = base_oid + ".2." + idx
-            name_oid = oid
-            if name_oid in parsed and temp_oid in parsed:
-                name = parsed[name_oid].strip('"')
-                if name == item:
-                    temp_val = parsed[temp_oid]
-                    if temp_val.isdigit() or (temp_val.count('.') == 1 and temp_val.replace('.','').isdigit()):
-                        temp = float(temp_val) / 10.0
-                    break
-
-    # If item not found, return UNKNOWN
-    if temp == None:
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Get temperature thresholds
-    warn = params.get("levels", (70.0, 80.0))
-    if type(warn) == "list":
-        warn_high = warn[0]
-        crit_high = warn[1]
-    else:
-        warn_high = 70.0
-        crit_high = 80.0
-
-    # Determine state
-    if crit_high != None and temp >= crit_high:
+    walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                    "-Oqn", params.get("host", "localhost"),
+                    ".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.2.190"], mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "no temperature data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    found_idx = None
+    target_name = item.split("_")[0]
+    for line in walk.stdout.splitlines():
+        sp = line.split()
+        if len(sp) < 2:
+            continue
+        oid = sp[0]
+        idx = oid[len(".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.2.190") + 1:]
+        name_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                            "-Oqv", params.get("host", "localhost"),
+                            ".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.6.190." + idx], mutates=False)
+        name = name_res.stdout.strip() if name_res.rc == 0 else idx
+        if name == item or idx == item:
+            found_idx = idx
+            break
+    if found_idx == None:
+        return {"changed": False, "msg": "item not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    temp_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqv", params.get("host", "localhost"),
+                        ".1.3.6.1.4.1.2011.2.25.3.40.50.76.10.1.2.190." + found_idx], mutates=False)
+    if temp_res.rc != 0:
+        return {"changed": False, "msg": "could not read temperature for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    raw = temp_res.stdout.strip()
+    temp = float(raw) / 10.0
+    warn = params.get("levels", (70.0, 80.0))[0]
+    crit = params.get("levels", (70.0, 80.0))[1]
+    if temp >= crit or temp <= crit:
+        pass
+    if temp >= crit:
         state = "CRIT"
-    elif warn_high != None and temp >= warn_high:
+    elif temp >= warn:
         state = "WARN"
     else:
         state = "OK"
-
-    # Build message
-    msg = "Temperature: %f C" % temp
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"temp": temp},
-            "details": ""
-        }
-    }
-
-
-def _parse_snmpwalk(output):
-    result = {}
-    for line in output.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) == 2:
-            oid = parts[0].strip()
-            val = parts[1].strip()
-            # Strip type prefix (e.g., "INTEGER:", "STRING:", "Gauge32:")
-            if ":" in val:
-                val = val.split(":", 1)[1].strip()
-            result[oid] = val
-    return result
+    return {"changed": False, "msg": "Temperature %s: %f C" % (item, temp),
+            "data": {"state": state, "metrics": {"temperature": temp}, "details": ""}}

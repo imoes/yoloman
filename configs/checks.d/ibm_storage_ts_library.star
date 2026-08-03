@@ -1,289 +1,209 @@
-def main(ctx, params):
-    # Discovery mode: enumerate library entries
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed: " + res.stderr,
-                "data": {"discovery": []}
-            }
+# Starlark translation of Checkmk check: ibm_storage_ts_library
+# Reads the SAME underlying SNMP source the Checkmk plugin/agent reads.
+# READ-ONLY: never mutates, never writes files, always changed=False.
 
-        # Parse library entries from SNMP output
-        # OID suffixes: 1=entry, 2=status, 10=serial, 11=drive_count, 22=fault, 23=severity, 24=descr
-        libraries = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            parts = line.strip().split(" = ")
+IBM_STORAGE_TS_STATUS_NAME_MAP = {
+    "1": "other",
+    "2": "unknown",
+    "3": "Ok",
+    "4": "non-critical",
+    "5": "critical",
+    "6": "non-Recoverable",
+}
+
+IBM_STORAGE_TS_STATUS_NAGIOS_MAP = {
+    "1": "WARN",
+    "2": "WARN",
+    "3": "OK",
+    "4": "WARN",
+    "5": "CRIT",
+    "6": "CRIT",
+}
+
+IBM_STORAGE_TS_FAULT_NAGIOS_MAP = {
+    "0": "OK",
+    "1": "OK",
+    "2": "WARN",
+    "3": "CRIT",
+    "4": "CRIT",
+}
+
+
+def _state_worst(a, b):
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    oa = order.get(a, 3)
+    ob = order.get(b, 3)
+    if oa >= ob:
+        return a
+    return b
+
+
+def _probe_ibm_system(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_info = ".1.3.6.1.4.1.2.6.210.1"
+    base_status = ".1.3.6.1.4.1.2.6.210.2"
+    base_lib = ".1.3.6.1.4.1.2.6.210.3.1.1"
+
+    sysid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ov", "-On", "-Le", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysid.rc != 0:
+        return None
+    oid_val = sysid.stdout.strip()
+    if not oid_val.endswith(".1.3.6.1.4.1.2.6.210"):
+        return None
+
+    info_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_info + ".1"],
+        mutates=False,
+    )
+    if info_res.rc != 0:
+        return None
+
+    return {
+        "host": host,
+        "community": community,
+        "base_info": base_info,
+        "base_status": base_status,
+        "base_lib": base_lib,
+    }
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        probe = _probe_ibm_system(ctx, params)
+        if probe == None:
+            return {"changed": False, "msg": "IBM Storage TS system not detected",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        host = probe["host"]
+        community = probe["community"]
+        base_lib = probe["base_lib"]
+
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_lib + ".1"],
+            mutates=False,
+        )
+        if walk.rc != 0:
+            return {"changed": False, "msg": "IBM Storage TS system: no libraries found",
+                    "data": {"discovery": []}}
+
+        entries = []
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) < 2:
                 continue
-            oid_val = parts[0].strip()
-            val = parts[1].strip()
-            if not val.startswith("STRING:"):
+            oid = parts[0]
+            if not oid.startswith(base_lib + ".1."):
                 continue
-            val = val[7:].strip().strip('"')
+            index = oid[len(base_lib + ".1."):]
+            if index == "":
+                continue
+            entries.append(index)
 
-            # Extract entry name from OID: .1.3.6.1.4.1.2.6.210.3.1.1.1.<entry_id>
-            # We need to group by entry_id to collect all fields
-            # We'll collect in a dict keyed by entry name
-            pass  # Will restructure below
-
-        # Better approach: walk each OID separately and align
-        # Walk entry (field 1)
-        res_entry = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.1"
-        ], mutates=False)
-        if res_entry.rc != 0:
-            res_entry.stdout = ""
-
-        # Walk status (field 2)
-        res_status = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.2"
-        ], mutates=False)
-        if res_status.rc != 0:
-            res_status.stdout = ""
-
-        # Walk serial (field 10)
-        res_serial = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.10"
-        ], mutates=False)
-        if res_serial.rc != 0:
-            res_serial.stdout = ""
-
-        # Walk drive_count (field 11)
-        res_drive_count = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.11"
-        ], mutates=False)
-        if res_drive_count.rc != 0:
-            res_drive_count.stdout = ""
-
-        # Walk fault (field 22)
-        res_fault = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.22"
-        ], mutates=False)
-        if res_fault.rc != 0:
-            res_fault.stdout = ""
-
-        # Walk severity (field 23)
-        res_severity = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.23"
-        ], mutates=False)
-        if res_severity.rc != 0:
-            res_severity.stdout = ""
-
-        # Walk descr (field 24)
-        res_descr = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.6.210.3.1.1.24"
-        ], mutates=False)
-        if res_descr.rc != 0:
-            res_descr.stdout = ""
-
-        # Parse values
-        def parse_snmp_values(res):
-            result = {}
-            for line in res.stdout.splitlines():
-                parts = line.strip().split(" = ")
-                if len(parts) < 2:
-                    continue
-                oid_path = parts[0].strip()
-                val = parts[1].strip()
-                if val.startswith("STRING:"):
-                    val = val[7:].strip().strip('"')
-                elif val.startswith("INTEGER:"):
-                    val = val[8:].strip()
-                elif val.startswith("Counter"):
-                    val = val.split(":")[1].strip()
-                else:
-                    val = val.split(":")[1].strip() if ":" in val else val
-                # Extract last component of OID as key (the index)
-                idx = oid_path.rsplit(".", 1)[-1]
-                result[idx] = val
-            return result
-
-        entries = parse_snmp_values(res_entry)
-        statuses = parse_snmp_values(res_status)
-        serials = parse_snmp_values(res_serial)
-        drive_counts = parse_snmp_values(res_drive_count)
-        faults = parse_snmp_values(res_fault)
-        severities = parse_snmp_values(res_severity)
-        descrs = parse_snmp_values(res_descr)
-
-        # Collect all libraries
-        library_list = []
-        for idx in entries:
-            status_val = statuses.get(idx, "2")
-            fault_val = faults.get(idx, "0")
-            severity_val = severities.get(idx, "1")
-            library = {
-                "entry": entries[idx],
-                "status": status_val,
-                "serial": serials.get(idx, ""),
-                "drive_count": drive_counts.get(idx, "0"),
-                "fault": fault_val,
-                "severity": severity_val,
-                "descr": descrs.get(idx, "")
-            }
-            library_list.append(library)
-
-        out = []
-        for lib in library_list:
-            out.append({
-                "item": lib["entry"],
+        seen = {}
+        discovery = []
+        for index in entries:
+            if index in seen:
+                continue
+            seen[index] = True
+            discovery.append({
+                "item": index,
                 "params": {},
-                "metrics": []
+                "metrics": [],
             })
 
         return {
             "changed": False,
-            "msg": "discovered %d libraries" % len(out),
-            "data": {"discovery": out}
+            "msg": "discovered %d libraries" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
         }
 
-    # Check mode
     item = params.get("item", "")
 
-    # Run all necessary SNMP walks
-    res_entry = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.1"
-    ], mutates=False)
-    res_status = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.2"
-    ], mutates=False)
-    res_serial = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.10"
-    ], mutates=False)
-    res_drive_count = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.11"
-    ], mutates=False)
-    res_fault = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.22"
-    ], mutates=False)
-    res_severity = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.23"
-    ], mutates=False)
-    res_descr = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.6.210.3.1.1.24"
-    ], mutates=False)
-
-    if res_entry.rc != 0 or res_status.rc != 0:
+    probe = _probe_ibm_system(ctx, params)
+    if probe == None:
         return {
             "changed": False,
-            "msg": "SNMP failure",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "IBM Storage TS system not detected (no IBM Storage TS product on host)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    def parse_snmp_values(res):
-        result = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) < 2:
-                continue
-            oid_path = parts[0].strip()
-            val = parts[1].strip()
-            if val.startswith("STRING:"):
-                val = val[7:].strip().strip('"')
-            elif val.startswith("INTEGER:"):
-                val = val[8:].strip()
-            else:
-                # For other types, try to extract the value after colon
-                if ":" in val:
-                    val = val.split(":", 1)[1].strip()
-            idx = oid_path.rsplit(".", 1)[-1]
-            result[idx] = val
-        return result
+    host = probe["host"]
+    community = probe["community"]
+    base_lib = probe["base_lib"]
 
-    entries = parse_snmp_values(res_entry)
-    statuses = parse_snmp_values(res_status)
-    serials = parse_snmp_values(res_serial)
-    drive_counts = parse_snmp_values(res_drive_count)
-    faults = parse_snmp_values(res_fault)
-    severities = parse_snmp_values(res_severity)
-    descrs = parse_snmp_values(res_descr)
+    # Read library columns for the requested item (index == item)
+    get_entry = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".1." + item],
+        mutates=False,
+    )
+    get_status = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".2." + item],
+        mutates=False,
+    )
+    get_serial = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".10." + item],
+        mutates=False,
+    )
+    get_drive_count = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".11." + item],
+        mutates=False,
+    )
+    get_fault = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".22." + item],
+        mutates=False,
+    )
+    get_severity = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".23." + item],
+        mutates=False,
+    )
+    get_descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_lib + ".24." + item],
+        mutates=False,
+    )
 
-    # Find the requested library item
-    for idx in entries:
-        if entries[idx] == item:
-            status_val = statuses.get(idx, "2")
-            serial_val = serials.get(idx, "")
-            drive_count_val = drive_counts.get(idx, "0")
-            fault_val = faults.get(idx, "0")
-            severity_val = severities.get(idx, "1")
-            descr_val = descrs.get(idx, "")
+    # If any value is missing/unavailable, the item does not exist -> UNKNOWN
+    if (get_entry.rc != 0 or get_status.rc != 0 or get_serial.rc != 0 or
+            get_drive_count.rc != 0 or get_fault.rc != 0 or
+            get_severity.rc != 0 or get_descr.rc != 0):
+        return {
+            "changed": False,
+            "msg": "no such library: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-            # Map status to State
-            status_map = {
-                "1": "WARN", "2": "WARN", "3": "OK", "4": "WARN", "5": "CRIT", "6": "CRIT"
-            }
-            status_name_map = {
-                "1": "other", "2": "unknown", "3": "Ok", "4": "non-critical",
-                "5": "critical", "6": "non-Recoverable"
-            }
+    entry = get_entry.stdout.strip()
+    status = get_status.stdout.strip()
+    serial = get_serial.stdout.strip()
+    drive_count = get_drive_count.stdout.strip()
+    fault = get_fault.stdout.strip()
+    severity = get_severity.stdout.strip()
+    descr = get_descr.stdout.strip()
 
-            status_name = status_name_map.get(status_val, "unknown")
-            status_state = status_map.get(status_val, "WARN")
+    # Strip surrounding quotes if present
+    if len(serial) >= 2 and serial[0] == '"' and serial[-1] == '"':
+        serial = serial[1:-1]
+    if len(descr) >= 2 and descr[0] == '"' and descr[-1] == '"':
+        descr = descr[1:-1]
 
-            # Map fault/severity
-            fault_map = {
-                "0": "OK", "1": "OK", "2": "WARN", "3": "CRIT", "4": "CRIT"
-            }
-            fault_state = fault_map.get(fault_val, "OK")
+    state_device = IBM_STORAGE_TS_STATUS_NAGIOS_MAP.get(status, "UNKNOWN")
+    fault_status = IBM_STORAGE_TS_FAULT_NAGIOS_MAP.get(severity, "UNKNOWN")
+    overall = _state_worst(state_device, fault_status)
 
-            # Determine worst state
-            state_order = {"OK": 0, "WARN": 1, "CRIT": 2}
-            worst_state = "OK"
-            if state_order.get(status_state, 0) > state_order.get(worst_state, 0):
-                worst_state = status_state
-            if state_order.get(fault_state, 0) > state_order.get(worst_state, 0):
-                worst_state = fault_state
+    status_name = IBM_STORAGE_TS_STATUS_NAME_MAP.get(status, "unknown")
+    infotext = "Device %s, Status: %s, Drives: %s" % (serial, status_name, drive_count)
+    if fault != "0":
+        infotext += ", Fault: %s (%s)" % (descr, fault)
 
-            # Build summary message
-            infotext = "Device %s, Status: %s, Drives: %s" % (
-                serial_val, status_name, drive_count_val
-            )
-            if fault_val != "0":
-                infotext += ", Fault: %s (%s)" % (descr_val, fault_val)
-
-            return {
-                "changed": False,
-                "msg": infotext,
-                "data": {"state": worst_state, "metrics": {}, "details": ""}
-            }
-
-    # Library item not found
     return {
         "changed": False,
-        "msg": "library not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        "msg": infotext,
+        "data": {
+            "state": overall,
+            "metrics": {},
+            "details": "",
+        },
     }

@@ -1,88 +1,107 @@
-# ===== brocade_sys_mem starlark check module =====
-# Memory usage check for Brocade devices via SNMP
-# Discovery: one single-service entry; check: memory utilization with configurable levels
-
-# Module-level constants
-SNMP_BASE = ".1.3.6.1.4.1.1588.2.1.1.1.26"
-OID_CPU_UTIL = "1"
-OID_MEM_USED = "6"
-
 def main(ctx, params):
-    # ===== DISCOVERY MODE =====
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
+    # This check monitors Brocade system memory via SNMP.
+    # The data comes from SNMP OIDs .1.3.6.1.4.1.1588.2.1.1.1.26 (cpu_util at .1, mem_used_percent at .6)
+    # We use net-snmp to poll the device directly.
 
-        # Fetch both OIDs in one walk (base + specific OID suffix)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            SNMP_BASE + "." + OID_MEM_USED
-        ], mutates=False)
-
-        # If we got any output, there's a Brocade system and memory data exists
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "no data (SNMP error or no Brocade device)",
-                    "data": {"discovery": []}}
-
-        # Single-service check: always discover one service
-        return {
-            "changed": False,
-            "msg": "discovered 1 services",
-            "data": {"discovery": [{"item": "", "params": {"levels": None},
-                                   "metrics": ["mem_used_percent"]}]}
-        }
-
-    # ===== CHECK MODE (item is always "" for this single-service check) =====
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    levels = params.get("levels", None)  # Checkmk default: None
+    community = params.get("community", "public")
+    levels = params.get("levels", None)
 
-    # Fetch memory usage OID
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        SNMP_BASE + "." + OID_MEM_USED
-    ], mutates=False)
+    base_oid = ".1.3.6.1.4.1.1588.2.1.1.1.26"
 
-    # Parse SNMP output: "OID = INTEGER: value"
-    if res.rc != 0 or not res.stdout.strip():
+    if params.get("_discover"):
+        # Discovery mode: probe for the Brocade system via the standard OID
+        # and check if this is a Brocade device by reading sysObjectID.
+        sysoid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+
+        # If the device is unreachable or not a Brocade, no services are discovered
+        if sysoid_res.rc != 0:
+            return {"changed": False, "msg": "no Brocade device reachable", "data": {"discovery": []}}
+
+        sysoid = sysoid_res.stdout.strip()
+
+        # Only discover on Brocade devices (Brocade FID/EID: .1.3.6.1.4.1.1588.2.1.1, or older .1.3.6.1.4.1.1916.2.306)
+        is_brocade = (
+            sysoid.startswith(".1.3.6.1.4.1.1588.2.1.1") or
+            sysoid == ".1.3.6.1.4.1.1916.2.306"
+        )
+
+        if not is_brocade:
+            return {"changed": False, "msg": "not a Brocade device", "data": {"discovery": []}}
+
+        # Probe the actual metric OIDs to confirm data is available
+        mem_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_oid + ".6"],
+            mutates=False,
+        )
+
+        if mem_res.rc != 0:
+            return {"changed": False, "msg": "no Brocade memory data available", "data": {"discovery": []}}
+
+        # Single-service check: returns one item with ""
         return {
             "changed": False,
-            "msg": "SNMP error or no data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {"levels": None},
+                        "metrics": ["mem_used_percent"],
+                    }
+                ]
+            },
         }
 
-    # Extract value from line like: .1.3.6.1.4.1.1588.2.1.1.1.26.6 = INTEGER: 45
-    line = res.stdout.strip()
-    value_str = None
-    if " = " in line:
-        value_part = line.split(" = ", 1)[1]
-        if value_part.startswith("INTEGER:"):
-            val = value_part.split(":", 1)[1].strip()
-            if val.isdigit():
-                value_str = int(val)
+    # Check mode: read the memory utilization for this single-service check
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_oid + ".6"],
+        mutates=False,
+    )
 
-    if value_str == None:
+    if res.rc != 0:
         return {
             "changed": False,
-            "msg": "could not parse memory value from SNMP output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no Brocade device reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Apply levels
+    stdout = res.stdout.strip()
+    if stdout == "":
+        return {
+            "changed": False,
+            "msg": "no memory data returned",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    mem_used_percent = 0
+    if stdout.isdigit():
+        mem_used_percent = int(stdout)
+    else:
+        return {
+            "changed": False,
+            "msg": "could not parse memory value: %s" % stdout,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     state = "OK"
     if levels != None:
-        warn, crit = levels
-        if value_str >= crit:
+        warn_level = levels[0] if type(levels) == "list" and len(levels) >= 1 else None
+        crit_level = levels[1] if type(levels) == "list" and len(levels) >= 2 else None
+        if crit_level != None and mem_used_percent >= crit_level:
             state = "CRIT"
-        elif value_str >= warn:
+        elif warn_level != None and mem_used_percent >= warn_level:
             state = "WARN"
 
     return {
         "changed": False,
-        "msg": "Memory: %d%%" % value_str,
+        "msg": "Memory: %d%% used" % mem_used_percent,
         "data": {
             "state": state,
-            "metrics": {"mem_used_percent": value_str},
-            "details": ""
-        }
+            "metrics": {"mem_used_percent": mem_used_percent},
+            "details": "",
+        },
     }

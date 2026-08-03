@@ -1,189 +1,133 @@
-# ===== Checkmk check: arbor_memory =====
-# Translated to Starlark for yolo-man agent
-# Read-only SNMP-based check for Arbor PeakFlow memory usage
+# Checkmk check: arbor_memory -> read-only Starlark check module
+# Monitors Arbor Networks Peakflow device memory (RAM/swap) via SNMP.
 
-# Define the SNMP base OIDs for each device family
-OID_BASE_SP = ".1.3.6.1.4.1.9694.1.4.2.1"
-OID_BASE_TMS = ".1.3.6.1.4.1.9694.1.5.2"
-OID_BASE_PRAVAIL = ".1.3.6.1.4.1.9694.1.6.2"
-
-# SNMP OIDs for RAM and Swap (relative to base)
-OID_RAM = "7.0"
-OID_SWAP_SP = "10.0"
-OID_SWAP_TMS_PRAVAIL = "8.0"
-
-def parse_snmp_value(line):
-    # Expected format: ".1.3.6.1.4.1.9694.1.4.2.1.7.0 = INTEGER: 45"
-    idx = line.rfind(": ")
-    if idx == -1:
+def _snmp_get_int(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout.strip():
         return None
-    value_str = line[idx+2:].strip()
-    # Remove trailing whitespace or semicolons
-    value_str = value_str.strip().rstrip(";")
-    # Guard instead of try/except
-    if value_str == "" or value_str.find(".") != -1:
-        return None
-    # Check if it's a valid integer string
-    i = 0
-    if len(value_str) > 0 and value_str[0] == "-":
-        i = 1
-    while i < len(value_str):
-        if value_str[i] < "0" or value_str[i] > "9":
-            return None
-        i = i + 1
-    return int(value_str)
+    val = res.stdout.strip()
+    if val.lstrip("-").isdigit():
+        return int(val)
+    return None
 
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {
-                            "levels_ram": ("perc_used", (80.0, 90.0)),
-                            "levels_swap": ("perc_used", (80.0, 90.0)),
-                        },
-                        "metrics": ["mem_used_percent", "swap_used_percent"],
-                    },
-                ],
-            },
-        }
-
-    # Check mode
-    # Get thresholds from params with Checkmk defaults
-    levels_ram = params.get("levels_ram", ("perc_used", (80.0, 90.0)))
-    levels_swap = params.get("levels_swap", ("perc_used", (80.0, 90.0)))
-
-    # Determine which device type we're dealing with
-    facts = ctx.facts()
-    hostname = facts.get("hostname", "localhost")
+    host = params.get("host", "localhost")
     community = params.get("community", "public")
 
-    # Try to detect the device type based on SNMP discovery
-    # First, try PeakFlow SP base
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", hostname,
-        OID_BASE_SP + "." + OID_RAM,
-    ], mutates=False)
+    # Three Arbor device types with different OID bases (from DETECT_* in lib).
+    # Each entry: (ram_oid_suffix, swap_oid_suffix) appended to base.
+    arbor_bases = [
+        ".1.3.6.1.4.1.9694.1.4.2.1",  # Peakflow SP
+        ".1.3.6.1.4.1.9694.1.5.2",    # Peakflow TMS
+        ".1.3.6.1.4.1.9694.1.6.2",    # Peakflow Pravail
+    ]
+    sp_oids = ("7.0", "10.0")
+    tms_prav_oids = ("7.0", "8.0")
 
-    # Check if we got valid data for PeakFlow SP
-    if res.rc == 0 and res.stdout.find("INTEGER:") != -1:
-        base = OID_BASE_SP
-        swap_oid = OID_SWAP_SP
-    else:
-        # Try PeakFlow TMS
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", hostname,
-            OID_BASE_TMS + "." + OID_RAM,
-        ], mutates=False)
-        if res.rc == 0 and res.stdout.find("INTEGER:") != -1:
-            base = OID_BASE_TMS
-            swap_oid = OID_SWAP_TMS_PRAVAIL
-        else:
-            # Try PeakFlow Pravail
-            res = ctx.run([
-                "snmpwalk", "-v2c", "-c", community, "-On", hostname,
-                OID_BASE_PRAVAIL + "." + OID_RAM,
-            ], mutates=False)
-            if res.rc == 0 and res.stdout.find("INTEGER:") != -1:
-                base = OID_BASE_PRAVAIL
-                swap_oid = OID_SWAP_TMS_PRAVAIL
-            else:
-                # No matching device found
-                return {
-                    "changed": False,
-                    "msg": "no matching Arbor device found",
-                    "data": {
-                        "state": "UNKNOWN",
-                        "metrics": {},
-                        "details": "",
+    if params.get("_discover"):
+        # Probe for the real thing: an Arbor device reachable via SNMP.
+        found = False
+        for base in arbor_bases:
+            oids = sp_oids if base == arbor_bases[0] else tms_prav_oids
+            ram_oid = base + "." + oids[0]
+            val = _snmp_get_int(ctx, host, community, ram_oid)
+            if val != None:
+                found = True
+                break
+        if not found:
+            return {
+                "changed": False,
+                "msg": "no Arbor device found",
+                "data": {"discovery": []},
+            }
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {"discovery": [
+                {
+                    "item": "",
+                    "params": {
+                        "levels_ram": ("perc_used", (80.0, 90.0)),
+                        "levels_swap": ("perc_used", (80.0, 90.0)),
                     },
+                    "metrics": ["mem_used_percent", "swap_used_percent"],
                 }
+            ]},
+        }
 
-    # Now get both RAM and Swap values using snmpget (scalar values, single instance)
-    ram_oid = base + "." + OID_RAM
-    swap_oid = base + "." + swap_oid
+    # CHECK MODE: identify which Arbor base responds.
+    base_detected = None
+    oids_detected = None
+    for base in arbor_bases:
+        oids = sp_oids if base == arbor_bases[0] else tms_prav_oids
+        ram_oid = base + "." + oids[0]
+        val = _snmp_get_int(ctx, host, community, ram_oid)
+        if val != None:
+            base_detected = base
+            oids_detected = oids
+            break
 
-    # Get RAM value
-    res_ram = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", hostname, ram_oid,
-    ], mutates=False)
-
-    # Get Swap value
-    res_swap = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", hostname, swap_oid,
-    ], mutates=False)
-
-    # Check if we got valid responses
-    if res_ram.rc != 0 or res_swap.rc != 0:
+    if base_detected == None:
         return {
             "changed": False,
-            "msg": "SNMP query failed",
+            "msg": "no Arbor device found",
             "data": {
                 "state": "UNKNOWN",
                 "metrics": {},
-                "details": "",
+                "details": "SNMP query to Arbor memory OIDs returned no data",
             },
         }
 
-    # Parse RAM and Swap percentages (format: OID = INTEGER: XX)
-    ram_line = res_ram.stdout.strip()
-    swap_line = res_swap.stdout.strip()
+    ram_oid = base_detected + "." + oids_detected[0]
+    swap_oid = base_detected + "." + oids_detected[1]
+    ram = _snmp_get_int(ctx, host, community, ram_oid)
+    swap = _snmp_get_int(ctx, host, community, swap_oid)
 
-    # Extract numeric value from response
-    ram_percent = parse_snmp_value(ram_line)
-    swap_percent = parse_snmp_value(swap_line)
-
-    # Validate parsed values
-    if ram_percent == None or swap_percent == None:
+    if ram == None or swap == None:
         return {
             "changed": False,
-            "msg": "failed to parse SNMP values",
+            "msg": "incomplete memory data",
             "data": {
                 "state": "UNKNOWN",
                 "metrics": {},
-                "details": "",
+                "details": "Could not retrieve complete RAM/swap memory values",
             },
         }
 
-    # Extract threshold values (Checkmk format: ("perc_used", (warn, crit)))
-    warn_ram = 80.0
-    crit_ram = 90.0
-    warn_swap = 80.0
-    crit_swap = 90.0
-    
-    if levels_ram[0] == "perc_used":
-        warn_ram = float(levels_ram[1][0])
-        crit_ram = float(levels_ram[1][1])
-    
-    if levels_swap[0] == "perc_used":
-        warn_swap = float(levels_swap[1][0])
-        crit_swap = float(levels_swap[1][1])
+    # Thresholds from params (Checkmk defaults: warn 80, crit 90 for both).
+    levels_ram = params.get("levels_ram", ("perc_used", (80.0, 90.0)))
+    levels_swap = params.get("levels_swap", ("perc_used", (80.0, 90.0)))
+    warn_ram, crit_ram = levels_ram[1][0], levels_ram[1][1]
+    warn_swap, crit_swap = levels_swap[1][0], levels_swap[1][1]
 
-    # Determine states
+    # Grade upper levels: WARN if >= warn, CRIT if >= crit.
+    state_ram = "CRIT" if ram >= crit_ram else ("WARN" if ram >= warn_ram else "OK")
+    state_swap = "CRIT" if swap >= crit_swap else ("WARN" if swap >= warn_swap else "OK")
+
     state = "OK"
-    if ram_percent >= crit_ram or swap_percent >= crit_swap:
+    if state_ram == "CRIT" or state_swap == "CRIT":
         state = "CRIT"
-    elif ram_percent >= warn_ram or swap_percent >= warn_swap:
+    elif state_ram == "WARN" or state_swap == "WARN":
         state = "WARN"
 
-    # Build message
-    msg = "Used RAM: %d%%, Used Swap: %d%%" % (ram_percent, swap_percent)
+    msg = "Used RAM: %d%%, Used Swap: %d%%" % (ram, swap)
+    details = "RAM used: %d%% (warn at %d%%, crit at %d%%)\nSwap used: %d%% (warn at %d%%, crit at %d%%)" % (
+        ram, int(warn_ram), int(crit_ram),
+        swap, int(warn_swap), int(crit_swap),
+    )
 
-    # Return the check result
     return {
         "changed": False,
         "msg": msg,
         "data": {
             "state": state,
             "metrics": {
-                "mem_used_percent": ram_percent,
-                "swap_used_percent": swap_percent,
+                "mem_used_percent": ram,
+                "swap_used_percent": swap,
             },
-            "details": "",
+            "details": details,
         },
     }

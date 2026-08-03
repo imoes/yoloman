@@ -1,92 +1,51 @@
-# Module-level constants for SNMP section base OID
-_BASE_OID = ".1.3.6.1.4.1.334.72.1.1.6.1.2.1"
-
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.334.72.1.1.6.1.2.1.4"
+    item_oid = params.get("item_oid", "")
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), _BASE_OID + ".4"
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "discovery failed",
-                "data": {"discovery": []}
-            }
-
+        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_oid], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no domino tasks found", "data": {"discovery": []}}
         items = []
         for line in res.stdout.splitlines():
-            # Format: OID = STRING: "task_name"
-            idx = line.find('"')
-            if idx == -1:
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
                 continue
-            task_name = line[idx + 1:].rstrip('"')
-            if task_name:
-                items.append({
-                    "item": task_name,
-                    "params": {"levels": (1, 1, 99999, 99999)},
-                    "metrics": []
-                })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d domino tasks" % len(items),
-            "data": {"discovery": items}
-        }
-
-    # Check mode
+            oid_full = parts[0]
+            value = parts[1].strip().strip('"')
+            if not oid_full.startswith(base_oid + "."):
+                continue
+            index = oid_full[len(base_oid) + 1:]
+            if not index:
+                continue
+            items.append({"item": value, "params": {"levels": [1, 1, 99999, 99999], "item_oid": index}, "metrics": ["count"]})
+        return {"changed": False, "msg": "discovered %d domino tasks" % len(items), "data": {"discovery": items}}
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), _BASE_OID + ".4"
-    ], mutates=False)
-
+    item_oid = params.get("item_oid", "")
+    if not item_oid:
+        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_oid], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no domino task named '%s' found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        found_oid = ""
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid_full = parts[0]
+            value = parts[1].strip().strip('"')
+            if value == item and oid_full.startswith(base_oid + "."):
+                found_oid = oid_full[len(base_oid) + 1:]
+                break
+        if not found_oid:
+            return {"changed": False, "msg": "no domino task named '%s' found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        item_oid = found_oid
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base_oid + "." + item_oid], mutates=False)
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to fetch domino tasks",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    found = False
-    for line in res.stdout.splitlines():
-        idx = line.find('"')
-        if idx == -1:
-            continue
-        task_name = line[idx + 1:].rstrip('"')
-        if task_name == item:
-            found = True
-            break
-
-    levels = params.get("levels", (1, 1, 99999, 99999))
-    # levels format: (warn_lower, warn_upper, crit_lower, crit_upper)
-    # This check only verifies the task exists (count = 1), so we treat count as the metric.
-    # Expected count is 1 for a running task; 0 means missing task.
-    count = 1 if found else 0
-
-    # Determine state based on levels (treat as count thresholds)
-    crit_lower, crit_upper, warn_lower, warn_upper = levels[2], levels[3], levels[0], levels[1]
-    state = "OK"
-    if count <= crit_lower or count >= crit_upper:
-        state = "CRIT"
-    elif count <= warn_lower or count >= warn_upper:
-        state = "WARN"
-
-    msg = "%s: %s" % (item, "running" if found else "not running")
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"tasks": count},
-            "details": ""
-        }
-    }
+        return {"changed": False, "msg": "no domino task '%s' found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    levels = params.get("levels", [1, 1, 99999, 99999])
+    warn_count = levels[0] if len(levels) >= 1 else 1
+    crit_count = levels[1] if len(levels) >= 2 else 1
+    count = 1
+    state = "CRIT" if count >= crit_count else ("WARN" if count >= warn_count else "OK")
+    return {"changed": False, "msg": "Task %s: state %s (count=%d)" % (item, state, count), "data": {"state": state, "metrics": {"count": count}, "details": "Domino task %s is active" % item}}

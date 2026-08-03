@@ -1,171 +1,178 @@
+# Watchdog SNMP temperature sensor check — read-only Starlark translation.
+#
+# Source checkmk plugin: cmk/plugins/watchdog/agent_based/watchdog_sensors.py
+#
+# This module reproduces the `watchdog_sensors_temp` check only (the temperature
+# sub-check). It walks the Watchdog sensor table over SNMP, discovers one
+# service per sensor (named by its description), and grades the temperature
+# reading against operator-supplied warn/crit levels.
+#
+# The check is purely read-only and never mutates the system.
+
+def _to_temp_params(params):
+    """Extract (warn, crit) temperature levels from params, with Checkmk defaults."""
+    levels = params.get("levels")
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+    else:
+        warn = params.get("warn", 30)
+        crit = params.get("crit", 35)
+    return warn, crit
+
+
 def main(ctx, params):
-    # ===== Helper: parse SNMP data =====
-    def _parse_snmp():
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-
-        # Base OIDs for watchdog sensors
-        base_general = ".1.3.6.1.4.1.21239.5.1.1"
-        base_data = ".1.3.6.1.4.1.21239.5.1.2.1"
-
-        # Fetch general info: version OID (.2) and temp_unit OID (.7)
-        res_general = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base_general + ".2", base_general + ".7"
-        ], mutates=False)
-        lines_general = res_general.stdout.splitlines()
-        version_str = ""
-        temp_unit_raw = ""
-        for line in lines_general:
-            parts = line.strip().split(" = ")
-            if len(parts) == 2:
-                oid_part = parts[0].strip()
-                val = parts[1].strip()
-                if oid_part.endswith(".2"):
-                    version_str = val
-                elif oid_part.endswith(".7"):
-                    temp_unit_raw = val.strip('"').strip("'")
-
-        # Determine temp unit
-        temp_unit = "C"
-        if temp_unit_raw == "0":
-            temp_unit = "F"
-        elif temp_unit_raw == "1":
-            temp_unit = "C"
-
-        # Parse version: e.g., "3.0.0" -> 300, "3.2.0" -> 320
-        version = 300
-        if version_str and version_str.replace(".", "").isdigit():
-            version = int(version_str.replace(".", ""))
-
-        # Fetch sensor data: descr(3), availability(4), temp(5), humidity(6), dew(7)
-        res_data = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base_data + ".3", base_data + ".4", base_data + ".5",
-            base_data + ".6", base_data + ".7", base_data + ".8"
-        ], mutates=False)
-        lines_data = res_data.stdout.splitlines()
-
-        # Group by sensor index (OIDEnd is the first component after base_data)
-        raw_lines = {}  # {index: {3:descr,4:avail,5:temp,...}}
-        for line in lines_data:
-            line = line.strip()
-            if not line or " = " not in line:
-                continue
-            parts = line.split(" = ")
-            if len(parts) < 2:
-                continue
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip().strip('"').strip("'")
-            # Extract index (last component after the base_data OID)
-            oid_parts = oid_part.split(".")
-            if len(oid_parts) < 13:  # base_data has 8 components, then .<oid>.<idx>
-                continue
-            oid_num = oid_parts[-2]  # second to last is the OID number (3..8)
-            idx = oid_parts[-1]      # last is index
-            if idx not in raw_lines:
-                raw_lines[idx] = {}
-            raw_lines[idx][oid_num] = val_part
-
-        # Build parsed structure
-        parsed = {"general": {}, "temp": {}, "humidity": {}, "dew": {}}
-        for idx, data_dict in raw_lines.items():
-            descr = data_dict.get("3", "")
-            avail = data_dict.get("4", "0")
-            temp = data_dict.get("5", "")
-            humidity = data_dict.get("6", "")
-            dew = data_dict.get("7", "")
-
-            wd_name = "Watchdog " + idx
-            parsed["general"][wd_name] = {"descr": descr, "availability": avail}
-            if temp != "":
-                parsed["temp"]["Temperature " + idx] = (temp, temp_unit)
-            if humidity != "":
-                parsed["humidity"]["Humidity " + idx] = humidity
-            if dew != "":
-                parsed["dew"]["Dew point " + idx] = (dew, temp_unit)
-
-        return parsed
-
-    # ===== Discovery mode =====
-    if params.get("_discover"):
-        parsed = _parse_snmp()
-        out = []
-        for key in parsed.get("temp", {}):
-            out.append({
-                "item": key,
-                "params": {"levels": (25.0, 30.0), "levels_lower": (5.0, 0.0)},
-                "metrics": ["temp"]
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(out),
-            "data": {"discovery": out}
-        }
-
-    # ===== Check mode =====
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", 2)
+    base = ".1.3.6.1.4.1.21239.5.1"
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
     item = params.get("item", "")
+
+    if params.get("_discover"):
+        # --- DISCOVERY -------------------------------------------------------
+        # First confirm the Watchdog product is present by reading the
+        # system OID. If it is not the Watchdog enterprise OID, the device
+        # is not a Watchdog sensor and nothing is discovered.
+        probe = ctx.run(
+            ["snmpget", "-v%d" % version, "-c", community, "-Oqv", host, sys_oid],
+            mutates=False,
+        )
+        if probe.rc != 0 or probe.skipped:
+            return {"changed": False, "msg": "no SNMP access",
+                    "data": {"discovery": []}}
+        sys_oid_val = probe.stdout.strip()
+        if not sys_oid_val.startswith(".1.3.6.1.4.1.21239.5.1") and \
+           not sys_oid_val.startswith(".1.3.6.1.4.1.21239.42.1"):
+            return {"changed": False, "msg": "not a Watchdog device",
+                    "data": {"discovery": []}}
+
+        # Read version + temperature unit from the general scalar table.
+        general = ctx.run(
+            ["snmpget", "-v%d" % version, "-c", community, "-Oqv", host,
+             base + ".1.1.2.0"],
+            mutates=False,
+        )
+        unit_oid = ctx.run(
+            ["snmpget", "-v%d" % version, "-c", community, "-Oqv", host,
+             base + ".1.1.7.0"],
+            mutates=False,
+        )
+        if general.rc != 0 or unit_oid.rc != 0 or general.skipped or unit_oid.skipped:
+            return {"changed": False, "msg": "Watchdog general OIDs unreadable",
+                    "data": {"discovery": []}}
+        version_str = general.stdout.strip()
+        unit_raw = unit_oid.stdout.strip()
+        temp_unit = "C" if unit_raw == "1" else ("F" if unit_raw == "0" else "C")
+
+        # Walk the sensor table: column-OID .1.3.6.1.4.1.21239.5.1.2.1.3
+        # (description) — item is the description VALUE; temperature column
+        # is .1.3.6.1.4.1.21239.5.1.2.1.6 (value*10 integer).
+        walk = ctx.run(
+            ["snmpwalk", "-v%d" % version, "-c", community, "-Oqn", host,
+             base + ".2.1.3"],
+            mutates=False,
+        )
+        if walk.rc != 0 or walk.skipped:
+            return {"changed": False, "msg": "no Watchdog sensor table",
+                    "data": {"discovery": []}}
+
+        discovery = []
+        for line in walk.stdout.splitlines():
+            line = line.strip()
+            if line == "":
+                continue
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            value = line[sp + 1:]
+            index = oid[len(base + ".2.1.3") + 1:]
+            warn, crit = _to_temp_params(params)
+            discovery.append({
+                "item": value,
+                "params": {"warn": warn, "crit": crit},
+                "metrics": ["temperature"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d Watchdog temperature sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # --- CHECK MODE --------------------------------------------------------
     if item == "":
-        fail("item must be provided for check mode")
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    parsed = _parse_snmp()
-    data = parsed.get("temp", {}).get(item)
-    if not data:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Re-walk the description column to find the numeric index for this item.
+    walk = ctx.run(
+        ["snmpwalk", "-v%d" % version, "-c", community, "-Oqn", host,
+         base + ".2.1.3"],
+        mutates=False,
+    )
+    if walk.rc != 0 or walk.skipped or walk.stdout == "":
+        return {"changed": False, "msg": "no Watchdog sensor table reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Extract temp string and unit
-    temp_str, unit = data
-    temp_c = 0.0
-    if temp_str == "":
-        return {
-            "changed": False,
-            "msg": "invalid temperature value: empty string",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    temp_c = float(temp_str) / 10.0 if temp_str.replace(".", "").replace("-", "").isdigit() else 0.0
+    index = None
+    for line in walk.stdout.splitlines():
+        line = line.strip()
+        if line == "":
+            continue
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        value = line[sp + 1:]
+        if value == item:
+            index = oid[len(base + ".2.1.3") + 1:]
+            break
 
-    # Convert Fahrenheit to Celsius if needed
-    if unit.upper() == "F":
-        temp_c = (temp_c - 32.0) * 5.0 / 9.0
+    if index == None:
+        return {"changed": False, "msg": "sensor not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Round to 1 decimal using int(x * 10 + 0.5) / 10.0
-    temp_c_rounded = int(temp_c * 10 + 0.5) / 10.0
+    # Read the temperature value for the matched index.
+    temp_res = ctx.run(
+        ["snmpget", "-v%d" % version, "-c", community, "-Oqv", host,
+         base + ".2.1.6." + index],
+        mutates=False,
+    )
+    unit_res = ctx.run(
+        ["snmpget", "-v%d" % version, "-c", community, "-Oqv", host,
+         base + ".1.1.7.0"],
+        mutates=False,
+    )
+    if temp_res.rc != 0 or temp_res.skipped or temp_res.stdout == "":
+        return {"changed": False, "msg": "could not read temperature for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Apply thresholds from params (Checkmk defaults: levels (25,30), levels_lower (5,0))
-    warn = params.get("levels", (25.0, 30.0))
-    warn_high = warn[0] if (type(warn) == "list" and len(warn) >= 1) else 25.0
-    crit_high = warn[1] if (type(warn) == "list" and len(warn) >= 2) else 30.0
-    warn_low = params.get("levels_lower", (5.0, 0.0))
-    warn_low_val = warn_low[0] if (type(warn_low) == "list" and len(warn_low) >= 1) else 5.0
-    crit_low_val = warn_low[1] if (type(warn_low) == "list" and len(warn_low) >= 2) else 0.0
+    temp_raw = temp_res.stdout.strip()
+    unit_raw = unit_res.stdout.strip() if (unit_res.rc == 0 and not unit_res.skipped) else "1"
+    temp_unit = "C" if unit_raw == "1" else "F"
 
-    # Determine state
-    state = "OK"
-    summary = "%s C" % str(temp_c_rounded)
+    if not temp_raw.lstrip("-").isdigit():
+        return {"changed": False,
+                "msg": "invalid temperature value: " + temp_raw,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if temp_c >= crit_high:
+    reading = int(temp_raw) / 10.0
+    if temp_unit == "F":
+        reading = (reading - 32.0) * 5.0 / 9.0
+        unit = "c"
+    else:
+        unit = "c"
+
+    warn, crit = _to_temp_params(params)
+    if reading >= crit:
         state = "CRIT"
-        summary = "%s C (crit > %s)" % (str(temp_c_rounded), str(crit_high))
-    elif temp_c >= warn_high:
+    elif reading >= warn:
         state = "WARN"
-        summary = "%s C (warn > %s)" % (str(temp_c_rounded), str(warn_high))
-    elif temp_c <= crit_low_val:
-        state = "CRIT"
-        summary = "%s C (crit < %s)" % (str(temp_c_rounded), str(crit_low_val))
-    elif temp_c <= warn_low_val:
-        state = "WARN"
-        summary = "%s C (warn < %s)" % (str(temp_c_rounded), str(warn_low_val))
+    else:
+        state = "OK"
 
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"temp": temp_c},
-            "details": ""
-        }
-    }
+    msg = "%s %f%s" % (item, reading, unit)
+    if state != "OK":
+        msg += " (warn/crit at %d/%d%s)" % (warn, crit, unit)
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"temperature": reading}, "details": ""}}

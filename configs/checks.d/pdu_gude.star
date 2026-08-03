@@ -1,185 +1,244 @@
-def _parse_snmp_output(lines):
-    """Parse SNMP lines into a dict: pdu_num -> list of (value_float, unit, label)"""
-    unit_map = [
-        ("kWh", 1000, "Total accumulated active energy"),
-        ("W", 1, "Active power"),
-        ("A", 1000, "Current"),
-        ("V", 1, "Voltage"),
-        ("VA", 1, "Mean apparent power"),
-    ]
-    result = {}
-    for line in lines:
-        line = line.strip()
-        if line == "" or line.find("=") == -1:
+#!/usr/bin/env python3
+# Starlark module — Checkmk check: pdu_gude (read-only)
+# Monitors Gude PDU units over SNMP. Never mutates the system.
+
+_GUDE_UNIT_SCALE = {
+    "3":  ("kWh", 1000, "Total accumulated active energy"),
+    "4":  ("W",   1,    "Active power"),
+    "5":  ("A",   1000, "Current"),
+    "6":  ("V",   1,    "Voltage"),
+    "10": ("VA",  1,    "Mean apparent power"),
+}
+
+_GUDE_COL_ORDER = ["3", "4", "5", "6", "10"]
+
+_GUDE_MODELS = {
+    ".1.3.6.1.4.1.28507.26": ".1.3.6.1.4.1.28507.26.1.5.1.2.1",
+    ".1.3.6.1.4.1.28507.27": ".1.3.6.1.4.1.28507.27.1.5.1.2.1",
+    ".1.3.6.1.4.1.28507.62": ".1.3.6.1.4.1.28507.62.1.5.1.2.1",
+    ".1.3.6.1.4.1.28507.41": ".1.3.6.1.4.1.28507.41.1.5.1.2.1",
+}
+
+_GUDE_DEFAULTS = {
+    "V": (220, 210),
+    "A": (15, 16),
+    "W": (3500, 3600),
+}
+
+_WORST_ORDER = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+
+
+def _detect(model_oid):
+    return _GUDE_MODELS.get(model_oid)
+
+
+def _to_float(s):
+    if s == None or s == "":
+        return None
+    cleaned = ""
+    started = False
+    seen_dot = False
+    for ch in s:
+        if ch == "-" and not started:
+            cleaned = cleaned + ch
+            started = True
             continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        idx_part = oid_part.rsplit(".", 1)
-        if len(idx_part) != 2:
-            continue
-        try_str = idx_part[1]
-        idx = 0
-        if try_str.isdigit():
-            idx = int(try_str)
+        if ch >= "0" and ch <= "9":
+            cleaned = cleaned + ch
+            started = True
+        elif ch == "." and started == True and seen_dot == False:
+            cleaned = cleaned + ch
+            seen_dot = True
         else:
-            continue
-        value_str = parts[1].strip()
-        colon_pos = value_str.find(":")
-        if colon_pos != -1:
-            value_str = value_str[colon_pos+1:].strip()
-        val = 0.0
-        if value_str != "":
-            # Safe float conversion: check for valid numeric string
-            cleaned = value_str.strip()
-            # Allow digits, dot, minus sign only
-            is_valid = True
-            if cleaned != "":
-                for c in cleaned:
-                    if c not in "0123456789.-+eE":
-                        is_valid = False
-                        break
-                if not is_valid:
-                    continue
-            # Use guarded conversion: only if valid format
-            if cleaned == "." or cleaned == "-" or cleaned == "+":
-                continue
-            # Basic validation: must have at least one digit
-            has_digit = False
-            for c in cleaned:
-                if c in "0123456789":
-                    has_digit = True
-                    break
-            if not has_digit:
-                continue
-            # Attempt conversion only for plausible numbers
-            # Starlark does not have try/except, so we skip conversion errors
-            # and rely on string validation above
-            val = float(cleaned) if cleaned.find("e") == -1 and cleaned.find("E") == -1 else 0.0
-            # Fallback for scientific notation: skip for safety
-            if cleaned.find("e") != -1 or cleaned.find("E") != -1:
-                val = 0.0
-        pdu_num = str(idx)
-        if not (pdu_num in result):
-            result[pdu_num] = []
-        unit_idx = len(result[pdu_num])
-        if unit_idx < len(unit_map):
-            unit, scale, label = unit_map[unit_idx]
-            result[pdu_num].append({
-                "value": val / scale,
-                "unit": unit,
-                "label": label,
-            })
-    return result
+            if started == True:
+                break
+    if cleaned == "" or cleaned == "-" or cleaned == ".":
+        return None
+    return float(cleaned)
+
+
+def _grade(value, params, unit):
+    if unit not in params:
+        return "OK", ""
+    warn, crit = params[unit]
+    if warn > crit:
+        state = "OK"
+        if value <= crit:
+            state = "CRIT"
+        elif value <= warn:
+            state = "WARN"
+        return state, "%s (warn<=%f, crit<=%f)" % (unit, warn, crit)
+    state = "OK"
+    if value >= crit:
+        state = "CRIT"
+    elif value >= warn:
+        state = "WARN"
+    return state, "%s (warn>=%f, crit>=%f)" % (unit, warn, crit)
+
+
+def _worst(a, b):
+    if _WORST_ORDER.get(a, 99) >= _WORST_ORDER.get(b, 99):
+        return a
+    return b
+
+
+def _get_thresholds(params):
+    eff = {}
+    thresholds = params.get("pdu_gude", {})
+    units = ["V", "A", "W", "VA", "kWh"]
+    for u in units:
+        if u in params:
+            eff[u] = params[u]
+        elif u in thresholds:
+            eff[u] = thresholds[u]
+        elif u in _GUDE_DEFAULTS:
+            eff[u] = _GUDE_DEFAULTS[u]
+    return eff
+
+
+def _is_int(i):
+    return type(i) == "int"
+
 
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover") == True:
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.28507.26.1.5.1.2.1"
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-        parsed = _parse_snmp_output(res.stdout.splitlines())
-        discovery = []
-        pdu_nums = list(parsed.keys())
-        pdu_nums.sort(key=lambda x: int(x))
-        for pdu_num in pdu_nums:
-            metrics = []
-            for p in parsed[pdu_num]:
-                metrics.append(p["unit"])
-            default_params = {
-                "V": [220, 210],
-                "A": [15, 16],
-                "W": [3500, 3600],
-            }
-            discovery.append({
-                "item": pdu_num,
-                "params": default_params,
-                "metrics": metrics,
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d pdus" % len(discovery),
-            "data": {"discovery": discovery},
-        }
-
-    # Check mode
-    item = params.get("item", "")
-    if item == "":
-        fail("item is required in check mode")
-
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.28507.26.1.5.1.2.1"
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        fail("SNMP walk failed: " + res.stderr)
+    community = params.get("community", "public")
 
-    parsed = _parse_snmp_output(res.stdout.splitlines())
-    pdu_props = parsed.get(item)
-    if pdu_props == None:
-        return {
-            "changed": False,
-            "msg": "PDU %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # --- DISCOVERY ---
+    if params.get("_discover"):
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Ovq", host,
+             ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no Gude PDU detected",
+                    "data": {"discovery": []}}
+        sysoid = res.stdout.strip()
+        table_base = _detect(sysoid)
+        if table_base == None:
+            return {"changed": False, "msg": "no Gude PDU detected",
+                    "data": {"discovery": []}}
 
-    default_levels = {
-        "V": [220, 210],
-        "A": [15, 16],
-        "W": [3500, 3600],
-    }
-
-    state = "OK"
-    details = []
-    metrics = {}
-    for prop in pdu_props:
-        unit = prop["unit"]
-        value = prop["value"]
-        label = prop["label"]
-
-        levels = params.get(unit)
-        if levels == None:
-            levels = default_levels.get(unit)
-        if levels == None:
-            continue
-
-        warn_val = levels[0]
-        crit_val = levels[1]
-
-        if warn_val > crit_val:
-            if value <= crit_val:
-                state = "CRIT"
-            elif value <= warn_val:
-                if state != "CRIT":
-                    state = "WARN"
+        col3_oid = table_base + ".3"
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col3_oid],
+            mutates=False,
+        )
+        items = []
+        if walk.rc == 0 and walk.stdout:
+            prefix = col3_oid + "."
+            for line in walk.stdout.splitlines():
+                parts = line.split()
+                if len(parts) < 2:
+                    continue
+                foid = parts[0]
+                if foid.startswith(prefix):
+                    idx = foid[len(prefix):]
+                    if idx == "":
+                        continue
+                    if idx.isdigit():
+                        items.append(int(idx))
+                    else:
+                        items.append(idx)
         else:
-            if value >= crit_val:
-                state = "CRIT"
-            elif value >= warn_val:
-                if state != "CRIT":
-                    state = "WARN"
+            single = table_base + ".1.3"
+            gs = ctx.run(
+                ["snmpget", "-v2c", "-c", community, "-Oqv", host, single],
+                mutates=False,
+            )
+            if gs.rc == 0 and gs.stdout:
+                items.append(1)
+            else:
+                return {"changed": False, "msg": "no Gude PDU detected",
+                        "data": {"discovery": []}}
 
-        metrics[unit] = value
-        details.append("%s: %f %s" % (label, value, unit))
+        if not items:
+            return {"changed": False, "msg": "no Gude PDU detected",
+                    "data": {"discovery": []}}
 
-    msg = ""
-    if len(details) > 0:
-        msg = "PDU %s: %s" % (item, ", ".join(details))
+        all_int = True
+        for i in items:
+            if _is_int(i) == False:
+                all_int = False
+                break
+        if all_int:
+            items = sorted(items)
+        else:
+            items = sorted([str(i) for i in items])
+
+        out = []
+        for pdu_num in items:
+            out.append({
+                "item": "Phase %s" % str(pdu_num),
+                "params": {"V": (220, 210), "A": (15, 16), "W": (3500, 3600)},
+                "metrics": ["W", "A", "V", "VA", "kWh"],
+            })
+        return {"changed": False, "msg": "discovered %d PDU phases" % len(out),
+                "data": {"discovery": out}}
+
+    # --- CHECK MODE ---
+    item = params.get("item", "")
+    pdu_index = ""
+    if item.startswith("Phase "):
+        pdu_index = item[len("Phase "):]
     else:
-        msg = "PDU %s: no metrics" % item
-    if state == "OK":
-        msg = "PDU %s: OK" % item
+        pdu_index = item
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    eff_params = _get_thresholds(params)
+
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovq", host,
+         ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False,
+                "msg": "no Gude PDU detected on %s" % host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sysoid = res.stdout.strip()
+    table_base = _detect(sysoid)
+    if table_base == None:
+        return {"changed": False,
+                "msg": "no Gude PDU detected on %s" % host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    suffix = "." + str(pdu_index) if pdu_index != "" else ".1"
+    col_oids = {}
+    for col in _GUDE_COL_ORDER:
+        col_oids[col] = table_base + "." + col + suffix
+
+    values = {}
+    for col in _GUDE_COL_ORDER:
+        oid = col_oids[col]
+        r = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+                    mutates=False)
+        if r.rc != 0 or not r.stdout:
+            values[col] = None
+        else:
+            values[col] = _to_float(r.stdout.strip())
+
+    metrics = {}
+    details_lines = []
+    summary_parts = []
+    worst = "OK"
+
+    for col in _GUDE_COL_ORDER:
+        unit, scale, label = _GUDE_UNIT_SCALE[col]
+        raw = values[col]
+        if raw == None:
+            return {"changed": False,
+                    "msg": "incomplete data for Phase %s" % pdu_index,
+                    "data": {"state": "UNKNOWN", "metrics": {},
+                             "details": "missing column %s" % col}}
+        scaled = raw / scale
+        metrics[unit] = scaled
+        st, desc = _grade(scaled, eff_params, unit)
+        worst = _worst(worst, st)
+        details_lines.append("%s: %f %s (%s)" % (label, scaled, unit, desc))
+        summary_parts.append("%s=%f%s" % (unit, scaled, ""))
+
+    summary = "Phase %s: %s" % (pdu_index, ", ".join(summary_parts))
+    return {"changed": False, "msg": summary,
+            "data": {"state": worst, "metrics": metrics,
+                     "details": "\n".join(details_lines)}}

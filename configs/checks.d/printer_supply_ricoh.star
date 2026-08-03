@@ -1,160 +1,102 @@
-# Module for Checkmk printer_supply_ricoh translated to Starlark
-# Reads Ricoh printer toner supply via SNMP
-
-def _parse_snmp_output(lines):
-    """Parse SNMP walk lines into a dict {supply_name: level}."""
-    parsed = {}
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) < 4:
-            continue
-        # Extract numeric part at end of OID
-        oid = parts[0]
-        idx_str = oid.rsplit(".", 1)[-1]
-        if not idx_str.isdigit():
-            continue
-        idx = int(idx_str)
-        
-        # Get value part (after " = ")
-        value_part = ""
-        for i in range(2, len(parts)):
-            if value_part != "":
-                value_part += " "
-            value_part += parts[i]
-        
-        # Remove quotes if present
-        if value_part.startswith('"') and value_part.endswith('"'):
-            value_part = value_part[1:-1]
-        
-        # Check if this is name line (string) or value line (int)
-        if value_part.isdigit() or (value_part.startswith("-") and value_part[1:].isdigit()):
-            # It's a value line - store as supply level
-            if idx not in parsed:
-                parsed[idx] = {}
-            parsed[idx]["value"] = int(value_part)
-        else:
-            # It's a name line - store by index
-            # Reverse two-word names if applicable
-            words = value_part.split(" ")
-            name = value_part
-            if len(words) == 2:
-                name = words[1] + " " + words[0]
-            if idx not in parsed:
-                parsed[idx] = {}
-            parsed[idx]["name"] = name
-    
-    # Now pair name and value
-    result = {}
-    for idx in parsed:
-        item = parsed[idx]
-        if "name" in item and "value" in item:
-            result[item["name"]] = item["value"]
-    return result
-
 def main(ctx, params):
+    if params.get("_discover"):
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "not installed: snmpget rc=" + str(res.rc), "data": {"discovery": []}}
+        
+        sys_oid = res.stdout.strip()
+        if sys_oid != ".1.3.6.1.4.1.367.1.1":
+            return {"changed": False, "msg": "Ricoh printer not detected", "data": {"discovery": []}}
+        
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.367.3.2.1.2.24.1.1.2"], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "snmpwalk column 2 failed: rc=" + str(walk.rc), "data": {"discovery": []}}
+        
+        warn_default = 20.0
+        crit_default = 10.0
+        levels = params.get("levels", (warn_default, crit_default))
+        warn = levels[0]
+        crit = levels[1]
+        
+        name_rows = {}
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            value = parts[1]
+            idx = oid[len(".1.3.6.1.4.1.367.3.2.1.2.24.1.1.2") + 1:]
+            name_rows[idx] = value.strip(' "')
+        
+        out = []
+        for idx in name_rows:
+            name_rev = name_rows[idx].split(" ")
+            if len(name_rev) == 2:
+                name_rev = [name_rev[1], name_rev[0]]
+            name = " ".join(name_rev)
+            out.append({"item": name, "params": {"levels": (warn, crit)}, "metrics": ["supply_level"]})
+        
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
+    
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    base_oid = ".1.3.6.1.4.1.367.3.2.1.2.24.1.1"
-    
-    # Discovery mode
-    if params.get("_discover"):
-        # Walk the OID tree to find all supplies
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.367.3.2.1.2.24.1.1.2"
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []}
-            }
-        
-        # Collect all supply names
-        supplies = {}
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # Parse: OID = STRING: "name"
-            equals_pos = line.find(" = ")
-            if equals_pos == -1:
-                continue
-            oid_part = line[:equals_pos].strip()
-            value_part = line[equals_pos+3:].strip()
-            
-            # Extract index from OID
-            last_dot = oid_part.rfind(".")
-            if last_dot == -1:
-                continue
-            idx_str = oid_part[last_dot+1:]
-            if not idx_str.isdigit():
-                continue
-            idx = int(idx_str)
-            
-            # Extract and process name
-            if value_part.startswith('"') and value_part.endswith('"'):
-                name = value_part[1:-1]
-                # Reverse two-word names if applicable
-                words = name.split(" ")
-                if len(words) == 2:
-                    name = words[1] + " " + words[0]
-                supplies[name] = idx
-        
-        # Build discovery items
-        discovery_items = []
-        for name in supplies:
-            discovery_items.append({
-                "item": name,
-                "params": {"levels": (20.0, 10.0)},
-                "metrics": ["supply_toner_other"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d supplies" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode - single item
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "item is required for check mode",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
     
-    # Fetch all supply data via SNMP walk
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host, base_oid
-    ], mutates=False)
-    
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return {"changed": False, "msg": "not installed: snmpget rc=" + str(res.rc), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    # Parse the SNMP output
-    section = _parse_snmp_output(res.stdout.splitlines())
+    sys_oid = res.stdout.strip()
+    if sys_oid != ".1.3.6.1.4.1.367.1.1":
+        return {"changed": False, "msg": "Ricoh printer not detected", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    if item not in section:
-        return {
-            "changed": False,
-            "msg": "supply not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.367.3.2.1.2.24.1.1.2"], mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "snmpwalk column 2 failed: rc=" + str(walk.rc), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    # Get thresholds
+    name_to_idx = {}
+    for line in walk.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid = parts[0]
+        value = parts[1]
+        idx = oid[len(".1.3.6.1.4.1.367.3.2.1.2.24.1.1.2") + 1:]
+        raw_name = value.strip(' "')
+        name_rev = raw_name.split(" ")
+        if len(name_rev) == 2:
+            name_rev = [name_rev[1], name_rev[0]]
+        name = " ".join(name_rev)
+        name_to_idx[name] = idx
+    
+    if item not in name_to_idx:
+        return {"changed": False, "msg": "item not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    idx = name_to_idx[item]
+    level_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.367.3.2.1.2.24.1.1.5." + idx], mutates=False)
+    if level_res.rc != 0:
+        return {"changed": False, "msg": "failed to get level for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    level_str = level_res.stdout.strip()
+    if level_str.startswith("No") or level_str == "":
+        return {"changed": False, "msg": "no level value for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    supply_level = 0
+    if level_str.lstrip("-").isdigit():
+        supply_level = int(level_str)
+    else:
+        return {"changed": False, "msg": "invalid level value for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
     levels = params.get("levels", (20.0, 10.0))
-    warn, crit = levels[0], levels[1]
+    warn = levels[0]
+    crit = levels[1]
     
-    supply_level = section[item]
+    state = "OK"
+    infotext = "%f%%" % supply_level
     
-    # Handle negative codes
     if supply_level < 0:
         if supply_level == -100:
             state = "CRIT"
@@ -169,41 +111,34 @@ def main(ctx, params):
             infotext = "100%"
             supply_level = 100
         else:
-            state = "OK"
-            infotext = "0%"
-            supply_level = 0
+            if supply_level <= crit:
+                state = "CRIT"
+            elif supply_level <= warn:
+                state = "WARN"
+            else:
+                state = "OK"
+            infotext = "%f%%" % supply_level
     else:
-        # Regular positive levels
         if supply_level <= crit:
             state = "CRIT"
         elif supply_level <= warn:
             state = "WARN"
         else:
             state = "OK"
-        infotext = "%d%%" % supply_level
-        
         if state != "OK":
             infotext += " (warn/crit at %f%%/%f%%)" % (warn, crit)
     
-    # Determine performance data type
-    item_lower = item.lower()
-    if "black" in item_lower:
+    lower_item = item.lower()
+    if "black" in lower_item:
         perf_type = "black"
-    elif "cyan" in item_lower:
+    elif "cyan" in lower_item:
         perf_type = "cyan"
-    elif "magenta" in item_lower:
+    elif "magenta" in lower_item:
         perf_type = "magenta"
-    elif "yellow" in item_lower:
+    elif "yellow" in lower_item:
         perf_type = "yellow"
     else:
         perf_type = "other"
     
-    return {
-        "changed": False,
-        "msg": infotext,
-        "data": {
-            "state": state,
-            "metrics": {"supply_toner_" + perf_type: supply_level},
-            "details": ""
-        }
-    }
+    metric_name = "supply_toner_" + perf_type
+    return {"changed": False, "msg": item + " " + infotext, "data": {"state": state, "metrics": {metric_name: supply_level}, "details": ""}}

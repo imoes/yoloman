@@ -1,99 +1,40 @@
 def main(ctx, params):
-    # SNMP base OID for juniper_trpz_cpu_util section
-    base_oid = ".1.3.6.1.4.1.14525.4.8.1.1.11"
-    
-    # Discovery mode: yield single service
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {"util": (80.0, 90.0)},
-                        "metrics": ["utilc", "util1", "util5"]
-                    }
-                ]
-            }
-        }
-    
-    # Check mode: gather CPU utilization via SNMP
-    # Fetch three OIDs using snmpget
-    utilc_oid = base_oid + ".1"
-    util1_oid = base_oid + ".2"
-    util5_oid = base_oid + ".3"
-    
-    res_utilc = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                         "-On", params.get("host", "localhost"), utilc_oid], mutates=False)
-    res_util1 = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                         "-On", params.get("host", "localhost"), util1_oid], mutates=False)
-    res_util5 = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                         "-On", params.get("host", "localhost"), util5_oid], mutates=False)
-    
-    # Parse values safely using string methods (no try/except allowed)
-    def parse_value(res):
-        if res.rc != 0 or len(res.stdout.strip()) == 0:
-            return None
-        parts = res.stdout.strip().split(" = ")
-        if len(parts) != 2:
-            return None
-        value_part = parts[1].strip()
-        if value_part.startswith("INTEGER: "):
-            val_str = value_part[9:].strip()
-            if val_str.isdigit():
-                return int(val_str)
-            return None
-        return None
-    
-    utilc_val = parse_value(res_utilc)
-    util1_val = parse_value(res_util1)
-    util5_val = parse_value(res_util5)
-    
-    # Determine state: UNKNOWN if any value missing
-    if utilc_val == None or util1_val == None or util5_val == None:
-        return {
-            "changed": False,
-            "msg": "CPU utilization data unavailable",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Thresholds from params (Checkmk defaults)
-    warn, crit = params.get("util", (80.0, 90.0))
-    
-    # Helper to determine state for upper thresholds
-    def state_for_upper(value, warn_level, crit_level):
-        if value >= crit_level:
-            return "CRIT"
-        if value >= warn_level:
-            return "WARN"
-        return "OK"
-    
-    # Overall state is worst of the three
-    state_c = state_for_upper(utilc_val, warn, crit)
-    state_1 = state_for_upper(util1_val, warn, crit)
-    state_5 = state_for_upper(util5_val, warn, crit)
-    
-    state = "CRIT" if state_c == "CRIT" or state_1 == "CRIT" or state_5 == "CRIT" else \
-            "WARN" if state_c == "WARN" or state_1 == "WARN" or state_5 == "WARN" else "OK"
-    
-    # Message summarizing utilization
-    msg = "Current: %d%%, 1min: %d%%, 5min: %d%%" % (utilc_val, util1_val, util5_val)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {
-                "utilc": utilc_val,
-                "util1": util1_val,
-                "util5": util5_val
-            },
-            "details": ""
-        }
-    }
+        sys_oid = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+             params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sys_oid.rc != 0 or not sys_oid.stdout.startswith(".1.3.6.1.4.1.14525.3"):
+            return {"changed": False, "msg": "not a Juniper Trapeze device",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {"util": params.get("util", (80.0, 90.0))},
+                     "metrics": ["utilc", "util1", "util5"]}]}}
+    levels = params.get("util", (80.0, 90.0))
+    warn = levels[0]
+    crit = levels[1]
+    base = ".1.3.6.1.4.1.14525.8.1.1.11"
+    g_conf = params.get("community", "public")
+    g_host = params.get("host", "localhost")
+    res_c = ctx.run(["snmpget", "-v2c", "-c", g_conf, "-Oqv", g_host, base + ".1"], mutates=False)
+    res_1 = ctx.run(["snmpget", "-v2c", "-c", g_conf, "-Oqv", g_host, base + ".2"], mutates=False)
+    res_5 = ctx.run(["snmpget", "-v2c", "-c", g_conf, "-Oqv", g_host, base + ".3"], mutates=False)
+    if res_c.rc != 0 or res_1.rc != 0 or res_5.rc != 0:
+        return {"changed": False,
+                "msg": "no Juniper Trapeze CPU utilization data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    utilc = int(res_c.stdout.strip()) if res_c.stdout.strip().isdigit() else 0
+    util1 = int(res_1.stdout.strip()) if res_1.stdout.strip().isdigit() else 0
+    util5 = int(res_5.stdout.strip()) if res_5.stdout.strip().isdigit() else 0
+    state = "OK"
+    if util1 >= crit or util5 >= crit:
+        state = "CRIT"
+    elif util1 >= warn or util5 >= warn:
+        state = "WARN"
+    return {"changed": False,
+            "msg": "CPU utilc %d%% util1 %d%% util5 %d%%" % (utilc, util1, util5),
+            "data": {"state": state,
+                     "metrics": {"utilc": utilc, "util1": util1, "util5": util5},
+                     "details": ""}}

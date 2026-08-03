@@ -1,309 +1,467 @@
-def main(ctx, params):
-    # SNMP constants
-    COMMUNITY = params.get("community", "public")
-    HOST = params.get("host", "localhost")
+# Raritan PX2 Residual Current — Checkmk SNMP check, translated to read-only Starlark
+# Monitors residual operating current on Raritan PX2 PDU inlets via SNMP.
 
-    # TYPE and UNIT mappings — defined at module top level
-    TYPE_MAPPING = {
-        "1": ("current", "RMS"),
-        "2": ("peak", "Peak"),
-        "3": ("unbalanced", "Unbalanced"),
-        "4": ("voltage", "RMS"),
-        "5": ("power", "Active"),
-        "6": ("appower", "Apparent"),
-        "7": ("power_factor", "Power Factor"),
-        "8": ("energy", "Active"),
-        "9": ("energy", "Apparent"),
-        "10": ("temp", ""),
-        "11": ("humidity", ""),
-        "12": ("airflow", ""),
-        "13": ("pressure_pa", "Air"),
-        "14": ("binary", "On/Off"),
-        "15": ("binary", "Trip"),
-        "16": ("binary", "Vibration"),
-        "17": ("binary", "Water Detector"),
-        "18": ("binary", "Smoke Detector"),
-        "19": ("binary", ""),
-        "20": ("binary", "Contact"),
-        "21": ("fanspeed", ""),
-        "26": ("residual_current", "Residual Current"),
-        "30": ("", "Other"),
-        "31": ("", "None"),
-    }
+PDU_BASE = ".1.3.6.1.4.1.13742.6.3.3.3.1"
 
-    UNIT_MAPPING = {
-        "-1": "",
-        "0": " Other",
-        "1": " V",
-        "2": " A",
-        "3": " W",
-        "4": " VA",
-        "5": " Wh",
-        "6": " VAh",
-        "7": "c",
-        "8": " hz",
-        "9": "%",
-        "10": " m/s",
-        "11": " Pa",
-        "12": " psi",
-        "13": " g",
-        "14": "f",
-        "15": " ft",
-        "16": " inch",
-        "17": " cm",
-        "18": " m",
-        "19": " RPM",
-    }
+INLET_SENSOR_BASE = ".1.3.6.1.4.1.13742.6"
 
-    # Helper to parse a single OID value from snmpwalk output
-    def get_value_from_snmpwalk(base_oid):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", COMMUNITY,
-            "-On", HOST,
-            base_oid
-        ], mutates=False)
-        if res.rc != 0:
-            return None
-        return res.stdout
+INLET_POLE_COL_BASE = ".5.2.3.1"
+PHASE_POLE_COL_BASE = ".5.2.4.1"
 
-    # Fetch PDU data tree
-    pdu_tree_base = ".1.3.6.1.4.1.13742.6.3.3.3.1"
-    pdu_output = get_value_from_snmpwalk(pdu_tree_base)
-    if pdu_output == None:
+TYPE_MAPPING = {
+    "1": ("current", "RMS"),
+    "2": ("peak", "Peak"),
+    "3": ("unbalanced", "Unbalanced"),
+    "4": ("voltage", "RMS"),
+    "5": ("power", "Active"),
+    "6": ("appower", "Apparent"),
+    "7": ("power_factor", "Power Factor"),
+    "8": ("energy", "Active"),
+    "9": ("energy", "Apparent"),
+    "10": ("temp", ""),
+    "11": ("humidity", ""),
+    "12": ("airflow", ""),
+    "13": ("pressure_pa", "Air"),
+    "14": ("binary", "On/Off"),
+    "15": ("binary", "Trip"),
+    "16": ("binary", "Vibration"),
+    "17": ("binary", "Water Detector"),
+    "18": ("binary", "Smoke Detector"),
+    "19": ("binary", ""),
+    "20": ("binary", "Contact"),
+    "21": ("fanspeed", ""),
+    "26": ("residual_current", "Residual Current"),
+    "30": ("", "Other"),
+    "31": ("", "None"),
+}
+
+UNIT_MAPPING = {
+    "-1": "",
+    "0": " Other",
+    "1": " V",
+    "2": " A",
+    "3": " W",
+    "4": " VA",
+    "5": " Wh",
+    "6": " VAh",
+    "7": "c",
+    "8": " hz",
+    "9": "%",
+    "10": " m/s",
+    "11": " Pa",
+    "12": " psi",
+    "13": " g",
+    "14": "f",
+    "15": " ft",
+    "16": " inch",
+    "17": " cm",
+    "18": " m",
+    "19": " RPM",
+}
+
+RESIDUAL_BITMASK = 0b01000000
+
+THRESH_WARN_BIT = 0b00000100
+THRESH_CRIT_BIT = 0b00001000
+
+
+def _pow(base, exp):
+    result = 1
+    i = 0
+    while i < exp:
+        result = result * base
+        i = i + 1
+    return result
+
+
+def _hex_to_int(hexstr):
+    s = hexstr.strip()
+    if s == "" or s == "None":
+        return 0
+    n = 0
+    for ch in s:
+        n = n * 16
+        if ch >= "0" and ch <= "9":
+            n = n + (ord(ch) - ord("0"))
+        elif ch >= "a" and ch <= "f":
+            n = n + (ord(ch) - ord("a") + 10)
+        elif ch >= "A" and ch <= "F":
+            n = n + (ord(ch) - ord("A") + 10)
+    return n
+
+
+def _safe_float(s, default_):
+    s = s.strip()
+    if s == "" or s == "None" or s == "NOSUCHOBJECT" or s == "NOSUCHINSTANCE":
+        return default_
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    elif s.startswith("+"):
+        s = s[1:]
+    is_num = True
+    has_dot = False
+    if s == "":
+        is_num = False
+    for ch in s:
+        if ch == "." and not has_dot:
+            has_dot = True
+        elif ch < "0" or ch > "9":
+            is_num = False
+            break
+    if not is_num:
+        return default_
+    v = float(s)
+    if neg:
+        v = v * -1
+    return v
+
+
+def _safe_int(s, default_):
+    s = s.strip()
+    if s == "" or s == "None":
+        return default_
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    elif s.startswith("+"):
+        s = s[1:]
+    is_num = True
+    if s == "":
+        is_num = False
+    for ch in s:
+        if ch < "0" or ch > "9":
+            is_num = False
+            break
+    if not is_num:
+        return default_
+    v = int(s)
+    if neg:
+        v = v * -1
+    return v
+
+
+def _snmp_get_oid(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _snmp_walk_oid(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    rows = {}
+    if res.rc != 0:
+        return rows
+    for line in res.stdout.split("\n"):
+        line = line.strip()
+        if line == "":
+            continue
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid_part = line[:sp]
+        value = line[sp + 1:]
+        idx = oid_part[len(oid) + 1:] if oid_part.startswith(oid + ".") else oid_part
+        rows[idx] = value
+    return rows
+
+
+def _probe_residual_capable(ctx, community, host):
+    dev_hex = _snmp_get_oid(ctx, community, host, PDU_BASE + ".10")
+    pole_hex = _snmp_get_oid(ctx, community, host, PDU_BASE + ".11")
+    dev = _hex_to_int(dev_hex) if dev_hex != None else 0
+    pole = _hex_to_int(pole_hex) if pole_hex != None else 0
+    return dev, pole
+
+
+def _is_pdu_present(ctx, community, host):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Onqv", host,
+         ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    out = res.stdout.strip()
+    if out == "":
+        return False
+    if ".1.3.6.1.4.1.13742" in out or "13742" in out:
+        return True
+    return False
+
+
+def _gather_inlet_sensors(ctx, community, host):
+    sensors = {}
+
+    inlet_avail_oid = INLET_SENSOR_BASE + ".5.2.3.1.2.1.1"
+    inlet_value_oid = INLET_SENSOR_BASE + ".5.2.3.1.4.1.1"
+    inlet_unit_oid = INLET_SENSOR_BASE + ".3.3.4.1.6.1.1"
+    inlet_dec_oid = INLET_SENSOR_BASE + ".3.3.4.1.7.1.1"
+    inlet_crit_oid = INLET_SENSOR_BASE + ".3.3.4.1.23.1.1"
+    inlet_warn_oid = INLET_SENSOR_BASE + ".3.3.4.1.24.1.1"
+    inlet_th_oid = INLET_SENSOR_BASE + ".3.3.4.1.25.1.1"
+
+    phase_avail_oid = INLET_SENSOR_BASE + ".5.2.4.1.2.1.1"
+    phase_value_oid = INLET_SENSOR_BASE + ".5.2.4.1.4.1.1"
+    phase_unit_oid = INLET_SENSOR_BASE + ".3.3.6.1.6.1.1"
+    phase_dec_oid = INLET_SENSOR_BASE + ".3.3.6.1.7.1.1"
+    phase_crit_oid = INLET_SENSOR_BASE + ".3.3.6.1.23.1.1"
+    phase_warn_oid = INLET_SENSOR_BASE + ".3.3.6.1.24.1.1"
+    phase_th_oid = INLET_SENSOR_BASE + ".3.3.6.1.25.1.1"
+
+    table_sets = [
+        (inlet_avail_oid, inlet_value_oid, inlet_unit_oid, inlet_dec_oid,
+         inlet_crit_oid, inlet_warn_oid, inlet_th_oid, "Summary"),
+        (phase_avail_oid, phase_value_oid, phase_unit_oid, phase_dec_oid,
+         phase_crit_oid, phase_warn_oid, phase_th_oid, "Phase"),
+    ]
+
+    for (a_oid, v_oid, u_oid, d_oid, c_oid, w_oid, t_oid, pole_kind) in table_sets:
+        avail_map = _snmp_walk_oid(ctx, community, host, a_oid)
+        value_map = _snmp_walk_oid(ctx, community, host, v_oid)
+        unit_map = _snmp_walk_oid(ctx, community, host, u_oid)
+        dec_map = _snmp_walk_oid(ctx, community, host, d_oid)
+        crit_map = _snmp_walk_oid(ctx, community, host, c_oid)
+        warn_map = _snmp_walk_oid(ctx, community, host, w_oid)
+        th_map = _snmp_walk_oid(ctx, community, host, t_oid)
+
+        for sensor_id, avail_v in avail_map.items():
+            parts = sensor_id.split(".")
+            if len(parts) == 1:
+                sensor = sensor_id
+                pole = pole_kind
+            else:
+                sensor = parts[1]
+                pole = "Phase " + parts[0]
+
+            if avail_v != "1":
+                continue
+            if sensor not in TYPE_MAPPING:
+                continue
+
+            dec = _safe_int(dec_map.get(sensor_id, "0"), 0)
+            val = _safe_float(value_map.get(sensor_id, "0"), 0.0)
+            crit = _safe_float(crit_map.get(sensor_id, "0"), 0.0)
+            warn = _safe_float(warn_map.get(sensor_id, "0"), 0.0)
+            th_hex = th_map.get(sensor_id, "0")
+
+            divisor = _pow(10, dec)
+            sensor_value = val / divisor if divisor != 0 else val
+            sensor_upper_crit = crit / divisor if divisor != 0 else crit
+            sensor_upper_warn = warn / divisor if divisor != 0 else warn
+
+            unit = UNIT_MAPPING.get(str(unit_map.get(sensor_id, "-1")), "")
+            unit = unit.strip()
+
+            sensor_type, sensor_type_readable = TYPE_MAPPING.get(sensor, ("", "Other"))
+
+            sensor_obj = {
+                "availability": avail_v,
+                "sensor_name": sensor_type_readable,
+                "sensor_type": sensor_type,
+                "sensor_value": sensor_value,
+                "sensor_upper_crit": sensor_upper_crit,
+                "sensor_upper_warn": sensor_upper_warn,
+                "sensor_unit": unit,
+                "enabled_thresholds": _hex_to_int(th_hex),
+            }
+            if pole not in sensors:
+                sensors[pole] = {}
+            sensors[pole][sensor] = sensor_obj
+
+    return sensors
+
+
+def _create_levels(params, sensor):
+    thresholds = sensor["enabled_thresholds"]
+    has_warn = (thresholds & THRESH_WARN_BIT) != 0 and sensor["sensor_upper_warn"] != 0
+    has_crit = (thresholds & THRESH_CRIT_BIT) != 0 and sensor["sensor_upper_crit"] != 0
+
+    if has_warn or has_crit:
+        levels_warn = sensor["sensor_upper_warn"] if has_warn else None
+        levels_crit = sensor["sensor_upper_crit"] if has_crit else None
+        return ("fixed", (levels_warn, levels_crit))
+    return params.get("residual_levels", ("no_levels", None))
+
+
+def _grade(value, levels):
+    if levels == None:
+        return "OK"
+    if len(levels) < 2:
+        return "OK"
+    warn = levels[0]
+    crit = levels[1]
+    if crit != None and value >= crit:
+        return "CRIT"
+    if warn != None and value >= warn:
+        return "WARN"
+    return "OK"
+
+
+def _check_data(ctx, params, sensors, pole):
+    total_current = None
+    total_sensor = sensors.get("1")
+    if total_sensor != None:
+        total_current = total_sensor["sensor_value"]
+
+    sensor_data = sensors.get("26")
+    if sensor_data == None:
         return {
-            "changed": False,
-            "msg": "SNMP error fetching PDU data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "state": "WARN",
+            "msg": "Missing residual operating current data!",
+            "metrics": {},
+            "details": "",
         }
 
-    # Parse PDU data into a flat dict: leaf_oid -> value
-    pdu_data = {}
-    for line in pdu_output.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        # Extract leaf OID segment (last numeric part)
-        oid_segments = oid_part.split(".")
-        leaf = oid_segments[-1]
-        # Extract value portion after "Type: "
-        if ": " in value_part:
-            _, val = value_part.split(": ", 1)
-            value = val.strip()
-        else:
-            value = value_part
-        pdu_data[leaf] = value
+    residual_current = sensor_data["sensor_value"]
+    unit = sensor_data["sensor_unit"]
+    if residual_current > 1:
+        unit = "mA"
 
-    # Fetch sensor trees (inlet and pole)
-    sensor_tree_inlet = ".1.3.6.1.4.1.13742.6.5.2.3.1"
-    sensor_tree_pole = ".1.3.6.1.4.1.13742.6.5.2.4.1"
-    sensor_inlet_out = get_value_from_snmpwalk(sensor_tree_inlet)
-    sensor_pole_out = get_value_from_snmpwalk(sensor_tree_pole)
+    if unit == "mA":
+        render_func = lambda v: "%f mA" % (v * 1000)
+    elif unit == "%":
+        render_func = lambda v: "%f%%" % v
+    else:
+        render_func = lambda v: "%f %s" % (v, sensor_data["sensor_unit"])
 
-    # Parse sensors: map index -> {column -> value}
-    # Base for inlet: .1.3.6.1.4.1.13742.6.5.2.3.1.<idx>.<col>
-    def parse_sensor_table(output, base_oid):
-        result = {}
-        if output == None:
-            return result
-        for line in output.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            # Extract leaf
-            oid_segments = oid_part.split(".")
-            leaf = oid_segments[-1]
-            # Find index: remove base segments and last segment (col)
-            # Base: 1.3.6.1.4.1.13742.6.5.2.3.1 (8 segments)
-            # Full: ...6.5.2.3.1.<idx>.<col>
-            # So index is the 9th segment, column is the last
-            if len(oid_segments) < 10:
-                continue
-            idx = oid_segments[-2]
-            col = oid_segments[-1]
-            if ": " in value_part:
-                _, val = value_part.split(": ", 1)
-                value = val.strip()
-            else:
-                value = value_part
-            if idx not in result:
-                result[idx] = {}
-            result[idx][col] = value
-        return result
+    levels_upper = _create_levels(params, sensor_data)
+    levels_tuple = None
+    if type(levels_upper) == "tuple" and len(levels_upper) == 2:
+        levels_tuple = levels_upper[1]
 
-    sensors_inlet = parse_sensor_table(sensor_inlet_out, sensor_tree_inlet)
-    sensors_pole = parse_sensor_table(sensor_pole_out, sensor_tree_pole)
+    state = _grade(residual_current, levels_tuple)
 
-    # Combine sensors by pole index (use both trees)
-    poles_sensors = {}
-    for idx, cols in sensors_inlet.items():
-        if idx not in poles_sensors:
-            poles_sensors[idx] = {}
-        poles_sensors[idx].update(cols)
-    for idx, cols in sensors_pole.items():
-        if idx not in poles_sensors:
-            poles_sensors[idx] = {}
-        poles_sensors[idx].update(cols)
+    metric_name = sensor_data["sensor_type"]
+    metrics = {metric_name: residual_current}
 
-    # Discovery mode
+    details_lines = ["%s: %s" % (sensor_data["sensor_name"], render_func(residual_current))]
+
+    if total_current != None and total_current != 0:
+        pct = residual_current / total_current * 100
+        metrics["residual_current_percentage"] = pct
+        details_lines.append("Residual Current Percentage: %f%%" % pct)
+
+    if type(levels_upper) == "tuple" and len(levels_upper) == 2:
+        if levels_upper[0] == "no_levels":
+            if params.get("warn_missing_levels"):
+                if state == "OK":
+                    state = "WARN"
+            details_lines.append("Missing warn/crit levels!")
+
+    msg = "%s %s" % (render_func(residual_current), sensor_data["sensor_name"])
+    return {
+        "state": state,
+        "msg": msg,
+        "metrics": metrics,
+        "details": "\n".join(details_lines),
+    }
+
+
+def main(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+
     if params.get("_discover"):
-        discovered = []
-        # Any pole with sensor data qualifies as residual current item
-        for idx in poles_sensors:
-            # Skip if no columns at all
-            if not poles_sensors[idx]:
-                continue
-            discovered.append({
-                "item": idx,
-                "params": {
-                    "warn_missing_data": params.get("warn_missing_data", True),
-                    "warn_missing_levels": params.get("warn_missing_levels", True),
-                    "residual_levels": ("no_levels", None)
-                },
-                "metrics": ["residual_current"]
-            })
-        # If nothing discovered, fallback to Summary
-        if not discovered:
-            discovered.append({
+        if not _is_pdu_present(ctx, community, host):
+            return {"changed": False,
+                    "msg": "not installed: no Raritan PX2 found",
+                    "data": {"discovery": []}}
+
+        dev_cap, pole_cap = _probe_residual_capable(ctx, community, host)
+        if dev_cap == 0 and pole_cap == 0:
+            return {"changed": False,
+                    "msg": "no device/pole capabilities readable",
+                    "data": {"discovery": []}}
+
+        has_residual = (dev_cap & RESIDUAL_BITMASK) != 0 or (pole_cap & RESIDUAL_BITMASK) != 0
+        if not has_residual:
+            return {"changed": False,
+                    "msg": "no residual current support on this PDU",
+                    "data": {"discovery": []}}
+
+        sensors = _gather_inlet_sensors(ctx, community, host)
+        discovery = []
+        for pole, sensor_map in sensors.items():
+            if "26" in sensor_map:
+                discovery.append({
+                    "item": pole,
+                    "params": {
+                        "warn_missing_data": True,
+                        "warn_missing_levels": True,
+                        "residual_levels": ("no_levels", None),
+                    },
+                    "metrics": ["residual_current"],
+                })
+        if len(discovery) == 0:
+            discovery.append({
                 "item": "Summary",
                 "params": {
-                    "warn_missing_data": params.get("warn_missing_data", True),
-                    "warn_missing_levels": params.get("warn_missing_levels", True),
-                    "residual_levels": ("no_levels", None)
+                    "warn_missing_data": True,
+                    "warn_missing_levels": True,
+                    "residual_levels": ("no_levels", None),
                 },
-                "metrics": ["residual_current"]
+                "metrics": ["residual_current"],
             })
         return {
             "changed": False,
-            "msg": "discovered %d items" % len(discovered),
-            "data": {"discovery": discovered}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery,
+                     "host_labels": {"cmk/raritan_px2": "yes"}},
         }
 
-    # Check mode
     item = params.get("item", "")
-    sensors = poles_sensors.get(item)
-    if sensors == None:
-        if params.get("warn_missing_data", True):
+
+    if not _is_pdu_present(ctx, community, host):
+        return {
+            "changed": False,
+            "msg": "no Raritan PX2 PDU responding to SNMP",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    dev_cap, pole_cap = _probe_residual_capable(ctx, community, host)
+    if dev_cap == 0 and pole_cap == 0:
+        return {
+            "changed": False,
+            "msg": "no Raritan PX2 PDU responding to SNMP",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sensors = _gather_inlet_sensors(ctx, community, host)
+
+    if item == "":
+        item = "Summary"
+
+    pole_sensors = sensors.get(item)
+    if pole_sensors == None:
+        if params.get("warn_missing_data"):
             return {
                 "changed": False,
                 "msg": "No residual operating current available!",
-                "data": {"state": "WARN", "metrics": {}, "details": ""}
+                "data": {"state": "WARN", "metrics": {}, "details": ""},
             }
         return {
             "changed": False,
             "msg": "No residual operating current available!",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
+            "data": {"state": "OK", "metrics": {}, "details": "No residual operating current available!"},
         }
 
-    # Look for residual current sensor (type 26)
-    # We'll identify it by presence of enabled thresholds and non-zero value
-    residual_current = None
-    residual_warn = None
-    residual_crit = None
-    unit = ""
-
-    for idx, cols in sensors.items():
-        # availability is col 2, value is col 4
-        availability = cols.get("2", "1")
-        value_str = cols.get("4", "0")
-        upper_warn_str = cols.get("24", "0")
-        upper_crit_str = cols.get("23", "0")
-
-        if availability != "1":
-            continue
-
-        # If thresholds or non-zero value, assume candidate
-        if upper_warn_str != "0" or upper_crit_str != "0" or value_str != "0":
-            # Check if this matches residual current behavior by looking at type
-            # Since we don't have type OID here, assume the first candidate with thresholds
-            # is residual current (Checkmk source uses explicit type mapping)
-            # For correctness, we need the type OID (not fetched in this simplified parse)
-            # So use a heuristic: residual current sensor typically has unit '2' (A)
-            unit_str = cols.get("6", "")
-            # Prefer mA (unit 2 -> A) and small values
-            # Skip if unit is clearly not current (e.g., unit '1' = V)
-            if unit_str != "1" and (upper_warn_str != "0" or upper_crit_str != "0"):
-                value = float(value_str) if value_str.isdigit() else 0.0
-                residual_current = value
-                residual_warn = float(upper_warn_str) if upper_warn_str.isdigit() else None
-                residual_crit = float(upper_crit_str) if upper_crit_str.isdigit() else None
-                unit = unit_str
-                break
-
-    # If no sensor found with thresholds, try any sensor with value
-    if residual_current == None:
-        for idx, cols in sensors.items():
-            availability = cols.get("2", "1")
-            if availability != "1":
-                continue
-            value_str = cols.get("4", "0")
-            unit_str = cols.get("6", "")
-            if value_str != "0":
-                value = float(value_str) if value_str.isdigit() else 0.0
-                residual_current = value
-                unit = unit_str
-                break
-
-    if residual_current == None:
-        if params.get("warn_missing_data", True):
-            return {
-                "changed": False,
-                "msg": "No residual operating current available!",
-                "data": {"state": "WARN", "metrics": {}, "details": ""}
-            }
-        return {
-            "changed": False,
-            "msg": "No residual operating current available!",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
-
-    # Determine levels
-    levels = params.get("residual_levels", ("no_levels", None))
-    if levels[0] != "no_levels":
-        levels_upper_warn = levels[1][0] if levels[1] and len(levels[1]) > 0 else None
-        levels_upper_crit = levels[1][1] if levels[1] and len(levels[1]) > 1 else levels_upper_warn
-    else:
-        levels_upper_warn = residual_warn if residual_warn != None else None
-        levels_upper_crit = residual_crit if residual_crit != None else None
-
-    # Compute state
-    state = "OK"
-    if levels_upper_crit != None and residual_current >= levels_upper_crit:
-        state = "CRIT"
-    elif levels_upper_warn != None and residual_current >= levels_upper_warn:
-        state = "WARN"
-
-    # Render value
-    # unit: 2 = A, so for small values we show mA
-    if residual_current <= 1 and unit == "2":
-        rendered = "%f mA" % (residual_current * 1000)
-    else:
-        unit_str = UNIT_MAPPING.get(unit, " Other")
-        rendered = "%f %s" % (residual_current, unit_str.strip())
-
-    msg = "Residual Current: " + rendered
-
-    # Check missing levels
-    if levels_upper_warn == None and levels_upper_crit == None:
-        if params.get("warn_missing_levels", True):
-            state = "WARN" if state == "OK" else state
-        msg += " (no thresholds defined)"
-
+    result = _check_data(ctx, params, pole_sensors, item)
     return {
         "changed": False,
-        "msg": msg,
+        "msg": result["msg"],
         "data": {
-            "state": state,
-            "metrics": {"residual_current": residual_current},
-            "details": ""
-        }
+            "state": result["state"],
+            "metrics": result["metrics"],
+            "details": result["details"],
+        },
     }

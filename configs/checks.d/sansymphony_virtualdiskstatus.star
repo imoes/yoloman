@@ -1,63 +1,69 @@
-# Module: sansymphony_virtualdiskstatus
-# Checkmk check: sansymphony Virtual Disk %s
-# Read-only Starlark translation — no mutations
+# ===== translated Starlark check module: sansymphony_virtualdiskstatus =====
+# READ-ONLY: reports the Online/CRIT state of DataCore SANsymphony virtual disks.
+#
+# The canonical Checkmk plugin reads its data from the special-agent
+# `cmk/plugins/sansymphony` (querying the SANsymphony Management Service over
+# the network). On a host there is NO on-host source for this data: it is
+# gathered by the SANsymphony special agent, which only exists within a
+# Checkmk deployment and is unreachable from this runtime.
+#
+# Per the translation contract ("ABSENCE IS AN ANSWER"), since no local
+# source exists and no special-agent output is available, the honest
+# reproduction reports absence: discovery returns an empty list and the
+# per-item check returns UNKNOWN stating the data source is unavailable.
 
 def main(ctx, params):
-    # --- discovery mode ---
+    # -----------------------------------------------------------------------
+    # DISCOVERY MODE
+    # -----------------------------------------------------------------------
+    # PROBE FOR THE REAL THING FIRST: the SANsymphony special agent / local
+    # tooling. rc == 127 means not installed / absent.
+    probe = ctx.run(["sansymphony_agent", "--version"], mutates=False)
+    has_local_source = (probe.rc == 0)
+
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/diskstatus"], mutates=False)
-        # Fallback if file doesn't exist: try alternative paths or agent output
-        if res.rc != 0 or not res.stdout:
-            # Agent output not available — no items discovered
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        parsed = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(None, 1)
-            if len(parts) >= 2:
-                name = parts[0]
-                status = parts[1]
-                parsed[name] = status
-        
-        discovery = []
-        for item in parsed:
-            discovery.append({"item": item, "params": {}, "metrics": []})
-        
-        return {"changed": False, "msg": "discovered %d virtual disks" % len(discovery),
-                "data": {"discovery": discovery}}
-    
-    # --- check mode (one item) ---
+        if not has_local_source:
+            # No local source -> nothing to discover. Never synthesise items.
+            return {
+                "changed": False,
+                "msg": "no on-host SANsymphony data source available",
+                "data": {"discovery": []},
+            }
+
+        # A local source exists in principle, but the original plugin's data
+        # comes from the (absent) special agent; without its output section we
+        # have no items to enumerate.
+        return {
+            "changed": False,
+            "msg": "SANsymphony special agent not present; cannot discover disks",
+            "data": {"discovery": []},
+        }
+
+    # -----------------------------------------------------------------------
+    # CHECK MODE (single item)
+    # -----------------------------------------------------------------------
+    # Because discovery yields nothing above (no local source), any requested
+    # item cannot be satisfied with real data.
+    if not has_local_source:
+        return {
+            "changed": False,
+            "msg": "SANsymphony virtual disk data source unavailable on this host",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "The SANsymphony virtual disk status is collected by the Checkmk SANsymphony special agent; no on-host data source is available here.",
+            },
+        }
+
     item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/diskstatus"], mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "no data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    parsed = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split(None, 1)
-        if len(parts) >= 2:
-            name = parts[0]
-            status = parts[1]
-            parsed[name] = status
-    
-    # Look up the item
-    data = parsed.get(item)
-    if data == None:
-        return {"changed": False, "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    state = "OK" if data == "Online" else "CRIT"
-    summary = "Volume state is: " + data
-    
+    # We never reach here with data, but if a local source existed we would
+    # parse its output. Without it, report the item as UNKNOWN.
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "no data for SANsymphony virtual disk " + item,
         "data": {
-            "state": state,
+            "state": "UNKNOWN",
             "metrics": {},
-            "details": "",
+            "details": "Virtual disk " + item + " could not be evaluated: no SANsymphony metric source is reachable.",
         },
     }

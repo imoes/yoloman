@@ -2,33 +2,19 @@ name: cisco_ucs_system
 fqcn: checkmk.cisco_ucs_system
 collection: checkmk
 short_description: System health
-description:
-    > ## Overview  
-    > Monitors the operational health of a Cisco UCS rack-mounted server by querying SNMP to determine its current operability status. Critical for proactive infrastructure management, ensuring hardware-level issues like thermal, power, or connectivity problems are detected early.
-    >
-    > ## What it monitors  
-    > - System model and serial number  
-    > - Operability status (e.g., operable, inoperable, degraded, thermal problem)  
-    > - Derived health state (OK, WARN, CRIT)
-    >
-    > ## How it works  
-    > In discovery mode, it yields one unnamed service for the system. In check mode, it runs `snmpget` to fetch three OIDs: model (`.1.3.6.1.4.1.9.9.719.1.9.35.1.32.0`), serial (`.1.3.6.1.4.1.9.9.719.1.9.35.1.47.0`), and operability status (`.1.3.6.1.4.1.9.9.719.1.9.35.1.43.0`). It parses the response, maps the numeric operability status code to a human-readable string and yolo-man state (OK/WARN/CRIT) via `MAP_OPERABILITY`.
-    >
-    > ## Parameters  
-    > None.
-    >
-    > ## States  
-    > - **OK**: Operability is "operable" (code `1`) or "removed" (`6`)  
-    > - **WARN**: Codes such as `9` (performanceProblem), `13` (disabled), `51` (fabricConnProblem), etc.  
-    > - **CRIT**: Codes like `2` (inoperable), `3` (degraded), `8` (thermalProblem), `82` (equipmentProblem), etc.  
-    > - **UNKNOWN**: SNMP failure, unexpected output, or unmapped status code
-    >
-    > ## Metrics  
-    > None.
+description: Checkmk check 'cisco_ucs_system' (service: System health), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Hardware & Sensors
+execution: snmp
+prompt_version: c21f0f5a7229

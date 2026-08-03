@@ -1,198 +1,269 @@
+# ===== checkmk -> starlark translation: aruba_sw_temp =====
+
 def main(ctx, params):
     if params.get("_discover"):
         res = ctx.run([
             "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1"
+            "-Oqn", "-On", params.get("host", "localhost"),
+            ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.5",
         ], mutates=False)
         if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-
-        entries = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) < 2:
+            return {"changed": False, "msg": "no aruba temperature sensors found",
+                    "data": {"discovery": []}}
+        entries = parse_snmp_walk(res.stdout)
+        discovery = []
+        for oid, value in entries.items():
+            name = value
+            index = oid_suffix(oid, ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.5")
+            if not index:
                 continue
-            oid_full = parts[0]
-            value = " ".join(parts[1:]).strip()
-            if value.startswith("STRING: "):
-                value = value[8:].strip('"')
-            # Extract sensor index from OID end (last component after the base)
-            base_oid = ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1"
-            if not oid_full.startswith(base_oid):
+            state_res = ctx.run([
+                "snmpget", "-v2c", "-c", params.get("community", "public"),
+                "-Oqv", params.get("host", "localhost"),
+                ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.6." + index,
+            ], mutates=False)
+            if state_res.rc != 0 or not state_res.stdout:
                 continue
-            suffix = oid_full[len(base_oid):]
-            if suffix.startswith("."):
-                suffix = suffix[1:]
-            if suffix.isdigit():
-                idx = suffix
-                entries.setdefault(idx, {})
-
-                # OID mapping: 5=sensorName, 6=sensorState, 7=sensorTemp, 8=sensorMinTemp, 9=sensorMaxTemp
-                if ".5" in oid_full:
-                    entries[idx]["name"] = value
-                elif ".6" in oid_full:
-                    entries[idx]["status"] = value
-                elif ".7" in oid_full and value.isdigit():
-                    entries[idx]["cur"] = int(value) / 1000.0
-                elif ".8" in oid_full and value.isdigit():
-                    entries[idx]["min"] = int(value) / 1000.0
-                elif ".9" in oid_full and value.isdigit():
-                    entries[idx]["max"] = int(value) / 1000.0
-
-        # Build discovered items (exclude absent status)
-        out = []
-        for idx, data in entries.items():
-            status = data.get("status", "")
-            # Checkmk: SensorStatus.absent = 3; "absent" maps to absent
-            if status == "absent":
+            state = strip_snmp_value(state_res.stdout)
+            if state == "absent":
                 continue
-            item = data.get("name", "")
-            if not item:
-                continue
-            out.append({"item": item, "params": {"input_unit": "c"}, "metrics": ["temp"]})
+            discovery.append({
+                "item": name,
+                "params": {"levels": "default", "input_unit": "c"},
+                "metrics": ["temperature"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d temperature sensors" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(out),
-            "data": {"discovery": out},
-        }
-
-    # Check mode (per-item)
     item = params.get("item", "")
-    if not item:
-        return {"changed": False, "msg": "item required", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Fetch all sensor data
-    res = ctx.run([
+    walk_res = ctx.run([
         "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1"
+        "-Oqn", "-On", params.get("host", "localhost"),
+        ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.5",
     ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    entries = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) < 2:
-            continue
-        oid_full = parts[0]
-        value = " ".join(parts[1:]).strip()
-        if value.startswith("STRING: "):
-            value = value[8:].strip('"')
-        # Extract sensor index
-        base_oid = ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1"
-        if not oid_full.startswith(base_oid):
-            continue
-        suffix = oid_full[len(base_oid):]
-        if suffix.startswith("."):
-            suffix = suffix[1:]
-        if suffix.isdigit():
-            idx = suffix
-            entries.setdefault(idx, {})
-            if ".5" in oid_full:
-                entries[idx]["name"] = value
-            elif ".6" in oid_full:
-                entries[idx]["status"] = value
-            elif ".7" in oid_full and value.isdigit():
-                entries[idx]["cur"] = int(value) / 1000.0
-            elif ".8" in oid_full and value.isdigit():
-                entries[idx]["min"] = int(value) / 1000.0
-            elif ".9" in oid_full and value.isdigit():
-                entries[idx]["max"] = int(value) / 1000.0
-
-    # Find matching sensor
-    sensor = None
-    for idx, data in entries.items():
-        if data.get("name") == item:
-            sensor = data
+    if walk_res.rc != 0:
+        return {"changed": False, "msg": "no aruba temperature sensors found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    entries = parse_snmp_walk(walk_res.stdout)
+    target_index = None
+    for oid, value in entries.items():
+        if value == item:
+            target_index = oid_suffix(oid, ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.5")
             break
+    if target_index == None:
+        return {"changed": False, "msg": "no such sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if sensor == None or sensor.get("status") == None:
-        return {
-            "changed": False,
-            "msg": "sensor '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    state_res = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", params.get("host", "localhost"),
+        ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.6." + target_index,
+    ], mutates=False)
+    cur_res = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", params.get("host", "localhost"),
+        ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.7." + target_index,
+    ], mutates=False)
+    min_res = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", params.get("host", "localhost"),
+        ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.8." + target_index,
+    ], mutates=False)
+    max_res = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", params.get("host", "localhost"),
+        ".1.3.6.1.4.1.47196.4.1.1.3.11.3.1.1.9." + target_index,
+    ], mutates=False)
+    for r in [state_res, cur_res, min_res, max_res]:
+        if r.rc != 0:
+            return {"changed": False, "msg": "failed to read sensor data for " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    status = sensor.get("status", "")
-    cur_temp = sensor.get("cur", 0)
-    min_temp = sensor.get("min", 0)
-    max_temp = sensor.get("max", 0)
+    status = strip_snmp_value(state_res.stdout)
+    cur = safe_div1000(cur_res.stdout)
+    mn = safe_div1000(min_res.stdout)
+    mx = safe_div1000(max_res.stdout)
 
-    # Determine defaults based on name (same logic as Checkmk)
-    warn_default = 35.0
-    crit_default = 40.0
-    name = item.upper()
-    if "CPU" in name:
-        warn_default, crit_default = 80.0, 90.0
-    elif "ASIC" in name:
-        warn_default, crit_default = 80.0, 90.0
-    elif "DDR" in name:
-        if "INLET" in name:
-            warn_default, crit_default = 40.0, 45.0
-        else:
-            warn_default, crit_default = 60.0, 70.0
-    elif "INLET" in name:
-        warn_default, crit_default = 30.0, 40.0
-    elif "PHY" in name:
-        warn_default, crit_default = 80.0, 90.0
-    elif "INTERNAL" in name:
-        warn_default, crit_default = 45.0, 50.0
-    elif "IBC" in name:
-        warn_default, crit_default = 45.0, 50.0
-    elif "PCIE" in name:
-        warn_default, crit_default = 55.0, 60.0
-    elif "BOARD-REAR" in name or "BOARD_REAR" in name:
-        warn_default, crit_default = 45.0, 50.0
-    elif "EXHAUST" in name:
-        warn_default, crit_default = 45.0, 50.0
+    sensor_status = _sensor_status(status)
+    warn, crit = get_aruba_default_temp(item)
+    input_unit = "c"
+    levels = params.get("levels", (warn, crit))
+    if type(levels) == "list" and len(levels) == 2:
+        warn, crit = levels[0], levels[1]
 
-    warn = params.get("warn", warn_default)
-    crit = params.get("crit", crit_default)
+    metric_state = "OK"
+    metric_value = 0.0
+    details_lines = []
+    if status in ("fault", "normal", "warning", "emergency"):
+        if status == "emergency":
+            metric_state = "CRIT"
+        elif status in ("fault", "warning"):
+            metric_state = "WARN"
+        if cur != None:
+            metric_value = cur
+            if cur >= crit:
+                metric_state = "CRIT"
+            elif cur >= warn:
+                metric_state = "WARN"
+    if status in ("absent",) or status == None:
+        metric_state = "UNKNOWN"
 
-    # Determine status-based state
-    state = "UNKNOWN"
-    if status == "absent":
-        state = "UNKNOWN"
-    elif status == "fault":
-        state = "WARN"
-    elif status == "warning":
-        state = "WARN"
-    elif status == "normal":
-        state = "OK"
-    elif status == "emergency":
-        state = "CRIT"
-    else:
-        state = "UNKNOWN"
-
-    # Temperature-based state (override if worse)
-    # Checkmk uses check_temperature; we implement simple logic: CRIT >= crit, WARN >= warn
-    if state in ("OK",):
-        if cur_temp >= crit:
-            state = "CRIT"
-        elif cur_temp >= warn:
-            state = "WARN"
-
-    msg_parts = []
-    msg_parts.append("Device status: %s" % status)
-    if state != "UNKNOWN":
-        msg_parts.append("Temperature: %f C" % cur_temp)
-    msg_parts.append("Min temperature: %f C" % min_temp)
-    msg_parts.append("Max temperature: %f C" % max_temp)
-    msg = ", ".join(msg_parts)
+    details_lines.append("Sensor name: %s" % item)
+    details_lines.append("Device status: %s" % status)
+    details_lines.append("Current temperature: %s %s" % (render_temp(cur, input_unit),
+                                                           temp_unitsym(input_unit)))
+    details_lines.append("Min temperature: %s %s" % (render_temp(mn, input_unit),
+                                                     temp_unitsym(input_unit)))
+    details_lines.append("Max temperature: %s %s" % (render_temp(mx, input_unit),
+                                                     temp_unitsym(input_unit)))
 
     metrics = {}
-    if state != "UNKNOWN":
-        metrics["temp"] = cur_temp
+    if metric_value != 0.0:
+        metrics["temperature"] = metric_value
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    return {"changed": False,
+            "msg": "Temperature: %s %s (status: %s)" % (
+                render_temp(cur, input_unit), temp_unitsym(input_unit), status),
+            "data": {"state": metric_state, "metrics": metrics,
+                     "details": "\n".join(details_lines)}}
+
+
+def parse_snmp_walk(stdout):
+    entries = {}
+    lines = stdout.split("\n")
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        oid = line[:sp]
+        value = line[sp + 1:]
+        entries[oid] = value
+    return entries
+
+
+def oid_suffix(oid, base):
+    blen = len(base)
+    if oid[:blen] != base:
+        return ""
+    rest = oid[blen:]
+    if len(rest) == 0:
+        return ""
+    if rest[0] == ".":
+        return rest[1:]
+    return rest
+
+
+def strip_snmp_value(s):
+    s = s.strip()
+    colon = s.find(":")
+    if colon != -1:
+        s = s[colon + 1:].strip()
+    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+        s = s[1:-1]
+    return s
+
+
+def safe_div1000(s):
+    v = strip_snmp_value(s)
+    if v == "":
+        return None
+    neg = False
+    i = 0
+    if v[0] == "-":
+        neg = True
+        i = 1
+    digits = ""
+    seen_dot = False
+    while i < len(v):
+        c = v[i]
+        if c >= "0" and c <= "9":
+            digits = digits + c
+        elif c == "." and not seen_dot:
+            digits = digits + c
+            seen_dot = True
+        else:
+            break
+        i = i + 1
+    if digits == "" or digits == "." or digits == "-":
+        return None
+    val = float(digits)
+    val = val / 1000.0
+    if neg:
+        val = -val
+    return val
+
+
+def temp_unitsym(unit):
+    if unit == "f":
+        return "F"
+    if unit == "k":
+        return "K"
+    return "C"
+
+
+def render_temp(value, unit):
+    if value == None:
+        return "?"
+    f = unit == "f"
+    k = unit == "k"
+    if f:
+        value = (value * 9.0 / 5.0) + 32.0
+    elif k:
+        value = value + 273.15
+    return "%f" % value
+
+
+def _sensor_status(name):
+    if name == "fault":
+        return "fault"
+    if name == "normal":
+        return "normal"
+    if name == "emergency":
+        return "emergency"
+    if name == "absent":
+        return "absent"
+    if name == "warning":
+        return "warning"
+    return None
+
+
+_WARN_DEFAULTS = {
+    "CPU": 80, "ASIC": 80, "DDR": 60, "Inlet": 30, "PHY": 80,
+    "Internal": 45, "IBC": 45, "PCIE": 55, "Board-rear": 45,
+    "Exhaust": 45, "MAINBOARD": 35, "DDR_INLET": 40,
+}
+_CRIT_DEFAULTS = {
+    "CPU": 90, "ASIC": 90, "DDR": 70, "Inlet": 40, "PHY": 90,
+    "Internal": 50, "IBC": 50, "PCIE": 60, "Board-rear": 50,
+    "Exhaust": 50, "MAINBOARD": 40, "DDR_INLET": 45,
+}
+
+
+def get_aruba_default_temp(name):
+    if "CPU" in name:
+        return (_WARN_DEFAULTS["CPU"], _CRIT_DEFAULTS["CPU"])
+    if "ASIC" in name:
+        return (_WARN_DEFAULTS["ASIC"], _CRIT_DEFAULTS["ASIC"])
+    if "DDR" in name:
+        if "Inlet" in name:
+            return (_WARN_DEFAULTS["DDR_INLET"], _CRIT_DEFAULTS["DDR_INLET"])
+        return (_WARN_DEFAULTS["DDR"], _CRIT_DEFAULTS["DDR"])
+    if "Inlet" in name:
+        return (_WARN_DEFAULTS["INLET"], _CRIT_DEFAULTS["INLET"])
+    if "PHY" in name:
+        return (_WARN_DEFAULTS["PHY"], _CRIT_DEFAULTS["PHY"])
+    if "Internal" in name:
+        return (_WARN_DEFAULTS["INTERNAL"], _CRIT_DEFAULTS["INTERNAL"])
+    if "IBC" in name:
+        return (_WARN_DEFAULTS["IBC"], _CRIT_DEFAULTS["IBC"])
+    if "PCIE" in name:
+        return (_WARN_DEFAULTS["PCIE"], _CRIT_DEFAULTS["PCIE"])
+    if "Board-rear" in name:
+        return (_WARN_DEFAULTS["BOARD_REAR"], _CRIT_DEFAULTS["BOARD_REAR"])
+    if "Exhaust" in name:
+        return (_WARN_DEFAULTS["EXHAUST"], _CRIT_DEFAULTS["EXHAUST"])
+    return (_WARN_DEFAULTS["MAINBOARD"], _CRIT_DEFAULTS["MAINBOARD"])

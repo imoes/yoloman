@@ -1,78 +1,39 @@
-# Discovery and check for Checkmk orion_backup plugin (read-only Starlark module)
-
-# SNMP OID constants
-ORION_BACKUP_BASE = ".1.3.6.1.4.1.20246.2.3.1.1.1.2.5.3.3"
-OID_BACKUP_STATUS = "2"
-OID_BACKUP_TIME = "3"
-
-# State mapping: status code -> (State, readable string)
-# State values: OK=0, WARN=1, CRIT=2, UNKNOWN=3
-STATUS_MAP = {
-    "1": ("WARN", "inactive"),
-    "2": ("OK", "OK"),
-    "3": ("WARN", "occured"),
-    "4": ("CRIT", "fail"),
-}
-
+def _snmp_get(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", "-t", "10", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout
 
 def main(ctx, params):
-    # DISCOVERY MODE: always yield exactly one service for this check
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.20246.2.3.1.1.1.2.5.3.3"
+
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [
-                {"item": "", "params": {}, "metrics": []}
-            ]},
-        }
+        sys_oid = _snmp_get(ctx, community, host, ".1.3.6.1.2.1.1.2.0")
+        if sys_oid == None or not sys_oid.startswith(".1.3.6.1.4.1.20246"):
+            return {"changed": False, "msg": "no orion device", "data": {"discovery": [], "host_labels": {}}}
+        status = _snmp_get(ctx, community, host, base + ".2")
+        minutes = _snmp_get(ctx, community, host, base + ".3")
+        if status == None or minutes == None:
+            return {"changed": False, "msg": "orion backup not present", "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [{"item": "", "params": {}, "metrics": []}], "host_labels": {"cmk/orion_backup": "true"}}}
 
-    # CHECK MODE: gather backup status via SNMP (single service, item="")
-    # Use snmpwalk-style command: snmpget -Oqv -v2c -c <community> <host> <oid>
-    # We'll run two separate snmpget commands for each OID
-    status_oid = ORION_BACKUP_BASE + "." + OID_BACKUP_STATUS
-    time_oid = ORION_BACKUP_BASE + "." + OID_BACKUP_TIME
+    status = _snmp_get(ctx, community, host, base + ".2")
+    minutes = _snmp_get(ctx, community, host, base + ".3")
+    if status == None or minutes == None:
+        return {"changed": False, "msg": "orion backup not present", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    res_status = ctx.run(["snmpget", "-Oqv", "-v2c", "-c", "public", ctx.facts().get("hostname", "localhost"), status_oid], mutates=False)
-    res_time = ctx.run(["snmpget", "-Oqv", "-v2c", "-c", "public", ctx.facts().get("hostname", "localhost"), time_oid], mutates=False)
-
-    # Verify responses
-    if res_status.rc != 0 or res_time.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Extract values
-    backup_status_raw = res_status.stdout.strip()
-    backup_time_raw = res_time.stdout.strip()
-
-    # Validate status code and map
-    if backup_status_raw not in STATUS_MAP:
-        return {
-            "changed": False,
-            "msg": "unknown backup status: " + backup_status_raw,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    state_readable, _ = STATUS_MAP[backup_status_raw]
-    # Note: the original code used map_states[backup_time_status][0] but then accessed [1] for readable
-    # We need to fix the indexing: map_states[status_code] returns (State, str)
-    state_key, state_readable = STATUS_MAP[backup_status_raw]
-
-    # Format message per Checkmk style
-    msg = "Status: " + state_readable + ", Expected time: " + backup_time_raw + " minutes"
-
-    # Map to Checkmk states (OK=0, WARN=1, CRIT=2)
-    state_map = {"OK": "OK", "WARN": "WARN", "CRIT": "CRIT"}
-    state = state_map.get(state_key, "UNKNOWN")
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
+    map_states = {
+        "1": ("WARN", "inactive"),
+        "2": ("OK", "OK"),
+        "3": ("WARN", "occured"),
+        "4": ("CRIT", "fail"),
     }
+
+    state_readable = map_states.get(status, ("UNKNOWN", "unknown"))
+    state, label = state_readable
+    return {"changed": False, "msg": "Status: %s, Expected time: %s minutes" % (label, minutes), "data": {"state": state, "metrics": {}, "details": ""}}

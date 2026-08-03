@@ -1,107 +1,109 @@
+# Checkmk check: oracle_diva_csm_drive (translated to read-only Starlark)
+# Source: cmk/plugins/oracle/agent_based/oracle_diva_csm.py
+# This is an SNMP-based check. The DIVA CSM library drive status OID tree:
+#   Drive status table: .1.3.6.1.4.1.110901.1.2.2.1.1 (columns 3=name, 8=status)
+# Status reading -> state:
+#   1 = online (OK), 2 = offline (CRIT), 3 = unknown (WARN), else UNKNOWN(3)
+
+def _item_name(name, element_id):
+    s = name + " " + element_id
+    return s.strip()
+
+def _status_result(reading):
+    if reading == "1":
+        return 0, "online"
+    if reading == "2":
+        return 2, "offline"
+    if reading == "3":
+        return 1, "unknown"
+    return 3, "unexpected state"
+
 def main(ctx, params):
-    # Discovery mode: enumerate all drives
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.110901.1.2.2.1.1"
-
-        # Fetch drive status: .1.3.6.1.4.1.110901.1.2.2.1.1.8 (status)
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        drive_items = []
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # Parse: .1.3.6.1.4.1.110901.1.2.2.1.1.8.1.1.x = INTEGER: 1
-            if ".8.1.1." in line:
-                parts = line.split(" = ")
-                if len(parts) != 2:
-                    continue
-                oid_part = parts[0]
-                value_part = parts[1]
-                # Extract x from .8.1.1.x (last component)
-                fields = oid_part.split(".")
-                if len(fields) < 11:
-                    continue
-                drive_id = fields[-1]
-                # Extract integer value
-                status_str_raw = value_part.split(": ")
-                if len(status_str_raw) < 2:
-                    status_int = 3
-                else:
-                    status_val = status_str_raw[1].strip()
-                    status_int = int(status_val) if status_val.isdigit() else 3
-                # Convert status to string
-                if status_int == 1:
-                    status_display = "online"
-                elif status_int == 2:
-                    status_display = "offline"
-                elif status_int == 3:
-                    status_display = "unknown"
-                else:
-                    status_display = "unexpected state"
-                # Build item name
-                item_name = "Drive " + drive_id
-                drive_items.append({
-                    "item": item_name,
-                    "params": {},
-                    "metrics": []
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d drives" % len(drive_items),
-            "data": {"discovery": drive_items}
-        }
-
-    # Check mode: single item
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.110901.1.2.2.1.1"
+    community = params.get("community", "public")
+    drive_base = ".1.3.6.1.4.1.110901.1.2.2.1.1"
+
+    # Probe for the real thing: confirm the device responds for the drive OID.
+    # rc == 127 means snmpwalk is not installed -> not applicable.
+    walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, drive_base],
+        mutates=False,
+    )
+    if walk.rc == 127:
+        # Tool missing; this product is not reachable on the host.
+        if params.get("_discover"):
+            return {"changed": False, "msg": "snmpwalk not installed",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "snmpwalk not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if walk.rc != 0 and not walk.stdout:
+        # No devices present -> empty discovery / UNKNOWN, never OK.
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no DIVA CSM drives found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no DIVA CSM drives found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Parse the table walk: lines "<OID>.<index> <value>"
+    rows = {}  # index -> {col: value}
+    for line in walk.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) < 2:
+            continue
+        oid_full = sp[0]
+        value = sp[1].strip()
+        # column suffix is the last numeric component of the OID
+        oid_parts = oid_full.split(".")
+        if len(oid_parts) < 2:
+            continue
+        col = oid_parts[-2]
+        index = oid_full[len(drive_base) + 1:]
+        idx_key = oid_parts[len(drive_base.split(".")) - 1:-1]
+        # Build a stable index string per row
+        idx_str = ".".join(oid_parts[len(drive_base.split(".")) - 1:-1])
+        if col not in rows:
+            rows[idx_str] = {}
+        rows[idx_str][col] = value
+
+    if params.get("_discover"):
+        discovery = []
+        for idx_str in sorted(rows.keys()):
+            entry = rows[idx_str]
+            name_val = entry.get("3", "")
+            item = _item_name("Drive", name_val)
+            if item == "":
+                continue
+            discovery.append({
+                "item": item,
+                "params": {},
+                "metrics": [],
+            })
+        return {"changed": False,
+                "msg": "discovered %d drives" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # Check mode: examine one item named by params.item ("" -> single-service).
     item = params.get("item", "")
+    # Find the row whose display name matches the requested item.
+    found = None
+    for idx_str in rows.keys():
+        entry = rows[idx_str]
+        name_val = entry.get("3", "")
+        candidate = _item_name("Drive", name_val)
+        if candidate == item:
+            found = entry
+            break
 
-    # Extract drive ID from item name "Drive X"
-    if item.startswith("Drive "):
-        drive_id_str = item[6:].strip()
-    else:
-        drive_id_str = ""
+    if found == None:
+        return {"changed": False,
+                "msg": "no such drive: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Perform snmpget for the specific drive status OID: .8.1.1.<drive_id>
-    status_oid = base_oid + ".8.1.1." + drive_id_str
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, status_oid], mutates=False)
-    output = res.stdout.strip()
-
-    # Parse the value
-    status_int = 3  # unknown default
-    if output:
-        parts = output.split(" = ")
-        if len(parts) == 2:
-            value_str = parts[1]
-            if ": " in value_str:
-                status_parts = value_str.split(": ")
-                if len(status_parts) >= 2:
-                    status_val = status_parts[1].strip()
-                    status_int = int(status_val) if status_val.isdigit() else 3
-
-    # Map status integer to state and summary
-    if status_int == 1:
-        state_str = "OK"
-        summary = "online"
-    elif status_int == 2:
-        state_str = "CRIT"
-        summary = "offline"
-    elif status_int == 3:
-        state_str = "WARN"
-        summary = "unknown"
-    else:
-        state_str = "UNKNOWN"
-        summary = "unexpected state"
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state_str,
-            "metrics": {},
-            "details": ""
-        }
-    }
+    reading = found.get("8", "")
+    state, summary = _status_result(reading)
+    # Map numeric state to Checkmk state names
+    state_names = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+    sname = state_names.get(state, "UNKNOWN")
+    return {"changed": False,
+            "msg": "%s %s" % (item, summary),
+            "data": {"state": sname, "metrics": {}, "details": ""}}

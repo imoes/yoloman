@@ -1,63 +1,62 @@
-# Per Checkmk source: these two integration-service states map to OK.
-# "Protocol_Mismatch" is safe per Microsoft by design.
-OK_INT_STATES = ["Ok", "Protocol_Mismatch"]
-
-def _is_positive_int(s):
-    if len(s) == 0:
-        return False
-    for c in s:
-        if c not in "0123456789":
-            return False
-    return int(s) > 0
+# Translated Checkmk check: checkmk.hyperv_vmstatus
+# Monitors HyperV VM Integration Services status (read-only)
 
 def main(ctx, params):
-    if params.get("_discover"):
-        # Discover only when Hyper-V is present and has at least one VM.
-        res = ctx.run(
-            ["powershell.exe", "-NonInteractive", "-NoProfile", "-Command",
-             "@(Get-VM -ErrorAction SilentlyContinue).Count"],
-            mutates=False,
-            ok_codes=[0, 1, 2, 127, 9009],
-        )
-        count = res.stdout.strip()
-        if res.rc != 0 or not _is_positive_int(count):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
+    # Probe for real Hyper-V presence first
+    ps_probe = ctx.run(["powershell.exe", "-NoProfile", "-Command", "Get-Module -ListAvailable -Name Hyper-V"], mutates=False)
+    if ps_probe.rc != 0:
+        # Hyper-V not installed/present
+        if ps_probe.skipped:
+            return {"changed": False, "msg": "would check HyperV status", "data": {"state": "UNKNOWN", "metrics": {}, "details": "check_mode skipped"}}
+        return {"changed": False, "msg": "Hyper-V not available on this host", "data": {"state": "UNKNOWN", "metrics": {}, "details": "Hyper-V module not found"}}
 
-    # Aggregate the worst IntegrationServicesState across all VMs.
-    # Priority: Ok < Protocol_Mismatch < Degraded (anything else).
-    ps_cmd = (
-        "$vms = Get-VM -ErrorAction SilentlyContinue; " +
-        "$state = 'Ok'; " +
-        "foreach ($vm in $vms) { " +
-        "$s = $vm.IntegrationServicesState; " +
-        "if ($s -match 'Protocol') { if ($state -eq 'Ok') { $state = 'Protocol_Mismatch' } } " +
-        "elseif ($s -ne 'Up to date' -and $s -ne $null) { $state = 'Degraded' } }; " +
-        "$state"
-    )
-    res = ctx.run(
-        ["powershell.exe", "-NonInteractive", "-NoProfile", "-Command", ps_cmd],
-        mutates=False,
-        ok_codes=[0, 1, 2, 127, 9009],
-    )
-    if res.rc != 0:
-        detail = res.stderr.strip()
-        return {
-            "changed": False,
-            "msg": "Hyper-V query failed: " + detail,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": detail},
-        }
-    int_state = res.stdout.strip()
-    if not int_state:
-        int_state = "Unknown"
-    state = "OK" if int_state in OK_INT_STATES else "CRIT"
-    return {
-        "changed": False,
-        "msg": "Integration Service State: " + int_state,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    if params.get("_discover"):
+        # Discovery: single service when Hyper-V is present
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
+
+    # Check mode: gather VM integration service status
+    # Query Hyper-V VM integration services via PowerShell
+    ps_query = ctx.run(["powershell.exe", "-NoProfile", "-Command",
+        "Get-VM | ForEach-Object { Write-Host ($_.Name + '|' + ($_.IntegrationServices | ForEach-Object { $_.Enabled + ':' + $_.PrimaryStatus }) -join ',') }"],
+        mutates=False)
+
+    if ps_query.rc != 0:
+        return {"changed": False, "msg": "failed to query Hyper-V VMs", "data": {"state": "UNKNOWN", "metrics": {}, "details": "PowerShell command failed: " + ps_query.stderr}}
+
+    # Determine overall Integration_Services state
+    integration_state = None
+    has_issues = False
+    lines = ps_query.stdout.splitlines()
+    for line in lines:
+        line = line.strip()
+        if not line or "|" not in line:
+            continue
+        parts = line.split("|", 1)
+        vm_name = parts[0]
+        services_part = parts[1] if len(parts) > 1 else ""
+        # Parse service states: format "True:OK,False:Error"
+        for svc in services_part.split(","):
+            svc = svc.strip()
+            if ":" in svc:
+                status_part = svc.split(":", 1)[1].strip()
+                if status_part == "OK":
+                    continue
+                elif status_part == "Degraded":
+                    integration_state = "Degraded" if integration_state == None else integration_state
+                elif status_part == "Error" or status_part == "Error,Operational":
+                    has_issues = True
+                    integration_state = "Error"
+
+    # Map to Checkmk expected states
+    if integration_state == None and not has_issues:
+        int_state = "Ok"
+    elif has_issues:
+        int_state = "Error"
+    elif integration_state == "Degraded":
+        int_state = "Degraded"
+    else:
+        int_state = integration_state if integration_state != None else "Ok"
+
+    # Per Microsoft guidance: 'Protocol_Mismatch' is OK
+    state = "OK" if int_state in ("Ok", "Protocol_Mismatch") else "CRIT"
+    return {"changed": False, "msg": "Integration Service State: " + str(int_state), "data": {"state": state, "metrics": {}, "details": ps_query.stdout}}

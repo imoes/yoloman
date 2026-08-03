@@ -1,75 +1,92 @@
-def _parse_instances(ps_output):
-    instances = {}
-    for line in ps_output.splitlines():
-        parts = line.split()
-        if len(parts) < 4:
+def _running_postgres_instances(ctx):
+    res = ctx.run(["ps", "-eo", "pid,comm,args"], mutates=False)
+    if res.rc != 0:
+        return []
+    instances = []
+    seen = set()
+    for line in res.stdout.splitlines()[1:]:
+        parts = line.split(None, 2)
+        if len(parts) < 3:
             continue
-        pid_str = parts[0]
-        if not pid_str.isdigit():
+        pid_s, comm, args = parts[0], parts[1], parts[2]
+        if not comm.endswith("-postgres"):
             continue
-        binary_name = parts[1].split("/")[-1]
-        if binary_name != "postgres":
+        if not pid_s.lstrip("-").isdigit():
             continue
-        datadir = None
-        for i in range(2, len(parts) - 1):
-            if parts[i] == "-D":
-                datadir = parts[i + 1]
-                break
-        if datadir == None:
+        data_dir = ""
+        idx = args.find(" -D ")
+        if idx >= 0:
+            rest = args[idx + 4:]
+            sp = rest.find(" ")
+            data_dir = rest if sp < 0 else rest[:sp]
+        if not data_dir:
             continue
-        name = datadir.rstrip("/").split("/")[-1].upper()
-        if name == "":
+        name = data_dir.split("/")[-1].upper()
+        if name == "" or name in seen:
             continue
-        instances[name] = int(pid_str)
+        seen.add(name)
+        instances.append({"name": name, "pid": int(pid_s)})
     return instances
 
 
-def main(ctx, params):
-    ps_res = ctx.run(["ps", "ax", "-o", "pid,args"], mutates=False)
-    instances = _parse_instances(ps_res.stdout)
+def _postgres_version(ctx):
+    for path in ["/usr/lib/postgresql", "/usr/pgsql"]:
+        st = ctx.stat(path)
+        if st and st.get("is_dir"):
+            res = ctx.run(["ls", "-1", path], mutates=False)
+            if res.rc == 0:
+                best = ""
+                for line in res.stdout.splitlines():
+                    cand = line.strip()
+                    if cand and cand > best:
+                        best = cand
+                if best:
+                    ver = best.split("/")[-1].split(".")
+                    short = ver[0] + "." + ver[1] if len(ver) > 1 else ver[0]
+                    return "PostgreSQL " + short
+    bin_res = ctx.run(["postgres", "--version"], mutates=False)
+    if bin_res.rc == 0:
+        out = bin_res.stdout.strip()
+        if out:
+            return out
+    return None
 
+
+def main(ctx, params):
     if params.get("_discover"):
-        discovery = [
-            {"item": name, "params": {}, "metrics": ["pid"]}
-            for name in instances
-        ]
-        return {
-            "changed": False,
-            "msg": "discovered %d instances" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        pg_res = ctx.run(["postgres", "--version"], mutates=False)
+        if pg_res.rc == 127:
+            return {"changed": False, "msg": "no postgres found",
+                    "data": {"discovery": []}}
+        instances = _running_postgres_instances(ctx)
+        out = []
+        for inst in instances:
+            out.append({"item": inst["name"], "params": {},
+                        "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
 
     item = params.get("item", "")
-    pid = instances.get(item)
+    instances = _running_postgres_instances(ctx)
+    matched = None
+    for inst in instances:
+        if inst["name"] == item.upper():
+            matched = inst
+            break
 
-    version_str = ""
-    ver_res = ctx.run(["psql", "--version"], mutates=False, ok_codes=[0, 127])
-    if ver_res.rc == 0:
-        ver_lines = ver_res.stdout.strip().splitlines()
-        if len(ver_lines) > 0:
-            version_str = ver_lines[0]
+    if matched == None:
+        return {"changed": False,
+                "msg": "No postgres instance found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if pid != None:
-        details = ("Version: " + version_str) if version_str != "" else "Version: not found"
-        return {
-            "changed": False,
-            "msg": "Status: running with PID %d" % pid,
-            "data": {
-                "state": "OK",
-                "metrics": {"pid": pid},
-                "details": details,
-            },
-        }
+    version_info = _postgres_version(ctx)
 
-    if len(instances) == 0:
-        return {
-            "changed": False,
-            "msg": "no postgres instance found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if version_info != None:
+        msg = "Status: running with PID " + str(matched["pid"]) + ", Version: " + version_info
+    else:
+        msg = "Status: running with PID " + str(matched["pid"]) + ", Version: not found"
 
-    return {
-        "changed": False,
-        "msg": "Status: instance %s is not running or postgres DATADIR name is not identical with instance name" % item,
-        "data": {"state": "CRIT", "metrics": {}, "details": ""},
-    }
+    return {"changed": False, "msg": msg,
+            "data": {"state": "OK", "metrics": {},
+                     "details": "PID: " + str(matched["pid"])}}

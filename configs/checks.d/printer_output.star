@@ -1,370 +1,373 @@
+# Checkmk check: printer_output (-> SNMP-based printer output tray monitor)
+# Translated to a read-only Starlark check module.
+
+# Printer-MIB OIDs (per-printer, queried via SNMP):
+# Input (printer_input): base .1.3.6.1.2.1.43.8.2.1
+#   13=prtInputName, 18=prtInputDescription, 11=prtInputStatus,
+#   8=prtInputCapacityUnit, 9=prtInputMaxCapacity, 10=prtInputCurrentLevel
+# Output (printer_output): base .1.3.6.1.2.1.43.9.2.1
+#   7=prtOutputName, 12=prtOutputDescription, 6=prtOutputStatus,
+#   3=prtOutputCapacityUnit, 4=prtOutputMaxCapacity, 5=prtOutputRemainingCapacity
+#
+# This module implements printer_output (the requested check).
+
+_PRINTER_IO_UNITS = {
+    "-1": " unknown",
+    "0": " unknown",
+    "1": " unknown",
+    "2": " unknown",
+    "3": " 1/10000 in",
+    "4": " micrometers",
+    "8": " sheets",
+    "16": " feet",
+    "17": " meters",
+    "18": " items",
+    "19": " percent",
+}
+
+# printer_output table (.1.3.6.1.2.1.43.9.2.1): columns 7/12/6/3/4/5
+_OUTPUT_TABLE_BASE = ".1.3.6.1.2.1.43.9.2.1"
+_OUTPUT_NAME_COL = "7"
+_OUTPUT_DESC_COL = "12"
+_OUTPUT_STATUS_COL = "6"
+_OUTPUT_UNIT_COL = "3"
+_OUTPUT_MAX_COL = "4"
+_OUTPUT_LEVEL_COL = "5"
+
+# Known printer manufacturer sysObjectID prefixes (from lib.py PRINTER_MANUFACTURERS)
+_MANUFACTURER_OIDS = [
+    ".1.3.6.1.4.1.2435.2.3.9",
+    ".1.3.6.1.4.1.1602",
+    ".1.3.6.1.4.1.5502",
+    ".1.3.6.1.4.1.25278",
+    ".1.3.6.1.4.1.27748",
+    ".1.3.6.1.4.1.11.2.3.9.1",
+    ".1.3.6.1.4.1.18334",
+    ".1.3.6.1.4.1.1347",
+    ".1.3.6.1.4.1.2001.1",
+    ".1.3.6.1.4.1.1129",
+    ".1.3.6.1.4.1.367",
+    ".1.3.6.1.4.1.236",
+    ".1.3.6.1.4.1.253.8.62.1",
+    ".1.3.6.1.4.1.683.6",
+    ".1.3.6.1.4.1.10642",
+    ".1.3.6.1.4.1.674",
+    ".1.3.6.1.4.1.345",
+    ".1.3.6.1.4.1.1248",
+    ".1.3.6.1.4.1.641.2",
+    ".1.3.6.1.4.1.641.52",
+    ".1.3.6.1.4.1.641.1",
+    ".1.3.6.1.4.1.641.3",
+    ".1.3.6.1.4.1.641.51",
+    ".1.3.6.1.4.1.396",
+    ".1.3.6.1.4.1.44932",
+    ".1.3.6.1.4.1.1472",
+    ".1.3.6.1.4.1.2385",
+    ".1.3.6.1.4.1.186",
+    ".1.3.6.1.4.1.3835",
+    ".1.3.6.1.4.1.2565",
+    ".1.3.6.1.4.1.20438",
+    ".1.3.6.1.4.1.33241",
+    ".1.3.6.1.4.1.6345",
+    ".1.3.6.1.4.1.2125",
+    ".1.3.6.1.4.1.4228",
+    ".1.3.6.1.4.1.314",
+    ".1.3.6.1.4.1.16653",
+    ".1.3.6.1.4.1.28959",
+    ".1.3.6.1.4.1.28708",
+    ".1.3.6.1.4.1.79",
+    ".1.3.6.1.4.1.211",
+    ".1.3.6.1.4.1.231",
+    ".1.3.6.1.4.1.297",
+    ".1.3.6.1.4.1.3369",
+    ".1.3.6.1.4.1.116",
+    ".1.3.6.1.4.1.2",
+    ".1.3.6.1.4.1.28918",
+    ".1.3.6.1.4.1.3793",
+    ".1.3.6.1.4.1.11369",
+    ".1.3.6.1.4.1.815",
+    ".1.3.6.1.4.1.102",
+    ".1.3.6.1.4.1.1552",
+    ".1.3.6.1.4.1.279",
+    ".1.3.6.1.4.1.10504",
+    ".1.3.6.1.4.1.24807",
+    ".1.3.6.1.4.1.42406",
+    ".1.3.6.1.4.1.263",
+    ".1.3.6.1.4.1.22624",
+    ".1.3.6.1.4.1.25549",
+    ".1.3.6.1.4.1.128",
+    ".1.3.6.1.4.1.294",
+    ".1.3.6.1.4.1.38191",
+    ".1.3.6.1.4.1.950",
+    ".1.3.6.1.4.1.25816",
+    ".1.3.6.1.4.1.28878",
+    ".1.3.6.1.4.1.40463",
+    ".1.3.6.1.4.1.122",
+    ".1.3.6.1.4.1.119",
+]
+
+_STATE_RANK = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+
+_AVAIL_MAP = {
+    0: ("AVAILABLE_AND_IDLE", "OK"),
+    2: ("AVAILABLE_AND_STANDBY", "OK"),
+    4: ("AVAILABLE_AND_ACTIVE", "OK"),
+    6: ("AVAILABLE_AND_BUSY", "OK"),
+    1: ("UNAVAILABLE_AND_ON_REQUEST", "WARN"),
+    3: ("UNAVAILABLE_BECAUSE_BROKEN", "CRIT"),
+    5: ("UNKNOWN", "UNKNOWN"),
+    7: ("UNKNOWN", "UNKNOWN"),
+}
+
+
+def _worse(current, new):
+    if _STATE_RANK.get(new, 0) > _STATE_RANK.get(current, 0):
+        return new
+    return current
+
+
+def _int_or_zero(s):
+    if s == None or s == "":
+        return 0
+    if s.startswith("-"):
+        body = s[1:]
+    else:
+        body = s
+    if not body.isdigit():
+        return 0
+    val = int(s)
+    return val
+
+
+def _parse_status(status_raw):
+    status_val = _int_or_zero(status_raw)
+    transitioning = bool(status_val & 64)
+    offline = bool(status_val & 32)
+    if status_val & 16:
+        alert = "CRITICAL"
+    elif status_val & 8:
+        alert = "NON_CRITICAL"
+    else:
+        alert = "NONE"
+    avail_index = status_val - (status_val // 8) * 8
+    if avail_index < 0:
+        avail_index = avail_index + 8
+    name, state = _AVAIL_MAP.get(avail_index, ("UNKNOWN", "UNKNOWN"))
+    return name, state, alert, offline, transitioning
+
+
+def _walk_index(ctx, community, host, column_oid, index):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, column_oid + "." + index],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _walk_column(ctx, community, host, column_oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    rows = {}
+    if res.rc != 0 or res.stdout.strip() == "":
+        return rows
+    for line in res.stdout.splitlines():
+        if line.strip() == "":
+            continue
+        space = line.find(" ")
+        if space == -1:
+            continue
+        oid = line[:space]
+        value = line[space + 1:]
+        if not oid.startswith(column_oid + "."):
+            continue
+        index = oid[len(column_oid) + 1:]
+        rows[index] = value
+    return rows
+
+
+def _parse_row(name, description, status_raw, unit_raw, max_raw, level_raw):
+    avail_name, avail_state, alert, offline, transitioning = _parse_status(status_raw)
+    disp_name = name
+    if name == "unknown" or name == "":
+        if description and description != "":
+            disp_name = description
+        else:
+            disp_name = "tray"
+    unit_str = ""
+    if unit_raw != "":
+        unit_str = _PRINTER_IO_UNITS.get(unit_raw, " unknown")
+    capacity_max = _int_or_zero(max_raw)
+    level = _int_or_zero(level_raw)
+    return {
+        "name": disp_name,
+        "description": description,
+        "availability_name": avail_name,
+        "availability_state": avail_state,
+        "alert": alert,
+        "offline": offline,
+        "transitioning": transitioning,
+        "capacity_unit": unit_str,
+        "capacity_max": capacity_max,
+        "level": level,
+    }
+
+
+def _probe_printer(ctx, community, host):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout.strip() == "":
+        return False
+    sys_id = res.stdout.strip()
+    is_manufacturer = False
+    for oid in _MANUFACTURER_OIDS:
+        if sys_id.startswith(oid):
+            is_manufacturer = True
+            break
+    if not is_manufacturer:
+        return False
+    res43 = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.2.1.43"],
+        mutates=False,
+    )
+    if res43.rc != 0 or res43.stdout.strip() == "":
+        return False
+    return True
+
+
+def _build_section(ctx, community, host):
+    trays = {}
+    statuses = _walk_column(ctx, community, host, _OUTPUT_TABLE_BASE + "." + _OUTPUT_STATUS_COL)
+    for index, status_val in statuses.items():
+        name = _walk_index(ctx, community, host, _OUTPUT_TABLE_BASE + "." + _OUTPUT_NAME_COL, index)
+        description = _walk_index(ctx, community, host, _OUTPUT_TABLE_BASE + "." + _OUTPUT_DESC_COL, index)
+        unit = _walk_index(ctx, community, host, _OUTPUT_TABLE_BASE + "." + _OUTPUT_UNIT_COL, index)
+        max_val = _walk_index(ctx, community, host, _OUTPUT_TABLE_BASE + "." + _OUTPUT_MAX_COL, index)
+        level_val = _walk_index(ctx, community, host, _OUTPUT_TABLE_BASE + "." + _OUTPUT_LEVEL_COL, index)
+        tray = _parse_row(name, description, status_val, unit, max_val, level_val)
+        trays[tray["name"]] = tray
+    return trays
+
+
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    capacity_levels = params.get("capacity_levels", (0.0, 0.0))
+    if capacity_levels and len(capacity_levels) >= 2:
+        warn_level = capacity_levels[0]
+        crit_level = capacity_levels[1]
+    else:
+        warn_level = 0.0
+        crit_level = 0.0
+
+    is_printer = _probe_printer(ctx, community, host)
+
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.2.1.43.9.2.1"
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, base_oid
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed",
+        if not is_printer:
+            return {"changed": False, "msg": "discovered 0 items",
                     "data": {"discovery": []}}
-        # Parse SNMP output into trays: name -> Tray data
-        tray_data = {}
-        lines = res.stdout.splitlines()
-        for line in lines:
-            parts = line.strip().split()
-            if len(parts) < 2:
-                continue
-            oid_end = parts[0].rsplit(".", 1)[-1]
-            value = " ".join(parts[1:]).strip()
-            if value.startswith("STRING: "):
-                value = value[8:].strip('"')
-            elif value.startswith("INTEGER: "):
-                value = value[9:]
-            elif value.startswith("GAUGE: "):
-                value = value[7:]
-            elif value.startswith("Timeticks: "):
-                value = value[11:].strip("()")
-            # Map oid_end to field index based on OID position:
-            #  base.OIDEnd -> 0 (index), 13->1(name), 12->2(descr), 6->3(status),
-            #  3->4(cap_unit), 4->5(cap_max), 5->6(level)
-            # We'll accumulate per-tray in a dict indexed by tray_index (oid_end)
-            idx = int(oid_end)
-            if idx not in tray_data:
-                tray_data[idx] = ["", "", "", "", "", "", ""]
-            # Field indices: name=13, descr=12, status=6, cap_unit=3, cap_max=4, level=5
-            # Determine position relative to base_oid + OIDEnd:
-            #   base + 13.* => index 1
-            #   base + 12.* => index 2
-            #   base + 6.*  => index 3
-            #   base + 3.*  => index 4
-            #   base + 4.*  => index 5
-            #   base + 5.*  => index 6
-            if line.startswith(base_oid + ".13."):
-                tray_data[idx][1] = value
-            elif line.startswith(base_oid + ".12."):
-                tray_data[idx][2] = value
-            elif line.startswith(base_oid + ".6."):
-                tray_data[idx][3] = value
-            elif line.startswith(base_oid + ".3."):
-                tray_data[idx][4] = value
-            elif line.startswith(base_oid + ".4."):
-                tray_data[idx][5] = value
-            elif line.startswith(base_oid + ".5."):
-                tray_data[idx][6] = value
-
-        # Parse trays with same logic as Checkmk's parse_printer_io
-        parsed = {}
-        for idx, fields in tray_data.items():
-            tray_index = str(idx)
-            name = fields[1]
-            descr = fields[2]
-            snmp_status_raw = fields[3]
-            capacity_unit_raw = fields[4]
-            capacity_max_raw = fields[5]
-            level_raw = fields[6]
-
-            snmp_status = int(snmp_status_raw) if snmp_status_raw.isdigit() else 0
-
-            transitioning = bool(snmp_status & 64)
-            offline = bool(snmp_status & 32)
-
-            if snmp_status & 16:
-                alert = "Critical"
-            elif snmp_status & 8:
-                alert = "Non-Critical"
-            else:
-                alert = "None"
-
-            availability_raw = snmp_status % 8
-            if availability_raw == 0:
-                availability = "Available and idle"
-            elif availability_raw == 2:
-                availability = "Available and standby"
-            elif availability_raw == 4:
-                availability = "Available and active"
-            elif availability_raw == 6:
-                availability = "Available and busy"
-            elif availability_raw == 1:
-                availability = "Unavailable and on request"
-            elif availability_raw == 3:
-                availability = "Unavailable because broken"
-            else:
-                availability = "Unknown"
-
-            if name == "unknown" or not name:
-                name = descr if descr else tray_index
-
-            printer_io_units = {
-                "-1": "unknown",
-                "0": "unknown",
-                "1": "unknown",
-                "2": "unknown",
-                "3": "1/10000 in",
-                "4": "micrometers",
-                "8": "sheets",
-                "16": "feet",
-                "17": "meters",
-                "18": "items",
-                "19": "percent",
-            }
-            cap_unit = printer_io_units.get(capacity_unit_raw, "unknown")
-            if cap_unit != "unknown":
-                cap_unit = " " + cap_unit
-
-            parsed[name] = {
-                "tray_index": tray_index,
-                "name": name,
-                "descr": descr,
-                "availability": availability,
-                "availability_raw": availability_raw,
-                "alert": alert,
-                "offline": offline,
-                "transitioning": transitioning,
-                "capacity_unit": cap_unit,
-                "capacity_max": int(capacity_max_raw) if capacity_max_raw.isdigit() else 0,
-                "level": int(level_raw) if level_raw.isdigit() else 0,
-            }
-
-        # Discovery: yield Service(item=name) if description present, capacity_max > 0, and availability ok
-        out = []
-        for tray_name, tray in parsed.items():
-            if tray["descr"] == "":
+        section = _build_section(ctx, community, host)
+        discovery = []
+        for tray in section.values():
+            if tray["description"] == "":
                 continue
             if tray["capacity_max"] == 0:
                 continue
-            avail_raw = tray["availability_raw"]
-            # Skip UNAVAILABLE_BECAUSE_BROKEN (3) and UNKNOWN (5)
-            if avail_raw == 3 or avail_raw == 5:
+            if tray["availability_state"] == "CRIT" or tray["availability_name"] == "UNKNOWN":
                 continue
-            out.append({
-                "item": tray_name,
-                "params": {"capacity_levels": ("fixed", (0.0, 0.0))},
-                "metrics": ["remaining_percent"]
+            discovery.append({
+                "item": tray["name"],
+                "params": {"capacity_levels": capacity_levels},
+                "metrics": ["level_percent"],
             })
-        return {"changed": False, "msg": "discovered %d outputs" % len(out),
-                "data": {"discovery": out}}
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
 
-    # CHECK mode
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.2.1.43.9.2.1"
-
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, base_oid
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed",
+    if not is_printer:
+        return {"changed": False,
+                "msg": "host is not a recognized printer (sysObjectID mismatch or Printer-MIB absent)",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    tray_data = {}
-    lines = res.stdout.splitlines()
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) < 2:
-            continue
-        oid_end = parts[0].rsplit(".", 1)[-1]
-        value = " ".join(parts[1:]).strip()
-        if value.startswith("STRING: "):
-            value = value[8:].strip('"')
-        elif value.startswith("INTEGER: "):
-            value = value[9:]
-        elif value.startswith("GAUGE: "):
-            value = value[7:]
-        elif value.startswith("Timeticks: "):
-            value = value[11:].strip("()")
-        idx = int(oid_end)
-        if idx not in tray_data:
-            tray_data[idx] = ["", "", "", "", "", "", ""]
-        if line.startswith(base_oid + ".13."):
-            tray_data[idx][1] = value
-        elif line.startswith(base_oid + ".12."):
-            tray_data[idx][2] = value
-        elif line.startswith(base_oid + ".6."):
-            tray_data[idx][3] = value
-        elif line.startswith(base_oid + ".3."):
-            tray_data[idx][4] = value
-        elif line.startswith(base_oid + ".4."):
-            tray_data[idx][5] = value
-        elif line.startswith(base_oid + ".5."):
-            tray_data[idx][6] = value
-
-    # Build same parsed dict as discovery
-    parsed = {}
-    for idx, fields in tray_data.items():
-        tray_index = str(idx)
-        name = fields[1]
-        descr = fields[2]
-        snmp_status_raw = fields[3]
-        capacity_unit_raw = fields[4]
-        capacity_max_raw = fields[5]
-        level_raw = fields[6]
-
-        snmp_status = int(snmp_status_raw) if snmp_status_raw.isdigit() else 0
-
-        transitioning = bool(snmp_status & 64)
-        offline = bool(snmp_status & 32)
-
-        if snmp_status & 16:
-            alert = "Critical"
-        elif snmp_status & 8:
-            alert = "Non-Critical"
-        else:
-            alert = "None"
-
-        availability_raw = snmp_status % 8
-        if availability_raw == 0:
-            availability = "Available and idle"
-        elif availability_raw == 2:
-            availability = "Available and standby"
-        elif availability_raw == 4:
-            availability = "Available and active"
-        elif availability_raw == 6:
-            availability = "Available and busy"
-        elif availability_raw == 1:
-            availability = "Unavailable and on request"
-        elif availability_raw == 3:
-            availability = "Unavailable because broken"
-        else:
-            availability = "Unknown"
-
-        if name == "unknown" or not name:
-            name = descr if descr else tray_index
-
-        printer_io_units = {
-            "-1": "unknown",
-            "0": "unknown",
-            "1": "unknown",
-            "2": "unknown",
-            "3": "1/10000 in",
-            "4": "micrometers",
-            "8": "sheets",
-            "16": "feet",
-            "17": "meters",
-            "18": "items",
-            "19": "percent",
-        }
-        cap_unit = printer_io_units.get(capacity_unit_raw, "unknown")
-        if cap_unit != "unknown":
-            cap_unit = " " + cap_unit
-
-        parsed[name] = {
-            "tray_index": tray_index,
-            "name": name,
-            "descr": descr,
-            "availability": availability,
-            "availability_raw": availability_raw,
-            "alert": alert,
-            "offline": offline,
-            "transitioning": transitioning,
-            "capacity_unit": cap_unit,
-            "capacity_max": int(capacity_max_raw) if capacity_max_raw.isdigit() else 0,
-            "level": int(level_raw) if level_raw.isdigit() else 0,
-        }
-
-    tray = parsed.get(item)
+    section = _build_section(ctx, community, host)
+    tray = section.get(item)
     if tray == None:
-        return {"changed": False, "msg": "output tray not found: " + item,
+        return {"changed": False,
+                "msg": "no such tray: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Build summary and details
-    msg_parts = []
-    details_parts = []
-    state = "OK"
+    summaries = []
+    out_state = "OK"
 
-    # Description
-    if tray["descr"]:
-        msg_parts.append(tray["descr"])
-        details_parts.append("Description: " + tray["descr"])
+    if tray["description"]:
+        summaries.append(tray["description"])
 
-    # Offline
     if tray["offline"]:
-        if state == "OK":
-            state = "CRIT"
-        msg_parts.append("Offline")
-        details_parts.append("Status: Offline")
+        out_state = "CRIT"
+        summaries.append("Offline")
 
-    # Transitioning
     if tray["transitioning"]:
-        msg_parts.append("Transitioning")
-        details_parts.append("Transitioning: true")
+        summaries.append("Transitioning")
 
-    # Availability status
-    avail_name = tray["availability"].replace("and", "&").replace(" ", "")
-    msg_parts.append("Status: " + avail_name)
-    details_parts.append("Status: " + tray["availability"])
+    summaries.append("Status: " + tray["availability_name"].replace("_", " ").capitalize())
+    out_state = _worse(out_state, tray["availability_state"])
 
-    # Alerts
-    alert_msg = "Alerts: " + tray["alert"]
-    msg_parts.append(alert_msg)
-    details_parts.append(alert_msg)
+    if tray["alert"] == "NONE":
+        summaries.append("Alerts: None")
+    else:
+        summaries.append("Alerts: " + tray["alert"])
+    if tray["alert"] == "CRITICAL":
+        out_state = _worse(out_state, "CRIT")
+    elif tray["alert"] == "NON_CRITICAL":
+        out_state = _worse(out_state, "WARN")
 
-    # State mapping for availability
-    if tray["availability_raw"] == 1:  # Unavailable and on request
-        if state == "OK":
-            state = "WARN"
-    elif tray["availability_raw"] == 3:  # Unavailable because broken
-        state = "CRIT"
-    elif tray["availability_raw"] == 5:  # Unknown
-        state = "UNKNOWN"
-
-    # Alert mapping
-    if tray["alert"] == "Non-Critical" and state == "OK":
-        state = "WARN"
-    elif tray["alert"] == "Critical":
-        state = "CRIT"
-
-    # Capacity info
     level = tray["level"]
     capacity_max = tray["capacity_max"]
-    cap_unit = tray["capacity_unit"]
-
-    metrics = {}
+    capacity_unit = tray["capacity_unit"]
 
     if level in [-1, -2] or level < -3:
-        # skip remaining info when level is unknown or not limited
-        return {"changed": False, "msg": ", ".join(msg_parts),
-                "data": {"state": state, "metrics": metrics, "details": "; ".join(details_parts)}}
+        return {"changed": False,
+                "msg": "; ".join(summaries),
+                "data": {"state": out_state, "metrics": {}, "details": ""}}
 
-    if capacity_max in [-2, -1, 0]:
-        if cap_unit != " unknown":
-            msg_parts.append("Capacity: " + str(level) + cap_unit)
-            details_parts.append("Capacity: " + str(level) + cap_unit)
-        return {"changed": False, "msg": ", ".join(msg_parts),
-                "data": {"state": state, "metrics": metrics, "details": "; ".join(details_parts)}}
+    if capacity_max in (-2, -1, 0):
+        if capacity_unit != " unknown":
+            summaries.append("Capacity: %s%s" % (level, capacity_unit))
+        return {"changed": False,
+                "msg": "; ".join(summaries),
+                "data": {"state": out_state, "metrics": {}, "details": ""}}
 
-    if cap_unit != " unknown":
-        msg_parts.append("Maximal capacity: " + str(capacity_max) + cap_unit)
-        details_parts.append("Maximal capacity: " + str(capacity_max) + cap_unit)
+    if capacity_unit != " unknown":
+        summaries.append("Maximal capacity: %s%s" % (capacity_max, capacity_unit))
 
-    # Remaining percentage
-    if capacity_max == 0:
-        remaining_pct = 0.0
+    quantity_message = "filled"
+
+    if level == -3:
+        summaries.append("At least one %s" % quantity_message)
+        return {"changed": False,
+                "msg": "; ".join(summaries),
+                "data": {"state": out_state, "metrics": {}, "details": ""}}
+
+    percent = 0.0
+    if capacity_max > 0:
+        percent = 100.0 * level / capacity_max
     else:
-        remaining_pct = 100.0 * level / capacity_max
+        percent = 0.0
 
-    metrics["remaining_percent"] = remaining_pct
+    if percent >= crit_level and crit_level >= 0:
+        out_state = _worse(out_state, "CRIT")
+    elif percent >= warn_level and warn_level >= 0:
+        out_state = _worse(out_state, "WARN")
 
-    # Apply levels (fixed 0.0,0.0 by default)
-    capacity_levels = params.get("capacity_levels", ("fixed", (0.0, 0.0)))
-    if capacity_levels[0] == "fixed":
-        warn, crit = capacity_levels[1]
-    else:
-        warn, crit = 0.0, 0.0
-
-    # For lower levels: OK if >= warn/crit, WARN if < warn, CRIT if < crit
-    if remaining_pct < crit:
-        state = "CRIT"
-    elif remaining_pct < warn:
-        if state != "CRIT":
-            state = "WARN"
-
-    msg_parts.append("Remaining: %f%%" % remaining_pct)
-    details_parts.append("Remaining: %f%%" % remaining_pct)
-
-    return {"changed": False, "msg": ", ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": "; ".join(details_parts)}}
+    summaries.append("Remaining: %f%%" % percent)
+    return {"changed": False,
+            "msg": "; ".join(summaries),
+            "data": {"state": out_state,
+                     "metrics": {"level_percent": percent},
+                     "details": ""}}

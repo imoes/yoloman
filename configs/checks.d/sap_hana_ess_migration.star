@@ -1,101 +1,109 @@
-STATE_MAP = {
-    "done (error)": {"state": "CRIT", "readable": "Done with errors."},
-    "installing": {"state": "WARN", "readable": "Installation in progress."},
-    "done (okay)": {"state": "OK", "readable": "Done without errors."},
+def main(ctx, params):
+    if params.get("_discover"):
+        hdbsql_path = _find_hdbsql(ctx)
+        if hdbsql_path == None:
+            return {"changed": False, "msg": "no SAP HANA client found",
+                    "data": {"discovery": []}}
+        res = _query_ess_migration(ctx, hdbsql_path)
+        if res == None:
+            return {"changed": False, "msg": "no SAP HANA databases found",
+                    "data": {"discovery": []}}
+        discovery = []
+        for sid_instance in sorted(res.keys()):
+            entry = {"item": sid_instance,
+                     "params": {},
+                     "metrics": ["ess_state"]}
+            discovery.append(entry)
+        return {"changed": False,
+                "msg": "discovered %d SAP HANA ESS migration instances" % len(discovery),
+                "data": {"discovery": discovery}}
+    item = params.get("item", "")
+    hdbsql_path = _find_hdbsql(ctx)
+    if hdbsql_path == None:
+        return {"changed": False,
+                "msg": "SAP HANA client (hdbsql) not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    res = _query_ess_migration(ctx, hdbsql_path)
+    if res == None or not res.get(item):
+        return {"changed": False,
+                "msg": "no SAP HANA instance '%s' found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = res[item]
+    if not data["log"]:
+        return {"changed": False,
+                "msg": "Login into database failed.",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    states = _STATE_UNKNOWN
+    for ident, info in _ESS_STATE_MAP.items():
+        if ident.lower() in data["log"].lower():
+            states = info
+            break
+    infotext = "ESS State: %s Timestamp: %s" % (states["state_readable"], data["timestamp"])
+    return {"changed": False, "msg": infotext,
+            "data": {"state": states["cmk_state"],
+                     "metrics": {"ess_state": _STATE_MAP_NUMERIC.get(states["cmk_state"], 0)},
+                     "details": infotext}}
+
+
+def _find_hdbsql(ctx):
+    res = ctx.run(["which", "hdbsql"], mutates=False)
+    if res.rc != 0 or res.rc == 127:
+        return None
+    path = res.stdout.strip()
+    if path == "":
+        return None
+    return path
+
+
+def _query_ess_migration(ctx, hdbsql_path):
+    res = ctx.run([hdbsql_path, "-j", "-n", "localhost:30015",
+                   "SELECT * FROM SYS.M_DATABASE", "-u", "SYSTEM"],
+                  mutates=False)
+    if res.rc != 0:
+        if res.rc == 127:
+            return None
+        entries = _parse_ess_output(res.stdout, ctx)
+        if len(entries) == 0:
+            return None
+        return entries
+    return {}
+
+
+def _parse_ess_output(stdout, ctx):
+    result = {}
+    lines = stdout.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if stripped == "":
+            i = i + 1
+            continue
+        parts = stripped.split(None, 1)
+        if len(parts) < 2:
+            i = i + 1
+            continue
+        sid_instance = parts[0]
+        data_line = parts[1]
+        timestamp = "not available"
+        if len(data_line) >= 15 and data_line[4] == "-" and data_line[7] == "-":
+            date_part = data_line[:10]
+            time_part = data_line[10:]
+            time_clean = time_part
+            if len(time_clean) > 8:
+                time_clean = time_clean[:8]
+            timestamp = date_part + " " + time_clean
+        result[sid_instance] = {"log": data_line, "timestamp": timestamp}
+        i = i + 1
+    return result
+
+
+_ESS_STATE_MAP = {
+    "Done (error)": {"cmk_state": "CRIT", "state_readable": "Done with errors."},
+    "Installing": {"cmk_state": "WARN", "state_readable": "Installation in progress."},
+    "Done (okay)": {"cmk_state": "OK", "state_readable": "Done without errors."},
 }
 
-def _find_hana_instances(ctx):
-    res = ctx.run(
-        ["find", "/usr/sap", "-maxdepth", "2", "-type", "d", "-name", "HDB??"],
-        mutates=False,
-        ok_codes=[0, 1],
-    )
-    instances = []
-    seen = {}
-    for line in res.stdout.splitlines():
-        parts = line.split("/")
-        if len(parts) >= 5:
-            sid = parts[3]
-            hdb = parts[4]
-            if hdb.startswith("HDB") and len(hdb) == 5 and hdb[3:].isdigit():
-                inst_num = hdb[3:]
-                key = sid + "_" + inst_num
-                if key not in seen:
-                    seen[key] = True
-                    instances.append({"sid": sid, "instance": inst_num})
-    return instances
+_STATE_UNKNOWN = {"cmk_state": "UNKNOWN", "state_readable": "Unknown []"}
 
-def main(ctx, params):
-    user = params.get("user", "SYSTEM")
-    password = params.get("password", "")
-
-    if params.get("_discover"):
-        instances = _find_hana_instances(ctx)
-        discovery = []
-        for inst in instances:
-            item = inst["sid"] + " " + inst["instance"]
-            discovery.append({
-                "item": item,
-                "params": {},
-                "metrics": [],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d SAP HANA instances" % len(discovery),
-            "data": {"discovery": discovery},
-        }
-
-    item = params.get("item", "")
-    item_parts = item.split()
-    if len(item_parts) < 2:
-        return {
-            "changed": False,
-            "msg": "invalid item format: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    sid = item_parts[0]
-    instance_num = item_parts[1]
-
-    sql = "SELECT CURRENT_TIMESTAMP, STATUS FROM SYS.M_ESS_MIGRATION"
-    res = ctx.run(
-        ["hdbsql", "-i", instance_num, "-u", user, "-p", password,
-         "-x", "-quiet", "-a", sql],
-        mutates=False,
-        ok_codes=[0, 1, 2, 3],
-    )
-
-    out = res.stdout.strip()
-    if not out or res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "Login into database failed.",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr.strip()},
-        }
-
-    log = out
-    timestamp = "not available"
-    lines = out.splitlines()
-    if lines:
-        first = lines[0].replace('"', "")
-        cols = first.split(",")
-        if len(cols) >= 2:
-            timestamp = cols[0].strip()
-            log = ",".join(cols[1:]).strip()
-
-    log_lower = log.lower()
-    state = "UNKNOWN"
-    readable = "Unknown [" + log + "]"
-
-    for key in STATE_MAP:
-        if key in log_lower:
-            state = STATE_MAP[key]["state"]
-            readable = STATE_MAP[key]["readable"]
-            break
-
-    msg = "ESS State: " + readable + " Timestamp: " + timestamp
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+_STATE_MAP_NUMERIC = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}

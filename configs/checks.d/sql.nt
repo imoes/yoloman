@@ -1,80 +1,63 @@
 name: sql
 fqcn: checkmk.sql
 collection: checkmk
-short_description: SQL database query check
-description: Connects to a relational database (MySQL, PostgreSQL, or MSSQL) and executes a custom SQL statement or stored procedure via the native CLI client (mysql, psql, sqlcmd). The result row must contain at least two columns: col1 is either a status code (0=OK, 1=WARN, 2=CRIT) or a numeric value subject to configurable upper/lower thresholds, and col2 is the human-readable output text; an optional col3 carries performance metric data. Oracle, DB2, and SQLAnywhere are accepted in the schema for compatibility but return UNKNOWN at runtime.
+short_description:
+description: Checkmk active check 'sql', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
+    description:
         type: string
-        description: Name of the service as displayed in monitoring
-        required: true
+        default: SQL Query
+        description: description (from the check's parameters).
+    warn:
+        type: string
+        description: warn (from the check's parameters).
+    crit:
+        type: string
+        description: crit (from the check's parameters).
     dbms:
         type: string
-        description: Database management system type
-        required: true
-        enum:
-            - mysql
-            - postgres
-            - mssql
-            - oracle
-            - db2
-            - sqlanywhere
-        default: postgres
-    host:
+        default:
+        description: dbms (from the check's parameters).
+    name:
         type: string
-        description: Database server hostname or IP address
-        required: true
-    port:
-        type: number
-        description: Database port; omit to use the DBMS default
-    db_name:
-        type: string
-        description: Name of the database to connect to
-        required: true
+        default:
+        description: name (from the check's parameters).
     user:
         type: string
-        description: Database login user
-        required: true
-    password:
-        type: string
-        description: Database login password
-        required: true
-        secret: true
+        default:
+        description: user (from the check's parameters).
     sql:
         type: string
-        description: SQL statement or stored procedure name to execute. Result must have col1=status(0/1/2) or numeric value, col2=output text, col3=perfdata (optional)
-        required: true
-    use_procedure:
-        type: bool
-        description: Treat sql as a stored procedure name and wrap it in CALL
-        default: false
-    procedure_input:
+        default:
+        description: sql (from the check's parameters).
+    host:
         type: string
-        description: Comma-separated input parameters passed to the stored procedure
+        description: host (from the check's parameters).
+    port:
+        type: string
+        description: port (from the check's parameters).
+    procedure:
+        type: string
+        description: procedure (from the check's parameters).
     perfdata:
         type: string
-        description: Metric name for the value from col3 (status mode) or col1 (levels mode)
+        description: perfdata (from the check's parameters).
     text:
         type: string
-        description: Override the output text; if set, col2 from the query is ignored
-    warn_high:
-        type: number
-        description: WARN if the numeric col1 value is >= this upper threshold
-    crit_high:
-        type: number
-        description: CRIT if the numeric col1 value is >= this upper threshold
-    warn_low:
-        type: number
-        description: WARN if the numeric col1 value is <= this lower threshold
-    crit_low:
-        type: number
-        description: CRIT if the numeric col1 value is <= this lower threshold
-    timeout_s:
-        type: number
-        description: Database connection timeout in seconds
-        default: 30
+        description: text (from the check's parameters).
+    levels:
+        type: string
+        description: levels (from the check's parameters).
+    levels_low:
+        type: string
+        description: levels_low (from the check's parameters).
+    password_id:
+        type: string
+        default:
+        description: password_id (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

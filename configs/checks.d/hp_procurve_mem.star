@@ -1,118 +1,91 @@
-# SNMP OIDs for HP ProCurve memory
-OID_TOTAL = ".1.3.6.1.4.1.11.2.14.11.5.1.1.2.1.1.1.5"
-OID_ALLOC = ".1.3.6.1.4.1.11.2.14.11.5.1.1.2.1.1.1.7"
-
-def _parse_snmp_value(output):
-    """Parse SNMP output line 'OID = TYPE: value' to extract numeric value"""
-    if output == None or len(output) == 0:
-        return None
-    # Split on last space to get "TYPE: value" part
-    parts = output.rsplit(" ", 1)
-    if len(parts) < 2:
-        return None
-    value_part = parts[1].strip()
-    # Extract value after colon if present
-    if ":" in value_part:
-        value_part = value_part.split(":", 1)[1].strip()
-    # Handle negative numbers
-    if len(value_part) == 0:
-        return None
-    is_negative = False
-    if value_part.startswith("-"):
-        is_negative = True
-        value_part = value_part[1:]
-    # Check if it's a valid integer string
-    for c in value_part:
-        if c < "0" or c > "9":
-            return None
-    # Convert to integer
-    result = 0
-    for c in value_part:
-        result = result * 10 + (ord(c) - ord("0"))
-    if is_negative:
-        result = -result
-    return result
-
-def _snmp_get_value(ctx, host, community, oid):
-    """Get a single SNMP value via snmpget"""
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host, oid
-    ], mutates=False)
-    if res.rc != 0:
-        return None
-    return _parse_snmp_value(res.stdout.strip())
-
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery mode: always discover a single service for memory
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [
-                {"item": "", "params": {"levels": ("perc_used", (80.0, 90.0))}, "metrics": ["mem_used"]}
-            ]}
-        }
-    
-    # Check mode: single service with item ""
-    host = params.get("host", "localhost")
+        # Detection: this is an HP ProCurve device (SNMP sysObjectID).
+        # Probe the real thing: sysObjectID under .1.1.2.2.1.1.2.0.
+        # HP ProCurve OIDs end with ".11.2.3.7.11" or ".11.2.3.7.8".
+        sysid = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysid.rc != 0 or sysid.rc == 127:
+            return {"changed": False, "msg": "not an HP ProCurve device",
+                    "data": {"discovery": []}}
+        sid = sysid.stdout.strip()
+        if not (sid.endswith(".11.2.3.7.11") or sid.endswith(".11.2.3.7.8")):
+            return {"changed": False, "msg": "not an HP ProCurve device",
+                    "data": {"discovery": []}}
+
+        # Verify memory OIDs are present.
+        mem = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.11.2.14.11.5.1.1.2.1.1.1.5",
+             ".1.3.6.1.4.1.11.2.14.11.5.1.1.2.1.1.1.7"],
+            mutates=False,
+        )
+        if mem.rc != 0 or mem.rc == 127:
+            return {"changed": False, "msg": "no memory data",
+                    "data": {"discovery": []}}
+
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "",
+                     "params": {"levels": ("perc_used", (80.0, 90.0))},
+                     "metrics": ["mem_used", "mem_total", "mem_used_percent"]},
+                ]}}
+
+    item = params.get("item", "")
     community = params.get("community", "public")
-    
-    # Get memory values via SNMP
-    mem_total = _snmp_get_value(ctx, host, community, OID_TOTAL)
-    mem_used = _snmp_get_value(ctx, host, community, OID_ALLOC)
-    
-    # Check if we got valid data
-    if mem_total == None or mem_used == None:
-        return {
-            "changed": False,
-            "msg": "unable to retrieve memory information via SNMP",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get levels from params (Checkmk default: ("perc_used", (80.0, 90.0)))
+    host = params.get("host", "localhost")
+
+    base = ".1.3.6.1.4.1.11.2.14.11.5.1.1.2.1.1.1"
+    get = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv",
+         host, base + ".5", base + ".7"],
+        mutates=False,
+    )
+
+    if get.rc != 0:
+        if get.rc == 127:
+            return {"changed": False, "msg": "snmpget not installed",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "cannot query memory: " + get.stderr,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    vals = get.stdout.splitlines()
+    if len(vals) < 2:
+        return {"changed": False, "msg": "cannot read memory values",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    mem_total = int(vals[0])
+    mem_used = int(vals[1])
+
     levels = params.get("levels", ("perc_used", (80.0, 90.0)))
-    
-    # Calculate usage percentage
-    if mem_total <= 0:
-        return {
-            "changed": False,
-            "msg": "total memory is zero or negative",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    usage_percent = (mem_used / mem_total) * 100.0
-    
-    # Extract warn/crit thresholds
-    warn, crit = 80.0, 90.0
-    if type(levels) == "tuple" and len(levels) == 2:
-        if type(levels[0]) == "string" and levels[0] == "perc_used":
-            threshold_tuple = levels[1]
-            if type(threshold_tuple) == "tuple" and len(threshold_tuple) == 2:
-                warn = float(threshold_tuple[0])
-                crit = float(threshold_tuple[1])
-        elif type(levels[0]) == "float" or type(levels[0]) == "int":
-            # Legacy format (warn, crit)
-            warn = float(levels[0])
-            crit = float(levels[1])
-    
-    # Determine state based on thresholds
-    if usage_percent >= crit:
+    if type(levels) == "list" and len(levels) == 2 and type(levels[0]) != "string":
+        levels = ("perc_used", tuple(levels))
+
+    warn = 80.0
+    crit = 90.0
+    if type(levels) == "tuple" and len(levels) == 2 and levels[0] == "perc_used":
+        tup = levels[1]
+        warn = tup[0]
+        crit = tup[1]
+
+    pct = 0.0
+    if mem_total > 0:
+        pct = (float(mem_used) / float(mem_total)) * 100.0
+
+    if pct >= crit:
         state = "CRIT"
-    elif usage_percent >= warn:
+    elif pct >= warn:
         state = "WARN"
     else:
         state = "OK"
-    
-    # Format message
-    msg = "Usage: %f%%" % usage_percent
-    
-    # Return check result
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"mem_used": mem_used, "mem_used_percent": usage_percent},
-            "details": ""
-        }
-    }
+
+    msg = "Usage: %f%% (%d/%d bytes)" % (pct, mem_used, mem_total)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state,
+                     "metrics": {"mem_used": mem_used, "mem_total": mem_total,
+                                 "mem_used_percent": pct},
+                     "details": ""}}

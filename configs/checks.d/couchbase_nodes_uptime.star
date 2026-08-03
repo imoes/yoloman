@@ -1,93 +1,97 @@
-def _format_uptime(seconds):
-    days = seconds // 86400
-    rem = seconds % 86400
-    hours = rem // 3600
-    rem2 = rem % 3600
-    minutes = rem2 // 60
-    if days > 0:
-        return "%d days %d hours" % (days, hours)
-    if hours > 0:
-        return "%d hours %d minutes" % (hours, minutes)
-    return "%d minutes" % minutes
-
 def main(ctx, params):
-    host = params.get("host", "localhost")
-    port = params.get("port", 8091)
-    user = params.get("user", "Administrator")
-    password = params.get("password", "")
-
-    url = "http://" + host + ":" + str(port) + "/pools/nodes"
-    res = ctx.run(["curl", "-s", "-u", user + ":" + password, url], mutates=False)
-
     if params.get("_discover"):
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "failed to reach Couchbase API",
+        # Probe for the real Couchbase product on the host.
+        res = ctx.run(["couchbase-cli", "node-list", "--help"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "couchbase-cli not found",
                     "data": {"discovery": []}}
-        data = json.decode(res.stdout)
-        nodes = data.get("nodes", [])
-        items = []
+
+        # Read the actual node/uptime data from the local Couchbase nodes.
+        # We reproduce the Checkmk agent section by querying Couchbase's
+        # REST API (the same source the lib/uptime Checkmk plugin reads).
+        # In absence of a real on-host source, report absence honestly.
+        api = ctx.run(
+            ["curl", "-s", "--max-time", "5",
+             "http://localhost:8091/pools/default"],
+            mutates=False,
+        )
+        if api.rc != 0 or not api.stdout:
+            return {"changed": False, "msg": "couchbase rest api not reachable",
+                    "data": {"discovery": []}}
+
+        data = json.decode(api.stdout)
+        nodes = data.get("nodes", []) if type(data) == "dict" else []
+        out = []
         for node in nodes:
-            otp_node = node.get("otpNode", "")
-            if otp_node:
-                items.append({
-                    "item": otp_node,
-                    "params": {},
-                    "metrics": ["uptime"],
-                })
-        return {"changed": False, "msg": "discovered %d nodes" % len(items),
-                "data": {"discovery": items}}
+            if type(node) != "dict":
+                continue
+            hostname = node.get("hostname", "")
+            if not hostname:
+                continue
+            uptime_val = node.get("uptime", None)
+            if uptime_val == None:
+                continue
+            out.append({
+                "item": hostname,
+                "params": {},
+                "metrics": ["uptime"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d couchbase nodes" % len(out),
+                "data": {"discovery": out}}
 
     item = params.get("item", "")
-
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "failed to reach Couchbase API",
+    # Re-probe the real host source (Couchbase REST API on localhost).
+    api = ctx.run(
+        ["curl", "-s", "--max-time", "5",
+         "http://localhost:8091/pools/default"],
+        mutates=False,
+    )
+    if api.rc != 0 or not api.stdout:
+        return {"changed": False,
+                "msg": "no couchbase instance found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    data = json.decode(res.stdout)
-    nodes = data.get("nodes", [])
-    uptime_secs = None
+    data = json.decode(api.stdout)
+    nodes = data.get("nodes", []) if type(data) == "dict" else []
 
+    found = None
     for node in nodes:
-        if node.get("otpNode", "") == item:
-            uptime_raw = node.get("uptime", "")
-            if uptime_raw:
-                int_part = uptime_raw.split(".")[0]
-                if int_part.isdigit():
-                    uptime_secs = int(int_part)
+        if type(node) != "dict":
+            continue
+        if node.get("hostname", "") == item:
+            found = node
             break
 
-    if uptime_secs == None:
-        return {"changed": False, "msg": "node not found: " + item,
+    if found == None:
+        return {"changed": False,
+                "msg": "no couchbase node found: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
+    uptime_val = found.get("uptime", None)
+    if uptime_val == None or not uptime_val.isdigit():
+        return {"changed": False,
+                "msg": "no uptime data for node: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    uptime_seconds = int(uptime_val)
+    warn = params.get("warn", None)
+    crit = params.get("crit", None)
+
     state = "OK"
-
-    max_levels = params.get("max", None)
-    if max_levels != None:
-        max_warn = max_levels[0]
-        max_crit = max_levels[1]
-        if uptime_secs >= max_crit:
+    if warn != None and crit != None:
+        if uptime_seconds <= crit:
             state = "CRIT"
-        elif uptime_secs >= max_warn:
+        elif uptime_seconds <= warn:
             state = "WARN"
 
-    min_levels = params.get("min", None)
-    if min_levels != None and state == "OK":
-        min_warn = min_levels[0]
-        min_crit = min_levels[1]
-        if uptime_secs <= min_crit:
-            state = "CRIT"
-        elif uptime_secs <= min_warn:
-            state = "WARN"
+    days = uptime_seconds // 86400
+    hours = (uptime_seconds % 86400) // 3600
+    minutes = (uptime_seconds % 3600) // 60
+    pretty = "%dd %dh %dm" % (days, hours, minutes)
 
-    uptime_fmt = _format_uptime(uptime_secs)
-
-    return {
-        "changed": False,
-        "msg": "Up %s" % uptime_fmt,
-        "data": {
-            "state": state,
-            "metrics": {"uptime": uptime_secs},
-            "details": "",
-        },
-    }
+    return {"changed": False,
+            "msg": "Uptime: %s" % pretty,
+            "data": {"state": state,
+                     "metrics": {"uptime": uptime_seconds},
+                     "details": pretty}}

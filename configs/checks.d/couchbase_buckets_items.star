@@ -1,120 +1,121 @@
-def _last(samples, key):
-    lst = samples.get(key)
-    if lst == None or len(lst) == 0:
-        return None
-    return lst[len(lst) - 1]
-
-def _check_levels(value, levels):
-    if levels == None:
-        return "OK"
-    warn = levels[0]
-    crit = levels[1]
-    if crit != None and value >= crit:
-        return "CRIT"
-    if warn != None and value >= warn:
-        return "WARN"
-    return "OK"
-
-def _worst(a, b):
-    rank = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
-    if rank.get(a, 0) >= rank.get(b, 0):
-        return a
-    return b
-
-def _build_argv(user, password, url):
-    base = ["curl", "-s", "--connect-timeout", "10", "-m", "30"]
-    if user:
-        base = base + ["-u", user + ":" + password]
-    return base + [url]
+# Checkmk check → read-only Starlark check module
+# Source: cmk/plugins/couchbase/agent_based/couchbase_buckets_items.py
 
 def main(ctx, params):
     host = params.get("host", "localhost")
-    port = params.get("port", 8091)
-    user = params.get("user", "")
-    password = params.get("password", "")
-    ssl = params.get("ssl", False)
-
-    scheme = "https" if ssl else "http"
-    base_url = "%s://%s:%d" % (scheme, host, int(port))
+    port = params.get("port", "8091")
 
     if params.get("_discover"):
-        res = ctx.run(_build_argv(user, password, base_url + "/pools/default/buckets"), mutates=False)
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "failed to query Couchbase bucket list",
+        res = ctx.run(
+            ["curl", "-fsS", "http://%s:%s/pools/default/buckets" % (host, port)],
+            mutates=False,
+        )
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no couchbase buckets found",
                     "data": {"discovery": []}}
-        data = json.decode(res.stdout)
-        if type(data) != "list":
-            return {"changed": False, "msg": "unexpected response from Couchbase",
+        buckets = json.decode(res.stdout)
+        if type(buckets) != "list":
+            return {"changed": False, "msg": "unexpected couchbase response",
                     "data": {"discovery": []}}
         out = []
-        for b in data:
+        for b in buckets:
             name = b.get("name", "")
-            if not name:
+            if name == "":
                 continue
-            out.append({
-                "item": name,
-                "params": {},
-                "metrics": ["items_count", "disk_write_ql", "fetched_items", "disk_fill_rate", "disk_drain_rate"],
-            })
+            out.append({"item": name, "params": {}, "metrics": ["items_count",
+                         "disk_write_ql", "fetched_items",
+                         "disk_fill_rate", "disk_drain_rate"]})
         return {"changed": False, "msg": "discovered %d buckets" % len(out),
                 "data": {"discovery": out}}
 
     item = params.get("item", "")
-    url = base_url + "/pools/default/buckets/" + item + "/stats"
-    res = ctx.run(_build_argv(user, password, url), mutates=False)
-
-    if res.rc != 0:
-        return {"changed": False, "msg": "query failed for bucket " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout.strip():
-        return {"changed": False, "msg": "no data returned for bucket " + item,
+    if item == "":
+        return {"changed": False,
+                "msg": "no couchbase bucket selected",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    parsed = json.decode(res.stdout)
-    samples = parsed.get("op", {}).get("samples", {})
+    stats_url = "http://%s:%s/pools/default/buckets/%s/stats" % (host, port, item)
+    res = ctx.run(["curl", "-fsS", stats_url], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False,
+                "msg": "couchbase bucket '%s' not reachable" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    state = "OK"
+    stats = json.decode(res.stdout)
+    if type(stats) != "dict" or "op" not in stats:
+        return {"changed": False,
+                "msg": "couchbase stats not available for '%s'" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    samples = stats.get("op", {}).get("samples", {})
+
+    def last(key):
+        arr = samples.get(key, [])
+        if len(arr) == 0:
+            return None
+        return arr[-1]
+
+    total_items = last("curr_items_tot")
+    write_queue = last("disk_write_queue")
+    fetched = last("ep_bg_fetched")
+    queue_fill = last("ep_diskqueue_fill")
+    queue_drain = last("ep_diskqueue_drain")
+
+    warn = params.get("warn", None)
+    crit = params.get("crit", None)
+
     metrics = {}
-    parts = []
+    details_parts = []
+    state = "OK"
 
-    total_items = _last(samples, "curr_items_tot")
+    def grade(value, w, c, higher=True):
+        s = "OK"
+        if value == None:
+            return s
+        if w != None and c != None:
+            if (higher and value >= c) or (not higher and value <= c):
+                s = "CRIT"
+            elif (higher and value >= w) or (not higher and value <= w):
+                s = "WARN"
+        return s
+
+    def worst(a, b):
+        order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+        if order.get(a, 3) >= order.get(b, 3):
+            return a
+        return b
+
     if total_items != None:
-        v = int(total_items)
-        metrics["items_count"] = v
-        state = _worst(state, _check_levels(v, params.get("curr_items_tot")))
-        parts.append("Total items in vBuckets: %d" % v)
+        total_items = int(total_items)
+        metrics["items_count"] = total_items
+        details_parts.append("Total items: %d" % total_items)
+        state = worst(state, grade(total_items, warn, crit, True))
 
-    write_queue = _last(samples, "disk_write_queue")
     if write_queue != None:
-        v = int(write_queue)
-        metrics["disk_write_ql"] = v
-        state = _worst(state, _check_levels(v, params.get("disk_write_ql")))
-        parts.append("Items in disk write queue: %d" % v)
+        write_queue = int(write_queue)
+        metrics["disk_write_ql"] = write_queue
+        details_parts.append("Write queue: %d" % write_queue)
+        state = worst(state, grade(write_queue, warn, crit, True))
 
-    fetched = _last(samples, "ep_bg_fetched")
     if fetched != None:
-        v = int(fetched)
-        metrics["fetched_items"] = v
-        state = _worst(state, _check_levels(v, params.get("fetched_items")))
-        parts.append("Items fetched from disk: %d" % v)
+        fetched = int(fetched)
+        metrics["fetched_items"] = fetched
+        details_parts.append("Fetched: %d" % fetched)
+        state = worst(state, grade(fetched, warn, crit, True))
 
-    fill = _last(samples, "ep_diskqueue_fill")
-    if fill != None:
-        v = float(fill)
-        metrics["disk_fill_rate"] = v
-        state = _worst(state, _check_levels(v, params.get("disk_fill_rate")))
-        parts.append("Disk queue fill rate: %f/s" % v)
+    if queue_fill != None:
+        queue_fill = float(queue_fill)
+        metrics["disk_fill_rate"] = queue_fill
+        details_parts.append("Fill rate: %f/s" % queue_fill)
+        state = worst(state, grade(queue_fill, warn, crit, True))
 
-    drain = _last(samples, "ep_diskqueue_drain")
-    if drain != None:
-        v = float(drain)
-        metrics["disk_drain_rate"] = v
-        state = _worst(state, _check_levels(v, params.get("disk_drain_rate")))
-        parts.append("Disk queue drain rate: %f/s" % v)
+    if queue_drain != None:
+        queue_drain = float(queue_drain)
+        metrics["disk_drain_rate"] = queue_drain
+        details_parts.append("Drain rate: %f/s" % queue_drain)
+        state = worst(state, grade(queue_drain, warn, crit, True))
 
-    if not parts:
-        return {"changed": False, "msg": "no item stats available for bucket " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    return {"changed": False, "msg": ", ".join(parts),
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+    msg = item + ": " + ", ".join(details_parts) if details_parts else item
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics,
+                     "details": "; ".join(details_parts)}}

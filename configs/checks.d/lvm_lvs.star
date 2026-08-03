@@ -1,106 +1,91 @@
-def _parse_lvm_lvs(output):
-    lines = output.splitlines()
-    if len(lines) < 2:
-        return {}
-    entries = {}
-    for line in lines[1:]:
-        parts = line.split()
-        if len(parts) < 8:
-            continue
-        lv_name = parts[0]
-        vg_name = parts[1]
-        pool_lv = parts[4]
-        # Skip entries without pool LV
-        if pool_lv == "":
-            continue
-        item = vg_name + "/" + pool_lv
-        data_str = parts[6]
-        meta_str = parts[7]
-        # Guard: only parse numeric strings
-        data_val = float(data_str) if data_str.replace(".", "").replace("-", "").isdigit() else 0.0
-        meta_val = float(meta_str) if meta_str.replace(".", "").replace("-", "").isdigit() else 0.0
-        entries[item] = {"data": data_val, "meta": meta_val}
-    return entries
-
 def main(ctx, params):
-    # Discovery mode: enumerate LV pools
     if params.get("_discover"):
-        res = ctx.run(["lvs", "--noheadings", "-o", "lv_name,vg_name,pool_lv,data_percent,meta_percent,lv_attr", "--units", "b", "--nosuffix"], mutates=False)
-        section = _parse_lvm_lvs(res.stdout)
+        res = ctx.run(["lvs", "--noheadings", "-o", "vg_name,lv_name,lv_attr,data_percent,metadata_percent"], mutates=False)
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "no LVM found", "data": {"discovery": []}}
         discovery = []
-        for item, values in section.items():
-            discovery.append({
-                "item": item,
-                "params": {
-                    "levels_data": ("fixed", (80.0, 90.0)),
-                    "levels_meta": ("fixed", (80.0, 90.0)),
-                },
-                "metrics": ["data_usage", "meta_usage"],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d LVM LV pools" % len(discovery),
-            "data": {"discovery": discovery},
-        }
-
-    # Check mode: process one item
+        seen = {}
+        lines = res.stdout.splitlines()
+        for line in lines:
+            fields = [p.strip() for p in line.split(":")]
+            if len(fields) < 5:
+                continue
+            vg = fields[0]
+            lv = fields[1]
+            attr = fields[2]
+            pool = ""
+            if len(attr) >= 7 and attr[0] == "t":
+                pool = lv
+            if pool == "":
+                continue
+            key = vg + "/" + lv
+            if key in seen:
+                continue
+            seen[key] = True
+            discovery.append({"item": vg + "/" + lv, "params": {"levels_data": (80.0, 90.0), "levels_meta": (80.0, 90.0)}, "metrics": ["data_usage", "meta_usage"]})
+        return {"changed": False, "msg": "discovered %d lv pools" % len(discovery), "data": {"discovery": discovery}}
     item = params.get("item", "")
-    res = ctx.run(["lvs", "--noheadings", "-o", "lv_name,vg_name,pool_lv,data_percent,meta_percent,lv_attr", "--units", "b", "--nosuffix"], mutates=False)
-    section = _parse_lvm_lvs(res.stdout)
-    if not section:
-        return {
-            "changed": False,
-            "msg": "no LVM LV pools found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    if item not in section:
-        return {
-            "changed": False,
-            "msg": "pool not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    entry = section[item]
-    data_val = entry.get("data", 0.0)
-    meta_val = entry.get("meta", 0.0)
-
-    # Get thresholds from params (Checkmk defaults)
-    # Format: ("fixed", (warn, crit))
-    levels_data = params.get("levels_data", ("fixed", (80.0, 90.0)))
-    levels_meta = params.get("levels_meta", ("fixed", (80.0, 90.0)))
-
-    def _check_levels(value, levels):
-        if levels[0] == "fixed":
-            warn, crit = levels[1]
-            if value >= crit:
-                return "CRIT"
-            elif value >= warn:
-                return "WARN"
-            return "OK"
-        # Fallback
-        return "OK"
-
-    data_state = _check_levels(data_val, levels_data)
-    meta_state = _check_levels(meta_val, levels_meta)
-
-    # Determine overall state: worst of data/meta
-    state = "OK"
-    if data_state == "CRIT" or meta_state == "CRIT":
+    if "/" not in item:
+        return {"changed": False, "msg": "no such LV: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    parts = item.split("/")
+    if len(parts) != 2:
+        return {"changed": False, "msg": "invalid item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vg_name = parts[0]
+    lv_name = parts[1]
+    res = ctx.run(["lvs", "--noheadings", "-o", "vg_name,lv_name,lv_attr,data_percent,metadata_percent", vg_name + "/" + lv_name], mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return {"changed": False, "msg": "no such LV: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    lines = res.stdout.splitlines()
+    found = False
+    data_pct = 0.0
+    meta_pct = 0.0
+    for line in lines:
+        fields = [p.strip() for p in line.split(":")]
+        if len(fields) < 5:
+            continue
+        if fields[0] == vg_name and fields[1] == lv_name:
+            found = True
+            data_str = fields[3]
+            meta_str = fields[4]
+            if data_str != "":
+                data_pct = float(data_str)
+            if meta_str != "":
+                meta_pct = float(meta_str)
+            break
+    if not found:
+        return {"changed": False, "msg": "no such LV: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    levels_data = params.get("levels_data", (80.0, 90.0))
+    levels_meta = params.get("levels_meta", (80.0, 90.0))
+    if type(levels_data) == "list":
+        warn_d = levels_data[0] if len(levels_data) > 0 else 80.0
+        crit_d = levels_data[1] if len(levels_data) > 1 else 90.0
+    else:
+        warn_d = levels_data[0] if len(levels_data) > 0 else 80.0
+        crit_d = levels_data[1] if len(levels_data) > 1 else 90.0
+    if type(levels_meta) == "list":
+        warn_m = levels_meta[0] if len(levels_meta) > 0 else 80.0
+        crit_m = levels_meta[1] if len(levels_meta) > 1 else 90.0
+    else:
+        warn_m = levels_meta[0] if len(levels_meta) > 0 else 80.0
+        crit_m = levels_meta[1] if len(levels_meta) > 1 else 90.0
+    if data_pct >= crit_d:
+        state_d = "CRIT"
+    elif data_pct >= warn_d:
+        state_d = "WARN"
+    else:
+        state_d = "OK"
+    if meta_pct >= crit_m:
+        state_m = "CRIT"
+    elif meta_pct >= warn_m:
+        state_m = "WARN"
+    else:
+        state_m = "OK"
+    if state_d == "CRIT" or state_m == "CRIT":
         state = "CRIT"
-    elif data_state == "WARN" or meta_state == "WARN":
+    elif state_d == "WARN" or state_m == "WARN":
         state = "WARN"
-
-    msg = "Data: %f%%, Meta: %f%%" % (data_val, meta_val)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {
-                "data_usage": data_val,
-                "meta_usage": meta_val,
-            },
-            "details": "",
-        },
-    }
+    else:
+        state = "OK"
+    msg = "Data: %s%%, Meta: %s%%" % (str(data_pct), str(meta_pct))
+    details = "LV %s/%s\nData usage: %s%% (warn: %s, crit: %s)\nMeta usage: %s%% (warn: %s, crit: %s)" % (vg_name, lv_name, str(data_pct), str(warn_d), str(crit_d), str(meta_pct), str(warn_m), str(crit_m))
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"data_usage": data_pct, "meta_usage": meta_pct}, "details": details}}

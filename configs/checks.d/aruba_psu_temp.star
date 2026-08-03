@@ -1,270 +1,232 @@
-# module-level constants
-DEFAULT_TEMP_WARN = 50.0
-DEFAULT_TEMP_CRIT = 60.0
-DEFAULT_DEVICE_LEVELS_HANDLING = "usr"
+def main(ctx, params):
+    if params.get("_discover"):
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
-# SNMP base OID and mapping from source
-SNMP_BASE_OID = ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1"
+ARUBA_PSU_BASE = ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1"
+OID_STATE = "2"
+OID_FAILURES = "3"
+OID_TEMP = "4"
+OID_VOLTAGE = "5"
+OID_WATT_CURR = "6"
+OID_WATT_MAX = "7"
+OID_LAST_CALL = "8"
+OID_MODEL = "9"
 
-PSU_STATE_MAPPING = {
-    "1": "OK",  # NotPresent
-    "2": "OK",  # NotPlugged
-    "3": "OK",  # Powered
-    "4": "CRIT",  # Failed
-    "5": "CRIT",  # PermFailure
-    "6": "OK",  # Max
-    "7": "CRIT",  # AuxFailure
-    "8": "CRIT",  # NotPowered
-    "9": "CRIT",  # AuxNotPowered
+SYS_DESCRIBEROID = ".1.3.6.1.2.1.1.1.0"
+
+TEMP_WARN_DEFAULT = 50.0
+TEMP_CRIT_DEFAULT = 60.0
+
+PSU_STATE_MAP = {
+    "1": "OK",
+    "2": "OK",
+    "3": "OK",
+    "4": "CRIT",
+    "5": "CRIT",
+    "6": "OK",
+    "7": "CRIT",
+    "8": "CRIT",
+    "9": "CRIT",
 }
 
+PSU_STATE_NAME = {
+    "1": "NotPresent",
+    "2": "NotPlugged",
+    "3": "Powered",
+    "4": "Failed",
+    "5": "PermFailure",
+    "6": "Max",
+    "7": "AuxFailure",
+    "8": "NotPowered",
+    "9": "AuxNotPowered",
+}
 
-def main(ctx, params):
-    # DISCOVERY MODE
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            SNMP_BASE_OID
-        ], mutates=False)
-
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed: " + res.stderr,
-                "data": {"discovery": []}
-            }
-
-        # Parse snmpwalk output into PSU entries
-        items = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            # Format: OID.ending = TYPE: value
-            if not line.strip():
-                continue
-            # Extract OID ending (last component after last dot)
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            oid_part = parts[0].strip().rstrip(".")
-            if oid_part.count(".") < 1:
-                continue
-            oid_ending = oid_part.rsplit(".", 1)[-1]
-            # Extract value after ":"
-            value_str = " ".join(parts[2:]).strip()
-            if not value_str:
-                continue
-            # We need to collect all columns for one PSU (9 columns per PSU)
-            # For discovery, we only need to know if we have valid PSU entries
-            # The base OID is .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1
-            # Then we have OIDEnd(), 2,3,4,5,6,7,8,9
-            # So entries at positions 1,10,19,... are PSU entries (OIDEnd)
-            # For simplicity, we'll parse by grouping based on OID structure
-
-        # More robust parsing: group by PSU instance
-        # We need to extract index (OIDEnd) and state (field 2) together
-        # Let's parse again: find index and state for each PSU
-        psu_entries = {}
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            oid_full = parts[0].strip().rstrip(".")
-            # Extract the full OID path and determine column
-            # Base: .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1
-            # Columns: 1 (index), 2 (state), 3 (failures), 4 (temp), etc.
-            base = ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1"
-            if not oid_full.startswith(base + "."):
-                continue
-            suffix = oid_full[len(base)+1:]
-            if not suffix:
-                continue
-            # Split suffix into parts
-            suffix_parts = suffix.split(".")
-            if len(suffix_parts) < 1:
-                continue
-            # The last part is the index, the middle parts are column
-            # Actually, OIDEnd() means we take the entire suffix after base
-            # So if base.2 = index, then OIDEnd() is base, and column 2 is base.2
-            # Let's restructure: the snmpwalk output format is:
-            # .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1.2.1 = INTEGER: 3
-            # The last number before the value is the index (e.g., .1)
-            # Column 2: state, column 3: failures, column 4: temp, etc.
-
-        # Better parsing: parse by extracting column and index
-        # We'll collect all data into a dict indexed by PSU index
-        psu_data = {}
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            oid_full = parts[0].strip()
-            # Extract OID and value
-            # Example: .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1.2.1 = INTEGER: 3
-            # oid_full is like .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1.2.1
-            # Base is .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1
-            # So the remaining OID after base has the column and index
-            # Let's compute column: for .2, it's column 2, index is the last number
-            if not oid_full.startswith(SNMP_BASE_OID + "."):
-                continue
-            suffix = oid_full[len(SNMP_BASE_OID)+1:]
-            suffix_parts = suffix.split(".")
-            if len(suffix_parts) < 1:
-                continue
-            # First part after base is column (2,3,4,...), rest is index
-            col = int(suffix_parts[0])
-            index = ".".join(suffix_parts[1:]) if len(suffix_parts) > 1 else ""
-            value = " ".join(parts[2:])
-            # Remove leading/trailing quotes/colon if present
-            if value.startswith(":"):
-                value = value[1:].strip()
-            if value.startswith("INTEGER:"):
-                value = value[8:].strip()
-            elif value.startswith("STRING:"):
-                value = value[7:].strip().strip('"')
-            elif value.startswith("Counter32:"):
-                value = value[10:].strip()
-            elif value.startswith("Gauge32:"):
-                value = value[8:].strip()
-
-            if index not in psu_data:
-                psu_data[index] = {}
-            psu_data[index][col] = value
-
-        # Now build items list
-        discovered = []
-        for index, cols in psu_data.items():
-            # State is column 2
-            state_str = cols.get(2, "")
-            if state_str in ["1", "2"]:  # NotPresent, NotPlugged
-                continue
-            # Item name: model + space + index (as per parse_aruba_psu)
-            model = cols.get(9, "")
-            item_name = model + " " + index if model else index
-            discovered.append({
-                "item": item_name,
-                "params": {
-                    "levels": [DEFAULT_TEMP_WARN, DEFAULT_TEMP_CRIT],
-                    "device_levels_handling": DEFAULT_DEVICE_LEVELS_HANDLING
-                },
-                "metrics": ["temp"]
-            })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d PSUs" % len(discovered),
-            "data": {"discovery": discovered}
-        }
-
-    # CHECK MODE
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
-    # Get all PSU data via SNMP walk
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        SNMP_BASE_OID
-    ], mutates=False)
-
+def _is_aruba_2930m(ctx):
+    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-Oqv", ctx.host, SYS_DESCRIBEROID], mutates=False)
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        return False
+    val = res.stdout.strip()
+    if val.startswith("Aruba") and "2930M" in val:
+        return True
+    return False
+
+def _check_present(ctx):
+    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-Oqv", ctx.host, ARUBA_PSU_BASE + ".1"], mutates=False)
+    return res.rc == 0
+
+def _snmp_get_str(ctx, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-Oqv", ctx.host, oid], mutates=False)
+    if res.rc != 0:
+        return ""
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        val = val[1:-1]
+    return val
+
+def _snmp_get_int(ctx, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-Oqv", ctx.host, oid], mutates=False)
+    if res.rc != 0:
+        return 0
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        val = val[1:-1]
+    if val.isdigit() or (val.startswith("-") and val[1:].isdigit()):
+        return int(val)
+    return 0
+
+def _snmp_get_float(ctx, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", "public", "-Oqv", ctx.host, oid], mutates=False)
+    if res.rc != 0:
+        return 0.0
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        val = val[1:-1]
+    if _is_numeric(val):
+        return float(val)
+    return 0.0
+
+def _is_numeric(s):
+    s2 = s
+    if s2.startswith("-") or s2.startswith("+"):
+        s2 = s2[1:]
+    if s2 == "":
+        return False
+    has_dot = False
+    for ch in s2:
+        if ch == ".":
+            if has_dot:
+                return False
+            has_dot = True
+        elif not ch.isdigit():
+            return False
+    return True
+
+def _read_psus(ctx):
+    psus = {}
+    index_res = ctx.run(["snmpwalk", "-v2c", "-c", "public", "-Oqn", ctx.host, ARUBA_PSU_BASE + "." + OID_MODEL], mutates=False)
+    if index_res.rc != 0:
+        return psus
+    entries = index_res.stdout.strip().splitlines()
+    for entry in entries:
+        parts = entry.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid_full = parts[0]
+        index_val = oid_full[len(ARUBA_PSU_BASE + "." + OID_MODEL + "."):]
+        model = parts[1].strip().strip('"')
+
+        state = _snmp_get_str(ctx, ARUBA_PSU_BASE + "." + OID_STATE + "." + index_val)
+        failures = _snmp_get_int(ctx, ARUBA_PSU_BASE + "." + OID_FAILURES + "." + index_val)
+        temperature = _snmp_get_float(ctx, ARUBA_PSU_BASE + "." + OID_TEMP + "." + index_val)
+        voltage = _snmp_get_str(ctx, ARUBA_PSU_BASE + "." + OID_VOLTAGE + "." + index_val)
+        wattage_curr = _snmp_get_int(ctx, ARUBA_PSU_BASE + "." + OID_WATT_CURR + "." + index_val)
+        wattage_max = _snmp_get_int(ctx, ARUBA_PSU_BASE + "." + OID_WATT_MAX + "." + index_val)
+        last_call = _snmp_get_int(ctx, ARUBA_PSU_BASE + "." + OID_LAST_CALL + "." + index_val)
+
+        item = model + " " + index_val
+        psus[item] = {
+            "state": state,
+            "failures": failures,
+            "temperature": temperature,
+            "voltage_info": voltage,
+            "wattage_curr": wattage_curr,
+            "wattage_max": wattage_max,
+            "last_call": last_call,
+            "model": model,
         }
+    return psus
 
-    # Parse snmpwalk output into PSU entries
-    psu_data = {}
-    lines = res.stdout.splitlines()
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        oid_full = parts[0].strip()
-        if not oid_full.startswith(SNMP_BASE_OID + "."):
-            continue
-        suffix = oid_full[len(SNMP_BASE_OID)+1:]
-        suffix_parts = suffix.split(".")
-        if len(suffix_parts) < 1:
-            continue
-        col = int(suffix_parts[0])
-        index = ".".join(suffix_parts[1:]) if len(suffix_parts) > 1 else ""
-        value = " ".join(parts[2:])
-        # Clean value
-        if value.startswith(":"):
-            value = value[1:].strip()
-        if value.startswith("INTEGER:"):
-            value = value[8:].strip()
-        elif value.startswith("STRING:"):
-            value = value[7:].strip().strip('"')
-        elif value.startswith("Counter32:"):
-            value = value[10:].strip()
-        elif value.startswith("Gauge32:"):
-            value = value[8:].strip()
-
-        if index not in psu_data:
-            psu_data[index] = {}
-        psu_data[index][col] = value
-
-    # Build section dict (item_name -> PSU info)
-    section = {}
-    for index, cols in psu_data.items():
-        model = cols.get(9, "")
-        state_str = cols.get(2, "")
-        # Skip NotPresent/NotPlugged for consistency with discovery
-        if state_str in ["1", "2"]:
-            continue
-        item_name = model + " " + index if model else index
-        temp_str = cols.get(4, "")
-        temp = float(temp_str) if temp_str.replace('.','').replace('-','').isdigit() else 0.0
-        section[item_name] = {
-            "temperature": temp,
-            "state": state_str
-        }
-
-    # Find the specific PSU for this item
-    psu = section.get(item)
-    if psu == None:
-        return {
-            "changed": False,
-            "msg": "PSU not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Get thresholds from params
-    levels = params.get("levels", [DEFAULT_TEMP_WARN, DEFAULT_TEMP_CRIT])
-    warn = levels[0]
-    crit = levels[1]
-
-    # Compute state based on temperature
-    temp = psu["temperature"]
-    state = "OK"
+def _temp_levels(temp, warn, crit):
     if temp >= crit:
-        state = "CRIT"
-    elif temp >= warn:
-        state = "WARN"
+        return "CRIT"
+    if temp >= warn:
+        return "WARN"
+    return "OK"
 
-    # Return result
+def _format_timespan(seconds):
+    if seconds <= 0:
+        return "0s"
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    mins = (seconds % 3600) // 60
+    secs = seconds % 60
+    parts = []
+    if days > 0:
+        parts.append("%dd" % days)
+    if hours > 0:
+        parts.append("%dh" % hours)
+    if mins > 0:
+        parts.append("%dm" % mins)
+    if secs > 0 or len(parts) == 0:
+        parts.append("%ds" % secs)
+    return " ".join(parts)
+
+def _discover(ctx, params):
+    if not _is_aruba_2930m(ctx):
+        return {"changed": False, "msg": "not an Aruba 2930M", "data": {"discovery": []}}
+    if not _check_present(ctx):
+        return {"changed": False, "msg": "no Aruba PSU data", "data": {"discovery": []}}
+    psus = _read_psus(ctx)
+    discovery = []
+    for item, entry in psus.items():
+        if entry["state"] in ("1", "2"):
+            continue
+        discovery.append({
+            "item": item,
+            "params": {"levels": (TEMP_WARN_DEFAULT, TEMP_CRIT_DEFAULT)},
+            "metrics": ["temperature"],
+        })
     return {
         "changed": False,
-        "msg": "%s %f°C" % (state, temp),
+        "msg": "discovered %d PSUs" % len(discovery),
+        "data": {"discovery": discovery},
+    }
+
+def _check(ctx, params):
+    item = params.get("item", "")
+    levels = params.get("levels", (TEMP_WARN_DEFAULT, TEMP_CRIT_DEFAULT))
+    warn = levels[0]
+    crit = levels[1]
+    if not _is_aruba_2930m(ctx):
+        return {"changed": False, "msg": "not an Aruba 2930M or not present",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if not _check_present(ctx):
+        return {"changed": False, "msg": "no Aruba PSU data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    psus = _read_psus(ctx)
+    if item not in psus:
+        return {"changed": False, "msg": "PSU not found: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    psu = psus[item]
+    if psu["state"] not in PSU_STATE_MAP:
+        return {"changed": False, "msg": "Unknown PSU state: %s" % psu["state"],
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    state_str = PSU_STATE_MAP[psu["state"]]
+    temperature = psu["temperature"]
+    temp_state = _temp_levels(temperature, warn, crit)
+    state = "OK"
+    if temp_state == "CRIT":
+        state = "CRIT"
+    elif temp_state == "WARN":
+        state = "WARN"
+    if state_str == "CRIT" and state != "CRIT":
+        state = "CRIT"
+    msg = "Temperature: %fC" % temperature
+    details = "PSU Status: %s, Uptime: %s, Voltage: %s, Wattage: %d/%dW, Failures: %d" % (
+        PSU_STATE_NAME.get(psu["state"], psu["state"]),
+        _format_timespan(psu["last_call"]),
+        psu["voltage_info"],
+        psu["wattage_curr"],
+        psu["wattage_max"],
+        psu["failures"],
+    )
+    return {
+        "changed": False,
+        "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"temp": temp},
-            "details": ""
-        }
+            "metrics": {"temperature": temperature},
+            "details": details,
+        },
     }

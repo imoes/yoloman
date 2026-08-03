@@ -1,192 +1,232 @@
+# Translated Checkmk check: liebert_pump
+# READ-ONLY Starlark module for the yolo-man agent.
+# Monitors Liebert pump run-hours (and optional threshold) via SNMP.
+
+# --- module-level constants ---
+
+OID_BASE = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+
+OID_NAME = OID_BASE + ".10.1.2.1.5298"
+OID_VALUE = OID_BASE + ".20.1.2.1.5298"
+OID_UNIT = OID_BASE + ".30.1.2.1.5298"
+OID_NAME_TH = OID_BASE + ".10.1.2.1.5299"
+OID_VALUE_TH = OID_BASE + ".20.1.2.1.5299"
+OID_UNIT_TH = OID_BASE + ".30.1.2.1.5299"
+
+LIEBERT_SYSOID_PREFIX = ".1.3.6.1.4.1.476.1.42"
+
+DEFAULT_HOST = "localhost"
+DEFAULT_COMMUNITY = "public"
+DEFAULT_VERSION = "2c"
+
+
+def _snmpget(ctx, host, community, version, oid):
+    res = ctx.run(
+        ["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _snmpwalk(ctx, host, community, version, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v" + version, "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        out.append({"oid": line[:sp], "value": line[sp + 1:]})
+    return out
+
+
+def _index_after(oid, base):
+    prefix = base + "."
+    if oid.startswith(prefix):
+        return oid[len(prefix):]
+    return ""
+
+
+def _walk_by_index(ctx, host, community, version, oid):
+    rows = _snmpwalk(ctx, host, community, version, oid)
+    result = {}
+    for r in rows:
+        idx = _index_after(r["oid"], oid)
+        result[idx] = r["value"]
+    return result
+
+
+def _is_liebert(ctx, host, community, version):
+    sys_oid = _snmpget(ctx, host, community, version, ".1.3.6.1.2.1.1.2.0")
+    if not sys_oid:
+        return False
+    return sys_oid.startswith(LIEBERT_SYSOID_PREFIX)
+
+
+def _collect_pump_rows(ctx, host, community, version):
+    name_rows = _snmpwalk(ctx, host, community, version, OID_NAME)
+
+    value_by_idx = _walk_by_index(ctx, host, community, version, OID_VALUE)
+    unit_by_idx = _walk_by_index(ctx, host, community, version, OID_UNIT)
+    th_value_by_idx = _walk_by_index(ctx, host, community, version, OID_VALUE_TH)
+    th_unit_by_idx = _walk_by_index(ctx, host, community, version, OID_UNIT_TH)
+
+    rows = []
+    for r in name_rows:
+        idx = _index_after(r["oid"], OID_NAME)
+        rows.append({
+            "index": idx,
+            "name": r["value"],
+            "value": value_by_idx.get(idx, ""),
+            "unit": unit_by_idx.get(idx, ""),
+            "th_value": th_value_by_idx.get(idx, ""),
+            "th_unit": th_unit_by_idx.get(idx, ""),
+        })
+    return rows
+
+
+def _strip_quotes(s):
+    if s == None:
+        return ""
+    clean = s
+    if len(clean) >= 2 and clean[0] == "'" and clean[-1] == "'":
+        return clean[1:-1]
+    if len(clean) >= 2 and clean[0] == '"' and clean[-1] == '"':
+        return clean[1:-1]
+    return clean
+
+
+def _to_float(s):
+    if s == None or s == "":
+        return None
+    clean = _strip_quotes(s)
+    # Guard: only attempt float conversion when it looks numeric.
+    # Starlark float() fails on non-numeric; use a safe probe.
+    neg = clean.startswith("-")
+    body = clean[1:] if neg else clean
+    if body == "":
+        return None
+    # Accept digits with at most one '.'.
+    parts = body.split(".")
+    ok = True
+    if len(parts) == 1:
+        ok = parts[0].isdigit() and len(parts[0]) > 0
+    elif len(parts) == 2:
+        ok = (parts[0].isdigit() or parts[0] == "") and (parts[1].isdigit() or parts[1] == "") and len(parts[0] + parts[1]) > 0
+    else:
+        ok = False
+    if not ok:
+        return None
+    return float(clean)
+
+
 def main(ctx, params):
-    # Discover mode: enumerate pump items
+    host = params.get("host", DEFAULT_HOST)
+    community = params.get("community", DEFAULT_COMMUNITY)
+    version = params.get("version", DEFAULT_VERSION)
+
+    # --- DISCOVERY MODE ---
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-        names_oid = base_oid + ".10.1.2.1.5298"
-        values_oid = base_oid + ".20.1.2.1.5298"
-        units_oid = base_oid + ".30.1.2.1.5298"
-        
-        res_names = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, names_oid], mutates=False)
-        res_values = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, values_oid], mutates=False)
-        res_units = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, units_oid], mutates=False)
-        
-        # Parse snmpwalk output: OID -> value string
-        def parse_snmpwalk_output(output):
-            result = {}
-            lines = output.splitlines()
-            for i in range(len(lines)):
-                line = lines[i]
-                stripped = line.strip()
-                if stripped == "":
-                    continue
-                idx = stripped.find(" = ", 0)
-                if idx == -1:
-                    continue
-                oid = stripped[:idx].strip()
-                value_part = stripped[idx + 3:].strip()
-                colon_idx = value_part.find(": ", 0)
-                if colon_idx != -1:
-                    value_part = value_part[colon_idx + 2:].strip()
-                    if len(value_part) >= 2 and value_part[0] == '"' and value_part[len(value_part)-1] == '"':
-                        value_part = value_part[1:len(value_part)-1]
-                result[oid] = value_part
-            return result
-        
-        names = parse_snmpwalk_output(res_names.stdout)
-        values = parse_snmpwalk_output(res_values.stdout)
-        units = parse_snmpwalk_output(res_units.stdout)
-        
-        section = {}
-        threshold_section = {}
-        
-        for key in names:
-            name = names.get(key)
-            if name == "" or name.find("Threshold") != -1:
-                if name != "" and name.find("Threshold") != -1:
-                    threshold_section[name.replace(" Threshold", "")] = key
-                continue
-            
-            value_str = values.get(key)
-            unit_str = units.get(key)
-            
-            # Guard instead of try/except: only process if value_str is numeric
-            if value_str != None and value_str.isdigit():
-                value = float(value_str)
-                unit = unit_str if unit_str != None else ""
-                section[name] = (value, unit)
-        
+        if not _is_liebert(ctx, host, community, version):
+            return {"changed": False, "msg": "not a Liebert device", "data": {"discovery": []}}
+
+        rows = _collect_pump_rows(ctx, host, community, version)
         discovery = []
-        for item_name in section:
-            if item_name.lower().find("threshold") == -1:
-                discovery.append({
-                    "item": item_name,
-                    "params": {"levels": (90.0, 95.0)},
-                    "metrics": ["pump_hours"]
-                })
-        
+        for r in rows:
+            name = r["name"]
+            if name == None or name == "":
+                continue
+            if "threshold" in name.lower():
+                continue
+            discovery.append({
+                "item": name,
+                "params": {"warn": 0, "crit": 0},
+                "metrics": ["pump_hours"],
+            })
         return {
             "changed": False,
             "msg": "discovered %d pump items" % len(discovery),
-            "data": {"discovery": discovery}
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode: verify one item
+
+    # --- CHECK MODE ---
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    names_oid = base_oid + ".10.1.2.1.5298"
-    values_oid = base_oid + ".20.1.2.1.5298"
-    units_oid = base_oid + ".30.1.2.1.5298"
-    
-    res_names = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, names_oid], mutates=False)
-    res_values = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, values_oid], mutates=False)
-    res_units = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, units_oid], mutates=False)
-    
-    def parse_snmpwalk_output(output):
-        result = {}
-        lines = output.splitlines()
-        for i in range(len(lines)):
-            line = lines[i]
-            stripped = line.strip()
-            if stripped == "":
-                continue
-            idx = stripped.find(" = ", 0)
-            if idx == -1:
-                continue
-            oid = stripped[:idx].strip()
-            value_part = stripped[idx + 3:].strip()
-            colon_idx = value_part.find(": ", 0)
-            if colon_idx != -1:
-                value_part = value_part[colon_idx + 2:].strip()
-                if len(value_part) >= 2 and value_part[0] == '"' and value_part[len(value_part)-1] == '"':
-                    value_part = value_part[1:len(value_part)-1]
-            result[oid] = value_part
-        return result
-    
-    names = parse_snmpwalk_output(res_names.stdout)
-    values = parse_snmpwalk_output(res_values.stdout)
-    units = parse_snmpwalk_output(res_units.stdout)
-    
-    section = {}
-    threshold_section = {}
-    
-    for key in names:
-        name = names.get(key)
-        if name == "" or name.find("Threshold") != -1:
-            if name != "" and name.find("Threshold") != -1:
-                threshold_section[name.replace(" Threshold", "")] = key
-            continue
-        value_str = values.get(key)
-        unit_str = units.get(key)
-        if value_str != None and value_str.isdigit():
-            value = float(value_str)
-            unit = unit_str if unit_str != None else ""
-            section[name] = (value, unit)
-    
-    # Guard: item must exist
-    if not section.get(item):
+
+    if not _is_liebert(ctx, host, community, version):
         return {
             "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "not a Liebert device (sysOID detection failed)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    value, unit = section.get(item)
-    
-    # Get threshold
-    threshold_oid = threshold_section.get(item)
+
+    rows = _collect_pump_rows(ctx, host, community, version)
+    row = None
+    for r in rows:
+        if r["name"] == item and not ("threshold" in r["name"].lower()):
+            row = r
+            break
+
+    if row == None:
+        return {
+            "changed": False,
+            "msg": "item not found: " + str(item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    value = _to_float(row["value"])
+    if value == None:
+        return {
+            "changed": False,
+            "msg": "no numeric value for item: " + str(item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    unit = row["unit"] if row["unit"] != None else ""
+
     threshold = None
-    if threshold_oid != None:
-        threshold_value_str = values.get(threshold_oid)
-        if threshold_value_str != None and threshold_value_str.isdigit():
-            threshold = float(threshold_value_str)
-    
-    # Apply levels
-    warn = None
-    crit = None
-    levels_param = params.get("levels")
-    if levels_param != None:
-        if type(levels_param) == "list" and len(levels_param) == 2:
-            warn = levels_param[0]
-            crit = levels_param[1]
-        else:
-            warn = levels_param
-            crit = levels_param
-    
-    # Check levels (upper limits: warn/crit are upper thresholds)
-    state = "OK"
-    
+    for r in rows:
+        if r["name"] == None:
+            continue
+        if "Threshold" in r["name"] and r["name"].replace(" Threshold", "") == item:
+            t = _to_float(r["th_value"])
+            if t != None:
+                threshold = t
+                break
+
+    warn = params.get("warn")
+    crit = params.get("crit")
+
     if threshold != None:
-        warn = threshold
-        crit = threshold
-    
-    if warn != None and crit != None:
-        if value >= crit:
-            state = "CRIT"
-        elif value >= warn:
-            state = "WARN"
-    elif warn != None:
-        if value >= warn:
-            state = "WARN"
-    
-    # Format message
-    msg = "%s %f %s" % (item, value, unit)
-    if state == "WARN":
-        msg += " (warn at %f)" % warn
-    elif state == "CRIT":
-        msg += " (crit at %f)" % crit
-    
+        warn_level = threshold
+        crit_level = threshold
+    else:
+        warn_level = warn if warn != None else 0
+        crit_level = crit if crit != None else 0
+
+    if crit_level != None and crit_level != 0 and value >= crit_level:
+        state = "CRIT"
+    elif warn_level != None and warn_level != 0 and value >= warn_level:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    rendered = "%f %s" % (value, unit)
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": rendered,
         "data": {
             "state": state,
             "metrics": {"pump_hours": value},
-            "details": ""
-        }
+            "details": "",
+        },
     }

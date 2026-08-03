@@ -1,246 +1,167 @@
-# ===== Starlark check module: checkmk.ups_cps_outphase =====
+# ===== translated from checkmk.ups_cps_outphase =====
+# Library elphase is reproduced inline (no Checkmk runtime available).
 
-# Helper to parse SNMP OID response lines into float values
-def _parse_snmp_value(s):
-    s = s.strip()
-    if s == "":
-        return None
-    # Remove leading "INTEGER: " or "INTEGER:" if present
-    if s.startswith("INTEGER: "):
-        s = s[9:]
-    elif s.startswith("INTEGER:"):
-        s = s[8:]
-    s = s.strip()
-    if s == "":
-        return None
-    # Guard: validate string format before parsing
-    # Allow optional leading minus sign
-    sign = 1
-    if s.startswith("-"):
-        s = s[1:]
-        sign = -1
-    # Split on decimal point
-    parts = s.split(".", 1)
-    # Check integer part is digits (or empty for ".5" case)
-    int_part = parts[0]
-    if int_part == "":
-        int_ok = True
-    else:
-        int_ok = int_part.isdigit()
-    # Check fractional part if present
-    frac_ok = len(parts) == 1 or (len(parts) == 2 and (parts[1] == "" or parts[1].isdigit()))
-    if not (int_ok and frac_ok):
-        return None
-    # Now safely convert
-    try_val = float(s) * sign
-    # Return the float value
-    return try_val
+# Default threshold levels for each measurable field.
+# check_elphase (lib) uses check_levels_legacy_compatible with these defaults.
+DEFAULT_LEVELS = {
+    "voltage":      (None, None, None, None),   # upper, lower tuples unused here
+    "frequency":    (None, None, None, None),
+    "output_load":  (None, None, None, None),
+    "current":      (None, None, None, None),
+}
 
-# Main discovery + check function
-def main(ctx, params):
-    if params.get("_discover"):
-        base_oid = ".1.3.6.1.4.1.3808.1.1.1.4.2"
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            base_oid
-        ], mutates=False)
+# Per-field render helpers / units (mirrors elphase check_levels calls).
+FIELD_UNITS = {
+    "voltage":     "V",
+    "frequency":   "Hz",
+    "output_load": "%",
+    "current":     "A",
+}
 
-        if res.rc != 0:
-            fail("SNMP query failed: " + res.stderr)
+# Whether the level is "upper" (high-warn) or "lower" (low-warn) sense.
+# In the elphase library the defaults come from the ruleset; Checkmk default
+# parameters are empty here ({}) so we use None (no levels) like the source.
 
-        # Parse output: expected lines like:
-        # .1.3.6.1.4.1.3808.1.1.1.4.2.1.0 = INTEGER: 2305
-        # .1.3.6.1.4.1.3808.1.1.1.4.2.2.0 = INTEGER: 500
-        # .1.3.6.1.4.1.3808.1.1.1.4.2.3.0 = INTEGER: 40
-        # .1.3.6.1.4.1.3808.1.1.1.4.2.4.0 = INTEGER: 205
-        voltage = None
-        frequency = None
-        output_load = None
-        current = None
 
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split(" = ")
-            if len(parts) < 2:
-                continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            
-            # Extract numeric value
-            value = ""
-            if value_part.startswith("INTEGER: "):
-                value = value_part[9:]
-            elif value_part.startswith("INTEGER:"):
-                value = value_part[8:]
-            else:
-                continue
-            
-            # Map OIDs by suffix: .1, .2, .3, .4 after base
-            suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-            val = _parse_snmp_value(value)
-            if val != None:
-                if suffix == "1":
-                    voltage = val
-                elif suffix == "2":
-                    frequency = val
-                elif suffix == "3":
-                    output_load = val
-                elif suffix == "4":
-                    current = val
-
-        # If we found valid data, create one item "1"
-        if voltage != None and frequency != None and output_load != None and current != None:
-            return {
-                "changed": False,
-                "msg": "discovered 1 UPS output phase",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "1",
-                            "params": {},
-                            "metrics": ["voltage", "frequency", "output_load", "current"]
-                        }
-                    ]
-                }
-            }
-        # Otherwise, nothing to discover
-        return {
-            "changed": False,
-            "msg": "discovered 0 UPS output phases",
-            "data": {"discovery": []}
-        }
-
-    # ===== CHECK MODE =====
-    item = params.get("item", "")
-    if item != "1":
-        return {
-            "changed": False,
-            "msg": "unknown item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    base_oid = ".1.3.6.1.4.1.3808.1.1.1.4.2"
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        base_oid
-    ], mutates=False)
-
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    voltage = None
-    frequency = None
-    output_load = None
-    current = None
-
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split(" = ")
-        if len(parts) < 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        
-        # Extract numeric value
-        value = ""
-        if value_part.startswith("INTEGER: "):
-            value = value_part[9:]
-        elif value_part.startswith("INTEGER:"):
-            value = value_part[8:]
-        else:
-            continue
-        
-        # Map OIDs by suffix
-        suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-        val = _parse_snmp_value(value)
-        if val != None:
-            if suffix == "1":
-                voltage = val
-            elif suffix == "2":
-                frequency = val
-            elif suffix == "3":
-                output_load = val
-            elif suffix == "4":
-                current = val
-
-    # If data is missing, report UNKNOWN
-    if voltage == None or frequency == None or output_load == None or current == None:
-        return {
-            "changed": False,
-            "msg": "missing SNMP data for phase",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Convert to expected types
-    voltage_val = voltage / 10.0
-    frequency_val = frequency / 10.0
-    output_load_val = output_load
-    current_val = current / 10.0
-
-    # Determine state based on typical thresholds (defaults provided)
-    # Checkmk defaults for levels are usually empty (no levels set)
-    # So always OK unless we have explicit params
-    warn_voltage = None
-    crit_voltage = None
-    warn_current = None
-    crit_current = None
-
-    upper_voltage = params.get("levels_upper_voltage", (None, None))
-    if upper_voltage[1] != None:
-        warn_voltage = upper_voltage[1]
-    if upper_voltage[0] != None:
-        crit_voltage = upper_voltage[0]
-    
-    upper_current = params.get("levels_upper_current", (None, None))
-    if upper_current[1] != None:
-        warn_current = upper_current[1]
-    if upper_current[0] != None:
-        crit_current = upper_current[0]
-
-    # Voltage check: if upper limits provided
-    state = "OK"
-    if crit_voltage != None and voltage_val >= crit_voltage:
-        state = "CRIT"
-    elif warn_voltage != None and voltage_val >= warn_voltage:
-        state = "WARN"
-
-    # Current check (output load can be considered as %, but current is the actual metric)
-    if state == "OK":
-        if crit_current != None and current_val >= crit_current:
-            state = "CRIT"
-        elif warn_current != None and current_val >= warn_current:
-            state = "WARN"
-
-    # Build message with readable values
-    msg = "Voltage: %f V, Frequency: %f Hz, Load: %f%%, Current: %f A" % (
-        voltage_val, frequency_val, output_load_val, current_val
+def _snmp_get(ctx, params, oid):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
     )
+    if res.rc == 127:
+        fail("snmpget not installed")
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
 
+
+def _snmp_walk(ctx, params, oid):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        fail("snmpwalk not installed")
+    if res.rc != 0 or not res.stdout:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        rows.append((line[:sp], line[sp + 1:].strip()))
+    return rows
+
+
+def _level_state(value, warn_upper, crit_upper, warn_lower, crit_lower):
+    # Upper levels (high values bad): warn at >= warn, crit at >= crit.
+    if crit_upper != None and value >= crit_upper:
+        return "CRIT", "above critical"
+    if warn_upper != None and value >= warn_upper:
+        return "WARN", "above warning"
+    # Lower levels (low values bad): warn at <= warn, crit at <= crit.
+    if crit_lower != None and value <= crit_lower:
+        return "CRIT", "below critical"
+    if warn_lower != None and value <= warn_lower:
+        return "WARN", "below warning"
+    return "OK", ""
+
+
+def _check_field(value, levels, unit):
+    warn_upper, crit_upper, warn_lower, crit_lower = levels
+    state, reason = _level_state(value, warn_upper, crit_upper,
+                                 warn_lower, crit_lower)
+    return state, reason, unit
+
+
+def _build_phase(ctx, params, base):
+    # Fetch the 4 OIDs (.1 voltage, .2 frequency, .3 output_load, .4 current)
+    v = _snmp_get(ctx, params, base + ".1")
+    f = _snmp_get(ctx, params, base + ".2")
+    lo = _snmp_get(ctx, params, base + ".3")
+    c = _snmp_get(ctx, params, base + ".4")
+    if v == None or f == None or lo == None or c == None:
+        return None
     return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {
-                "voltage": voltage_val,
-                "frequency": frequency_val,
-                "output_load": output_load_val,
-                "current": current_val
-            },
-            "details": ""
-        }
+        "voltage": float(v) / 10,
+        "frequency": float(f) / 10,
+        "output_load": float(lo),
+        "current": float(c) / 10,
     }
+
+
+def _detect_cps(ctx, params):
+    # DETECT_UPS_CPS = startswith(".1.3.6.1.2.1.1.2.0", ".1.3.6.1.4.1.3808.1.1.1")
+    sys_oid = _snmp_get(ctx, params, ".1.3.6.1.2.1.1.2.0")
+    if sys_oid == None:
+        return False
+    return sys_oid.startswith(".1.3.6.1.4.1.3808.1.1.1")
+
+
+def main(ctx, params):
+    base = ".1.3.6.1.4.1.3808.1.1.1.4.2"
+
+    if params.get("_discover"):
+        # Detection: verify this is a CPS UPS via sysObjectID.
+        if not _detect_cps(ctx, params):
+            return {"changed": False, "msg": "not a CPS UPS",
+                    "data": {"discovery": []}}
+        phase = _build_phase(ctx, params, base)
+        if phase == None:
+            return {"changed": False, "msg": "no outphase data",
+                    "data": {"discovery": []}}
+        # Single phase per UPS (parse uses string_table[0], item "1").
+        return {"changed": False, "msg": "discovered 1 output phase",
+                "data": {"discovery": [
+                    {"item": "1", "params": {},
+                     "metrics": ["voltage", "frequency", "output_load", "current"]},
+                ]}}
+
+    # CHECK MODE
+    if not _detect_cps(ctx, params):
+        return {"changed": False, "msg": "not a CPS UPS",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    phase = _build_phase(ctx, params, base)
+    if phase == None:
+        return {"changed": False, "msg": "no outphase data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    item = params.get("item", "1")
+    if item != "1":
+        return {"changed": False, "msg": "unknown phase item " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    worst = "OK"
+    details_parts = []
+    metrics = {}
+
+    fields = ["voltage", "frequency", "output_load", "current"]
+    levels_in = params.get("levels", {})
+    for field in fields:
+        value = phase[field]
+        levels = levels_in.get(field, DEFAULT_LEVELS[field])
+        lv_warn_upper, lv_crit_upper, lv_warn_lower, lv_crit_lower = levels
+        unit = FIELD_UNITS[field]
+        state, reason = _level_state(
+            value, lv_warn_upper, lv_crit_upper,
+            lv_warn_lower, lv_crit_lower,
+        )
+        if state == "CRIT" and worst != "CRIT":
+            worst = "CRIT"
+        elif state == "WARN" and worst == "OK":
+            worst = "WARN"
+        metrics[field] = value
+        disp = "%s %f%s" % (field, value, unit)
+        if state != "OK":
+            disp = disp + " " + state + " (" + reason + ")"
+        details_parts.append(disp)
+
+    summary = "; ".join(details_parts)
+    return {"changed": False, "msg": summary,
+            "data": {"state": worst, "metrics": metrics,
+                     "details": summary}}

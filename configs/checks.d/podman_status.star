@@ -1,127 +1,51 @@
 def main(ctx, params):
-    # Check if podman is installed
-    res_which = ctx.run(["which", "podman"], mutates=False)
-    if res_which.rc != 0:
-        return {
-            "changed": False,
-            "msg": "Podman is not installed",
-            "data": {
-                "state": "OK",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Try to get podman info
-    res_info = ctx.run(["podman", "info", "--format", "json"], mutates=False)
-    
-    if res_info.rc == 0:
-        if not res_info.stdout:
-            # No stdout - check stderr for errors
-            if res_info.stderr.strip():
-                return {
-                    "changed": False,
-                    "msg": "Errors: 1, see details",
-                    "data": {
-                        "state": "CRIT",
-                        "metrics": {},
-                        "details": res_info.stderr.strip()
-                    }
-                }
-            # No errors
-            return {
-                "changed": False,
-                "msg": "No errors",
-                "data": {
-                    "state": "OK",
-                    "metrics": {},
-                    "details": ""
-                }
-            }
-        
-        # Attempt JSON decode with guard - if stdout starts with '{' assume valid JSON
-        data = None
-        if res_info.stdout.startswith("{"):
-            data = json.decode(res_info.stdout)
-        
-        # Check if decode succeeded
-        if data == None:
-            # Fallback: treat stderr as error if present
-            if res_info.stderr.strip():
-                return {
-                    "changed": False,
-                    "msg": "Errors: 1, see details",
-                    "data": {
-                        "state": "CRIT",
-                        "metrics": {},
-                        "details": res_info.stderr.strip()
-                    }
-                }
-            return {
-                "changed": False,
-                "msg": "No errors",
-                "data": {
-                    "state": "OK",
-                    "metrics": {},
-                    "details": ""
-                }
-            }
-        
-        # Build errors list
-        errors = []
-        
-        # Check warnings field if present
-        if "warnings" in data:
-            warnings_list = data.get("warnings")
-            if type(warnings_list) == "list":
-                for i in range(len(warnings_list)):
-                    w = warnings_list[i]
-                    errors.append({"endpoint": "warnings", "message": str(w)})
-        
-        # Check errors field if present
-        if "errors" in data:
-            errors_list = data.get("errors")
-            if type(errors_list) == "list":
-                for i in range(len(errors_list)):
-                    e = errors_list[i]
-                    errors.append({"endpoint": "errors", "message": str(e)})
-        
-        # Return result based on errors
-        if len(errors) == 0:
-            return {
-                "changed": False,
-                "msg": "No errors",
-                "data": {
-                    "state": "OK",
-                    "metrics": {},
-                    "details": ""
-                }
-            }
-        
-        # Format details
-        detail_lines = []
-        for i in range(len(errors)):
-            err = errors[i]
-            detail_lines.append("%s: %s" % (err["endpoint"], err["message"]))
-        
-        return {
-            "changed": False,
+    # Probe for the podman binary itself. rc == 127 -> not installed.
+    probe = ctx.run(["podman", "version", "--format", "json"], mutates=False)
+    if probe.rc == 127:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "podman binary not found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "podman binary not found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Discovery: single-service check when podman is present.
+    if params.get("_discover"):
+        return {"changed": False, "msg": "discovered Podman status",
+                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
+
+    # Check mode: read podman error/status events.
+    res = ctx.run(["podman", "events", "--stream", "--format", "{{json .}}"], mutates=False)
+
+    errors = []
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if not line.startswith("{") or not line.endswith("}"):
+            continue
+        obj = json.decode(line)
+        if type(obj) == "dict" and obj.get("status") == "error":
+            actor = obj.get("Actor", {})
+            if type(actor) == "dict":
+                attrs = actor.get("Attributes", {})
+                if type(attrs) == "dict":
+                    endpoint = attrs.get("name", "unknown")
+                else:
+                    endpoint = "unknown"
+            else:
+                endpoint = "unknown"
+            message = obj.get("error", obj.get("message", "unknown error"))
+            errors.append({"endpoint": endpoint, "message": message})
+
+    if not errors:
+        return {"changed": False, "msg": "No errors",
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+    details_lines = []
+    for e in errors:
+        details_lines.append("%s: %s" % (e["endpoint"], e["message"]))
+    details = "\n".join(details_lines)
+
+    return {"changed": False,
             "msg": "Errors: %d, see details" % len(errors),
-            "data": {
-                "state": "CRIT",
-                "metrics": {},
-                "details": "\n".join(detail_lines)
-            }
-        }
-    else:
-        # podman info failed
-        stderr_msg = res_info.stderr.strip() if res_info.stderr.strip() else "podman info failed"
-        return {
-            "changed": False,
-            "msg": "Errors: 1, see details",
-            "data": {
-                "state": "CRIT",
-                "metrics": {},
-                "details": stderr_msg
-            }
-        }
+            "data": {"state": "CRIT", "metrics": {"errors": len(errors)}, "details": details}}

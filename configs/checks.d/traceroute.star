@@ -1,73 +1,143 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        return {"changed": False, "msg": "active check (assign with parameters)", "data": {"discovery": []}}
-    host = params.get("host") or ""
-    if not host:
-        return {"changed": False, "msg": "UNKNOWN", "data": {"state": "UNKNOWN", "metrics": {}, "details": "no host configured"}}
-    dns = params.get("dns") or False
-    method = params.get("method") or "udp"
-    ip_family = params.get("ip_address_family") or "ipv4"
-    argv = ["traceroute"]
-    if ip_family == "ipv6":
-        argv.append("-6")
-    else:
-        argv.append("-4")
-    if not dns:
-        argv.append("-n")
-    if method == "icmp":
-        argv.append("-I")
-    elif method == "tcp":
-        argv.append("-T")
-    argv.extend(["-w", "3", "-m", "30"])
-    argv.append(host)
-    result = ctx.run(argv, ok_codes=[0, 1, 2])
-    if result.rc not in [0, 1, 2]:
-        detail = result.stderr or result.stdout or ("traceroute exited %d" % result.rc)
-        return {"changed": False, "msg": "CRIT", "data": {"state": "CRIT", "metrics": {}, "details": detail}}
-    output = result.stdout or ""
-    found_routers = []
-    hop_count = 0
-    for line in output.split("\n"):
-        line = line.strip()
-        if not line or line.startswith("traceroute"):
+# Checkmk active check: traceroute
+# Translated to read-only Starlark check module for yolo-man agent
+
+DEFAULT_PROBE_METHOD = "udp"
+DEFAULT_DNS = False
+DEFAULT_ADDRESS_FAMILY = None
+DEFAULT_ROUTERS = []
+
+def _build_traceroute_args(params, host):
+    args = [host]
+
+    if params.get("dns", DEFAULT_DNS):
+        args.append("--use_dns")
+
+    method = params.get("method", DEFAULT_PROBE_METHOD)
+    if method == None or method == "":
+        method = DEFAULT_PROBE_METHOD
+    args.append("--probe_method=%s" % method)
+
+    af = params.get("address_family", DEFAULT_ADDRESS_FAMILY)
+    if af == None or af == "":
+        af = "ipv4"
+    args.append("--ip_address_family=%s" % af)
+
+    routers = params.get("routers", DEFAULT_ROUTERS)
+
+    missing_warn = [r for r, s in routers if s == "W"]
+    missing_crit = [r for r, s in routers if s == "C"]
+    found_warn = [r for r, s in routers if s == "w"]
+    found_crit = [r for r, s in routers if s == "c"]
+
+    if len(missing_warn) > 0:
+        args.append("--routers_missing_warn")
+        args.extend(missing_warn)
+    if len(missing_crit) > 0:
+        args.append("--routers_missing_crit")
+        args.extend(missing_crit)
+    if len(found_warn) > 0:
+        args.append("--routers_found_warn")
+        args.extend(found_warn)
+    if len(found_crit) > 0:
+        args.append("--routers_found_crit")
+        args.extend(found_crit)
+
+    return args
+
+def _parse_hops(stdout):
+    hops = []
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if stripped == "":
             continue
-        parts = line.split()
+        parts = stripped.split()
         if len(parts) < 2:
             continue
-        hop_count += 1
-        addr = parts[1]
-        if addr != "*" and addr not in found_routers:
-            found_routers.append(addr)
-        for part in parts:
-            if part.startswith("(") and part.endswith(")") and len(part) > 2:
-                ip = part[1:-1]
-                if ip not in found_routers:
-                    found_routers.append(ip)
-    routers_missing_warn = params.get("routers_missing_warn") or []
-    routers_missing_crit = params.get("routers_missing_crit") or []
-    routers_found_warn = params.get("routers_found_warn") or []
-    routers_found_crit = params.get("routers_found_crit") or []
-    state = "OK"
-    problems = []
-    for r in routers_missing_crit:
-        if r not in found_routers:
-            state = "CRIT"
-            problems.append("missing CRIT: %s" % r)
-    for r in routers_missing_warn:
-        if r not in found_routers:
-            if state == "OK":
-                state = "WARN"
-            problems.append("missing WARN: %s" % r)
-    for r in routers_found_crit:
-        if r in found_routers:
-            state = "CRIT"
-            problems.append("unexpected CRIT: %s" % r)
-    for r in routers_found_warn:
-        if r in found_routers:
-            if state == "OK":
-                state = "WARN"
-            problems.append("unexpected WARN: %s" % r)
-    detail = "traceroute %s: %d hops" % (host, hop_count)
-    if problems:
-        detail += " | " + "; ".join(problems)
-    return {"changed": False, "msg": state, "data": {"state": state, "metrics": {"hops": hop_count}, "details": detail}}
+        first = parts[0]
+        if not first.isdigit():
+            continue
+        hop_num = int(first)
+        if hop_num < 1:
+            continue
+        hop_name = parts[1]
+        addr = hop_name
+        if hop_name.startswith("(") and hop_name.endswith(")"):
+            addr = hop_name[1:-1]
+        hops.append(addr)
+    return hops
+
+def _grade(hops, params):
+    routers = params.get("routers", DEFAULT_ROUTERS)
+    missing_warn = [r for r, s in routers if s == "W"]
+    missing_crit = [r for r, s in routers if s == "C"]
+    found_warn = [r for r, s in routers if s == "w"]
+    found_crit = [r for r, s in routers if s == "c"]
+
+    hop_set = set(hops)
+
+    states = []
+
+    for r in missing_warn:
+        if r not in hop_set:
+            states.append("WARN")
+    for r in missing_crit:
+        if r not in hop_set:
+            states.append("CRIT")
+    for r in found_warn:
+        if r in hop_set:
+            states.append("WARN")
+    for r in found_crit:
+        if r in hop_set:
+            states.append("CRIT")
+
+    if len(states) == 0:
+        return "OK"
+    if "CRIT" in states:
+        return "CRIT"
+    if "WARN" in states:
+        return "WARN"
+    return "OK"
+
+def main(ctx, params):
+    if params.get("_discover"):
+        version_res = ctx.run(["traceroute", "--version"], mutates=False)
+        if version_res.rc == 127:
+            return {"changed": False, "msg": "traceroute not installed", "data": {"discovery": []}}
+        if not ctx.file_exists("/usr/bin/traceroute") and not ctx.file_exists("/bin/traceroute") and not ctx.file_exists("/usr/sbin/traceroute") and not ctx.file_exists("/sbin/traceroute"):
+            return {"changed": False, "msg": "traceroute not installed", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered Routing", "data": {"discovery": [{"item": "", "params": {"warn": 80, "crit": 90}, "metrics": []}]}}
+
+    host = params.get("host", params.get("target", "localhost"))
+    dns = params.get("dns", DEFAULT_DNS)
+    method = params.get("method", DEFAULT_PROBE_METHOD)
+    address_family = params.get("address_family", DEFAULT_ADDRESS_FAMILY)
+    routers = params.get("routers", DEFAULT_ROUTERS)
+
+    args = _build_traceroute_args(params, host)
+    cmd = ["traceroute"]
+    cmd.extend(args)
+    res = ctx.run(cmd, mutates=False)
+
+    if res.rc == 127:
+        return {"changed": False, "msg": "traceroute not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": "traceroute binary not found"}}
+
+    if res.rc != 0 and res.stdout == "":
+        return {"changed": False, "msg": "traceroute failed: " + res.stderr.strip(), "data": {"state": "UNKNOWN", "metrics": {}, "details": "traceroute execution failed"}}
+
+    hops = _parse_hops(res.stdout)
+    state = _grade(hops, params)
+
+    msg_parts = []
+    msg_parts.append("host: %s" % host)
+    msg_parts.append("hops: %d" % len(hops))
+    if len(hops) > 0:
+        msg_parts.append("last: %s" % hops[-1])
+
+    detail_lines = ["Traceroute to %s:" % host]
+    for i, h in enumerate(hops):
+        detail_lines.append("  %d. %s" % (i + 1, h))
+    details = "\n".join(detail_lines)
+
+    metrics = {}
+
+    return {"changed": False, "msg": ", ".join(msg_parts), "data": {"state": state, "metrics": metrics, "details": details}}

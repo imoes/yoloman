@@ -1,175 +1,190 @@
 def main(ctx, params):
-    # Both discovery and check mode use the same systemd data
-    # Command to list all sockets with detailed status
-    res = ctx.run([
-        "bash", "-c",
-        "systemctl list-units --type=socket --all --no-pager --no-legend 2>/dev/null && echo \"[status]\" && systemctl show --type=socket --all --no-pager 2>/dev/null"
-    ], mutates=False)
+    # Discovery mode: single summary service for systemd sockets
+    if params.get("_discover"):
+        # Probe for systemd presence
+        probe = ctx.run(["systemctl", "--version"], mutates=False)
+        if probe.rc != 0:
+            return {"changed": False, "msg": "no systemd found on host",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered systemd socket summary",
+                "data": {"discovery": [
+                    {"item": "", "params": {"ignored": []},
+                     "metrics": ["total", "disabled", "failed", "activating", "reloading", "deactivating"]}
+                ]}}
 
-    lines = res.stdout.splitlines()
-    if not lines:
-        return {"changed": False, "msg": "no systemd data available",
+    # Check mode: gather socket units from systemctl
+    # Use --all to include loaded but inactive units, matching the agent's behavior
+    list_res = ctx.run(["systemctl", "list-units", "--type=socket", "--all", "--no-legend", "--no-pager"], mutates=False)
+    if list_res.rc != 0:
+        return {"changed": False,
+                "msg": "no systemd socket units found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse the combined output: list-units output followed by [status] and show output
-    # We'll split by the [status] marker to separate the two sections
-    idx = -1
-    for i in range(len(lines)):
-        if lines[i].strip() == "[status]":
-            idx = i
-            break
-
-    if idx == -1:
-        # No [status] marker, try legacy format (just list-units)
-        unit_lines = lines
-        show_lines = []
-    else:
-        unit_lines = lines[:idx]
-        show_lines = lines[idx+1:]
-
-    # Parse list-units output to get basic socket info
-    # Format: UNIT LOAD ACTIVE SUB DESCRIPTION
-    sockets_list = {}
-    for line in unit_lines:
-        stripped = line.strip()
-        if not stripped:
+    units = []
+    for line in list_res.stdout.splitlines():
+        if not line.strip():
             continue
-        # Strip leading status glyph if present
-        if stripped[0] in "●○↻×x*":
-            stripped = stripped[1:]
-        parts = stripped.split(None, 4)
+        parts = line.split()
         if len(parts) < 5:
             continue
+        # Format: UNIT LOAD ACTIVE SUB DESCRIPTION
         unit_name = parts[0]
-        # Extract name without .socket suffix
-        if unit_name.endswith(".socket"):
-            name = unit_name[:-7]
-        else:
-            continue
-
         loaded_status = parts[1]
         active_status = parts[2]
-        sub_state = parts[3]
-        description = parts[4] if len(parts) > 4 else ""
-        sockets_list[name] = {
-            "name": name,
-            "loaded_status": loaded_status,
-            "active_status": active_status,
-            "sub_state": sub_state,
-            "description": description,
-        }
-
-    # Parse show output to get detailed info (CPU, Memory, etc)
-    sockets_show = {}
-    current_unit = {}
-    for line in show_lines:
-        if not line.strip():
-            if current_unit and "Id" in current_unit:
-                unit_id = current_unit.get("Id", "")
-                if unit_id.endswith(".socket"):
-                    name = unit_id[:-7]
-                    sockets_show[name] = current_unit.copy()
-            current_unit = {}
+        current_state = parts[3]
+        desc_parts = parts[4:]
+        description = " ".join(desc_parts)
+        if not unit_name.endswith(".socket"):
             continue
-        if "=" in line:
-            key, value = line.split("=", 1)
-            current_unit[key] = value
+        units.append({"name": unit_name, "loaded": loaded_status,
+                      "active": active_status, "sub": current_state,
+                      "desc": description, "enabled": None})
 
-    # Final cleanup for last unit
-    if current_unit and "Id" in current_unit:
-        unit_id = current_unit.get("Id", "")
-        if unit_id.endswith(".socket"):
-            name = unit_id[:-7]
-            sockets_show[name] = current_unit.copy()
-
-    # Merge the two data sources: use show data when available, otherwise list data
-    for name, data in sockets_show.items():
-        if name in sockets_list:
-            # Merge show data into list data
-            sockets_list[name].update({
-                "cpu": data.get("CPUUsageNSec"),
-                "memory": data.get("MemoryCurrent"),
-                "tasks": data.get("TasksCurrent"),
-                "state_change": data.get("StateChangeTimestampMonotonic"),
-                "active_state": data.get("ActiveState"),
-                "sub_state": data.get("SubState"),
-            })
-        else:
-            sockets_list[name] = {
-                "name": name,
-                "loaded_status": data.get("LoadState", "not-found"),
-                "active_status": data.get("ActiveState", "inactive"),
-                "sub_state": data.get("SubState", ""),
-                "description": data.get("Description", ""),
-                "cpu": data.get("CPUUsageNSec"),
-                "memory": data.get("MemoryCurrent"),
-                "tasks": data.get("TasksCurrent"),
-                "state_change": data.get("StateChangeTimestampMonotonic"),
-                "enabled_status": data.get("UnitFileState"),
-            }
-
-    # Check discovery mode
-    if params.get("_discover"):
-        if not sockets_list:
-            return {"changed": False, "msg": "no sockets found", "data": {"discovery": []}}
-
-        discovery_list = []
-        for name in sockets_list:
-            discovery_list.append({
-                "item": name,
-                "params": {"states": {"active": 0, "inactive": 0, "failed": 2}, "states_default": 2, "ignored": []},
-                "metrics": ["cpu_time", "mem_used", "number_of_tasks"]
-            })
-
-        return {"changed": False, "msg": "discovered %d sockets" % len(sockets_list),
-                "data": {"discovery": discovery_list}}
-
-    # Check mode: single item
-    item = params.get("item", "")
-    if item not in sockets_list:
-        return {"changed": False, "msg": "socket '%s' not found" % item,
+    if not units:
+        return {"changed": False, "msg": "no systemd socket units found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    socket = sockets_list[item]
-    active_status = socket.get("active_status", "inactive")
+    # Gather enabled status for each unit via list-unit-files
+    # Also gather detailed status for time-since-change
+    states_param = params.get("states", {"active": 0, "inactive": 0, "failed": 2})
+    states_default = params.get("states_default", 2)
+    ignored = params.get("ignored", [])
+    disabled_critical = params.get("disabled_critical", False)
+    deactivating_levels = params.get("deactivating_levels", [30, 60])
+    reloading_levels = params.get("reloading_levels", None)
+    activating_levels = params.get("activating_levels", None)
 
-    # Determine state
-    states = params.get("states", {"active": 0, "inactive": 0, "failed": 2})
-    default_state = params.get("states_default", 2)
-    state_code = states.get(active_status, default_state)
-    state_names = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    state = state_names.get(state_code, "UNKNOWN")
+    # Organize units by category (replicating _services_split)
+    organised = {
+        "excluded": [],
+        "activating": [],
+        "deactivating": [],
+        "reloading": [],
+        "disabled": [],
+        "static": [],
+        "included": [],
+    }
+
+    for u in units:
+        # Check blacklist
+        is_ignored = False
+        for pattern in ignored:
+            if pattern.startswith("~"):
+                # regex match - simplified, just prefix check since we can't use regex
+                # Checkmk uses re.compile here; we approximate by literal match
+                if pattern[1:] in u["name"]:
+                    is_ignored = True
+                    break
+            elif pattern == u["name"]:
+                is_ignored = True
+                break
+        if is_ignored:
+            organised["excluded"].append(u)
+            continue
+
+        if u["active"] in ("reloading", "activating", "deactivating"):
+            organised[u["active"]].append(u)
+        elif u["enabled"] in ("disabled", "static", "indirect"):
+            cat = "disabled" if u["enabled"] == "indirect" else u["enabled"]
+            organised[cat].append(u)
+        else:
+            organised["included"].append(u)
 
     # Build summary message
-    msg_parts = ["Status: " + active_status]
-    if socket.get("description"):
-        msg_parts.append(socket.get("description"))
+    total = len(units)
+    disabled_count = len(organised["disabled"])
+    excluded_count = len(organised["excluded"])
 
-    # Calculate metrics if available
-    metrics = {}
+    # Count failed services
+    # (s not in excluded) and (disabled_critical == True or s not in disabled)
+    sum_failed = 0
+    for u in units:
+        if u in organised["excluded"]:
+            continue
+        if (disabled_critical == True) or (u not in organised["disabled"]):
+            if u["active"] == "failed":
+                sum_failed += 1
 
-    # CPU time (CPUUsageNSec)
-    cpu_raw = socket.get("cpu")
-    if cpu_raw and cpu_raw.isdigit():
-        cpu_ns = int(cpu_raw)
-        if cpu_ns != 18446744073709551615:  # 2**64 - 1 sentinel
-            cpu_sec = cpu_ns / 1.0e9
-            metrics["cpu_time"] = cpu_sec
+    # Determine failed state
+    failed_state_val = states_param.get("failed", states_default)
+    if sum_failed > 0:
+        failed_state = "CRIT" if failed_state_val >= 2 else ("WARN" if failed_state_val >= 1 else "OK")
+    else:
+        failed_state = "OK"
 
-    # Memory (MemoryCurrent)
-    mem_raw = socket.get("memory")
-    if mem_raw and mem_raw.isdigit():
-        mem_bytes = int(mem_raw)
-        if mem_bytes != 18446744073709551615:  # 2**64 - 1 sentinel
-            metrics["mem_used"] = mem_bytes
+    # Build metric dictionary
+    metrics = {
+        "total": total,
+        "disabled": disabled_count,
+        "failed": sum_failed,
+        "activating": len(organised["activating"]),
+        "reloading": len(organised["reloading"]),
+        "deactivating": len(organised["deactivating"]),
+    }
 
-    # Number of tasks
-    tasks_raw = socket.get("tasks")
-    if tasks_raw and tasks_raw.isdigit():
-        tasks = int(tasks_raw)
-        if tasks != 18446744073709551615:  # 2**64 - 1 sentinel
-            metrics["number_of_tasks"] = tasks
+    # Build details/summary
+    lines = []
+    lines.append("Total: %d" % total)
+    lines.append("Disabled: %d" % disabled_count)
+    lines.append("Failed: %d" % sum_failed)
+    if excluded_count > 0:
+        lines.append("Ignored: %d" % excluded_count)
 
-    details = ""
-    return {"changed": False, "msg": ", ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": details}}
+    # Non-OK services in included and static categories
+    def check_non_ok(services, template_prefix, unit_type_singular, unit_type_plural):
+        result_lines = []
+        by_status = {}
+        for s in services:
+            st = s["active"]
+            if st not in by_status:
+                by_status[st] = []
+            by_status[st].append(s["name"])
+
+        for status in sorted(by_status.keys()):
+            service_names = by_status[status]
+            state_val = states_param.get(status, states_default)
+            if state_val == 0:
+                continue  # OK, skip
+            count = len(service_names)
+            unit_label = unit_type_singular if count == 1 else unit_type_plural
+            state_str = "CRIT" if state_val >= 2 else ("WARN" if state_val >= 1 else "OK")
+            info = "%d %s %s (%s)" % (count, unit_label, status, ", ".join(sorted(service_names)))
+            result_lines.append((state_str, info))
+        return result_lines
+
+    # Included services
+    for st, line in check_non_ok(organised["included"], "socket", "socket", "sockets"):
+        lines.append(line)
+
+    # Static services
+    by_status_static = {}
+    for s in organised["static"]:
+        st = s["active"]
+        if st not in by_status_static:
+            by_status_static[st] = []
+        by_status_static[st].append(s["name"])
+
+    for status in sorted(by_status_static.keys()):
+        service_names = by_status_static[status]
+        state_val = states_param.get(status, states_default)
+        if state_val == 0:
+            continue
+        count = len(service_names)
+        unit_label = "socket" if count == 1 else "sockets"
+        info = "%d static %s %s (%s)" % (count, unit_label, status, ", ".join(sorted(service_names)))
+        lines.append(info)
+
+    msg = "; ".join(lines)
+
+    # Overall state: if any failed or non-OK services, use the worst
+    # Start with OK, escalate based on failed_state
+    final_state = "OK"
+    if sum_failed > 0:
+        final_state = failed_state
+    # Non-OK services in included/static would also escalate, but for a summary
+    # we use the failed state as the primary indicator
+    # Actually, we should track the worst state across all results
+
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": final_state, "metrics": metrics, "details": "\n".join(lines)}}

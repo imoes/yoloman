@@ -1,234 +1,118 @@
 def main(ctx, params):
     if params.get("_discover"):
-        return _discover(ctx)
+        res = ctx.run(["cat", "/proc/diskstats"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no disks found", "data": {"discovery": []}}
+        lines = res.stdout.splitlines()
+        names = []
+        for line in lines:
+            f = line.split()
+            if len(f) < 4:
+                continue
+            name = f[2]
+            names.append(name)
+
+        # Exclude real partitions: a partition whose base disk (without trailing digits) also exists
+        basenames = {}
+        for n in names:
+            i = len(n) - 1
+            while i >= 0 and n[i].isdigit():
+                i = i - 1
+            basenames[n] = n[:i + 1]
+
+        basenames_set = set(basenames.values())
+        out = []
+        for n in names:
+            base = basenames[n]
+            is_partition = len(n) > len(base) and base in basenames_set
+            if is_partition:
+                continue
+            # Skip partitions that look like sda1 with no sda (XEN virtual)
+            out.append({
+                "item": n,
+                "params": {
+                    "util_crit": 90.0,
+                    "read_latency_crit": 1.0,
+                    "write_latency_crit": 1.0,
+                    "queue_length_crit": 1000.0,
+                },
+                "metrics": ["read_throughput", "write_throughput", "read_ios", "write_ios", "utilization"],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d disks" % len(out),
+            "data": {"discovery": out},
+        }
 
     item = params.get("item", "")
-    return _check_item(ctx, item, params)
-
-
-def _discover(ctx):
-    res = ctx.run(["cat", "/proc/diskstats"], mutates=False)
-    devices = _parse_proc_diskstat(ctx, res.stdout)
-    if not devices:
-        return {"changed": False, "msg": "discovered 0 devices",
-                "data": {"discovery": []}}
-
-    items = []
-    for devname, _ in devices.items():
-        if devname.startswith("dm-"):
-            continue
-        if _is_partition(devname):
-            continue
-        items.append({"item": devname, "params": {}, "metrics": ["read_ios", "write_ios", "read_throughput", "write_throughput", "utilization", "queue_length", "latency"]})
-
-    return {"changed": False, "msg": "discovered %d devices" % len(items),
-            "data": {"discovery": items}}
-
-
-def _is_partition(name):
-    if not name:
-        return False
-    return name[-1].isdigit()
-
-
-def _check_item(ctx, item, params):
     res = ctx.run(["cat", "/proc/diskstats"], mutates=False)
     if res.rc != 0:
-        return {"changed": False,
-                "msg": "failed to read /proc/diskstats",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {
+            "changed": False,
+            "msg": "no disk data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    devices = _parse_proc_diskstat(ctx, res.stdout)
+    lines = res.stdout.splitlines()
     disk = None
-    if item in devices:
-        disk = devices[item]
-    else:
-        for k, v in devices.items():
-            if k.startswith(item + ":"):
-                disk = v
-                break
+    for line in lines:
+        f = line.split()
+        if len(f) < 4:
+            continue
+        if f[2] == item:
+            disk = f
+            break
 
     if disk == None:
-        return {"changed": False,
-                "msg": "no such device: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {
+            "changed": False,
+            "msg": "no such disk: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    ts_res = ctx.run(["date", "+%s"], mutates=False)
-    this_time = int(ts_res.stdout) if ts_res.rc == 0 and ts_res.stdout.isdigit() else 0
+    # Fields (0-indexed in /proc/diskstats):
+    # 0:major 1:minor 2:name 3:reads 4:merges 5:sectors_read 6:read_ticks
+    # 7:writes 8:merges 9:sectors_written 10:write_ticks 11:ios_in_prog
+    # 12:total_ticks 13:rq_ticks
+    read_ios = int(disk[3])
+    read_sectors = int(disk[5])
+    read_ticks = int(disk[6])
+    write_ios = int(disk[7])
+    write_sectors = int(disk[9])
+    write_ticks = int(disk[10])
+    ios_in_prog = int(disk[11])
+    total_ticks = int(disk[12])
 
-    last_res = ctx.run(["cat", "/var/lib/yolo-man/diskstat_" + item + ".json"], mutates=False)
-    last = None
-    if last_res.rc == 0 and last_res.stdout.strip():
-        last = json.decode(last_res.stdout)
+    read_throughput = read_sectors * 512
+    write_throughput = write_sectors * 512
+    utilization = total_ticks / 1000.0  # 0..1 fraction
 
-    disk_rates = _compute_rates_single_disk(disk, last, this_time)
+    warn = params.get("util_warn", 80.0)
+    crit = params.get("util_crit", 90.0)
+    util_pct = utilization * 100.0
 
-    state_entry = {
-        "timestamp": disk["timestamp"],
-        "read_ios": disk["read_ios"],
-        "write_ios": disk["write_ios"],
-        "read_throughput": disk["read_throughput"],
-        "write_throughput": disk["write_throughput"],
-        "read_ticks": disk["read_ticks"],
-        "write_ticks": disk["write_ticks"],
-        "utilization": disk["utilization"],
+    if util_pct >= crit:
+        state = "CRIT"
+    elif util_pct >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    metrics = {
+        "read_throughput": read_throughput,
+        "write_throughput": write_throughput,
+        "read_ios": read_ios,
+        "write_ios": write_ios,
+        "utilization": util_pct,
+        "queue_length": ios_in_prog,
     }
-    ctx.run(["mkdir", "-p", "/var/lib/yolo-man"], mutates=False)
-    ctx.file_write("/var/lib/yolo-man/diskstat_" + item + ".json", json.encode(state_entry))
-
-    state, summary, metrics = _check_diskstat_dict_legacy(params, disk_rates)
 
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "Utilization: %f%% (%d reads, %d writes)" % (util_pct, read_ios, write_ios),
         "data": {
             "state": state,
             "metrics": metrics,
-            "details": "",
+            "details": "utilization %f%% (warn %s, crit %s)" % (util_pct, str(warn), str(crit)),
         },
     }
-
-
-def _parse_proc_diskstat(ctx, output):
-    lines = output.strip().split("\n")
-    devices = {}
-    ts_res = ctx.run(["date", "+%s"], mutates=False)
-    timestamp = int(ts_res.stdout) if ts_res.rc == 0 and ts_res.stdout.isdigit() else 0
-
-    for line in lines:
-        parts = line.split()
-        if len(parts) < 14:
-            continue
-
-        major = int(parts[0]) if parts[0].isdigit() else 0
-        minor = int(parts[1]) if parts[1].isdigit() else 0
-        name = parts[2]
-        reads = int(parts[3]) if parts[3].lstrip("-").isdigit() else 0
-        reads_merges = int(parts[4]) if parts[4].lstrip("-").isdigit() else 0
-        read_sectors = int(parts[5]) if parts[5].lstrip("-").isdigit() else 0
-        read_ticks = int(parts[6]) if parts[6].lstrip("-").isdigit() else 0
-        writes = int(parts[7]) if parts[7].lstrip("-").isdigit() else 0
-        writes_merges = int(parts[8]) if parts[8].lstrip("-").isdigit() else 0
-        write_sectors = int(parts[9]) if parts[9].lstrip("-").isdigit() else 0
-        write_ticks = int(parts[10]) if parts[10].lstrip("-").isdigit() else 0
-        ios_in_prog = int(parts[11]) if parts[11].lstrip("-").isdigit() else 0
-        total_ticks = int(parts[12]) if parts[12].lstrip("-").isdigit() else 0
-
-        devices[name] = {
-            "timestamp": timestamp,
-            "read_ios": reads,
-            "write_ios": writes,
-            "read_throughput": read_sectors * 512,
-            "write_throughput": write_sectors * 512,
-            "read_ticks": float(read_ticks) / 1000.0,
-            "write_ticks": float(write_ticks) / 1000.0,
-            "utilization": float(total_ticks) / 1000.0,
-            "queue_length": ios_in_prog,
-        }
-    return devices
-
-
-def _compute_rates_single_disk(disk, last, this_time):
-    disk_rates = {}
-    disk_rates["queue_length"] = disk["queue_length"]
-
-    if last == None or last.get("timestamp") == None or last["timestamp"] == disk["timestamp"]:
-        disk_rates["read_ios"] = 0.0
-        disk_rates["write_ios"] = 0.0
-        disk_rates["read_throughput"] = 0.0
-        disk_rates["write_throughput"] = 0.0
-        disk_rates["read_ticks"] = 0.0
-        disk_rates["write_ticks"] = 0.0
-        disk_rates["utilization"] = 0.0
-        disk_rates["latency"] = 0.0
-        disk_rates["average_wait"] = 0.0
-        disk_rates["average_request_size"] = 0.0
-        disk_rates["average_read_wait"] = 0.0
-        disk_rates["average_read_request_size"] = 0.0
-        disk_rates["average_write_wait"] = 0.0
-        disk_rates["average_write_request_size"] = 0.0
-        return disk_rates
-
-    delta = float(this_time - last["timestamp"])
-    if delta <= 0.0:
-        delta = 1.0
-
-    d_read_ios = float(disk["read_ios"] - last["read_ios"])
-    d_write_ios = float(disk["write_ios"] - last["write_ios"])
-    d_read_throughput = float(disk["read_throughput"] - last["read_throughput"])
-    d_write_throughput = float(disk["write_throughput"] - last["write_throughput"])
-    d_read_ticks = float(disk["read_ticks"] - last["read_ticks"])
-    d_write_ticks = float(disk["write_ticks"] - last["write_ticks"])
-    d_utilization = float(disk["utilization"] - last["utilization"])
-
-    disk_rates["read_ios"] = d_read_ios / delta
-    disk_rates["write_ios"] = d_write_ios / delta
-    disk_rates["read_throughput"] = d_read_throughput / delta
-    disk_rates["write_throughput"] = d_write_throughput / delta
-    disk_rates["read_ticks"] = d_read_ticks / delta
-    disk_rates["write_ticks"] = d_write_ticks / delta
-    disk_rates["utilization"] = d_utilization / delta
-
-    total_ios_rate = disk_rates["read_ios"] + disk_rates["write_ios"]
-    total_bytes_rate = disk_rates["read_throughput"] + disk_rates["write_throughput"]
-
-    if total_ios_rate > 0.0:
-        disk_rates["latency"] = disk_rates["utilization"] / total_ios_rate
-        disk_rates["average_wait"] = (disk_rates["read_ticks"] + disk_rates["write_ticks"]) / total_ios_rate
-        disk_rates["average_request_size"] = total_bytes_rate / total_ios_rate
-    else:
-        disk_rates["latency"] = 0.0
-        disk_rates["average_wait"] = 0.0
-        disk_rates["average_request_size"] = 0.0
-
-    if disk_rates["read_ios"] > 0.0:
-        disk_rates["average_read_wait"] = disk_rates["read_ticks"] / disk_rates["read_ios"]
-        disk_rates["average_read_request_size"] = disk_rates["read_throughput"] / disk_rates["read_ios"]
-    else:
-        disk_rates["average_read_wait"] = 0.0
-        disk_rates["average_read_request_size"] = 0.0
-
-    if disk_rates["write_ios"] > 0.0:
-        disk_rates["average_write_wait"] = disk_rates["write_ticks"] / disk_rates["write_ios"]
-        disk_rates["average_write_request_size"] = disk_rates["write_throughput"] / disk_rates["write_ios"]
-    else:
-        disk_rates["average_write_wait"] = 0.0
-        disk_rates["average_write_request_size"] = 0.0
-
-    return disk_rates
-
-
-def _check_diskstat_dict_legacy(params, disk):
-    warn_util = params.get("utilization", 70.0)
-    crit_util = params.get("utilization", 90.0)
-    warn_lat = params.get("latency", 0.06)
-    crit_lat = params.get("latency", 0.1)
-
-    util_pct = disk.get("utilization", 0.0) * 100.0
-    lat = disk.get("latency", 0.0)
-
-    state = "OK"
-    if util_pct >= crit_util or lat >= crit_lat:
-        state = "CRIT"
-    elif util_pct >= warn_util or lat >= warn_lat:
-        state = "WARN"
-
-    parts = []
-    if "read_ios" in disk:
-        parts.append("read: %f IOPS" % disk["read_ios"])
-    if "write_ios" in disk:
-        parts.append("write: %f IOPS" % disk["write_ios"])
-    parts.append("util: %f%%" % util_pct)
-    if lat != 0.0:
-        parts.append("lat: %f ms" % (lat * 1000.0))
-
-    summary = ", ".join(parts)
-
-    metrics = {
-        "read_ios": disk.get("read_ios", 0.0),
-        "write_ios": disk.get("write_ios", 0.0),
-        "utilization": util_pct,
-        "latency": lat,
-    }
-
-    return state, summary, metrics

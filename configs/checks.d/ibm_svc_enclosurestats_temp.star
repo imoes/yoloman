@@ -1,80 +1,88 @@
 def main(ctx, params):
-    # Read the agent section data from the host
-    # The Checkmk plugin parses <<<ibm_svc_enclosurestats:sep(58)>>>
-    # which is colon-separated: enclosure_id:stat_name:current:peak:peak_time
-    res = ctx.run(["cat", "/var/lib/check-mk-agent/spool/ibm_svc_enclosurestats"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "agent section not found", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # IBM SVC enclosure temperature check
+    # This is a special-agent check that connects to IBM SVC storage over SSH
+    # and reads enclosure statistics (temperature, power, etc.)
     
-    # Parse the colon-separated lines into a dict of enclosures
-    section = {}
-    header = ["enclosure_id", "stat_name", "stat_current", "stat_peak", "stat_peak_time"]
-    for line in res.stdout.splitlines():
-        if not line:
-            continue
-        if " command not found" in line:
-            continue
-        fields = line.split(":")
-        if len(fields) < 5:
-            continue
-        # Skip header lines
-        if fields[0] in ["id", "node_id", "mdisk_id", "enclosure_id"]:
-            header = fields
-            continue
-        if len(fields) != len(header):
-            continue
-        # Guard instead of try/except: parse only if numeric
-        stat_current_str = fields[2]
-        stat_current = int(stat_current_str) if stat_current_str.isdigit() else None
-        if stat_current == None:
-            continue
-        # Use dict per enclosure_id
-        enclosure_id = fields[0]
-        stat_name = fields[1]
-        if section.get(enclosure_id) == None:
-            section[enclosure_id] = {}
-        section[enclosure_id][stat_name] = stat_current
+    host = params.get("host", "localhost")
+    community = params.get("community", "")
     
-    # Discovery mode: enumerate enclosures with temp_c data
+    # Probe for IBM SVC: check if the svcinfo command can be run via SSH
+    # The data comes from 'svcinfo -nohup lsenclosure' over SSH
+    # We need to discover if there's an SVC device to query
+    
     if params.get("_discover"):
-        items = []
-        for enclosure_id, data in section.items():
-            if data.get("temp_c") != None:
-                items.append({
-                    "item": enclosure_id,
-                    "params": {"levels": [35.0, 40.0]},  # Checkmk default: (35.0, 40.0)
-                    "metrics": ["temperature"]
-                })
-        return {"changed": False, "msg": "discovered %d enclosures" % len(items),
-                "data": {"discovery": items}}
+        # Discovery: try to connect to the SVC and list enclosures
+        svc_cmd = [
+            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+            host, "svcinfo", "-nohup", "lsenclosure"
+        ]
+        res = ctx.run(svc_cmd, mutates=False)
+        
+        if res.rc != 0:
+            return {"changed": False, "msg": "no IBM SVC enclosure found",
+                    "data": {"discovery": []}}
+        
+        # Parse svcinfo lsenclosure output
+        # Expected format (colon-separated): enclosure_id:stat_name:stat_current:stat_peak:stat_peak_time
+        discovery = []
+        for line in res.stdout.splitlines():
+            parts = line.split(":")
+            # We expect lines like: "1:temp_c:22:22:140410113246"
+            if len(parts) >= 5:
+                enclosure_id = parts[0]
+                stat_name = parts[1]
+                if stat_name == "temp_c":
+                    discovery.append({
+                        "item": enclosure_id,
+                        "params": {"levels": (35.0, 40.0)},
+                        "metrics": ["temperature"]
+                    })
+        
+        return {"changed": False, 
+                "msg": "discovered %d enclosures with temperature" % len(discovery),
+                "data": {"discovery": discovery}}
     
-    # Check mode: process single item
+    # Check mode
     item = params.get("item", "")
-    data = section.get(item)
-    if data == None:
-        return {"changed": False, "msg": "enclosure not found",
+    levels = params.get("levels", (35.0, 40.0))
+    warn = levels[0] if type(levels) == "list" or type(levels) == "tuple" else 35.0
+    crit = levels[1] if type(levels) == "list" or type(levels) == "tuple" else 40.0
+    
+    # Query the SVC for enclosure statistics
+    svc_cmd = [
+        "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+        host, "svcinfo", "-nohup", "lsenclosure", "-delim", ":"
+    ]
+    res = ctx.run(svc_cmd, mutates=False)
+    
+    if res.rc != 0:
+        return {"changed": False, "msg": "unable to query IBM SVC",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    if data.get("temp_c") == None:
-        return {"changed": False, "msg": "no temperature data for enclosure",
+    # Parse output to find temperature for the specific enclosure
+    temp_c = None
+    for line in res.stdout.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 5:
+            enclosure_id = parts[0]
+            stat_name = parts[1]
+            if enclosure_id == item and stat_name == "temp_c":
+                temp_c = int(parts[2])
+                break
+    
+    if temp_c == None:
+        return {"changed": False, "msg": "no temperature data for enclosure " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    temp_c = data["temp_c"]
-    # Get levels from params (default: (35.0, 40.0) per Checkmk plugin)
-    levels = params.get("levels", [35.0, 40.0])
-    warn = levels[0]
-    crit = levels[1]
-    
-    # Determine state: OK < warn <= CRIT
+    # Apply temperature thresholds
+    state = "OK"
     if temp_c >= crit:
         state = "CRIT"
     elif temp_c >= warn:
         state = "WARN"
-    else:
-        state = "OK"
     
-    return {"changed": False, "msg": "Temperature: %f C" % temp_c,
+    return {"changed": False,
+            "msg": "Temperature: %d C" % temp_c,
             "data": {
                 "state": state,
                 "metrics": {"temperature": temp_c},

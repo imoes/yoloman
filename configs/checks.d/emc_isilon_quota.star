@@ -1,246 +1,138 @@
-# Module-level constants
-METRICS_MAP = {
-    "used_percent": "used_percent",
-}
+def _fetch_column(ctx, host, community, oid, index):
+    full = oid + "." + index
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, full], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return None
+    return res.stdout.strip()
 
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery mode: walk the quota SNMP section
-        base_oid = ".1.3.6.1.4.1.12124.1.12.1.1"
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            base_oid + ".5"  # quotaPath
-        ], mutates=False)
-        
+        # Probe for the real thing first: detect Isilon via sysDescr
+        descr = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                         "-Oqv", "-Ov", params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0"],
+                        mutates=False)
+        if descr.rc != 0 or "isilon" not in (descr.stdout or "").lower():
+            return {"changed": False, "msg": "no Isilon device found", "data": {"discovery": []}}
+        # Walk the quotaPath column to discover items
+        base = ".1.3.6.1.4.1.12124.1.12.1.1"
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"), base + ".5"], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no Isilon quota data found",
+                    "data": {"discovery": []}}
         items = []
-        if res.rc == 0 and res.stdout:
-            # Extract paths by parsing snmpwalk output lines: "<OID> = STRING: <path>"
-            paths = []
-            for line in res.stdout.splitlines():
-                if ": STRING: " in line:
-                    parts = line.split(": STRING: ", 1)
-                    if len(parts) == 2:
-                        path = parts[1].strip().strip('"')
-                        if path:
-                            paths.append(path)
-            
-            # For each path, get thresholds via snmpget (single values)
-            for path in paths:
-                # Hard threshold (OID .7), soft threshold defined (.8), soft threshold (.9)
-                # Advisory threshold defined (.10), advisory threshold (.11), usage (.13)
-                # We only need path and thresholds to build item, defaults are computed later
-                item = path
-                items.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": ["used_percent"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d quotas" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode: examine one quota item
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            index = parts[0][len(base + ".5") + 1:]
+            path_val = parts[1].strip()
+            # strip quotes if present
+            if path_val.startswith('"') and path_val.endswith('"'):
+                path_val = path_val[1:-1]
+            items.append(path_val)
+        discovery = []
+        for path_val in items:
+            discovery.append({"item": path_val, "params": {}, "metrics": ["used_percent"]})
+        return {"changed": False, "msg": "discovered %d quota paths" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Build a list of all quota info (paths + thresholds) for filtering
-    base_oid = ".1.3.6.1.4.1.12124.1.12.1.1"
-    # 1. Get all paths (like discovery)
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        base_oid + ".5"
-    ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse paths
-    paths = {}
-    for line in res.stdout.splitlines():
-        if ": STRING: " in line:
-            parts = line.split(": STRING: ", 1)
-            if len(parts) == 2:
-                path = parts[1].strip().strip('"')
-                if path:
-                    paths[path] = True
-    
-    if item not in paths:
-        return {
-            "changed": False,
-            "msg": "quota not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Fetch thresholds for this specific path using snmpget
-    # We need to map item path to its index in the table.
-    # Get OID to path mapping with snmpwalk, then derive OIDs for thresholds
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        base_oid + ".5"
-    ], mutates=False)
-    
-    # Map index -> path
-    index_to_path = {}
-    for line in res.stdout.splitlines():
-        if ": STRING: " in line:
-            parts = line.split(": STRING: ", 1)
-            if len(parts) == 2:
-                path = parts[1].strip().strip('"')
-                # Extract OID index: ".1.3.6.1.4.1.12124.1.12.1.1.5.<index>"
-                oid_base = parts[0].strip()
-                # Extract last part after last dot as index
-                idx_parts = oid_base.split(".")
-                if len(idx_parts) >= 1:
-                    idx = idx_parts[-1]
-                    index_to_path[idx] = path
-    
-    # Find index for our item
-    target_idx = None
-    for idx, path in index_to_path.items():
-        if path == item:
-            target_idx = idx
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.12124.1.12.1.1"
+
+    # First, find the index for the requested item by walking the quotaPath column
+    walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".5"],
+                   mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "no Isilon quota data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    target_index = None
+    for line in walk.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid_full = parts[0]
+        val = parts[1].strip()
+        if val.startswith('"') and val.endswith('"'):
+            val = val[1:-1]
+        index = oid_full[len(base + ".5") + 1:]
+        if val == item:
+            target_index = index
             break
-    
-    if target_idx == None:
-        return {
-            "changed": False,
-            "msg": "quota index not found for: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Fetch thresholds for this index: .5 (path), .7 (hard), .8 (soft defined), .9 (soft), .10 (adv defined), .11 (adv), .13 (usage)
-    # Use snmpget for scalar OIDs
-    oids = [
-        base_oid + ".7." + target_idx,  # hard_threshold
-        base_oid + ".8." + target_idx,  # soft_threshold_defined
-        base_oid + ".9." + target_idx,  # soft_threshold
-        base_oid + ".10." + target_idx, # advisory_threshold_defined
-        base_oid + ".11." + target_idx, # advisory_threshold
-        base_oid + ".13." + target_idx, # usage
-    ]
-    
-    # Build one snmpget command for all OIDs
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-    ] + oids, mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed for quota thresholds",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse output: "<OID> = <type>: <value>"
-    values = {}
-    for line in res.stdout.splitlines():
-        if " = " in line:
-            parts = line.split(" = ", 1)
-            if len(parts) == 2:
-                oid = parts[0].strip()
-                val_part = parts[1].strip()
-                # Extract value: TYPE: value
-                if ": " in val_part:
-                    v = val_part.split(": ", 1)[1].strip()
-                    # Remove trailing quotes if any
-                    if v.startswith('"') and v.endswith('"'):
-                        v = v[1:-1]
-                    # Map to short names
-                    last = oid.split(".")[-1]
-                    if last == "7":
-                        values["hard"] = v
-                    elif last == "8":
-                        values["soft_def"] = v
-                    elif last == "9":
-                        values["soft"] = v
-                    elif last == "10":
-                        values["adv_def"] = v
-                    elif last == "11":
-                        values["adv"] = v
-                    elif last == "13":
-                        values["usage"] = v
-    
-    # Validate required fields
-    required = ["hard", "soft_def", "soft", "adv_def", "adv", "usage"]
-    for r in required:
-        if r not in values:
-            return {
-                "changed": False,
-                "msg": "missing quota field: " + r,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-    
-    # Compute assumed_size = hard or soft or adv threshold (non-zero)
-    hard = int(values["hard"]) if values["hard"].isdigit() else 0
-    soft = int(values["soft"]) if values["soft"].isdigit() else 0
-    adv = int(values["adv"]) if values["adv"].isdigit() else 0
-    
-    assumed_size = hard or soft or adv
-    usage = int(values["usage"]) if values["usage"].isdigit() else 0
-    
+
+    if target_index == None:
+        return {"changed": False, "msg": "no such quota path: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Fetch all columns by index
+    hard_threshold = _fetch_column(ctx, host, community, base + ".7", target_index)
+    soft_defined = _fetch_column(ctx, host, community, base + ".8", target_index)
+    soft_threshold = _fetch_column(ctx, host, community, base + ".9", target_index)
+    adv_defined = _fetch_column(ctx, host, community, base + ".10", target_index)
+    adv_threshold = _fetch_column(ctx, host, community, base + ".11", target_index)
+    usage = _fetch_column(ctx, host, community, base + ".13", target_index)
+
+    if hard_threshold == None or usage == None:
+        return {"changed": False, "msg": "failed to fetch quota data for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    hard_threshold = int(hard_threshold)
+    soft_threshold = int(soft_threshold or "0")
+    adv_threshold = int(adv_threshold or "0")
+    usage = int(usage)
+
+    # Note 2: use the "hardest" threshold that isn't 0 for the disk limit
+    assumed_size = hard_threshold if hard_threshold else (soft_threshold if soft_threshold else adv_threshold)
     if assumed_size == 0:
-        return {
-            "changed": False,
-            "msg": "no threshold defined for quota " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Compute percentages
-    used_percent = float(usage * 100) / float(assumed_size) if assumed_size != 0 else 0.0
-    
-    # Determine levels: if no levels in params, derive from thresholds if defined
-    warn = params.get("warn")
-    crit = params.get("crit")
-    if warn == None or crit == None:
-        # Use Checkmk defaults
-        soft_def = values["soft_def"]
-        adv_def = values["adv_def"]
-        
-        if adv_def == "1":
-            warn_pct = float(adv) * 100.0 / float(assumed_size) if assumed_size != 0 else 80.0
-        else:
-            warn_pct = 80.0
-        
-        if soft_def == "1":
-            crit_pct = float(soft) * 100.0 / float(assumed_size) if assumed_size != 0 else 90.0
-        else:
-            crit_pct = 90.0
-        
-        warn = warn_pct
-        crit = crit_pct
-    
-    # Determine state
-    state = "OK"
-    if crit != None and used_percent >= float(crit):
+        return {"changed": False, "msg": "no quota threshold defined for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # If levels not configured, derive from soft/advisory threshold
+    warn = None
+    crit = None
+    if "levels" in params:
+        levels = params["levels"]
+        if type(levels) == "list":
+            warn = float(levels[0]) if len(levels) > 0 else None
+            crit = float(levels[1]) if len(levels) > 1 else None
+    if warn == None and crit == None:
+        if soft_defined == "1" or adv_defined == "1":
+            if adv_threshold != 0:
+                warn = adv_threshold * 100.0 / assumed_size
+            else:
+                warn = 80.0
+            if soft_threshold != 0:
+                crit = soft_threshold * 100.0 / assumed_size
+            else:
+                crit = 90.0
+
+    if warn == None:
+        warn = 80.0
+    if crit == None:
+        crit = 90.0
+
+    used = usage
+    used_mb = used / (1024.0 * 1024.0)
+    total_mb = assumed_size / (1024.0 * 1024.0)
+    percent = used * 100.0 / assumed_size if assumed_size != 0 else 0
+
+    # df_check_filesystem_list grades: WARN if percent >= warn, CRIT if percent >= crit
+    if percent >= crit:
         state = "CRIT"
-    elif warn != None and used_percent >= float(warn):
+    elif percent >= warn:
         state = "WARN"
-    
-    # Build message
-    msg = "%s %f%% used" % (item, used_percent)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"used_percent": used_percent},
-            "details": ""
-        },
-    }
+    else:
+        state = "OK"
+
+    avail_mb = (assumed_size - used) / (1024.0 * 1024.0)
+    msg = "%s: %s" % (item, "%f MB used, %f MB available, %f%% of %s MB" %
+                      (used_mb, avail_mb, percent, total_mb))
+    details = "<table border=1><tr><th>Path</th><th>Total MB</th><th>Used MB</th><th>Avail MB</th><th>Use%</th></tr>"
+    details = details + "<tr><td>%s</td><td>%f</td><td>%f</td><td>%f</td><td>%f</td></tr></table>" % (
+        item, total_mb, used_mb, avail_mb, percent)
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"used_percent": percent}, "details": details}}

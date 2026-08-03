@@ -1,98 +1,77 @@
-# Map status IDs to textual descriptions and their Checkmk states
-STATUS_MAP = {
-    "1": "other",
-    "2": "unknown",
-    "3": "ok",
-    "4": "non-critical",
-    "5": "critical",
-    "6": "non-recoverable",
-}
-
-STATE_MAP = {
-    "other": "UNKNOWN",
-    "unknown": "UNKNOWN",
-    "ok": "OK",
-    "non-critical": "WARN",
-    "critical": "CRIT",
-    "non-recoverable": "CRIT",
-}
-
-
 def main(ctx, params):
     if params.get("_discover"):
+        # Detect presence of the BDT tape library device via the SNMP
+        # sysObjectID (.1.3.6.1.2.1.1.2.0) the source checkkey uses to
+        # decide applicability.
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        probe = ctx.run(
+            [
+                "snmpget", "-v2c", "-c", community, "-Oqv",
+                host, ".1.3.6.1.2.1.1.2.0",
+            ],
+            mutates=False,
+        )
+        if probe.rc != 0:
+            # SNMP probe failed or device not present: no services here.
+            return {"changed": False, "msg": "no bdt tape library found",
+                    "data": {"discovery": []}}
+
         return {
             "changed": False,
             "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {},
-                        "metrics": [],
-                    },
-                ],
-            },
+            "data": {"discovery": [
+                {
+                    "item": "",
+                    "params": {},
+                    "metrics": [],
+                }
+            ]},
         }
 
-    community = params.get("community", "public")
+    # ---- CHECK mode ----
     host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.20884.10893.2.101.2.1",
-    ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
+    community = params.get("community", "public")
+
+    res = ctx.run(
+        [
+            "snmpget", "-v2c", "-c", community, "-Oqv",
+            host, ".1.3.6.1.4.1.20884.10893.2.101.2.1",
+        ],
+        mutates=False,
+    )
+
+    if res.rc != 0:
         return {
             "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
+            "msg": "bdt tape library not reachable: %s" % res.stderr.strip(),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Parse SNMP output line: OID = STRING: value
-    status_id = ""
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        # Format: .1.3.6.1.4.1.20884.10893.2.101.2.1.0 = STRING: "1"
-        if not line.startswith(".1.3.6.1.4.1.20884.10893.2.101.2.1.1"):
-            continue
-        parts = line.split(" = ")
-        if len(parts) < 2:
-            continue
-        value_part = parts[1].strip()
-        # Extract value after type prefix (e.g., 'STRING: "1"' -> "1")
-        if value_part.startswith("STRING:"):
-            status_id = value_part[7:].strip().strip('"')
-            break
-    
-    if not status_id:
-        return {
-            "changed": False,
-            "msg": "no status value found",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
-        }
+    raw = res.stdout.strip()
 
-    status = STATUS_MAP.get(status_id, "unknown")
-    state = STATE_MAP.get(status, "UNKNOWN")
+    status_map = {
+        "1": "other",
+        "2": "unknown",
+        "3": "ok",
+        "4": "non-critical",
+        "5": "critical",
+        "6": "non-recoverable",
+    }
+    state_map = {
+        "other": "UNKNOWN",
+        "unknown": "UNKNOWN",
+        "ok": "OK",
+        "non-critical": "WARN",
+        "critical": "CRIT",
+        "non-recoverable": "CRIT",
+    }
+
+    status = status_map.get(raw, "unknown")
+    state = state_map.get(status, "UNKNOWN")
 
     return {
         "changed": False,
         "msg": status,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
+        "data": {"state": state, "metrics": {}, "details": ""},
     }

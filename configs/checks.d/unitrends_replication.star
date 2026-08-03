@@ -1,90 +1,56 @@
 def main(ctx, params):
-    # Read the agent section data directly from the host
-    # The Checkmk plugin parses the "unitrends_replication" agent section
-    # which is normally produced by a shell snippet that runs:
-    #   /usr/bin/backup_exec_replication_status.sh --json 2>/dev/null
-    # We replicate that behavior by calling the same script.
-    
-    res = ctx.run(["/usr/bin/backup_exec_replication_status.sh", "--json"], mutates=False)
-    
-    # If command fails or produces no output, report UNKNOWN
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "Unable to retrieve replication status",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Guard before parsing JSON
-    if not res.stdout:
-        return {
-            "changed": False,
-            "msg": "No output from replication script",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse JSON output (no try/except possible, rely on agent providing valid JSON)
-    data = json.decode(res.stdout)
-    
-    # Discovery mode
     if params.get("_discover"):
+        out = []
+        res = ctx.run(["psql", "-t", "-c",
+                       "SELECT target, result, complete, instance FROM unitrends_replication_last24 ORDER BY target"],
+                       mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no unitrends database source found",
+                    "data": {"discovery": []}}
         targets = []
-        seen = set()
-        if type(data) == "list":
-            for entry in data:
-                if type(entry) == "list" and len(entry) >= 5:
-                    target = entry[3]
-                    if target not in seen:
-                        seen.add(target)
-                        targets.append({"item": target, "params": {}, "metrics": []})
-        return {
-            "changed": False,
-            "msg": "discovered %d targets" % len(targets),
-            "data": {"discovery": targets}
-        }
-    
-    # Check mode: process specific item
+        for line in res.stdout.splitlines():
+            parts = line.split("|")
+            if len(parts) < 4:
+                continue
+            target = parts[0].strip()
+            if len(parts) >= 5:
+                complete = parts[2].strip()
+                instance = parts[4].strip()
+            if target == "":
+                continue
+            if target not in targets:
+                targets.append(target)
+        for t in targets:
+            out.append({"item": t, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
     item = params.get("item", "")
-    
-    # Filter entries for this item
-    replications = []
-    if type(data) == "list":
-        for entry in data:
-            if type(entry) == "list" and len(entry) >= 5 and entry[3] == item:
-                replications.append(entry)
-    
-    # No entries found for this item
-    if len(replications) == 0:
-        return {
-            "changed": False,
-            "msg": "No Entries found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Find non-successful replications
-    not_successful = []
-    for x in replications:
-        if len(x) >= 2 and x[1] != "Success":
-            not_successful.append(x)
-    
-    if len(not_successful) == 0:
-        return {
-            "changed": False,
-            "msg": "All Replications in the last 24 hours Successfull",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
-    
-    # Build error messages
+    res = ctx.run(["psql", "-t", "-c",
+                   "SELECT result, complete, instance FROM unitrends_replication_last24 WHERE target = '" + item + "' ORDER BY target"],
+                  mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "no unitrends database source found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    not_successfull = []
+    found = False
+    for line in res.stdout.splitlines():
+        parts = line.split("|")
+        if len(parts) < 3:
+            continue
+        found = True
+        result = parts[0].strip()
+        if result != "Success":
+            instance = parts[2].strip()
+            not_successfull.append((result, instance))
+    if not found:
+        return {"changed": False, "msg": "No Entries found for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if len(not_successfull) == 0:
+        return {"changed": False, "msg": "All Replications in the last 24 hours Successfull",
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
     messages = []
-    for entry in not_successful:
-        target = entry[3] if len(entry) >= 4 else ""
-        result = entry[1] if len(entry) >= 2 else ""
-        instance = entry[4] if len(entry) >= 5 else ""
-        messages.append("Target: %s, Result: %s, Instance: %s" % (target, result, instance))
-    
-    # Return critical state with error details
-    return {
-        "changed": False,
-        "msg": "Errors from the last 24 hours: " + "/ ".join(messages),
-        "data": {"state": "CRIT", "metrics": {}, "details": ""}
-    }
+    for result, instance in not_successfull:
+        messages.append("Target: " + item + ", Result: " + result + ", Instance: " + instance + "  ")
+    summary = "Errors from the last 24 hours: " + "/ ".join(messages)
+    return {"changed": False, "msg": summary,
+            "data": {"state": "CRIT", "metrics": {}, "details": ""}}

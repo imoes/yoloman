@@ -1,58 +1,65 @@
-# Map SNMP values to status strings
-RESOURCE_CONSERVATION_MAP = {
-    1: ("Resource conservation mode off", "OK"),
-    2: ("Resource conservation mode on (memory shortage)", "WARN"),
-    3: ("Resource conservation mode on (queue space shortage)", "WARN"),
-    4: ("Resource conservation mode on (queue full)", "CRIT"),
+# Translated Checkmk check: cisco_sma_resource_conservation
+# Resource conservation — single-service SNMP check.
+
+SNMP_BASE = ".1.3.6.1.4.1.15497.1.1.1"
+SNMP_OID_VALUE = "6"  # leaf under the base
+
+# Map raw integer value -> (state, summary)
+_RC_STATES = {
+    1: ("OK", "Resource conservation mode off"),
+    2: ("WARN", "Resource conservation mode on (memory shortage)"),
+    3: ("WARN", "Resource conservation mode on (queue space shortage)"),
+    4: ("CRIT", "Resource conservation mode on (queue full)"),
 }
+
+
+def _probe_resource_conservation(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    oid = SNMP_BASE + "." + SNMP_OID_VALUE
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    # rc 0 -> success; rc 127 -> snmpget not installed; other -> not present
+    if res.rc == 127:
+        return {"present": False, "reason": "snmpget not installed"}
+    if res.rc != 0:
+        return {"present": False, "reason": "no response from host"}
+    raw = res.stdout.strip()
+    if raw == "":
+        return {"present": True, "value": -999}
+    # snmpget -Oqv prints only the bare value (no type tag, no = prefix)
+    val = -999
+    if raw.lstrip("-").isdigit():
+        val = int(raw)
+    return {"present": True, "value": val}
+
 
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: always yield one service
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
-    
-    # Check mode: fetch SNMP data
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # OID .1.3.6.1.4.1.15497.1.1.1.6
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.15497.1.1.1.6"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse output: expect format ".1.3.6.1.4.1.15497.1.1.1.6 = INTEGER: <value>"
-    value = None
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith(".1.3.6.1.4.1.15497.1.1.1.6") and "INTEGER:" in stripped:
-            parts = stripped.split("INTEGER:")
-            if len(parts) == 2:
-                val_str = parts[1].strip()
-                if val_str.isdigit():
-                    value = int(val_str)
-                    break
-    
-    # Determine state and message
-    summary = "Resource conservation status unknown"
-    state = "UNKNOWN"
-    
-    if value != None and value in RESOURCE_CONSERVATION_MAP:
-        summary, state = RESOURCE_CONSERVATION_MAP[value]
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": {}, "details": ""}
-    }
+        probe = _probe_resource_conservation(ctx, params)
+        if not probe.get("present", False):
+            return {"changed": False, "msg": "device or snmpget not present",
+                    "data": {"discovery": []}}
+        # Single-service check: exactly one item with empty item name.
+        entry = {"item": "", "params": {}, "metrics": []}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [entry]}}
+
+    item = params.get("item", "")
+    probe = _probe_resource_conservation(ctx, params)
+    if not probe.get("present", False):
+        reason = probe.get("reason", "unknown")
+        return {"changed": False, "msg": reason,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    value = probe.get("value", -999)
+    if value in _RC_STATES:
+        state, summary = _RC_STATES[value]
+    else:
+        state = "UNKNOWN"
+        summary = "Resource conservation status unknown"
+
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {}, "details": ""}}

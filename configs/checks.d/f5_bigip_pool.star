@@ -1,210 +1,198 @@
 def main(ctx, params):
-    # Default parameters from Checkmk source
-    levels_lower_warn = 2
-    levels_lower_crit = 1
-
-    # Get thresholds from params if provided
-    levels_lower = params.get("levels_lower", ("fixed", (levels_lower_warn, levels_lower_crit)))
-    if type(levels_lower) == "list" or type(levels_lower) == "tuple":
-        # ("fixed", (warn, crit)) format
-        if len(levels_lower) >= 2 and (type(levels_lower[1]) == "list" or type(levels_lower[1]) == "tuple") and len(levels_lower[1]) >= 2:
-            levels_lower_warn = int(levels_lower[1][0])
-            levels_lower_crit = int(levels_lower[1][1])
-    elif type(levels_lower) == "dict":
-        # Handle dict format if any (not expected from source defaults)
-        levels_lower_warn = levels_lower.get("warn", levels_lower_warn)
-        levels_lower_crit = levels_lower.get("crit", levels_lower_crit)
-    else:
-        # Fallback to fixed values
-        if len(levels_lower) >= 2 and (type(levels_lower[1]) == "list" or type(levels_lower[1]) == "tuple") and len(levels_lower[1]) >= 2:
-            levels_lower_warn = int(levels_lower[1][0])
-            levels_lower_crit = int(levels_lower[1][1])
-
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Detect real F5 BIG-IP first.
+    sysid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovqn", host,
+         ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if sysid_res.rc == 127:
+        return {"changed": False, "msg": "snmpget not installed",
+                "data": {"discovery": []}}
+    sysid = ""
+    if sysid_res.rc == 0:
+        parts = sysid_res.stdout.strip().split()
+        if len(parts) >= 1:
+            sysid = parts[0]
+    if not sysid or "3375.2" not in sysid:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no F5 BIG-IP detected",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no F5 BIG-IP detected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    pool_tree_base = ".1.3.6.1.4.1.3375.2.2.5.1.2.1"
+    member_tree_base = ".1.3.6.1.4.1.3375.2.2.5.3.2.1"
+
+    def walk_col(base, col):
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqv", host,
+             base + "." + col], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return []
+        lines = res.stdout.strip().splitlines()
+        out = []
+        for ln in lines:
+            out.append(ln.strip())
+        return out
+
+    def walk_col_oqn(base, col):
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqv", host,
+             base + "." + col], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {}
+        d = {}
+        for ln in res.stdout.strip().splitlines():
+            sp = ln.strip().split(" ", 1)
+            if len(sp) != 2:
+                continue
+            oid, val = sp
+            idx = oid[len(base + "." + col) + 1:]
+            d[idx] = val
+        return d
+
+    def discover():
+        names = walk_col(pool_tree_base, "1")
+        active = walk_col(pool_tree_base, "8")
+        defined = walk_col(pool_tree_base, "23")
+        pools = []
+        for i in range(len(names)):
+            nm = names[i] if i < len(names) else ""
+            am = active[i] if i < len(active) else "0"
+            dm = defined[i] if i < len(defined) else "0"
+            pools.append({"name": nm, "active": am, "defined": dm})
+        out = []
+        for p in pools:
+            pools_lower = params.get("levels_lower", [2, 1])
+            if type(pools_lower) == "tuple":
+                pools_lower = list(pools_lower)
+            warn_n = pools_lower[0] if len(pools_lower) > 0 else 2
+            crit_n = pools_lower[1] if len(pools_lower) > 1 else 1
+            out.append({
+                "item": p["name"],
+                "params": {"levels_lower": [warn_n, crit_n]},
+                "metrics": ["members_up"],
+            })
+        return out
 
     if params.get("_discover"):
-        # Discovery mode: fetch pool names from first SNMP tree
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.3375.2.2.5.1.2.1.1"
-        ], mutates=False)
-        
-        items = []
-        for line in res.stdout.splitlines():
-            if line.find("=") == -1:
-                continue
-            value = line.split("=", 1)[1].strip()
-            # Extract pool name from SNMP value (string value without quotes)
-            if value.startswith("\"") and value.endswith("\""):
-                item = value[1:-1]
-            else:
-                item = value.strip()
-            if item != "":
-                items.append({"item": item, "params": {"levels_lower": ("fixed", (levels_lower_warn, levels_lower_crit))},
-                              "metrics": ["members_up", "members_total"]})
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d pools" % len(items),
-            "data": {"discovery": items},
-        }
+        out = discover()
+        return {"changed": False,
+                "msg": "discovered %d pools" % len(out),
+                "data": {"discovery": out}}
 
-    # Check mode: fetch both tables and compute pool status
     item = params.get("item", "")
-    
-    # Fetch pool summary data: active_members and defined_members
-    res_pool = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.3375.2.2.5.1.2.1"
-    ], mutates=False)
-    
-    # Fetch member status data
-    res_member = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.3375.2.2.5.3.2.1"
-    ], mutates=False)
 
-    # Parse pool summary (name -> active_members, defined_members)
-    pool_data = {}
-    current_pool = ""
-    for line in res_pool.stdout.splitlines():
-        if line.find("=") == -1:
-            continue
-        oid_part, value_part = line.split("=", 1)
-        value = value_part.strip()
-        # Extract OID ending
-        oid_parts = oid_part.strip().rsplit(".", 1)
-        if len(oid_parts) < 2:
-            continue
-        oid_end = oid_parts[-1]
-        if oid_end == "1":
-            # Pool name
-            if value.startswith("\"") and value.endswith("\""):
-                current_pool = value[1:-1]
-            else:
-                current_pool = value.strip()
-            if current_pool not in pool_data:
-                pool_data[current_pool] = {"active": 0, "defined": 0, "members": []}
-        elif oid_end == "8":
-            # Active member count
-            if value.isdigit():
-                count = int(value)
-                if current_pool != "":
-                    pool_data[current_pool]["active"] = count
-        elif oid_end == "23":
-            # Total member count
-            if value.isdigit():
-                count = int(value)
-                if current_pool != "":
-                    pool_data[current_pool]["defined"] = count
+    names = walk_col(pool_tree_base, "1")
+    active = walk_col(pool_tree_base, "8")
+    defined = walk_col(pool_tree_base, "23")
+    pools = []
+    for i in range(len(names)):
+        nm = names[i] if i < len(names) else ""
+        am = active[i] if i < len(active) else "0"
+        dm = defined[i] if i < len(defined) else "0"
+        pools.append({"name": nm, "active": am, "defined": dm})
 
-    # Parse member data: pool_name -> members info
-    current_member_pool = ""
-    port = ""
-    monitor_state = 0
-    monitor_status = 0
-    session_status = 0
-    node_name = ""
-    for line in res_member.stdout.splitlines():
-        if line.find("=") == -1:
-            continue
-        oid_part, value_part = line.split("=", 1)
-        oid_parts = oid_part.strip().rsplit(".", 1)
-        if len(oid_parts) < 2:
-            continue
-        oid_end = oid_parts[-1]
-        value = value_part.strip()
-        if oid_end == "1":
-            # Pool name
-            if value.startswith("\"") and value.endswith("\""):
-                current_member_pool = value[1:-1]
-            else:
-                current_member_pool = value.strip()
-        elif oid_end == "4":
-            # Port
-            port = value.strip()
-        elif oid_end == "10":
-            # Monitor state
-            if value.isdigit():
-                monitor_state = int(value)
-        elif oid_end == "11":
-            # Monitor status
-            if value.isdigit():
-                monitor_status = int(value)
-        elif oid_end == "13":
-            # Session status
-            if value.isdigit():
-                session_status = int(value)
-        elif oid_end == "19":
-            # Node name
-            node_name = value.strip()
-            # Add member to current pool
-            if current_member_pool != "" and current_member_pool in pool_data:
-                pool_data[current_member_pool]["members"].append({
-                    "port": port,
-                    "monitor_state": monitor_state,
-                    "monitor_status": monitor_status,
-                    "session_status": session_status,
-                    "node_name": node_name,
-                })
-    
-    # Find the requested pool item
-    pool = pool_data.get(item, None)
+    pool = None
+    for p in pools:
+        if p["name"] == item:
+            pool = p
+            break
+
     if pool == None:
-        return {
-            "changed": False,
-            "msg": "pool not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        return {"changed": False,
+                "msg": "pool not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    active_members = pool.get("active", 0)
-    defined_members = pool.get("defined", 0)
-    members_info = pool.get("members", [])
+    active_members = 0
+    if pool["active"].isdigit():
+        active_members = int(pool["active"])
+    defined_members = 0
+    if pool["defined"].isdigit():
+        defined_members = int(pool["defined"])
 
-    # Determine state based on active vs defined members with lower levels
-    state = "OK"
-    if defined_members > 0:
-        if active_members <= levels_lower_crit:
+    members = []
+    if active_members < defined_members:
+        names_m = walk_col(member_tree_base, "1")
+        ports = walk_col(member_tree_base, "4")
+        mstates = walk_col(member_tree_base, "10")
+        mstatus = walk_col(member_tree_base, "11")
+        sstatus = walk_col(member_tree_base, "13")
+        nodes = walk_col(member_tree_base, "19")
+        idx_map = walk_col_oqn(member_tree_base, "1")
+        for idx in idx_map:
+            m_pool = idx_map[idx]
+            port = ports[i] if False else ""
+    # Re-collect member info by walking each column and indexing by index
+    m_names = walk_col_oqn(member_tree_base, "1")
+    m_ports = walk_col_oqn(member_tree_base, "4")
+    m_mstates = walk_col_oqn(member_tree_base, "10")
+    m_mstatus = walk_col_oqn(member_tree_base, "11")
+    m_sstatus = walk_col_oqn(member_tree_base, "13")
+    m_nodes = walk_col_oqn(member_tree_base, "19")
+
+    members_info = []
+    for idx in m_names:
+        if m_names[idx] != item:
+            continue
+        members_info.append({
+            "port": m_ports.get(idx, ""),
+            "monitor_state": m_mstates.get(idx, "0"),
+            "monitor_status": m_mstatus.get(idx, "0"),
+            "session_status": m_sstatus.get(idx, "0"),
+            "node_name": m_nodes.get(idx, ""),
+        })
+
+    levels = params.get("levels_lower", [2, 1])
+    if type(levels) == "tuple":
+        levels = list(levels)
+    warn_n = levels[0] if len(levels) > 0 else 2
+    crit_n = levels[1] if len(levels) > 1 else 1
+
+    msg = "Members up: %d" % active_members
+    if active_members >= defined_members:
+        state = "OK"
+    else:
+        if active_members <= crit_n:
             state = "CRIT"
-        elif active_members <= levels_lower_warn:
+        elif active_members <= warn_n:
             state = "WARN"
-    
-    # Build summary message
-    msg_parts = ["Members up: %d" % active_members]
-    msg_parts.append("Members total: %d" % defined_members)
-    
-    # Check for down/disabled nodes
-    up_states = (4, 28)
-    disabled_states = (2, 3, 4, 5)
-    down_list = []
-    for member in members_info:
-        if (
-            member["monitor_state"] not in up_states
-            or member["monitor_status"] not in up_states
-            or member["session_status"] in disabled_states
-        ):
-            # Extract hostname from node_name (format: "/partition/name")
-            node_name = member["node_name"]
-            if node_name.startswith("/") and node_name.find("/", 1) != -1:
-                parts = node_name.split("/", 3)
-                if len(parts) >= 3:
-                    host = parts[2]
+        else:
+            state = "OK"
+
+    down_list = ""
+    if active_members < defined_members:
+        up_states = ("4", "28")
+        disabled_states = ("2", "3", "4", "5")
+        down = []
+        for m in members_info:
+            if (str(m["monitor_state"]) not in up_states or
+                    str(m["monitor_status"]) not in up_states or
+                    str(m["session_status"]) in disabled_states):
+                nm = m["node_name"]
+                if nm != "" and nm.startswith("/"):
+                    parts = nm.split("/")
+                    if len(parts) > 2:
+                        host_v = parts[2]
+                    else:
+                        host_v = nm
                 else:
-                    host = node_name
-            else:
-                host = node_name
-            down_list.append(host + ":" + str(member["port"]))
-    
-    if len(down_list) > 0:
-        msg_parts.append("down/disabled nodes: " + ", ".join(down_list))
-    
+                    host_v = nm
+                down.append(host_v + ":" + m["port"])
+        down_list = ", ".join(down)
+
+    details = ""
+    if down_list:
+        details = "down/disabled nodes: " + down_list
+
     return {
         "changed": False,
-        "msg": ", ".join(msg_parts),
+        "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"members_up": active_members, "members_total": defined_members},
-            "details": "",
+            "metrics": {"members_up": active_members},
+            "details": details,
         },
     }

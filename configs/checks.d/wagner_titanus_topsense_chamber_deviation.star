@@ -1,85 +1,70 @@
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    def _snmpget(oid):
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+        if res.rc == 127 or res.rc != 0 or not res.stdout:
+            return None
+        return res.stdout.strip()
+
+    def _snmpget_row(base, oid_list):
+        row = []
+        for o in oid_list:
+            v = _snmpget(base + "." + o)
+            row.append(v)
+        return row
+
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        # Walk all required SNMP trees for wagner_titanus_topsense
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.2.1.1",
-            ".1.3.6.1.4.1.34187.21501.1.1",
-            ".1.3.6.1.4.1.34187.21501.2.1",
-            ".1.3.6.1.4.1.34187.74195.1.1",
-            ".1.3.6.1.4.1.34187.74195.2.1"
-        ], mutates=False)
-        # Check if at least one device is detected by verifying OID presence
-        lines = res.stdout.splitlines()
-        has_device = False
-        for line in lines:
-            if line.startswith(".1.3.6.1.2.1.1.2.0 =") and (
-                ".1.3.6.1.4.1.34187.21501" in line or ".1.3.6.1.4.1.34187.74195" in line
-            ):
-                has_device = True
-                break
-        if not has_device:
-            return {"changed": False, "msg": "no wagner titanus topsense device detected",
+        sys_oid = _snmpget(".1.3.6.1.2.1.1.2.0")
+        if sys_oid == None:
+            return {"changed": False, "msg": "no wagner titanus topsense device found",
                     "data": {"discovery": []}}
-        # Two chamber deviation detectors (item "1" and "2")
-        discovery_list = [
+        if sys_oid != ".1.3.6.1.4.1.34187.21501" and sys_oid != ".1.3.6.1.4.1.34187.74195":
+            return {"changed": False, "msg": "no wagner titanus topsense device found",
+                    "data": {"discovery": []}}
+        sys_table = _snmpget_row(".1.3.6.1.2.1.1", ["1", "3", "4", "5", "6"])
+        if sys_table == None:
+            return {"changed": False, "msg": "no wagner titanus topsense device found",
+                    "data": {"discovery": []}}
+        out = [
             {"item": "1", "params": {}, "metrics": ["chamber_deviation"]},
             {"item": "2", "params": {}, "metrics": ["chamber_deviation"]},
         ]
-        return {"changed": False, "msg": "discovered 2 chamber deviation detectors",
-                "data": {"discovery": discovery_list}}
+        return {"changed": False, "msg": "discovered %d chamber deviation detectors" % len(out),
+                "data": {"discovery": out}}
 
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
-    # Get chamber deviation values from OID tree .1.3.6.1.4.1.34187.21501.2.1
-    # For item "1": OID suffix .245950000
-    # For item "2": OID suffix .246090000
-    base_oid = ".1.3.6.1.4.1.34187.21501.2.1"
+    sys_oid = _snmpget(".1.3.6.1.2.1.1.2.0")
+    if sys_oid == None or (sys_oid != ".1.3.6.1.4.1.34187.21501" and sys_oid != ".1.3.6.1.4.1.34187.74195"):
+        return {"changed": False, "msg": "no wagner titanus topsense device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sys_table = _snmpget_row(".1.3.6.1.2.1.1", ["1", "3", "4", "5", "6"])
+    if sys_table == None:
+        return {"changed": False, "msg": "no wagner titanus topsense device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if sys_oid == ".1.3.6.1.4.1.34187.21501":
+        ext_table = _snmpget_row(".1.3.6.1.4.1.34187.21501.2.1",
+                                 ["245810000", "245820000", "245950000", "246090000",
+                                  "245960000", "246100000", "245970000", "246110000", "24584008"])
+    else:
+        ext_table = _snmpget_row(".1.3.6.1.4.1.34187.74195.2.1",
+                                 ["245790000", "245800000", "245940000", "246060000",
+                                  "245950000", "246070000", "245960000", "246080000"])
+    if ext_table == None or len(ext_table) < 1:
+        return {"changed": False, "msg": "no chamber deviation data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     if item == "1":
-        oid = base_oid + ".245950000"
+        val = ext_table[2]
     elif item == "2":
-        oid = base_oid + ".246090000"
+        val = ext_table[3]
     else:
-        return {"changed": False, "msg": "Chamber Deviation Detector " + item + " not found in SNMP",
+        return {"changed": False, "msg": "Chamber Deviation Detector %s not found in SNMP" % str(item),
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "Failed to retrieve chamber deviation for item " + item,
+    if val == None:
+        return {"changed": False, "msg": "no chamber deviation data available for detector %s" % str(item),
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Parse "OID = STRING: value"
-    line = res.stdout.strip()
-    # Check for empty or malformed response
-    if line == "" or "=" not in line:
-        return {"changed": False, "msg": "Unexpected SNMP response format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    value_str = line.split(" = ")[1].strip()
-    # Strip quotes if present
-    if value_str.startswith('"') and value_str.endswith('"'):
-        value_str = value_str[1:-1]
-    if not value_str:
-        return {"changed": False, "msg": "Empty chamber deviation value",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    chamber_deviation = 0.0
-    if value_str.replace(".", "").lstrip("-").isdigit() or value_str.replace(".", "").lstrip("-").replace("-", "").isdigit():
-        chamber_deviation = float(value_str)
-    else:
-        # Handle non-numeric response gracefully
-        return {"changed": False, "msg": "Chamber Deviation value is non-numeric: " + value_str,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    return {
-        "changed": False,
-        "msg": "%f%% Chamber Deviation" % chamber_deviation,
-        "data": {
-            "state": "OK",
-            "metrics": {"chamber_deviation": chamber_deviation},
-            "details": "",
-        },
-    }
+    chamber_deviation = float(val)
+    return {"changed": False,
+            "msg": "%f%% Chamber Deviation" % chamber_deviation,
+            "data": {"state": "OK", "metrics": {"chamber_deviation": chamber_deviation}, "details": ""}}

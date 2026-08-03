@@ -1,120 +1,92 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "snmpwalk failed: " + res.stderr,
-                    "data": {"discovery": []}}
-        
-        # Parse SNMP output: "<OID> = <TYPE>: <value>"
-        lines = res.stdout.splitlines()
-        section = []
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.split(" = ")
-            if len(parts) != 2:
-                continue
-            value_part = parts[1]
-            # Extract value after type (e.g., "INTEGER: 1" -> "1")
-            if ":" in value_part:
-                value = value_part.split(":", 1)[1].strip()
-            else:
-                value = value_part.strip()
-            
-            # The OID ends with .3, .4, or .5 mapping to presence, state, name
-            # Extract base OID index (last number before .3/.4/.5)
-            oid_base = parts[0].strip()
-            last_dot = oid_base.rfind(".")
-            if last_dot == -1:
-                continue
-            index_str = oid_base[last_dot+1:]
-            
-            # Group consecutive OIDs with same index (3 values per entry)
-            if oid_base.endswith(".3"):
-                presence = value
-            elif oid_base.endswith(".4"):
-                state = value
-            elif oid_base.endswith(".5"):
-                name = value
-                # We have all three values now
-                section.append([presence, state, name])
-        
-        out = []
-        for presence, state, name in section:
-            name = name.lstrip()
-            # Only power supplies
-            if name.startswith("Power") and presence != "6":
-                sensor_id = name.split("#")[-1]
-                out.append({"item": sensor_id, "params": {},
-                           "metrics": []})
-        
-        return {"changed": False, "msg": "discovered %d power supplies" % len(out),
-                "data": {"discovery": out}}
-    
-    # Check mode
-    item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "snmpwalk failed: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    lines = res.stdout.splitlines()
-    # Build section from SNMP output
-    section = []
-    current = [None, None, None]
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        value_part = parts[1]
-        if ":" in value_part:
-            value = value_part.split(":", 1)[1].strip()
-        else:
-            value = value_part.strip()
-        
-        oid_base = parts[0].strip()
-        last_dot = oid_base.rfind(".")
-        if last_dot == -1:
-            continue
-        index_str = oid_base[last_dot+1:]
-        
-        if oid_base.endswith(".3"):
-            current[0] = value
-        elif oid_base.endswith(".4"):
-            current[1] = value
-        elif oid_base.endswith(".5"):
-            current[2] = value
-            if None not in current:
-                section.append(current)
-            current = [None, None, None]
-    
-    # Find the requested item
-    found = False
-    for snmp_item, name, value in section:
-        if not snmp_item or not name or not value:
-            continue
-        name = name.lstrip()
-        if name.startswith("Power") and snmp_item != "6":
+def _brocade_sensor_convert(section, what):
+    return_list = []
+    for row in section:
+        presence = row[0]
+        state = row[1]
+        name = row[2].lstrip()
+        if name.startswith(what) and presence != "6" and (_saveint(state) > 0 or what == "Power"):
             sensor_id = name.split("#")[-1]
-            if item == sensor_id:
-                found = True
-                val = int(value) if value.isdigit() else 0
-                if val != 1:
-                    return {"changed": False, "msg": "Error on supply " + name,
-                            "data": {"state": "CRIT", "metrics": {}, "details": ""}}
-                return {"changed": False, "msg": "No problems found",
-                        "data": {"state": "OK", "metrics": {}, "details": ""}}
-    
-    if not found:
-        return {"changed": False, "msg": "Supply not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+            return_list.append([sensor_id, name, state])
+    return return_list
+
+def _saveint(i):
+    if not i:
+        return 0
+    digits = i
+    if digits.startswith("-"):
+        digits = digits[1:]
+    if not digits.isdigit():
+        return 0
+    return int(i)
+
+def _detect_brocade(ctx, host, community):
+    sysoid = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if sysoid.rc != 0:
+        return False
+    oid = sysoid.stdout.strip()
+    if oid.startswith(".1.3.6.1.4.1.1588.2.1.1") or oid.startswith(".1.3.6.1.24.1.1588.2.1.1") or oid.startswith(".1.3.6.1.4.1.1588.2.2.1") or oid.startswith(".1.3.6.1.4.1.1588.3.3.1") or oid == ".1.3.6.1.4.1.1916.2.306":
+        return True
+    return False
+
+def _read_section(ctx, host, community):
+    base = ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".3"], mutates=False)
+    if res.rc != 0:
+        return []
+    presence_map = {}
+    state_map = {}
+    name_map = {}
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        idx = oid[len(base + ".3") + 1:]
+        presence_map[idx] = line[sp + 1:]
+    res4 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".4"], mutates=False)
+    if res4.rc == 0:
+        for line in res4.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            idx = oid[len(base + ".4") + 1:]
+            state_map[idx] = line[sp + 1:]
+    res5 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".5"], mutates=False)
+    if res5.rc == 0:
+        for line in res5.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            idx = oid[len(base + ".5") + 1:]
+            name_map[idx] = line[sp + 1:]
+    section = []
+    for idx in presence_map:
+        section.append([presence_map[idx], state_map.get(idx, "0"), name_map.get(idx, "")])
+    return section
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    if params.get("_discover"):
+        if not _detect_brocade(ctx, host, community):
+            return {"changed": False, "msg": "not a brocade device", "data": {"discovery": []}}
+        section = _read_section(ctx, host, community)
+        sensors = _brocade_sensor_convert(section, "Power")
+        discovery = []
+        for sensor in sensors:
+            discovery.append({"item": sensor[0], "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d power supplies" % len(discovery), "data": {"discovery": discovery}}
+    item = params.get("item", "")
+    if not _detect_brocade(ctx, host, community):
+        return {"changed": False, "msg": "not a brocade device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _read_section(ctx, host, community)
+    sensors = _brocade_sensor_convert(section, "Power")
+    for snmp_item, name, value in sensors:
+        if item == snmp_item:
+            v = _saveint(value)
+            if v != 1:
+                return {"changed": False, "msg": "Error on supply %s" % name, "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+            return {"changed": False, "msg": "No problems found", "data": {"state": "OK", "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": "Supply not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

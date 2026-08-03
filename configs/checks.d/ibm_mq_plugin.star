@@ -1,144 +1,154 @@
-DIGITS = "0123456789"
-VERSION_CHAR_MAP = {"p": 2, "b": 1, "i": 0}
-MQ_BIN = "/opt/mqm/bin"
-
-def _tokenize_version(v):
+def tokenize_version(version):
+    allowed = set("0123456789.pbi")
+    chars_ok = True
+    for c in version:
+        if c not in allowed:
+            chars_ok = False
+            break
+    if not version or not chars_ok:
+        return None
     tokens = []
     i = 0
-    n = len(v)
-    for _outer in range(n):
-        if i >= n:
-            break
-        ch = v[i]
-        if ch in DIGITS:
-            j = i + 1
-            for _inner in range(n):
-                if j >= n or v[j] not in DIGITS:
-                    break
+    n = len(version)
+    while i < n:
+        c = version[i]
+        if c.isdigit():
+            j = i
+            while j < n and version[j].isdigit():
                 j = j + 1
-            tokens.append(int(v[i:j]))
+            tokens.append(int(version[i:j]))
             i = j
-        elif ch in VERSION_CHAR_MAP:
-            tokens.append(VERSION_CHAR_MAP[ch])
+        elif c == ".":
+            tokens.append(0)
             i = i + 1
-        elif ch == ".":
+        elif c in ("p", "b", "i"):
+            mapping = {"p": 2, "b": 1, "i": 0}
+            tokens.append(mapping[c])
             i = i + 1
         else:
-            break
+            return None
     return tokens
 
-def _version_less(a, b):
-    for i in range(min(len(a), len(b))):
-        if a[i] < b[i]:
-            return True
-        if a[i] > b[i]:
-            return False
-    return len(a) < len(b)
-
-def _version_equal(a, b):
-    if len(a) != len(b):
-        return False
-    for i in range(len(a)):
-        if a[i] != b[i]:
-            return False
-    return True
-
-def _check_version(actual_version, params, label):
-    info = "%s: %s" % (label, str(actual_version))
-    if actual_version == None:
-        return (3, info + " (no agent info)")
-    if "version" not in params:
-        return (0, info)
-    version_rule = params["version"]
-    comp_info = version_rule[0]
-    state = version_rule[1]
-    comp_type = comp_info[0]
-    expected_version = comp_info[1]
-    parts_actual = _tokenize_version(str(actual_version))
-    parts_expected = _tokenize_version(str(expected_version))
-    if len(parts_actual) == 0 or len(parts_expected) == 0:
-        return (3, "Cannot compare %s and %s" % (str(actual_version), str(expected_version)))
-    if comp_type == "at_least" and _version_less(parts_actual, parts_expected):
-        return (state, info + " (should be at least %s)" % expected_version)
-    if comp_type == "specific" and not _version_equal(parts_actual, parts_expected):
-        return (state, info + " (should be %s)" % expected_version)
-    return (0, info)
-
-def _state_to_str(s):
-    if s == 0:
-        return "OK"
-    if s == 1:
-        return "WARN"
-    if s == 2:
-        return "CRIT"
-    return "UNKNOWN"
-
-def _gather_ibm_mq(ctx):
-    section = {}
-    dspmqver_bin = MQ_BIN + "/dspmqver"
-    dspmq_bin = MQ_BIN + "/dspmq"
-    runmqsc_bin = MQ_BIN + "/runmqsc"
-
-    if ctx.file_exists(dspmqver_bin):
-        ver_res = ctx.run([dspmqver_bin], mutates=False, ok_codes=[0, 1, 2, 3])
-        if ver_res.rc == 0:
-            for line in ver_res.stdout.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("Version:"):
-                    parts = stripped.split(":", 1)
-                    if len(parts) == 2:
-                        section["version"] = parts[1].strip()
-                        break
-
-    if ctx.file_exists(dspmq_bin):
-        dspmq_res = ctx.run([dspmq_bin], mutates=False, ok_codes=[0, 1, 2, 3, 4, 5, 8])
-        section["dspmq"] = "OK" if dspmq_res.rc == 0 else "rc=%d" % dspmq_res.rc
-    else:
-        section["dspmq"] = "Not executable"
-
-    section["runmqsc"] = "OK" if ctx.file_exists(runmqsc_bin) else "Not executable"
-
-    return section
+def extract_version_line(text):
+    if not text:
+        return None
+    for tok in text.split():
+        candidate = tok
+        while candidate and not (candidate[0].isdigit()):
+            candidate = candidate[1:]
+        if candidate and candidate[0].isdigit():
+            ok = True
+            has_dot = False
+            for c in candidate:
+                if c.isdigit():
+                    continue
+                elif c == ".":
+                    has_dot = True
+                else:
+                    ok = False
+                    break
+            if ok and has_dot:
+                return candidate
+    t = text.strip()
+    if t and t[0].isdigit():
+        return t
+    return None
 
 def main(ctx, params):
     if params.get("_discover"):
-        exists = ctx.file_exists(MQ_BIN + "/dspmq") or ctx.file_exists(MQ_BIN + "/dspmqver")
-        if not exists:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
+        res = ctx.run(["dspmqver", "-v"], mutates=False)
+        installed = res.rc == 0 and bool(res.stdout.strip())
+        if not installed:
+            return {"changed": False, "msg": "no IBM MQ installation found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered IBM MQ plugin check",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": ["version_cmp"]},
+                ]}}
 
-    section = _gather_ibm_mq(ctx)
+    res_ver = ctx.run(["dspmqver", "-v"], mutates=False)
+    installed = res_ver.rc == 0 and bool(res_ver.stdout.strip())
+    if not installed:
+        return {"changed": False,
+                "msg": "IBM MQ not installed: dspmqver not found",
+                "data": {"state": "UNKNOWN",
+                         "details": "IBM MQ queue manager tools are not installed on this host.",
+                         "metrics": {}}}
 
-    msgs = []
-    worst = 0
+    version_value = res_ver.stdout.strip()
 
-    ver_state, ver_msg = _check_version(section.get("version"), params, "Plugin version")
-    msgs.append(ver_msg)
-    if ver_state > worst:
-        worst = ver_state
+    dspmq_res = ctx.run(["which", "dspmq"], mutates=False)
+    dspmq_present = dspmq_res.rc == 0
+    runmqsc_res = ctx.run(["which", "runmqsc"], mutates=False)
+    runmqsc_present = runmqsc_res.rc == 0
 
-    for tool in ["dspmq", "runmqsc"]:
-        val = section.get(tool)
-        if val == None:
-            t_state = 3
-            t_msg = "%s: No agent info" % tool
+    version_state = 0
+    version_summary = "Plugin version: %s" % version_value
+
+    if "version" in params and params["version"] != None:
+        entry = params["version"]
+        comp_type = entry.get("comp_type", "at_least")
+        expected_version = entry.get("expected_version")
+        want_state = entry.get("state", 2)
+
+        parts_actual = tokenize_version(version_value)
+        ver_substr = None
+        if parts_actual == None:
+            ver_substr = extract_version_line(version_value)
+            parts_actual = tokenize_version(ver_substr) if ver_substr else None
+
+        parts_expected = tokenize_version(expected_version) if expected_version else None
+
+        if parts_expected == None or (parts_actual == None and ver_substr == None):
+            version_state = 3
+            version_summary = ("Cannot compare %s and %s. Only numbers separated by characters 'b', 'i', 'p', or '.' are allowed for a version." % (version_value, expected_version))
         else:
-            t_state = 0 if val == "OK" else 2
-            t_msg = "%s: %s" % (tool, val)
-        msgs.append(t_msg)
-        if t_state > worst:
-            worst = t_state
+            if comp_type == "at_least" and parts_actual < parts_expected:
+                version_state = want_state
+                version_summary = "Plugin version: %s (should be at least %s)" % (version_value, expected_version)
+            elif comp_type == "specific" and parts_actual != parts_expected:
+                version_state = want_state
+                version_summary = "Plugin version: %s (should be %s)" % (version_value, expected_version)
 
-    return {
-        "changed": False,
-        "msg": ", ".join(msgs),
-        "data": {
-            "state": _state_to_str(worst),
-            "metrics": {},
-            "details": "",
-        },
-    }
+    holder = {"worst": 0}
+
+    def consider(st_int):
+        if st_int > holder["worst"]:
+            holder["worst"] = st_int
+
+    consider(version_state)
+
+    def tool_state(present):
+        if not present:
+            return 2
+        return 0
+
+    consider(tool_state(dspmq_present))
+    consider(tool_state(runmqsc_present))
+
+    state_int = holder["worst"]
+    if state_int == 3:
+        state_name = "UNKNOWN"
+    elif state_int == 2:
+        state_name = "CRIT"
+    elif state_int == 1:
+        state_name = "WARN"
+    else:
+        state_name = "OK"
+
+    summary = version_summary
+    if dspmq_present:
+        summary = summary + " | dspmq: OK"
+    else:
+        summary = summary + " | dspmq: Not executable"
+    if runmqsc_present:
+        summary = summary + " | runmqsc: OK"
+    else:
+        summary = summary + " | runmqsc: Not executable"
+
+    metrics = {"version_cmp": float(state_int)}
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": state_name,
+                     "metrics": metrics,
+                     "details": summary}}

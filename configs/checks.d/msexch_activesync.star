@@ -1,74 +1,52 @@
-_PS_CMD = "Get-WmiObject -Class Win32_PerfFormattedData_MSExchangeActiveSync_MSExchangeActiveSync -ErrorAction SilentlyContinue | Select-Object Name,RequestsPersec | ConvertTo-Json -Compress"
-
-_PS_ARGV = ["powershell", "-NoProfile", "-NonInteractive", "-Command", _PS_CMD]
-
-def _parse_wmi(stdout):
-    out = stdout.strip()
-    if not out or out == "null":
-        return []
-    data = json.decode(out)
-    if type(data) == "dict":
-        return [data]
-    if type(data) == "list":
-        return data
-    return []
-
 def main(ctx, params):
+    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(_PS_ARGV, mutates=False, ok_codes=[0, 1])
-        instances = _parse_wmi(res.stdout)
-        if not instances:
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []},
-            }
-        return {
-            "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [
-                {"item": "", "params": {}, "metrics": ["requests_per_sec"]},
-            ]},
-        }
-
-    warn = params.get("warn", None)
-    crit = params.get("crit", None)
-
-    res = ctx.run(_PS_ARGV, mutates=False, ok_codes=[0, 1])
-    instances = _parse_wmi(res.stdout)
-
-    if not instances:
-        return {
-            "changed": False,
-            "msg": "Exchange ActiveSync: WMI data unavailable",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    entry = instances[0]
-    raw_val = entry.get("RequestsPersec")
-    if raw_val == None:
-        return {
-            "changed": False,
-            "msg": "Exchange ActiveSync: RequestsPersec not found in WMI output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    req_per_sec = float(raw_val)
-
-    state = "OK"
-    if crit != None and req_per_sec >= crit:
-        state = "CRIT"
-    elif warn != None and req_per_sec >= warn:
-        state = "WARN"
-
-    msg = "Requests/sec: %f" % req_per_sec
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"requests_per_sec": req_per_sec},
-            "details": "",
-        },
-    }
+        # Probe for Exchange ActiveSync performance counters
+        res = ctx.run([
+            "typeperf", "-s", params.get("host", "localhost"),
+            "\\MSExchange ActiveSync\\Requests/sec"
+        ], mutates=False)
+        if res.rc == 127:
+            # typeperf not found
+            return {"changed": False, "msg": "not installed", "data": {"discovery": []}}
+        if res.rc != 0:
+            return {"changed": False, "msg": "discovery failed", "data": {"discovery": []}}
+        # If we get here, the counter exists - single service check (item="")
+        return {"changed": False, "msg": "discovered", "data": {"discovery": [
+            {"item": "", "params": {}, "metrics": ["requests_per_sec"]}
+        ]}}
+    
+    # Check mode
+    res = ctx.run([
+        "typeperf", "-s", params.get("host", "localhost"),
+        "\\MSExchange ActiveSync\\Requests/sec"
+    ], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "typeperf not installed", 
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "counter query failed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    # Parse typeperf output - format: "timestamp,value"
+    lines = res.stdout.splitlines()
+    # typeperf outputs header line, then data lines like: "2019-01-15","0.000000"
+    if len(lines) < 2:
+        return {"changed": False, "msg": "no data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    last_line = lines[-1]
+    parts = last_line.split(",")
+    if len(parts) < 2:
+        return {"changed": False, "msg": "parse error",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    value_str = parts[-1].strip().strip('"')
+    if not value_str:
+        return {"changed": False, "msg": "empty value",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    rate = float(value_str)
+    # No thresholds defined in the check plugin, so state is OK
+    return {"changed": False, "msg": "Requests/sec: %f" % rate,
+            "data": {"state": "OK", "metrics": {"requests_per_sec": rate}, "details": ""}}

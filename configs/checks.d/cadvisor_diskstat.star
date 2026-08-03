@@ -1,156 +1,160 @@
-def main(ctx, params):
-    # ----- DISCOVERY MODE -----
-    if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/yolo-man/agent/cadvisor_diskstat"], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "discovered 0 items (no cadvisor_diskstat data)",
-                    "data": {"discovery": []}}
-        data = json.decode(res.stdout) if res.stdout else None
-        if data == None:
-            return {"changed": False, "msg": "discovered 0 items (invalid cadvisor_diskstat JSON)",
-                    "data": {"discovery": []}}
+# ===== check plugin: cmk/plugins/cadvisor/agent_based/cadvisor_diskstat.py =====
+# Translated to a read-only Starlark check module for the yolo-man agent.
 
-        # Expected format: {"<metric>": [{"value": "<number>"}]}
-        discovered = []
-        for metric_name, entries in data.items():
-            if len(entries) != 1:
-                continue
-            # Map Checkmk metric names to internal names used by check_diskstat_dict_legacy
-            mapping = {
-                "disk_utilisation": "utilization",
-                "disk_write_operation": "write_ios",
-                "disk_read_operation": "read_ios",
-                "disk_write_throughput": "write_throughput",
-                "disk_read_throughput": "read_throughput",
-            }
-            internal_name = mapping.get(metric_name)
-            if internal_name != None:
-                # Use "Summary" as item name (single-service check)
-                discovered.append({"item": "Summary",
-                                   "params": {},
-                                   "metrics": ["utilization", "read_ios", "write_ios",
-                                               "read_throughput", "write_throughput"]})
-                break  # only one item ("Summary") ever
-        return {"changed": False, "msg": "discovered %d items" % len(discovered),
-                "data": {"discovery": discovered}}
+def _is_number(s):
+    if s == None:
+        return False
+    st = str(s)
+    if len(st) == 0:
+        return False
+    # allow leading +-, then digits with optional single dot
+    body = st
+    if body[0] == "+" or body[0] == "-":
+        body = body[1:]
+    if len(body) == 0:
+        return False
+    has_dot = False
+    for ch in body:
+        if ch == ".":
+            if has_dot:
+                return False
+            has_dot = True
+        elif ch < "0" or ch > "9":
+            return False
+    return True
 
-    # ----- CHECK MODE -----
-    item = params.get("item", "")
-    if item != "Summary":
-        return {"changed": False, "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    res = ctx.run(["cat", "/var/lib/yolo-man/agent/cadvisor_diskstat"], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "cadvisor_diskstat data missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    data = json.decode(res.stdout)
-    if data == None:
-        return {"changed": False, "msg": "cadvisor_diskstat data invalid (not JSON)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Map metrics to internal names
-    mapping = {
-        "disk_utilisation": "utilization",
-        "disk_write_operation": "write_ios",
-        "disk_read_operation": "read_ios",
-        "disk_write_throughput": "write_throughput",
-        "disk_read_throughput": "read_throughput",
-    }
-
-    disk = {}
-    for metric_name, entries in data.items():
-        if len(entries) != 1:
-            continue
-        value_str = entries[0].get("value")
-        if value_str == None or value_str == "":
-            continue
-        s = str(value_str).strip()
-        # Check if numeric (allow optional leading minus, one dot)
-        if s.startswith("-"):
-            s = s[1:]
-        if s == "" or s.find("-") >= 0 or s.count(".") > 1:
-            continue
-        # All remaining characters must be digits or dot
-        numeric = s.replace(".", "")
-        if not numeric.isdigit():
-            continue
-        val = float(value_str)
-        internal = mapping.get(metric_name)
-        if internal != None:
-            disk[internal] = val
-
-    if not disk:
-        return {"changed": False, "msg": "no diskstat metrics found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Apply legacy diskstat check thresholds (same defaults as Checkmk)
-    util_warn = params.get("utilization", (80.0, 90.0))
-    read_ios_warn = params.get("read_ios", (0.0, 0.0))
-    write_ios_warn = params.get("write_ios", (0.0, 0.0))
-    read_throughput_warn = params.get("read_throughput", (0.0, 0.0))
-    write_throughput_warn = params.get("write_throughput", (0.0, 0.0))
-
-    def grade(val, thresholds):
-        if thresholds == None or thresholds == (0.0, 0.0):
-            return "OK"
-        warn, crit = thresholds
-        if val >= crit:
-            return "CRIT"
-        if val >= warn:
-            return "WARN"
-        return "OK"
-
-    state = "OK"
-    metrics = {}
-
-    if "utilization" in disk:
-        val = disk["utilization"]
-        st = grade(val, util_warn)
-        if st != "OK":
-            state = st
-        metrics["utilization"] = val
-
-    if "read_ios" in disk:
-        val = disk["read_ios"]
-        st = grade(val, read_ios_warn)
-        if st != "OK":
-            state = st
-        metrics["read_ios"] = val
-
-    if "write_ios" in disk:
-        val = disk["write_ios"]
-        st = grade(val, write_ios_warn)
-        if st != "OK":
-            state = st
-        metrics["write_ios"] = val
-
-    if "read_throughput" in disk:
-        val = disk["read_throughput"]
-        st = grade(val, read_throughput_warn)
-        if st != "OK":
-            state = st
-        metrics["read_throughput"] = val
-
-    if "write_throughput" in disk:
-        val = disk["write_throughput"]
-        st = grade(val, write_throughput_warn)
-        if st != "OK":
-            state = st
-        metrics["write_throughput"] = val
-
-    # Build human-readable message
-    parts = []
-    for name in ["utilization", "read_ios", "write_ios", "read_throughput", "write_throughput"]:
-        if name in disk:
-            if name == "utilization":
-                parts.append("%s: %f%%" % (name, disk[name]))
-            elif name.endswith("throughput"):
-                parts.append("%s: %f MB/s" % (name, disk[name] / (1024*1024)))
+def _to_float(s):
+    if not _is_number(s):
+        return None
+    st = str(s)
+    neg = False
+    idx = 0
+    if st[0] == "-":
+        neg = True
+        idx = 1
+    elif st[0] == "+":
+        idx = 1
+    val = 0.0
+    frac = 0.0
+    seen_dot = False
+    while idx < len(st):
+        ch = st[idx]
+        if ch == ".":
+            seen_dot = True
+        else:
+            d = ord(ch) - ord("0")
+            if seen_dot:
+                frac = frac * 0.1 + d * 0.1
             else:
-                parts.append("%s: %f" % (name, disk[name]))
-    msg = ", ".join(parts) if parts else "no metrics"
+                val = val * 10.0 + d
+        idx = idx + 1
+    if seen_dot:
+        val = val + frac
+    return 0.0 - val if neg else val
 
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+
+def _probe_cadvisor_host(ctx, params):
+    host = params.get("host", "localhost")
+    port = params.get("port", 8080)
+    url = "http://%s:%s/metrics" % (host, port)
+    res = ctx.run(["curl", "-fsS", "--max-time", "5", url], mutates=False)
+    if res.rc == 127 or res.skipped:
+        return None, "cAdvisor/curl not available on host %s" % host
+    if res.rc != 0:
+        return None, "cAdvisor not reachable at %s (rc=%d)" % (url, res.rc)
+    return url, ""
+
+
+def _extract_diskstat(body):
+    devices = {}
+    for line in body.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "{" not in line:
+            continue
+        name_part, _, value_part = line.partition(" ")
+        if not value_part:
+            continue
+        metric_name, _, label_part = name_part.partition("{")
+        label_part = label_part.rstrip("}")
+        labels = {}
+        for pair in label_part.split(","):
+            k, _, v = pair.partition("=")
+            labels[k.strip()] = v.strip().strip('"')
+        dev = labels.get("device")
+        if dev == None:
+            continue
+        value = _to_float(value_part)
+        if value == None:
+            continue
+        device = devices.get(dev, {})
+        device[metric_name] = value
+        devices[dev] = device
+    return devices
+
+
+def _diskstat_metrics(dev):
+    metrics = {}
+    metrics["disk_read_operation"] = dev.get("container_fs_reads")
+    metrics["disk_write_operation"] = dev.get("container_fs_writes")
+    metrics["disk_read_throughput"] = dev.get("container_fs_read_bytes_total")
+    metrics["disk_write_throughput"] = dev.get("container_fs_write_bytes_total")
+    metrics["disk_utilisation"] = dev.get("container_fs_io_time_ns")
+    return metrics
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        url, err = _probe_cadvisor_host(ctx, params)
+        if url == None:
+            return {"changed": False, "msg": err, "data": {"discovery": []}}
+        res = ctx.run(["curl", "-fsS", "--max-time", "5", url], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "cAdvisor metrics unavailable", "data": {"discovery": []}}
+        devices = _extract_diskstat(res.stdout)
+        out = []
+        for dev_name in devices:
+            out.append({
+                "item": dev_name,
+                "params": {},
+                "metrics": ["disk_utilisation", "disk_read_operation", "disk_write_operation",
+                            "disk_read_throughput", "disk_write_throughput"],
+            })
+        return {"changed": False, "msg": "discovered %d disks" % len(out),
+                "data": {"discovery": out}}
+
+    item = params.get("item", "")
+    url, err = _probe_cadvisor_host(ctx, params)
+    if url == None:
+        return {"changed": False, "msg": err,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    res = ctx.run(["curl", "-fsS", "--max-time", "5", url], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "cAdvisor metrics unavailable",
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    devices = _extract_diskstat(res.stdout)
+    dev = devices.get(item)
+    if dev == None:
+        return {"changed": False, "msg": "no disk %s found" % item,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    metrics = _diskstat_metrics(dev)
+    util = metrics.get("disk_utilisation")
+    warn = params.get("warn", 80.0)
+    crit = params.get("crit", 90.0)
+    state = "OK"
+    details = "Disk IO for %s" % item
+    metric_vals = {}
+    for k in metrics:
+        v = metrics[k]
+        if v != None:
+            metric_vals[k] = v
+    if util != None:
+        if util >= crit:
+            state = "CRIT"
+        elif util >= warn:
+            state = "WARN"
+        details = details + ", utilization: %f" % util
+    return {"changed": False, "msg": details,
+        "data": {"state": state, "metrics": metric_vals, "details": ""}}

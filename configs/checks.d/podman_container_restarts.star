@@ -1,100 +1,77 @@
+# Copyright (C) 2025 Checkmk GmbH - License: GNU General Public License v2
+# Translated to read-only Starlark for the yolo-man agent.
+
 def main(ctx, params):
-    # ===== DISCOVERY MODE =====
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {}, "metrics": ["podman_container_restarts_total", "podman_container_restarts_last_hour"]}
-                ]
-            },
-        }
+        return _discover(ctx)
 
-    # ===== CHECK MODE =====
-    # Probe restart count from podman inspect
-    res = ctx.run(["podman", "inspect", "--format", "{{.State.RestartCount}}"], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "podman inspect failed or returned empty",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    return _check(ctx, params)
 
-    output = res.stdout.strip()
-    if not output:
-        return {
-            "changed": False,
-            "msg": "restart count output is empty",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
 
-    # Convert to int safely without try/except
-    # Handle positive/negative numbers
-    is_valid_int = False
-    if output.isdigit():
-        is_valid_int = True
-    elif output.startswith("-") and len(output) > 1 and output[1:].isdigit():
-        is_valid_int = True
+def _podman_available(ctx):
+    res = ctx.run(["podman", "version", "--format", "{{.Version}}"], mutates=False)
+    if res.rc == 127:
+        return False, "podman is not installed"
+    if res.rc != 0:
+        return False, "podman version check failed: " + res.stderr.strip()
+    return True, res.stdout.strip()
 
-    if not is_valid_int:
-        return {
-            "changed": False,
-            "msg": "failed to parse restart count",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
 
-    restarts = int(output)
+def _discover(ctx):
+    ok, _ = _podman_available(ctx)
+    if not ok:
+        return {"changed": False, "msg": "no podman available",
+                "data": {"discovery": []}}
 
-    # Get current timestamp for rate calculation
-    date_res = ctx.run(["date", "+%s"], mutates=False)
-    curr_ts = 0
-    if date_res.rc == 0 and date_res.stdout.strip():
-        date_str = date_res.stdout.strip()
-        if date_str.isdigit():
-            curr_ts = int(date_str)
+    return {"changed": False, "msg": "discovered 1 item",
+            "data": {"discovery": [
+                {"item": "",
+                 "params": {},
+                 "metrics": ["podman_container_restarts_total",
+                             "podman_container_restarts_last_hour"]},
+            ]}}
 
-    # Thresholds
-    total_warn = params.get("restarts_total", None)
-    state = "OK"
-    msg_parts = ["Total: %d" % restarts]
 
-    # Total restarts check
-    if total_warn != None:
-        warn_val = None
-        crit_val = None
-        if type(total_warn) == "list" or type(total_warn) == "dict":
-            if len(total_warn) >= 2:
-                warn_val = total_warn[0]
-                crit_val = total_warn[1]
-        if warn_val != None and restarts >= warn_val:
-            state = "WARN"
-        if crit_val != None and restarts >= crit_val:
-            state = "CRIT"
+def _check(ctx, params):
+    ok, vmsg = _podman_available(ctx)
+    if not ok:
+        return {"changed": False, "msg": vmsg,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    metrics = {"podman_container_restarts_total": restarts}
+    res = ctx.run(
+        ["podman", "ps", "-a", "--format", "{{.RestartCount}}"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "podman ps failed: " + res.stderr.strip(),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Last hour calculation — no value_store in Starlark; cannot persist across runs
-    # So we omit this metric entirely per source logic
+    total = 0
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if line == "":
+            continue
+        total += int(line)
 
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    warn_total = params.get("restarts_total_warn")
+    crit_total = params.get("restarts_total_crit")
+    state_total = _grade_upper(total, warn_total, crit_total)
+
+    metrics = {"podman_container_restarts_total": total}
+
+    return {"changed": False,
+            "msg": "Total restarts: %d" % total,
+            "data": {"state": state_total, "metrics": metrics, "details": ""}}
+
+
+def _grade_upper(value, warn, crit):
+    if crit != None and _ge(value, crit):
+        return "CRIT"
+    if warn != None and _ge(value, warn):
+        return "WARN"
+    return "OK"
+
+
+def _ge(a, b):
+    return (a > b) or (a == b)

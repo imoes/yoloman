@@ -1,360 +1,173 @@
+# Siemens PLC info check — reads the <<<siemens_plc>>> agent section output
+# supplied via the host (params["section"] when provided, otherwise probed).
+# The Checkmk SIEMENS_PLC special agent already fetched PLC data over the
+# network; we only parse what it returned. This is read-only.
+
+def _is_missing(v):
+    return v == None or v == [] or v == {}
+
+def _render_time_offset(seconds):
+    # Human-readable duration, mirroring Checkmk render.time_offset.
+    s = int(seconds)
+    if s < 60:
+        return "%ds" % s
+    m = s / 60
+    if m < 60:
+        return "%dm" % int(m)
+    h = m / 60
+    return "%dh %dm" % (int(h), int(m % 60))
+
+def _parse_section(ctx):
+    # Prefer an explicitly passed section (the agent already ran the PLC query).
+    raw = ctx.params.get("section") if hasattr(ctx, "params") else None
+    if _is_missing(raw):
+        raw = ctx.get("section", None) if hasattr(ctx, "get") else None
+    if _is_missing(raw):
+        return []
+    if type(raw) == "string":
+        return [line.split() for line in raw.splitlines() if line.strip()]
+    return raw
+
+def _find_lines(section, kind, item):
+    # kind: "temp"|"flag"|"text"|"hours"|"seconds"|"counter"
+    matches = []
+    for line in section:
+        if not line or len(line) < 3:
+            continue
+        if kind in ("hours", "seconds"):
+            ok = line[1].startswith("hours") or line[1].startswith("seconds")
+        elif kind == "counter":
+            ok = line[1].startswith("counter")
+        else:
+            ok = line[1] == kind
+        if ok and "%s %s" % (line[0], line[2]) == item:
+            matches.append(line)
+    return matches
+
+def _grade_levels(value, warn, crit, upper=True):
+    if crit != None and ((upper and value >= crit) or (not upper and value <= crit)):
+        return "CRIT"
+    if warn != None and ((upper and value >= warn) or (not upper and value <= warn)):
+        return "WARN"
+    return "OK"
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/tmp/siemens_plc"], mutates=False)
-        sections = res.stdout.split("\n\n")
-        temp_section = []
-        flag_section = []
-        duration_section = []
-        counter_section = []
-        info_section = []
-        cpu_state_section = []
-
-        for section in sections:
-            lines = section.strip().splitlines()
-            if not lines:
-                continue
-            first = lines[0].strip()
-            if first == "<<<siemens_plc>>>":
-                for line in lines[1:]:
-                    if line.strip():
-                        parts = line.strip().split()
-                        if len(parts) >= 3:
-                            temp_section.append(parts)
-                for line in lines[1:]:
-                    if line.strip():
-                        parts = line.strip().split()
-                        if len(parts) >= 3 and parts[1] == "flag":
-                            flag_section.append(parts)
-                for line in lines[1:]:
-                    if line.strip():
-                        parts = line.strip().split()
-                        if len(parts) >= 3 and (parts[1].startswith("hours") or parts[1].startswith("seconds")):
-                            duration_section.append(parts)
-                for line in lines[1:]:
-                    if line.strip():
-                        parts = line.strip().split()
-                        if len(parts) >= 3 and parts[1].startswith("counter"):
-                            counter_section.append(parts)
-                for line in lines[1:]:
-                    if line.strip():
-                        parts = line.strip().split()
-                        if len(parts) >= 3 and parts[1] == "text":
-                            info_section.append(parts)
-            elif first == "<<<siemens_plc_cpu_state>>>":
-                for line in lines[1:]:
-                    if line.strip():
-                        cpu_state_section.append([line.strip()])
-        
+        section = _parse_section(ctx)
         discovery = []
-        
-        # Temp items
-        for line in temp_section:
-            if len(line) >= 3:
-                item = line[0] + " " + line[2]
-                discovery.append({
-                    "item": item,
-                    "params": {
-                        "levels": [70.0, 80.0],
-                        "device_levels_handling": "devdefault"
-                    },
-                    "metrics": ["temp"]
-                })
-        
-        # Flag items
-        for line in flag_section:
-            if len(line) >= 3:
-                item = line[0] + " " + line[2]
-                discovery.append({
-                    "item": item,
-                    "params": {
-                        "expected_state": False
-                    },
-                    "metrics": []
-                })
-        
-        # Duration items
-        for line in duration_section:
-            if len(line) >= 3:
-                item = line[0] + " " + line[2]
-                discovery.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": [line[1]]
-                })
-        
-        # Counter items
-        for line in counter_section:
-            if len(line) >= 3:
-                item = line[0] + " " + line[2]
-                discovery.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": [line[1]]
-                })
-        
-        # Info items
-        for line in info_section:
-            if len(line) >= 3:
-                item = line[0] + " " + line[2]
-                discovery.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": []
-                })
-        
-        # CPU state (single service)
-        if cpu_state_section:
-            discovery.append({
-                "item": "",
-                "params": {},
-                "metrics": []
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-    
-    item = params.get("item", "")
-    
-    # Read the siemens_plc data
-    res = ctx.run(["cat", "/tmp/siemens_plc"], mutates=False)
-    sections = res.stdout.split("\n\n")
-    temp_section = []
-    flag_section = []
-    duration_section = []
-    counter_section = []
-    info_section = []
-    cpu_state_section = []
+        seen = {}
+        for line in section:
+            if not line or len(line) < 3:
+                continue
+            key = "%s %s" % (line[0], line[2])
+            if line[1] == "temp":
+                if key not in seen:
+                    seen[key] = True
+                    discovery.append({"item": key, "params": {"levels": (70.0, 80.0)}, "metrics": ["temperature"]})
+            elif line[1] == "flag":
+                if key not in seen:
+                    seen[key] = True
+                    discovery.append({"item": key, "params": {"expected_state": False}, "metrics": []})
+            elif line[1].startswith("hours") or line[1].startswith("seconds"):
+                if key not in seen:
+                    seen[key] = True
+                    mname = "duration_seconds"
+                    discovery.append({"item": key, "params": {"duration": {"levels": None}}, "metrics": [mname]})
+            elif line[1].startswith("counter"):
+                if key not in seen:
+                    seen[key] = True
+                    discovery.append({"item": key, "params": {"levels": None}, "metrics": ["counter"]})
+            elif line[1] == "text":
+                if key not in seen:
+                    seen[key] = True
+                    discovery.append({"item": key, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
 
-    for section in sections:
-        lines = section.strip().splitlines()
+    item = params.get("item", "")
+    section = _parse_section(ctx)
+    if not section:
+        # No PLC data available on this host -> not applicable.
+        return {"changed": False, "msg": "no Siemens PLC data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Determine which sub-check this item belongs to.
+    which = params.get("_check", "info")
+    if which == "temp":
+        lines = _find_lines(section, "temp", item)
         if not lines:
-            continue
-        first = lines[0].strip()
-        if first == "<<<siemens_plc>>>":
-            for line in lines[1:]:
-                if line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 3:
-                        temp_section.append(parts)
-            for line in lines[1:]:
-                if line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 3 and parts[1] == "flag":
-                        flag_section.append(parts)
-            for line in lines[1:]:
-                if line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 3 and (parts[1].startswith("hours") or parts[1].startswith("seconds")):
-                        duration_section.append(parts)
-            for line in lines[1:]:
-                if line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 3 and parts[1].startswith("counter"):
-                        counter_section.append(parts)
-            for line in lines[1:]:
-                if line.strip():
-                    parts = line.strip().split()
-                    if len(parts) >= 3 and parts[1] == "text":
-                        info_section.append(parts)
-        elif first == "<<<siemens_plc_cpu_state>>>":
-            for line in lines[1:]:
-                if line.strip():
-                    cpu_state_section.append([line.strip()])
-    
-    # Check for CPU state (single service, item == "")
-    if item == "" and cpu_state_section:
-        state = ""
-        if len(cpu_state_section) > 0 and len(cpu_state_section[0]) > 0:
-            state = cpu_state_section[0][0]
-        
-        if state == "S7CpuStatusRun":
-            return {
-                "changed": False,
-                "msg": "CPU is running",
-                "data": {"state": "OK", "metrics": {}, "details": ""}
-            }
-        if state == "S7CpuStatusStop":
-            return {
-                "changed": False,
-                "msg": "CPU is stopped",
-                "data": {"state": "CRIT", "metrics": {}, "details": ""}
-            }
-        return {
-            "changed": False,
-            "msg": "CPU is in unknown state",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Temp check
-    for line in temp_section:
-        if len(line) >= 3 and line[1] == "temp" and (line[0] + " " + line[2]) == item:
-            temp_str = line[-1]
-            temp = 0.0
-            if temp_str != "" and temp_str.replace(".", "").replace("-", "").isdigit():
-                temp = float(temp_str)
-            else:
-                return {
-                    "changed": False,
-                    "msg": "Temperature value invalid",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-                }
-            
-            levels = params.get("levels", [70.0, 80.0])
-            device_levels_handling = params.get("device_levels_handling", "devdefault")
-            
-            # Apply Checkmk style temperature levels logic
-            state = "OK"
-            summary = "Temperature: %f °C" % temp
-            
-            if device_levels_handling == "devdefault":
-                warn = levels[0] if len(levels) > 0 else None
-                crit = levels[1] if len(levels) > 1 else None
-            else:
-                warn = None
-                crit = None
-            
-            if warn != None and temp >= warn:
-                state = "WARN"
-                summary += " (warn at %f °C)" % warn
-            if crit != None and temp >= crit:
-                state = "CRIT"
-                summary += " (crit at %f °C)" % crit
-            
-            return {
-                "changed": False,
-                "msg": summary,
-                "data": {"state": state, "metrics": {"temp": temp}, "details": ""}
-            }
-    
-    # Flag check
-    for line in flag_section:
-        if len(line) >= 3 and line[1] == "flag" and (line[0] + " " + line[2]) == item:
-            expected_state = params.get("expected_state", False)
-            flag_state = False
-            if len(line) >= 4 and line[-1] == "True":
-                flag_state = True
-            
-            if flag_state:
-                if expected_state:
-                    state = "OK"
-                    summary = "On"
-                else:
-                    state = "CRIT"
-                    summary = "On (expected off)"
-            else:
-                if expected_state:
-                    state = "CRIT"
-                    summary = "Off (expected on)"
-                else:
-                    state = "OK"
-                    summary = "Off"
-            
-            return {
-                "changed": False,
-                "msg": summary,
-                "data": {"state": state, "metrics": {}, "details": ""}
-            }
-    
-    # Duration check
-    for line in duration_section:
-        if len(line) >= 3 and (line[1].startswith("hours") or line[1].startswith("seconds")) and (line[0] + " " + line[2]) == item:
-            value_str = line[-1]
-            seconds = 0.0
-            if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                if line[1].startswith("hours"):
-                    seconds = float(value_str) * 3600
-                else:
-                    seconds = float(value_str)
-            else:
-                return {
-                    "changed": False,
-                    "msg": "Duration value invalid",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-                }
-            
-            duration = params.get("duration", None)
-            state = "OK"
-            summary = "Duration: %f s" % seconds
-            
-            if duration != None and "upper" in duration:
-                warn = duration["upper"][0] if len(duration["upper"]) > 0 else None
-                crit = duration["upper"][1] if len(duration["upper"]) > 1 else None
-                
-                if warn != None and seconds >= warn:
-                    state = "WARN"
-                    summary += " (warn at %s)" % str(warn)
-                if crit != None and seconds >= crit:
-                    state = "CRIT"
-                    summary += " (crit at %s)" % str(crit)
-            
-            return {
-                "changed": False,
-                "msg": summary,
-                "data": {"state": state, "metrics": {line[1]: seconds}, "details": ""}
-            }
-    
-    # Counter check
-    for line in counter_section:
-        if len(line) >= 3 and line[1].startswith("counter") and (line[0] + " " + line[2]) == item:
-            value_str = line[-1]
-            value = 0
-            if value_str.isdigit() or (value_str.startswith("-") and value_str[1:].isdigit()):
-                value = int(value_str)
-            else:
-                return {
-                    "changed": False,
-                    "msg": "Counter value invalid",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-                }
-            
-            levels = params.get("levels", None)
-            state = "OK"
-            summary = "Counter: %d" % value
-            
-            if levels != None:
-                if "upper" in levels:
-                    warn = levels["upper"][0] if len(levels["upper"]) > 0 else None
-                    crit = levels["upper"][1] if len(levels["upper"]) > 1 else None
-                    
-                    if warn != None and value >= warn:
-                        state = "WARN"
-                        summary += " (warn at %d)" % warn
-                    if crit != None and value >= crit:
-                        state = "CRIT"
-                        summary += " (crit at %d)" % crit
-                
-                if "lower" in levels:
-                    warn = levels["lower"][0] if len(levels["lower"]) > 0 else None
-                    crit = levels["lower"][1] if len(levels["lower"]) > 1 else None
-                    
-                    if warn != None and value <= warn:
-                        state = "WARN"
-                        summary += " (warn at %d)" % warn
-                    if crit != None and value <= crit:
-                        state = "CRIT"
-                        summary += " (crit at %d)" % crit
-            
-            return {
-                "changed": False,
-                "msg": summary,
-                "data": {"state": state, "metrics": {line[1]: value}, "details": ""}
-            }
-    
-    # Info check
-    for line in info_section:
-        if len(line) >= 3 and line[1] == "text" and (line[0] + " " + line[2]) == item:
-            return {
-                "changed": False,
-                "msg": line[-1],
-                "data": {"state": "OK", "metrics": {}, "details": ""}
-            }
-    
-    # Item not found
-    return {
-        "changed": False,
-        "msg": "item not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-    }
+            return {"changed": False, "msg": "no such temperature item: " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        temp = float(lines[0][-1])
+        warn = 80.0
+        crit = 90.0
+        lv = params.get("levels")
+        if lv != None and type(lv) == "list" and len(lv) >= 2:
+            warn = float(lv[0]); crit = float(lv[1])
+        elif params.get("warn") != None:
+            warn = float(params.get("warn"))
+        if params.get("crit") != None:
+            crit = float(params.get("crit"))
+        state = _grade_levels(temp, warn, crit, upper=True)
+        return {"changed": False,
+                "msg": "%s %f C" % (item, temp),
+                "data": {"state": state, "metrics": {"temperature": temp}, "details": ""}}
+
+    if which == "flag":
+        lines = _find_lines(section, "flag", item)
+        if not lines:
+            return {"changed": False, "msg": "no such flag item: " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        expected = params.get("expected_state", False)
+        flag_on = lines[0][-1] == "True"
+        if flag_on:
+            state = "OK" if expected else "CRIT"
+            summary = "On"
+        else:
+            state = "CRIT" if expected else "OK"
+            summary = "Off"
+        return {"changed": False, "msg": "%s %s" % (item, summary),
+                "data": {"state": state, "metrics": {}, "details": ""}}
+
+    if which == "duration":
+        lines = _find_lines(section, "seconds", item) + _find_lines(section, "hours", item)
+        if not lines:
+            return {"changed": False, "msg": "no such duration item: " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        line = lines[0]
+        raw = float(line[-1])
+        seconds = raw * 3600 if line[1].startswith("hours") else raw
+        dur_params = params.get("duration")
+        warn = None; crit = None
+        if dur_params != None and type(dur_params) == "dict":
+            lv = dur_params.get("levels")
+            if lv != None and type(lv) == "list" and len(lv) >= 2:
+                warn = float(lv[0]); crit = float(lv[1])
+        state = _grade_levels(seconds, warn, crit, upper=True)
+        return {"changed": False,
+                "msg": "%s %s" % (item, _render_time_offset(seconds)),
+                "data": {"state": state, "metrics": {"duration_seconds": seconds}, "details": ""}}
+
+    if which == "counter":
+        lines = _find_lines(section, "counter", item)
+        if not lines:
+            return {"changed": False, "msg": "no such counter item: " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        value = int(lines[0][-1])
+        lv = params.get("levels")
+        warn = None; crit = None
+        if lv != None and type(lv) == "list" and len(lv) >= 2:
+            warn = float(lv[0]); crit = float(lv[1])
+        state = _grade_levels(value, warn, crit, upper=True)
+        return {"changed": False,
+                "msg": "%s %d" % (item, value),
+                "data": {"state": state, "metrics": {"counter": float(value)}, "details": ""}}
+
+    # default: info (text)
+    lines = _find_lines(section, "text", item)
+    if not lines:
+        return {"changed": False, "msg": "no such info item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    text = lines[0][-1]
+    return {"changed": False, "msg": "%s %s" % (item, text),
+            "data": {"state": "OK", "metrics": {}, "details": ""}}

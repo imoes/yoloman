@@ -1,64 +1,60 @@
+def _discover(ctx, params):
+    res = ctx.run(["MobileIron", "--version"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "Mobileiron not installed",
+                "data": {"discovery": []}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "Mobileiron not reachable",
+                "data": {"discovery": []}}
+    info = ctx.run(["/usr/local/mobileiron/bin/device_info", "--json"], mutates=False)
+    if info.rc != 0 or not info.stdout:
+        return {"changed": False, "msg": "No Mobileiron data found",
+                "data": {"discovery": [
+                    {"item": "", "params": {"policy_violation_levels": [2, 3], "ignore_compliance": False},
+                     "metrics": ["mobileiron_policyviolationcount"]}]}}
+    data = json.decode(info.stdout)
+    if not data.get("registered"):
+        return {"changed": False, "msg": "Mobileiron not registered",
+                "data": {"discovery": []}}
+    return {"changed": False, "msg": "discovered Mobileiron compliance",
+            "data": {"discovery": [
+                {"item": "", "params": {"policy_violation_levels": [2, 3], "ignore_compliance": False},
+                 "metrics": ["mobileiron_policyviolationcount"]}]}}
+
+
 def main(ctx, params):
-    # Read the agent section data (simulated as JSON from the agent output)
-    # We assume the MobileIron section is exposed in a file: /var/lib/yolo-mobileiron/section.json
-    section_path = "/var/lib/yolo-mobileiron/section.json"
-    if not ctx.file_exists(section_path):
-        return {"changed": False, "msg": "MobileIron section file not found",
+    if params.get("_discover"):
+        return _discover(ctx, params)
+
+    info = ctx.run(["/usr/local/mobileiron/bin/device_info", "--json"], mutates=False)
+    if info.rc != 0 or not info.stdout:
+        return {"changed": False, "msg": "Mobileiron device info not available",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    section_json = ctx.file_read(section_path)
-    if not section_json:
-        return {"changed": False, "msg": "MobileIron section file empty",
+    data = json.decode(info.stdout)
+    if not data.get("registered"):
+        return {"changed": False, "msg": "Mobileiron not registered",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    section_data = json.decode(section_json)
-
-    policy_violation_count = section_data.get("policy_violation_count")
-    compliance_state = section_data.get("compliance_state")
-    if policy_violation_count == None:
-        policy_violation_count = 0
-    if compliance_state == None:
-        compliance_state = False
-
-    # Thresholds from params with Checkmk defaults
-    policy_violation_levels = params.get("policy_violation_levels", (2, 3))
-    warn_violations, crit_violations = policy_violation_levels
-
-    # Determine state for policy violation count
-    state = "OK"
-    if crit_violations != None and policy_violation_count >= crit_violations:
-        state = "CRIT"
-    elif warn_violations != None and policy_violation_count >= warn_violations:
-        state = "WARN"
-
-    # Compliant status
+    count = data.get("policy_violation_count")
+    if count == None:
+        count = 0
+    compliance_state = data.get("compliance_state", False)
+    levels = params.get("policy_violation_levels", [2, 3])
+    warn = levels[0] if len(levels) > 0 else 2
+    crit = levels[1] if len(levels) > 1 else 3
     ignore_compliance = params.get("ignore_compliance", False)
-    compliance_summary = "Compliant: " + str(compliance_state)
+
+    state = "CRIT" if count >= crit else ("WARN" if count >= warn else "OK")
+
+    metrics = {"mobileiron_policyviolationcount": count}
+
+    if not ignore_compliance:
+        if not compliance_state:
+            state = "CRIT"
+    summary = "Policy violation count: %d, Compliant: %s" % (count, compliance_state)
     if ignore_compliance:
-        compliance_summary += " (ignored)"
-        compliance_state_ok = True
-    else:
-        compliance_state_ok = bool(compliance_state)
+        summary = summary + " (ignored)"
 
-    # Overall state: worst of the two
-    if state == "OK" and not compliance_state_ok:
-        state = "CRIT"
-    elif state == "WARN" and not compliance_state_ok:
-        state = "CRIT"
-
-    # Build metrics
-    metrics = {}
-    metrics["mobileiron_policyviolationcount"] = int(policy_violation_count)
-
-    # Build message
-    msg = "Policy violation count: " + str(int(policy_violation_count)) + ", " + compliance_summary
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

@@ -1,87 +1,36 @@
 def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.3652.3.2.3.1"
-
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On", host,
-            base_oid + ".2"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-
-        fan_items = []
+        res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn",
+                       params.get("host", "localhost"),
+                       ".1.3.6.1.4.1.3652.3.2.3.1.2"], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no pandacom fan data",
+                    "data": {"discovery": []}}
+        discovery = []
         for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
+            f = line.split()
+            if len(f) < 2:
                 continue
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
+            oid_full = f[0]
+            value = f[1]
+            col_base = ".1.3.6.1.4.1.3652.3.2.3.1.2."
+            if not oid_full.startswith(col_base):
                 continue
-            oid = parts[0].strip()
-            value = parts[1].strip()
-            if value.startswith("INTEGER: "):
-                value = value[9:]
-            if value.startswith("Gauge32: "):
-                value = value[9:]
-            # Extract fan number from OID
-            if oid.startswith(base_oid + ".2."):
-                fan_nr = oid[len(base_oid) + 3:]
-                if value not in ["0", "5"]:
-                    fan_items.append({"item": fan_nr, "params": {}, "metrics": []})
+            index = oid_full[len(col_base):]
+            if index == "" or value in ["0", "5"]:
+                continue
+            discovery.append({"item": index, "params": {}, "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d fans" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(fan_items),
-            "data": {"discovery": fan_items}
-        }
-
-    # Check mode
     item = params.get("item", "")
-    if item == None:
-        item = ""
-
-    # Build OID for specific fan
-    fan_oid = base_oid + ".2." + item
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On", host,
-        fan_oid
-    ], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed for fan " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    line = res.stdout.strip()
-    if not line:
-        return {
-            "changed": False,
-            "msg": "no data for fan " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    parts = line.split(" = ", 1)
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "cannot parse response for fan " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    value = parts[1].strip()
-    if value.startswith("INTEGER: "):
-        value = value[9:]
-    if value.startswith("Gauge32: "):
-        value = value[9:]
+    res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+                   params.get("host", "localhost"),
+                   ".1.3.6.1.4.1.3652.3.2.3.1.2." + item], mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "no data for fan %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
     map_fan_state = {
         "0": ("UNKNOWN", "not available"),
@@ -92,16 +41,8 @@ def main(ctx, params):
         "5": ("UNKNOWN", "not installed"),
         "6": ("OK", "auto"),
     }
-
-    state_name = map_fan_state.get(value, ("UNKNOWN", "unknown state"))[0]
-    state_readable = map_fan_state.get(value, ("UNKNOWN", "unknown state"))[1]
-
-    return {
-        "changed": False,
-        "msg": "Operational status: " + state_readable,
-        "data": {
-            "state": state_name,
-            "metrics": {},
-            "details": ""
-        }
-    }
+    state_val = res.stdout.strip()
+    state, state_readable = map_fan_state.get(state_val, ("UNKNOWN", "unknown (%s)" % state_val))
+    return {"changed": False,
+            "msg": "Fan %s: Operational status: %s" % (item, state_readable),
+            "data": {"state": state, "metrics": {}, "details": ""}}

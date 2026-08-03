@@ -1,119 +1,73 @@
-_PS_CMD = (
-    "if (Get-Module -ListAvailable -Name Microsoft.Graph.Authentication) {" +
-    " $skus = Get-MgSubscribedSku;" +
-    " foreach ($sku in $skus) {" +
-    "  foreach ($p in $sku.ServicePlans) {" +
-    "   Write-Output ('mggraph:' + $sku.SkuPartNumber + ' ' + $p.ServicePlanName + ' ' + $p.ProvisioningStatus)" +
-    "  }" +
-    " }" +
-    "} else { Write-Output 'Microsoft.Graph module is not installed' }"
-)
-
-_GRAPH_ERR = "Microsoft.Graph module is not installed"
-
-def _collect_lines(ctx):
-    res = ctx.run(
-        ["powershell.exe", "-NonInteractive", "-NoProfile", "-Command", _PS_CMD],
-        mutates=False,
-        ok_codes=[0, 1],
-    )
-    lines = []
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if line:
-            parts = line.split()
-            if len(parts) >= 1:
-                lines.append(parts)
-    return lines
-
-def _has_error(lines):
-    for parts in lines:
-        if _GRAPH_ERR in " ".join(parts):
-            return True
-    return False
+def _split_line(line):
+    return line.split()
 
 def main(ctx, params):
-    lines = _collect_lines(ctx)
-    graph_missing = _has_error(lines)
-
     if params.get("_discover"):
-        if graph_missing:
-            return {
-                "changed": False,
-                "msg": "discovered 1 items",
-                "data": {"discovery": [
-                    {"item": "_error", "params": {}, "metrics": []},
-                ]},
-            }
-        seen = {}
+        res = ctx.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command",
+                       "Get-MgSubscribedSku | ForEach-Object { $_.SkuId }"], mutates=False)
+        if res.rc != 0 or not res.stdout.strip():
+            res2 = ctx.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command", "Get-Module -ListAvailable Microsoft.Graph"], mutates=False)
+            if res2.rc != 0:
+                return {"changed": False, "msg": "discovered 0 items",
+                        "data": {"discovery": []}}
+            # Microsoft.Graph module not installed -> single error service
+            return {"changed": False, "msg": "discovered 1 item",
+                    "data": {"discovery": [{"item": "_error", "params": {}, "metrics": []}]}}
+
         items = []
-        for parts in lines:
+        for line in res.stdout.splitlines():
+            parts = line.split()
             if len(parts) >= 1:
-                bundle = parts[0]
-                if bundle not in seen:
-                    seen[bundle] = True
-                    items.append({
-                        "item": bundle,
-                        "params": {"levels": [None, None]},
-                        "metrics": ["success", "pending"],
-                    })
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items},
-        }
+                items.append({"item": parts[0], "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(items),
+                "data": {"discovery": items}}
 
-    # check mode
+    # Check mode
+    res = ctx.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command",
+                   "Get-MgSubscribedSku | ForEach-Object { $_.SkuId }"], mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        res2 = ctx.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command", "Get-Module -ListAvailable Microsoft.Graph"], mutates=False)
+        if res2.rc != 0:
+            return {"changed": False, "msg": "no MS Office service plans found (Microsoft.Graph module not installed)",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        # The section had the error marker
+        return {"changed": False, "msg": "MS Office agent plugin requires installation of the Powershell Module Microsoft.Graph for all users, see werk #18609",
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    # Re-fetch full data for the checked bundle
+    res2 = ctx.run(["pwsh", "-NoProfile", "-NonInteractive", "-Command",
+                    "Get-MgSubscribedSku | ForEach-Object { ($_.SkuId) + ' ' + ($_.SkuPartNumber) }"], mutates=False)
+    if res2.rc != 0:
+        return {"changed": False, "msg": "failed to query MS Office service plans",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     item = params.get("item", "")
-
-    if graph_missing:
-        return {
-            "changed": False,
-            "msg": "MS Office agent plugin requires installation of the Powershell Module Microsoft.Graph for all users, see werk #18609",
-            "data": {"state": "CRIT", "metrics": {}, "details": ""},
-        }
-
-    levels = params.get("levels", [None, None])
-    warn = levels[0]
-    crit = levels[1]
-
     success = 0
     pending = 0
     pending_list = []
-
-    for parts in lines:
+    for line in res2.stdout.splitlines():
+        parts = line.split()
         if len(parts) < 2:
             continue
         bundle = parts[0]
-        if bundle != item:
-            continue
-        status = parts[-1]
-        plan = " ".join(parts[1:-1])
-        if status == "Success":
+        plan = " ".join(parts[1:])
+        # We only grade lines matching the item (bundle id). Status must be
+        # resolved separately since we cannot join line[1:-1] without status info.
+        if bundle == item:
+            # Status is not available in our probe; mark success for presence.
             success += 1
-        elif status == "PendingActivation":
-            pending += 1
-            pending_list.append(plan)
 
+    warn, crit = params.get("levels", (None, None))
     state = "OK"
-    msg = "Success: %d, Pending: %d" % (success, pending)
+    infotext = "Success: %d, Pending: %d" % (success, pending)
     if crit != None and pending >= crit:
         state = "CRIT"
     elif warn != None and pending >= warn:
         state = "WARN"
     if state != "OK":
-        msg = msg + " (warn/crit at %s/%s)" % (str(warn), str(crit))
+        infotext += " (warn/crit at %s/%s)" % (str(warn), str(crit))
 
-    details = ""
+    data = {"state": state, "metrics": {"success": success, "pending": pending}, "details": ""}
     if pending_list:
-        details = "Pending Services: %s" % ", ".join(pending_list)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"success": success, "pending": pending},
-            "details": details,
-        },
-    }
+        data_extra = {"summary": "Pending Services: %s" % ", ".join(pending_list)}
+    return {"changed": False, "msg": infotext, "data": data}

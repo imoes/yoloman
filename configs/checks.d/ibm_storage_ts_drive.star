@@ -1,144 +1,216 @@
+# ibm_storage_ts_drive — Checkmk check translated to read-only Starlark.
+# Monitors IBM Storage TS (LTO tape library) drive health via SNMP.
+# One service per drive; discovery enumerates drives present on the device.
+
+BASE = ".1.3.6.1.4.1.2.6.210"
+
+# sysObjectID OID used for detection of IBM Storage TS.
+SYS_OID = ".1.3.6.1.2.1.1.2.0"
+EXPECTED_SYS_ID = ".1.3.6.1.4.1.2.6.210"
+
+# Drive table: column OIDs relative to the drive subtree base.
+# From SNMPTree(base=".1.3.6.1.4.1.2.6.210.3.2.1", oids=["1","10","15","16","17","18"])
+#   1  -> entry (drive name / label)
+#   10 -> serial
+#   15 -> write_err
+#   16 -> write_warn
+#   17 -> read_err
+#   18 -> read_warn
+DRIVE_BASE = BASE + ".3.2.1"
+DRIVE_ENTRY_OID = DRIVE_BASE + ".1"
+DRIVE_SERIAL_OID = DRIVE_BASE + ".10"
+DRIVE_WRITE_ERR_OID = DRIVE_BASE + ".15"
+DRIVE_WRITE_WARN_OID = DRIVE_BASE + ".16"
+DRIVE_READ_ERR_OID = DRIVE_BASE + ".17"
+DRIVE_READ_WARN_OID = DRIVE_BASE + ".18"
+
+# Status name / Nagios mapping is not used for drives but kept for completeness.
+TS_STATUS_MAP = {
+    "1": "other",
+    "2": "unknown",
+    "3": "Ok",
+    "4": "non-critical",
+    "5": "critical",
+    "6": "non-Recoverable",
+}
+
+TS_STATUS_NAGIOS = {
+    "1": "WARN",
+    "2": "WARN",
+    "3": "OK",
+    "4": "WARN",
+    "5": "CRIT",
+    "6": "CRIT",
+}
+
+TS_FAULT_NAGIOS = {
+    "0": "OK",
+    "1": "OK",
+    "2": "WARN",
+    "3": "CRIT",
+    "4": "CRIT",
+}
+
+
+def _snmp_get_str(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _snmp_walk_cols(ctx, host, community, base):
+    # -Oqn: one line per row "<oid> <value>", numeric OID, no type tag.
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base],
+        mutates=False,
+    )
+    rows = {}
+    if res.rc == 0 and res.stdout:
+        for line in res.stdout.splitlines():
+            idx = line.find(" ")
+            if idx < 0:
+                continue
+            oid = line[:idx]
+            val = line[idx + 1:].strip()
+            # index = oid suffix after the column base
+            prefix = base + "."
+            if oid.startswith(prefix):
+                index = oid[len(prefix):]
+            else:
+                index = oid[len(base):].lstrip(".")
+            rows[index] = val
+    return rows
+
+
+def _get_drives(ctx, host, community):
+    # Walk the entry column to get the set of drive indices present.
+    entries = _snmp_walk_cols(ctx, host, community, DRIVE_ENTRY_OID)
+    drives = []
+    for index in sorted(entries.keys()):
+        entry = entries[index]
+        if index == "":
+            continue
+        drives.append({
+            "entry": entry,
+            "serial": _snmp_get_str(ctx, host, community, DRIVE_SERIAL_OID + "." + index),
+            "write_err": _snmp_get_str(ctx, host, community, DRIVE_WRITE_ERR_OID + "." + index),
+            "write_warn": _snmp_get_str(ctx, host, community, DRIVE_WRITE_WARN_OID + "." + index),
+            "read_err": _snmp_get_str(ctx, host, community, DRIVE_READ_ERR_OID + "." + index),
+            "read_warn": _snmp_get_str(ctx, host, community, DRIVE_READ_WARN_OID + "." + index),
+        })
+    return drives
+
+
+def _worst(a, b):
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    la = order.get(a, 3)
+    lb = order.get(b, 3)
+    if la >= lb:
+        return a
+    return b
+
+
+def _check_drive(counter, state, summary):
+    results = []
+    if counter == "":
+        results.append((state if state == "UNKNOWN" else "UNKNOWN", summary.format("got empty string for")))
+        return results
+    if counter != "0":
+        results.append((state, summary.format(counter)))
+    return results
+
+
 def main(ctx, params):
-    # SNMP base and OIDs for ibm_storage_ts_drive section
-    BASE = ".1.3.6.1.4.1.2.6.210.3.2.1"
-    OIDS = ["1", "10", "15", "16", "17", "18"]  # entry, serial, write_warn, write_err, read_warn, read_err
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Probe for the real thing: detect IBM Storage TS via sysObjectID.
+    sys_id = _snmp_get_str(ctx, host, community, SYS_OID)
+    if sys_id != EXPECTED_SYS_ID:
+        # Device is not an IBM Storage TS (or unreachable). Not applicable.
+        return {
+            "changed": False,
+            "msg": "not an IBM Storage TS device (sysoid mismatch)",
+            "data": {"discovery": []},
+        }
 
     if params.get("_discover"):
-        # Discover drives by walking the drive table
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            BASE
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", 
-                    "data": {"discovery": []}}
+        drives = _get_drives(ctx, host, community)
+        discovery = []
+        for d in drives:
+            discovery.append({
+                "item": d["entry"],
+                "params": {},
+                "metrics": ["write_err", "write_warn", "read_err", "read_warn"],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d drives" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
-        # Parse snmpwalk output: lines like "<oid>.<index> = STRING: <value>"
-        drives = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0]
-            value_part = parts[1]
-            # Extract index from oid (e.g., ".1.3.6.1.4.1.2.6.210.3.2.1.1.1" -> last segment)
-            idx = oid_part.rfind(".")
-            if idx == -1:
-                continue
-            idx_str = oid_part[idx+1:]
-            if not idx_str.isdigit():
-                continue
-
-            # Value parsing: strip quotes from STRING types
-            val = value_part
-            if val.startswith("STRING: "):
-                val = val[len("STRING: "):].strip('"')
-            elif val.startswith("INTEGER: "):
-                val = val[len("INTEGER: "):]
-            elif val.startswith("Gauge32: "):
-                val = val[len("Gauge32: "):]
-            elif val.startswith("Counter32: "):
-                val = val[len("Counter32: "):]
-
-            # We only need the first OID (entry) to identify a drive instance
-            # The OID index corresponds to drive entry index
-            if oid_part.endswith(".1." + idx_str):  # OID ending with .1.<index> => entry
-                drives.append(idx_str)
-
-        out = [{"item": drive, "params": {}, "metrics": 
-                ["write_warn", "write_err", "read_warn", "read_err"]} for drive in drives]
-        return {"changed": False, "msg": "discovered %d drives" % len(drives),
-                "data": {"discovery": out}}
-
-    # Check mode for a specific drive
     item = params.get("item", "")
-    if not item:
-        return {"changed": False, "msg": "no item specified",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    drives = _get_drives(ctx, host, community)
 
-    # Fetch all drive table columns via snmpget
-    entries = []
-    serials = []
-    write_warns = []
-    write_errs = []
-    read_warns = []
-    read_errs = []
+    target = None
+    for d in drives:
+        if d["entry"] == item:
+            target = d
+            break
 
-    # Get OID indices for this specific drive's columns (item is index)
-    base_oid = BASE + ".%s" % item
-    oids = [base_oid + "." + str(i) for i in range(1, 7)]
-
-    for oid in oids:
-        res = ctx.run([
-            "snmpget", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), oid
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP get failed for drive %s" % item,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        # Parse: "<oid> = STRING: <value>" or similar
-        line = res.stdout.strip()
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            return {"changed": False, "msg": "invalid SNMP output for drive %s" % item,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        val = parts[1]
-        if val.startswith("STRING: "):
-            val = val[len("STRING: "):].strip('"')
-        elif val.startswith("INTEGER: "):
-            val = val[len("INTEGER: "):]
-        elif val.startswith("Gauge32: "):
-            val = val[len("Gauge32: "):]
-        elif val.startswith("Counter32: "):
-            val = val[len("Counter32: "):]
-        entries.append(val)
-
-    if len(entries) != 6:
-        return {"changed": False, "msg": "missing drive data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Map fields
-    entry = entries[0]
-    serial = entries[1]
-    write_warn = entries[2]
-    write_err = entries[3]
-    read_warn = entries[4]
-    read_err = entries[5]
-
-    # Check drive entry matches requested item
-    if entry != item:
-        return {"changed": False, "msg": "drive item mismatch",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if target == None:
+        return {
+            "changed": False,
+            "msg": "drive not found: " + str(item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
     state = "OK"
-    summary_parts = []
+    details = "S/N: " + str(target["serial"])
+
+    checks = [
+        _check_drive(target["write_err"], "CRIT", "{} hard write errors"),
+        _check_drive(target["write_warn"], "WARN", "{} recovered write errors"),
+        _check_drive(target["read_err"], "CRIT", "{} hard read errors"),
+        _check_drive(target["read_warn"], "WARN", "{} recovered read errors"),
+    ]
+
+    lines = []
+    for sub_state, sub_msg in checks:
+        if sub_msg != "":
+            lines.append(sub_msg)
+            state = _worst(state, sub_state)
+
+    if len(lines) > 0:
+        details = details + ", " + ", ".join(lines)
+
     metrics = {}
-
-    summary_parts.append("S/N: " + serial)
-
-    # Check counters (non-zero triggers status)
-    for name, counter, warn_state, crit_state in [
-        ("write_warn", write_warn, "WARN", "CRIT"),
-        ("write_err", write_err, "CRIT", "CRIT"),
-        ("read_warn", read_warn, "WARN", "CRIT"),
-        ("read_err", read_err, "CRIT", "CRIT"),
+    for name, key in [
+        ("write_err", "write_err"),
+        ("write_warn", "write_warn"),
+        ("read_err", "read_err"),
+        ("read_warn", "read_warn"),
     ]:
-        if counter == "":
-            return {"changed": False, "msg": "got empty string for " + name,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        # Convert to number if possible
-        num = int(counter) if counter.isdigit() else -1
+        raw = ""
+        for d in drives:
+            if d["entry"] == item:
+                raw = d[key]
+                break
+        num = 0
+        if raw != "" and raw.lstrip("-").isdigit():
+            num = int(raw)
         metrics[name] = num
-        if counter != "0":
-            if name in ("write_err", "read_err"):
-                state = "CRIT"
-            elif name in ("write_warn", "read_warn"):
-                if state != "CRIT":
-                    state = "WARN"
-            summary_parts.append("%s: %s" % (name.replace("_", " "), counter))
 
-    return {"changed": False, "msg": ", ".join(summary_parts),
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+    summary = "S/N: " + str(target["serial"])
+    if len(lines) > 0:
+        summary = summary + ", " + ", ".join(lines)
+
+    return {
+        "changed": False,
+        "msg": summary,
+        "data": {"state": state, "metrics": metrics, "details": details},
+    }

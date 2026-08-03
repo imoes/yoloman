@@ -1,277 +1,312 @@
-# Helper to parse date strings using multiple locale formats
-# Returns (age_seconds, name) if parsed successfully, else None
-def _parse_checkpoint_age(created_str, name, current_time):
-    formats = [
-        "%m/%d/%Y %H:%M:%S",
-        "%d/%m/%Y %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S",
-        "%d.%m.%Y %H:%M:%S",
-        "%Y/%m/%d %H:%M:%S",
-        "%m-%d-%Y %H:%M:%S",
-        "%d-%m-%Y %H:%M:%S",
-        "%m/%d/%Y %I:%M:%S %p",
-        "%d/%m/%Y %I:%M:%S %p",
-        "%m/%d/%y %H:%M:%S",
-        "%d/%m/%y %H:%M:%S",
-    ]
-    for fmt in formats:
-        # Attempt parse with current format
-        parts = created_str.split(" ")
-        if len(parts) != 2:
+# -*- starlark -*-
+# Checkmk check translation: hyperv_vm_checkpoints -> read-only Starlark check
+
+SECONDS_PER_DAY = 86400
+
+_DEFAULT_AGE_OLDEST = (10 * SECONDS_PER_DAY, 20 * SECONDS_PER_DAY)
+_DEFAULT_AGE = None
+
+def _probe_hyperv_present(ctx):
+    cmd = "Get-Module -ListAvailable Hyper-V 2>$null | Measure-Object | %{$_.Count}"
+    res = ctx.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd],
+        mutates=False,
+    )
+    if res.rc == 0 and res.stdout.strip() != "" and res.stdout.strip() != "0":
+        return True
+    return False
+
+def _list_checkpoints(ctx):
+    cmd = "$snaps = Get-VM | % { Get-VMSnapshot -VMName $_.Name -ErrorAction SilentlyContinue }; $snaps | % { $name = $_.Name; $path = $_.Path; $created = $_.CreationTime.ToString('yyyy-MM-dd HH:mm:ss'); $parent = if ($_.Parent) { $_.Parent.Name } else { '' }; $name + '|' + $path + '|' + $created + '|' + $parent }"
+    res = ctx.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", cmd], mutates=False)
+    if res.rc != 0:
+        return []
+    checkpoints = []
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line:
             continue
-        date_part = parts[0]
-        time_part = parts[1]
-        # Handle AM/PM
-        hour_offset = 0
-        if len(parts) == 3:
-            ampm = parts[2].upper()
-            if ampm == "PM":
-                hour_offset = 12
-        # Parse date
-        date_parts = date_part.split("/")
-        if len(date_parts) != 3:
+        parts = line.split("|")
+        if len(parts) < 4:
             continue
-        # Determine format by separators and length
-        sep = "/"
-        if "." in date_part:
-            sep = "."
-        elif "-" in date_part:
-            sep = "-"
-        d_parts = date_part.split(sep)
-        if len(d_parts) != 3:
-            continue
-        # Try to parse
-        y = int(d_parts[2]) if len(d_parts[2]) == 4 else int(d_parts[2]) + 2000 if len(d_parts[2]) == 2 else 0
-        m = int(d_parts[0]) if sep == "/" else int(d_parts[1])
-        d = int(d_parts[1]) if sep == "/" else int(d_parts[0])
-        time_parts = time_part.split(":")
-        if len(time_parts) != 3:
-            continue
-        h = int(time_parts[0])
-        if "PM" in created_str.upper() and h < 12:
-            h = h + 12
-        elif "AM" in created_str.upper() and h == 12:
-            h = 0
-        mi = int(time_parts[1])
-        s = int(time_parts[2])
-        # Convert to timestamp using a simple algorithm (ignoring DST etc)
-        days = _days_since_epoch(y, m, d)
-        seconds = days * 86400 + h * 3600 + mi * 60 + s
-        age = current_time - seconds
-        return (name, age)
+        cp = {
+            "name": parts[0],
+            "path": parts[1],
+            "created": parts[2],
+            "parent": parts[3],
+        }
+        checkpoints.append(cp)
+    return checkpoints
+
+def _parse_timestamp(created_str):
+    parts = created_str.strip().split(" ")
+    if len(parts) < 2:
+        return None
+    date_part = parts[0]
+    time_part = parts[1]
+
+    time_components = time_part.split(":")
+    if len(time_components) < 2:
+        return None
+    hour = int(time_components[0]) if time_components[0].isdigit() else None
+    minute = int(time_components[1]) if time_components[1].isdigit() else None
+    second = 0
+    if len(time_components) >= 3 and time_components[2].isdigit():
+        second = int(time_components[2])
+    if hour == None or minute == None:
+        return None
+
+    if "-" in date_part:
+        dparts = date_part.split("-")
+        if len(dparts) == 3:
+            if len(dparts[0]) == 4:
+                year = int(dparts[0]) if dparts[0].isdigit() else None
+                month = int(dparts[1]) if dparts[1].isdigit() else None
+                day = int(dparts[2]) if dparts[2].isdigit() else None
+                ts = _to_epoch(year, month, day, hour, minute, second)
+                if ts != None:
+                    return ts
+            else:
+                month = int(dparts[0]) if dparts[0].isdigit() else None
+                day = int(dparts[1]) if dparts[1].isdigit() else None
+                year = int(dparts[2]) if dparts[2].isdigit() else None
+                ts = _to_epoch(year, month, day, hour, minute, second)
+                if ts != None:
+                    return ts
+
+    if "/" in date_part:
+        dparts = date_part.split("/")
+        if len(dparts) == 3:
+            first = int(dparts[0]) if dparts[0].isdigit() else None
+            second_d = int(dparts[1]) if dparts[1].isdigit() else None
+            third = int(dparts[2]) if dparts[2].isdigit() else None
+            month = first
+            day = second_d
+            year = third
+            ts = _to_epoch(year, month, day, hour, minute, second)
+            if ts != None:
+                return ts
+            day = first
+            month = second_d
+            year = third
+            ts = _to_epoch(year, month, day, hour, minute, second)
+            if ts != None:
+                return ts
+            year = first
+            month = second_d
+            day = third
+            ts = _to_epoch(year, month, day, hour, minute, second)
+            if ts != None:
+                return ts
+
+    if "." in date_part:
+        dparts = date_part.split(".")
+        if len(dparts) == 3:
+            day = int(dparts[0]) if dparts[0].isdigit() else None
+            month = int(dparts[1]) if dparts[1].isdigit() else None
+            year = int(dparts[2]) if dparts[2].isdigit() else None
+            ts = _to_epoch(year, month, day, hour, minute, second)
+            if ts != None:
+                return ts
+
     return None
 
-# Simple days since epoch approximation (Gregorian calendar)
-def _days_since_epoch(y, m, d):
-    # Adjust month and year for calculation
-    if m <= 2:
-        y = y - 1
-        m = m + 12
-    # Calculate days
-    a = y // 100
-    b = a // 4
-    c = 2 - a + b
-    e = int(365.25 * (y + 4716))
-    f = int(30.6001 * (m + 1))
-    return c + d + e + f - 1524
+def _to_epoch(year, month, day, hour, minute, second):
+    if year == None or month == None or day == None or hour == None or minute == None:
+        return None
+    if year < 1900 or year > 2100:
+        return None
+    if month < 1 or month > 12:
+        return None
+    if day < 1 or day > 31:
+        return None
+    if hour < 0 or hour > 23:
+        return None
+    if minute < 0 or minute > 59:
+        return None
+    if second < 0 or second > 59:
+        return None
+
+    days_in_month = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if year % 4 == 0 and (year % 100 != 0 or year % 400 == 0):
+        days_in_month[1] = 29
+
+    total_days = 0
+    for y in range(1970, year):
+        if y % 4 == 0 and (y % 100 != 0 or y % 400 == 0):
+            total_days += 366
+        else:
+            total_days += 365
+
+    for m in range(1, month):
+        total_days += days_in_month[m - 1]
+
+    total_days += (day - 1)
+
+    epoch = total_days * 86400 + hour * 3600 + minute * 60 + second
+    return epoch
+
+def _get_current_time(ctx):
+    res = ctx.run(["date", "+%s"], mutates=False)
+    if res.rc == 0:
+        ts_str = res.stdout.strip()
+        if ts_str.isdigit():
+            return int(ts_str)
+    return None
+
+def _check_levels(value, levels, metric_name, label):
+    state = "OK"
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+        if value >= crit:
+            state = "CRIT"
+        elif value >= warn:
+            state = "WARN"
+    return {"state": state, "metric": metric_name, "value": value, "label": label}
+
+def _render_timespan(seconds):
+    days = seconds // SECONDS_PER_DAY
+    remainder = seconds % SECONDS_PER_DAY
+    hours = remainder // 3600
+    remainder = remainder % 3600
+    minutes = remainder // 60
+    secs = remainder % 60
+    if days > 0:
+        return "%dD %d:%d:%d" % (days, hours, minutes, secs)
+    return "%d:%d:%d" % (hours, minutes, secs)
 
 def main(ctx, params):
-    current_time = ctx.run(["date", "+%s"], mutates=False).stdout.strip()
-    if not current_time:
-        current_time = "0"
-    if not current_time.isdigit():
-        current_time = "0"
-    current_time = int(current_time)
-
-    # Read agent section from standard Checkmk agent path (if present) or fallback
-    # The agent section is typically embedded in the agent output as <<<hyperv_vm_checkpoints>>>
-    # Since we don't have the agent binary, we must look for the same data source:
-    # Checkmk's Windows agent reads this via PowerShell: Get-VM | Get-VMSnapshot
-    # We emulate this by running PowerShell to get snapshots.
-    # Note: On Linux this check is not applicable — return empty discovery.
-    os_family = ctx.facts().get("os_family", "")
-    if os_family != "windows":
-        if params.get("_discover"):
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []}
-            }
-        return {
-            "changed": False,
-            "msg": "not supported on non-Windows systems",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Run PowerShell to get VM checkpoints
-    res = ctx.run(["powershell", "-NoProfile", "-Command",
-        "Get-VM | Get-VMSnapshot | Select-Object Name, Path, Created, ParentSnapshotName | ConvertTo-Json -Depth 3"], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        # Fallback: try WMI query
-        res = ctx.run(["powershell", "-NoProfile", "-Command",
-            "Get-WmiObject -Namespace root\\virtualization\\v2 -Query 'Select * From Msvm_VirtualSystemSettingData Where VirtualSystemType=3' | Select-Object -Property Caption,ElementName,CreationTime,ParentSnapshotName | ConvertTo-Json -Depth 3"], mutates=False)
-
-    if res.rc != 0 or not res.stdout.strip():
-        if params.get("_discover"):
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []}
-            }
-        return {
-            "changed": False,
-            "msg": "no checkpoint data found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Parse JSON
-    checkpoints_json = json.decode(res.stdout)
-    checkpoints = []
-    if type(checkpoints_json) == "list":
-        for item in checkpoints_json:
-            name = item.get("ElementName", item.get("Name", ""))
-            path = item.get("Path", "")
-            created = item.get("CreationTime", item.get("Created", ""))
-            parent = item.get("ParentSnapshotName", "")
-            if created != None and name != "":
-                checkpoints.append({
-                    "name": str(name),
-                    "path": str(path) if path else "",
-                    "created": str(created),
-                    "parent": str(parent) if parent else ""
-                })
-    # If not a list, try single item
-    elif type(checkpoints_json) == "dict":
-        name = checkpoints_json.get("ElementName", checkpoints_json.get("Name", ""))
-        path = checkpoints_json.get("Path", "")
-        created = checkpoints_json.get("CreationTime", checkpoints_json.get("Created", ""))
-        parent = checkpoints_json.get("ParentSnapshotName", "")
-        if created != None and name != "":
-            checkpoints.append({
-                "name": str(name),
-                "path": str(path) if path else "",
-                "created": str(created),
-                "parent": str(parent) if parent else ""
-            })
-
-    # Discovery mode
     if params.get("_discover"):
-        if checkpoints:
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {"discovery": [
-                    {"item": "", "params": {}, "metrics": ["age", "age_oldest"]}
-                ]}
-            }
+        if not _probe_hyperv_present(ctx):
+            return {"changed": False, "msg": "discovered 0 items (Hyper-V not present)",
+                    "data": {"discovery": []}}
+
+        checkpoints = _list_checkpoints(ctx)
+        if len(checkpoints) == 0:
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+
         return {
             "changed": False,
-            "msg": "discovered 0 items",
-            "data": {"discovery": []}
+            "msg": "discovered 1 item",
+            "data": {"discovery": [
+                {
+                    "item": "",
+                    "params": {
+                        "age": _DEFAULT_AGE,
+                        "age_oldest": _DEFAULT_AGE_OLDEST,
+                    },
+                    "metrics": ["age", "age_oldest"],
+                },
+            ]},
         }
 
-    # Check mode
-    item = params.get("item", "")
-    if item != "":
-        # This is a single-service check; no per-item breakdown.
-        # Return unknown if item specified but not matching (shouldn't happen in practice)
+    if not _probe_hyperv_present(ctx):
         return {
             "changed": False,
-            "msg": "no such item",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "No Hyper-V VM checkpoints data found (Hyper-V not present)",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "Hyper-V PowerShell module not found on this host",
+            },
         }
 
-    if not checkpoints:
+    checkpoints = _list_checkpoints(ctx)
+
+    if len(checkpoints) == 0:
         return {
             "changed": False,
             "msg": "Checkpoints: 0",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
+            "data": {
+                "state": "OK",
+                "metrics": {},
+                "details": "No Hyper-V VM checkpoints found",
+            },
         }
 
-    # Parse ages
+    current_time = _get_current_time(ctx)
+    if current_time == None:
+        return {
+            "changed": False,
+            "msg": "Unable to determine current time",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "Could not read system time",
+            },
+        }
+
     checkpoint_data = []
     for cp in checkpoints:
-        created_str = cp.get("created", "")
-        name = cp.get("name", "")
-        if created_str == "" or name == "":
+        if "created" not in cp or not cp["created"]:
             continue
-        # Remove timezone suffix if present (e.g. +02:00)
-        if "+" in created_str:
-            created_str = created_str.split("+")[0]
-        elif "-" in created_str and created_str.count("-") > 2:
-            # Handle ISO-like negative offset
-            created_str = created_str.split("-")[:-1]
-            created_str = "-".join(created_str)
-        # Call our helper
-        parsed = _parse_checkpoint_age(created_str.strip(), name, current_time)
-        if parsed != None:
-            checkpoint_data.append(parsed)
+        ts = _parse_timestamp(cp["created"])
+        if ts == None:
+            continue
+        age_seconds = current_time - ts
+        if age_seconds < 0:
+            age_seconds = 0
+        checkpoint_data.append((cp["name"], age_seconds))
 
-    if not checkpoint_data:
+    if len(checkpoint_data) == 0:
         return {
             "changed": False,
             "msg": "No valid checkpoint dates found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "Could not parse any checkpoint creation timestamps",
+            },
         }
 
-    # Sort by age (youngest first)
-    checkpoint_data.sort(key=lambda x: x[1])
+    checkpoint_data = sorted(checkpoint_data, key=lambda x: x[1])
 
-    newest = checkpoint_data[0]
-    oldest = max(checkpoint_data, key=lambda x: x[1])
+    newest_name = checkpoint_data[0][0]
+    newest_age = checkpoint_data[0][1]
 
-    newest_name, newest_age = newest
-    oldest_name, oldest_age = oldest
+    oldest_name = checkpoint_data[len(checkpoint_data) - 1][0]
+    oldest_age = checkpoint_data[len(checkpoint_data) - 1][1]
 
-    # Threshold defaults
-    SECONDS_PER_DAY = 86400
-    age_levels = ("no_levels", None)
-    age_oldest_levels = ("fixed", (10 * SECONDS_PER_DAY, 20 * SECONDS_PER_DAY))
+    age_levels = params.get("age", _DEFAULT_AGE)
+    age_oldest_levels = params.get("age_oldest")
 
-    # Extract from params if present
-    if params.get("age") != None and type(params.get("age")) == "list":
-        age_levels = params.get("age")
-    if params.get("age_oldest") != None and type(params.get("age_oldest")) == "list":
-        age_oldest_levels = params.get("age_oldest")
+    if age_oldest_levels == None:
+        age_oldest_levels = _DEFAULT_AGE_OLDEST
 
-    # Determine state based on levels
-    def _state_from_levels(value, levels):
-        if type(levels) == "list" and levels[0] == "no_levels":
-            return "OK"
-        if type(levels) == "list" and levels[0] == "fixed":
-            warn, crit = levels[1]
-            if value >= crit:
-                return "CRIT"
-            if value >= warn:
-                return "WARN"
-        return "OK"
+    newest_result = _check_levels(newest_age, age_levels, "age",
+                                  "Last (%s)" % newest_name)
+    oldest_result = _check_levels(oldest_age, age_oldest_levels, "age_oldest",
+                                  "Oldest (%s)" % oldest_name)
 
-    newest_state = _state_from_levels(newest_age, age_levels)
-    oldest_state = _state_from_levels(oldest_age, age_oldest_levels)
+    all_states = [newest_result["state"], oldest_result["state"]]
+    if "CRIT" in all_states:
+        overall_state = "CRIT"
+    elif "WARN" in all_states:
+        overall_state = "WARN"
+    else:
+        overall_state = "OK"
 
-    # Pick worst state
-    state = "OK"
-    if newest_state == "CRIT" or oldest_state == "CRIT":
-        state = "CRIT"
-    elif newest_state == "WARN" or oldest_state == "WARN":
-        state = "WARN"
+    newest_rendered = _render_timespan(newest_age)
+    oldest_rendered = _render_timespan(oldest_age)
 
-    # Build summary
-    summary = "Checkpoints: %d" % len(checkpoint_data)
-    if type(age_levels) == "list" and age_levels[0] == "fixed":
-        summary = summary + ", Last (%s)" % newest_name + ": %d s" % int(newest_age)
-    if type(age_oldest_levels) == "list" and age_oldest_levels[0] == "fixed":
-        summary = summary + ", Oldest (%s)" % oldest_name + ": %d s" % int(oldest_age)
+    summary = "Checkpoints: %d, Last (%s): %s, Oldest (%s): %s" % (
+        len(checkpoint_data),
+        newest_name, newest_rendered,
+        oldest_name, oldest_rendered,
+    )
+
+    details = "Checkpoint count: %d\n" % len(checkpoint_data)
+    details += "Newest checkpoint: %s (age: %s)\n" % (newest_name, newest_rendered)
+    details += "Oldest checkpoint: %s (age: %s)" % (oldest_name, oldest_rendered)
 
     return {
         "changed": False,
         "msg": summary,
         "data": {
-            "state": state,
-            "metrics": {
-                "age": int(newest_age),
-                "age_oldest": int(oldest_age)
-            },
-            "details": ""
-        }
+            "state": overall_state,
+            "metrics": {"age": newest_age, "age_oldest": oldest_age},
+            "details": details,
+        },
     }

@@ -1,108 +1,71 @@
 def main(ctx, params):
-    # SNMP OID base for blank tapes count (section index 5, OID .1.3.6.1.4.1.110901.1.4.3.0)
-    base_oid = ".1.3.6.1.4.1.110901.1.4.3.0"
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Discovery mode: check if blank tapes data exists
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host, base_oid
+        detect = ctx.run([
+            "snmpget", "-v2c", "-c", params.get("community", "public"),
+            "-Onqv", "-OV", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0",
         ], mutates=False)
-        
-        # Blank tapes section exists if we get any output
-        if res.stdout and res.rc == 0 and len(res.stdout.strip()) > 0:
-            return {
-                "changed": False,
-                "msg": "discovered DIVA Blank Tapes service",
-                "data": {"discovery": [{"item": "", "params": {"levels_lower": (5, 1)}, "metrics": ["tapes_free"]}]}
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no DIVA blank tapes data available",
-                "data": {"discovery": []}
-            }
-    
-    # Check mode: fetch blank tapes count
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host, base_oid
+        if detect.rc != 0:
+            return {"changed": False, "msg": "no oracle_diva_csm device detected", "data": {"discovery": []}}
+        if detect.stdout.strip() != ".1.3.6.1.4.1.311.1.1.3.1.2":
+            return {"changed": False, "msg": "no oracle_diva_csm device detected", "data": {"discovery": []}}
+
+        tapes_count = ctx.run([
+            "snmpget", "-v2c", "-c", params.get("community", "public"),
+            "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.110901.1.4.3.0",
+        ], mutates=False)
+        if tapes_count.rc != 0:
+            return {"changed": False, "msg": "no oracle_diva_csm device detected", "data": {"discovery": []}}
+
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": {"levels_lower": (5, 1)}, "metrics": ["tapes_free"]},
+                ],
+            },
+        }
+
+    tapes_count = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.110901.1.4.3.0",
     ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
+    if tapes_count.rc != 0:
         return {
             "changed": False,
-            "msg": "unable to retrieve blank tapes count",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "no oracle_diva_csm device reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Parse snmpget output: ".1.3.6.1.4.1.110901.1.4.3.0 = INTEGER: 5"
-    line = res.stdout.strip()
-    parts = line.split(" = ")
-    if len(parts) < 2:
+
+    raw = tapes_count.stdout.strip()
+    digits = raw.lstrip("-")
+    if not digits.isdigit():
         return {
             "changed": False,
-            "msg": "unable to parse blank tapes count",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "blank tape count unparseable: %s" % raw,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    value_part = parts[1]
-    if not value_part.startswith("INTEGER:"):
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP response format for blank tapes",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Extract integer value with guard instead of try/except
-    val_str = value_part.split(":")[1].strip()
-    blank_tapes = int(val_str) if val_str.isdigit() else -1
-    
-    if blank_tapes < 0:
-        return {
-            "changed": False,
-            "msg": "unable to parse blank tapes count as integer",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Apply levels (lower levels: warn if <= warn, crit if <= crit)
-    levels_lower = params.get("levels_lower", [5, 1])
-    warn = levels_lower[0] if levels_lower else None
-    crit = levels_lower[1] if levels_lower else None
-    
-    # Determine state based on levels (lower thresholds)
+    blank_tapes = int(raw)
+
+    levels_lower = params.get("levels_lower", (5, 1))
     state = "OK"
-    
-    if crit != None and blank_tapes <= crit:
-        state = "CRIT"
-    elif warn != None and blank_tapes <= warn:
-        state = "WARN"
-    
-    # Build summary message
-    summary = "Blank tapes: %d" % blank_tapes
-    
+    warn = None
+    crit = None
+    if levels_lower != None and len(levels_lower) == 2:
+        warn = levels_lower[0]
+        crit = levels_lower[1]
+        if warn != None and crit != None:
+            if blank_tapes <= crit:
+                state = "CRIT"
+            elif blank_tapes <= warn:
+                state = "WARN"
+
+    msg = "Blank tapes: %d" % blank_tapes
+    if warn != None and crit != None:
+        msg = msg + " (warn <= %d, crit <= %d)" % (warn, crit)
+
     return {
         "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"tapes_free": blank_tapes},
-            "details": ""
-        }
+        "msg": msg,
+        "data": {"state": state, "metrics": {"tapes_free": blank_tapes}, "details": ""},
     }

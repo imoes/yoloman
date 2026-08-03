@@ -2,34 +2,19 @@ name: bluecat_dns_queries
 fqcn: checkmk.bluecat_dns_queries
 collection: checkmk
 short_description: DNS Queries
-description:
-    > ## Overview  
-    > Monitors DNS query statistics on a Bluecat DNS server via SNMP, providing visibility into query success rates, errors, and recursive lookups to help diagnose DNS performance or resolution issues.
-    >
-    > ## What it monitors  
-    > - DNS query responses categorized by outcome: Success, Referral, NXRSet, NXDomain, Recursion, Failure  
-    > - Raw counter values for each query type, collected as SNMP Counter32 values.
-    >
-    > ## How it works  
-    > Uses `snmpget` to poll six specific Bluecat DNS query OIDs under `.1.3.6.1.4.1.13315.3.1.2.2.2.1.{1-6}` on localhost with SNMP v2c and community `public`. Parses the output to extract integer values. In discovery mode (`_discover` true), it returns one service item with the six metric names. Otherwise, it collects current counters, builds a metrics dict, and reports OK state unconditionally (no thresholds configured).
-    >
-    > ## Parameters  
-    > None.
-    >
-    > ## States  
-    > OK — when counters are successfully retrieved and parsed. UNKNOWN — only if SNMP retrieval or parsing fails (via `fail()` call); otherwise, state remains OK.
-    >
-    > ## Metrics  
-    > - `Success` — count of successful DNS queries (unit: count)  
-    > - `Referral` — count of referral responses (unit: count)  
-    > - `NXRSet` — count of negative responses with RSET (unit: count)  
-    > - `NXDomain` — count of NXDOMAIN responses (unit: count)  
-    > - `Recursion` — count of recursive query responses (unit: count)  
-    > - `Failure` — count of DNS query failures (unit: count)
+description: Checkmk check 'bluecat_dns_queries' (service: DNS Queries), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Network
+execution: snmp
+prompt_version: c21f0f5a7229

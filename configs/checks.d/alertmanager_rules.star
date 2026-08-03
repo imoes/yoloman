@@ -1,121 +1,225 @@
-DEFAULT_STATE_MAP = {
-    "inactive": "OK",
-    "pending": "OK",
-    "firing": "CRIT",
-    "none": "UNKNOWN",
-    "not_applicable": "UNKNOWN",
-}
-
-INT_TO_STATE = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-
-DEFAULT_REMAPPING = [
-    {
-        "rule_names": ["Watchdog"],
-        "map": {"inactive": 2, "pending": 2, "firing": 0, "none": 2, "not_applicable": 2},
-    }
-]
-
-def _fetch_section(ctx, params):
-    host = params.get("host", "localhost")
-    port = params.get("port", 9090)
-    url = "http://%s:%s/api/v1/rules" % (host, str(port))
-    res = ctx.run(["curl", "-sf", "--max-time", "10", url], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return None
-    data = json.decode(res.stdout)
-    if data.get("status") != "success":
-        return None
-    section = {}
-    for g in data.get("data", {}).get("groups", []):
-        group_name = g.get("name", "")
-        for rule in g.get("rules", []):
-            if rule.get("type") != "alerting":
-                continue
-            rule_name = rule.get("name", "")
-            state_raw = rule.get("state", "")
-            state_val = state_raw if state_raw else "not_applicable"
-            labels = rule.get("labels", {})
-            severity = labels.get("severity", "none")
-            annotations = rule.get("annotations", {})
-            message = annotations.get("message", annotations.get("description", ""))
-            if group_name not in section:
-                section[group_name] = {}
-            if rule_name not in section[group_name]:
-                section[group_name][rule_name] = {
-                    "rule_name": rule_name,
-                    "group_name": group_name,
-                    "status": state_val,
-                    "severity": severity,
-                    "message": message,
-                }
-    return section
-
-def _rule_state(rule, alert_remapping):
-    rule_name = rule["rule_name"]
-    status = rule["status"]
-    for mapping in alert_remapping:
-        if rule_name in mapping.get("rule_names", []):
-            m = mapping.get("map", {})
-            num = m.get(status, 3)
-            return INT_TO_STATE.get(num, "UNKNOWN")
-    return DEFAULT_STATE_MAP.get(status, "UNKNOWN")
-
 def main(ctx, params):
+    api_url = params.get("api_url", "http://localhost:9093/api/v2/status")
+    timeout = params.get("timeout", 10)
+
+    probe = ctx.run(
+        ["curl", "-fsS", "-m", str(timeout), api_url],
+        mutates=False,
+    )
+
+    if probe.rc != 0 or not probe.stdout:
+        return {
+            "changed": False,
+            "msg": "Alertmanager is not reachable at %s" % api_url,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
+    data = json.decode(probe.stdout)
+    rules_data = data.get("data", data)
+    groups = rules_data.get("groups", [])
+
+    section = {}
+    for group in groups:
+        gname = group.get("name", "")
+        group_rules = {}
+        rules_list = group.get("rules", [])
+        for rule in rules_list:
+            rname = rule.get("name", "")
+            rstate = rule.get("state", "not_applicable")
+            rsev = rule.get("severity", "not_applicable")
+            rmsg = rule.get("message", None)
+            group_rules[rname] = {
+                "rule_name": rname,
+                "group_name": gname,
+                "status": rstate,
+                "severity": rsev,
+                "message": rmsg,
+            }
+        section[gname] = group_rules
+
+    default_state_mapping = {
+        "inactive": 0,
+        "pending": 0,
+        "firing": 2,
+        "none": 3,
+        "not_applicable": 3,
+    }
+
+    default_alert_remapping = [
+        {"rule_names": ["Watchdog"],
+         "map": {"inactive": 2, "pending": 2, "firing": 0, "none": 2, "not_applicable": 2}},
+    ]
+
+    alert_remapping = params.get("alert_remapping", default_alert_remapping)
+
+    def get_mapping(rname):
+        for m in alert_remapping:
+            rnames = m.get("rule_names", [])
+            if rname in rnames:
+                return m.get("map")
+        return None
+
+    def rule_state_value(rule):
+        rname = rule["rule_name"]
+        st = rule["status"]
+        mp = get_mapping(rname)
+        if mp:
+            return mp.get(st, 3)
+        return default_state_mapping.get(st, 3)
+
+    def state_from_value(val):
+        if val == 0:
+            return "OK"
+        elif val == 1:
+            return "WARN"
+        elif val == 2:
+            return "CRIT"
+        else:
+            return "UNKNOWN"
+
     if params.get("_discover"):
-        section = _fetch_section(ctx, params)
-        if section == None:
-            return {"changed": False, "msg": "could not fetch alertmanager rules",
-                    "data": {"discovery": []}}
-        min_rules = params.get("min_amount_rules", 3)
-        no_group = params.get("no_group_services", [])
-        out = []
-        for group_name, rules in section.items():
-            is_group = (group_name not in no_group) and (len(rules) >= min_rules)
-            if is_group:
+        discovery = []
+        if params.get("summary_service", True):
+            discovery.append({
+                "item": "",
+                "params": {},
+                "metrics": ["rule_count"],
+            })
+
+        min_amount = 3
+        group_services = params.get("group_services")
+        if group_services:
+            min_amount = group_services.get("min_amount_rules", 3)
+        no_group_services = params.get("no_group_services", [])
+
+        for gname in sorted(section.keys()):
+            rules = section[gname]
+            if gname in no_group_services:
                 continue
-            for rule_name in rules:
-                out.append({
-                    "item": rule_name,
-                    "params": {"alert_remapping": DEFAULT_REMAPPING},
-                    "metrics": [],
+            if len(rules) >= min_amount:
+                discovery.append({
+                    "item": gname,
+                    "params": {},
+                    "metrics": ["rule_count"],
                 })
-        return {"changed": False, "msg": "discovered %d rules" % len(out),
-                "data": {"discovery": out}}
+                continue
+            for rname in sorted(rules.keys()):
+                discovery.append({
+                    "item": rname,
+                    "params": {},
+                    "metrics": ["firing", "pending", "inactive"],
+                })
+
+        return {
+            "changed": False,
+            "msg": "discovered %d services" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
     item = params.get("item", "")
-    alert_remapping = params.get("alert_remapping", DEFAULT_REMAPPING)
 
-    section = _fetch_section(ctx, params)
-    if section == None:
-        return {"changed": False, "msg": "could not fetch alertmanager data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item == "":
+        total = 0
+        worst = 0
+        worst_msg = ""
+        for gname in section:
+            rules = section[gname]
+            total = total + len(rules)
+            for rname in rules:
+                rule = rules[rname]
+                val = rule_state_value(rule)
+                if val > worst:
+                    worst = val
+                    worst_msg = "%s (%s)" % (rname, rule["status"])
+        state_str = state_from_value(worst)
+        msg = "Alertmanager Summary - %d rules" % total
+        if worst_msg:
+            msg = msg + ", worst: " + worst_msg
+        return {
+            "changed": False,
+            "msg": msg,
+            "data": {
+                "state": state_str,
+                "metrics": {"rule_count": total},
+                "details": "",
+            },
+        }
 
-    rule = None
-    for group in section.values():
-        if item in group:
-            rule = group[item]
+    if item in section:
+        rules = section[item]
+        rule_count = len(rules)
+        worst = 0
+        for rname in rules:
+            rule = rules[rname]
+            val = rule_state_value(rule)
+            if val > worst:
+                worst = val
+        state_str = state_from_value(worst)
+        return {
+            "changed": False,
+            "msg": "Alert Rule Group %s - %d rules" % (item, rule_count),
+            "data": {
+                "state": state_str,
+                "metrics": {"rule_count": rule_count},
+                "details": "Number of rules: %d" % rule_count,
+            },
+        }
+
+    found_rule = None
+    found_group = None
+    for gname in section:
+        rules = section[gname]
+        if item in rules:
+            found_rule = rules[item]
+            found_group = gname
             break
 
-    if rule == None:
-        return {"changed": False, "msg": "rule not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if found_rule == None:
+        return {
+            "changed": False,
+            "msg": "Alert Rule %s not found" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
 
-    state = _rule_state(rule, alert_remapping)
-    severity = rule["severity"]
-    group_name = rule["group_name"]
-    message = rule["message"]
+    val = rule_state_value(found_rule)
+    state_str = state_from_value(val)
 
-    parts = []
-    if severity != "not_applicable":
-        parts.append("Severity: " + severity)
-    parts.append("Group name: " + group_name)
-    if state != "OK":
-        parts.append("Active alert")
+    sev = found_rule["severity"]
+    msg_parts = []
+    if sev != "none" and sev != "not_applicable":
+        msg_parts.append("Severity: %s" % sev)
+    msg_parts.append("Group name: %s" % found_rule["group_name"])
+    if val != 0:
+        msg_parts.append("Active alert")
+        rmsg = found_rule["message"]
+        if rmsg:
+            msg_parts.append(rmsg)
+        else:
+            msg_parts.append("No message")
 
-    details = ""
-    if state != "OK":
-        details = message if message else "No message"
+    metrics = {
+        "firing": 1 if found_rule["status"] == "firing" else 0,
+        "pending": 1 if found_rule["status"] == "pending" else 0,
+        "inactive": 1 if found_rule["status"] == "inactive" else 0,
+    }
 
-    return {"changed": False,
-            "msg": ", ".join(parts),
-            "data": {"state": state, "metrics": {}, "details": details}}
+    rmsg_val = found_rule["message"]
+    details = rmsg_val if rmsg_val else ""
+
+    return {
+        "changed": False,
+        "msg": "Alert Rule %s - %s" % (item, ", ".join(msg_parts)),
+        "data": {
+            "state": state_str,
+            "metrics": metrics,
+            "details": details,
+        },
+    }

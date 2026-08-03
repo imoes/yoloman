@@ -1,266 +1,263 @@
-# Top-level constants (no imports, no dynamic definitions)
+# APC RackPdu Power — read-only Starlark check module
+# Translated from Checkmk checkmk.apc_rackpdu_power (SNMP-based)
+
+def main(ctx, params):
+    if params.get("_discover"):
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+
+        # Probe for the real thing: an APC device responding on the SNMP base.
+        ident = ctx.run([
+            "snmpget", "-v2c", "-c", community, "-Oqv",
+            host, ".1.3.6.1.4.1.318.1.1.12.1.1.0"
+        ], mutates=False)
+        if ident.rc != 0 or ident.rc == 127:
+            return {"changed": False, "msg": "no APC rack PDU found", "data": {"discovery": []}}
+
+        nphases = ctx.run([
+            "snmpget", "-v2c", "-c", community, "-Oqv",
+            host, ".1.3.6.1.4.1.318.1.1.12.2.1.2"
+        ], mutates=False)
+        if nphases.rc != 0:
+            return {"changed": False, "msg": "no APC rack PDU found", "data": {"discovery": []}}
+
+        # Device-level service: PDU <ident name>
+        ident_name = ident.stdout.strip()
+        device_name = "Device " + ident_name
+
+        # Load table walk: rPDULoadStatusLoad (col .2), rPDULoadStatusLoadState (.3),
+        # rPDULoadStatusPhaseNumber (.4), rPDULoadStatusBankNumber (.5) under base .1.3.6.1.4.1.318.1.1.12.2.3.1.1
+        base = ".1.3.6.1.4.1.318.1.1.12.2.3.1.1"
+        walk = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, base
+        ], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no APC rack PDU found", "data": {"discovery": []}}
+
+        # Build columns keyed by index suffix
+        col_load = {}
+        col_state = {}
+        col_phase = {}
+        col_bank = {}
+        col_prefix = base + "."
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:]
+            if not oid.startswith(col_prefix):
+                continue
+            idx = oid[len(col_prefix):]
+            last = oid.rsplit(".", 1)[-1]
+            if last == "2":
+                col_load[idx] = val
+            elif last == "3":
+                col_state[idx] = val
+            elif last == "4":
+                col_phase[idx] = val
+            elif last == "5":
+                col_bank[idx] = val
+
+        discovery = []
+        discovery.append({"item": device_name, "params": {}, "metrics": ["power"]})
+
+        num_phases = 0
+        if nphases.stdout.strip().isdigit():
+            num_phases = int(nphases.stdout.strip())
+
+        first_done = False
+        for idx in sorted(col_load.keys()):
+            if num_phases == 1 and not first_done:
+                # First entry in a 1-phase device is the device current
+                first_done = True
+                discovery.append({"item": device_name, "params": {}, "metrics": ["current"]})
+                continue
+            pnum = col_phase.get(idx, "0")
+            bnum = col_bank.get(idx, "0")
+            if bnum != "0":
+                discovery.append({"item": "Bank " + bnum, "params": {}, "metrics": ["current"]})
+            elif pnum != "0":
+                discovery.append({"item": "Phase " + pnum, "params": {}, "metrics": ["current"]})
+
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    # ---- CHECK MODE ----
+    item = params.get("item", "")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    ident_name = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        host, ".1.3.6.1.4.1.318.1.1.12.1.1.0"
+    ], mutates=False)
+    power_str = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        host, ".1.3.6.1.4.1.318.1.1.12.1.16.0"
+    ], mutates=False)
+    nphases = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        host, ".1.3.6.1.4.1.318.1.1.12.2.1.2"
+    ], mutates=False)
+
+    if ident_name.rc != 0 or power_str.rc != 0 or nphases.rc != 0:
+        return {
+            "changed": False,
+            "msg": "APC rack PDU not reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    device_name = "Device " + ident_name.stdout.strip()
+    num_phases = 0
+    if nphases.stdout.strip().isdigit():
+        num_phases = int(nphases.stdout.strip())
+    device_power = float(power_str.stdout.strip()) if _is_number(power_str.stdout.strip()) else 0.0
+
+    if item == device_name:
+        # Device-level: report power always; current if single-phase first entry
+        base = ".1.3.6.1.4.1.318.1.1.12.2.3.1.1"
+        walk = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, base
+        ], mutates=False)
+        metrics = {"power": device_power}
+        state = "OK"
+        details = "Power: %f W" % device_power
+
+        if num_phases == 1 and walk.rc == 0 and walk.stdout.strip() != "":
+            first_line = walk.stdout.splitlines()[0]
+            sp = first_line.find(" ")
+            val = first_line[sp + 1:] if sp >= 0 else ""
+            if _is_number(val):
+                current = float(val) / 10.0
+                metrics["current"] = current
+                details += ", Current: %f A" % current
+
+        return {
+            "changed": False,
+            "msg": details,
+            "data": {"state": state, "metrics": metrics, "details": details},
+        }
+
+    # Item is a Bank or Phase
+    label = ""
+    if item.startswith("Bank "):
+        label = "Bank"
+    elif item.startswith("Phase "):
+        label = "Phase"
+    else:
+        return {
+            "changed": False,
+            "msg": "unknown item: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    target_num = item.split(" ").pop()
+    base = ".1.3.6.1.4.1.318.1.1.12.2.3.1.1"
+    col_phase = base + ".4"
+    col_bank = base + ".5"
+
+    if label == "Bank":
+        col_walk = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, col_bank
+        ], mutates=False)
+        col_other_walk = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, col_phase
+        ], mutates=False)
+    else:
+        col_walk = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, col_phase
+        ], mutates=False)
+        col_walk_other = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, col_bank
+        ], mutates=False)
+
+    if col_walk.rc != 0 or col_walk.stdout.strip() == "":
+        return {
+            "changed": False,
+            "msg": item + " not found on PDU",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    found_idx = None
+    for line in col_walk.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        idx = oid.rsplit(".", 1)[-1]
+        if val == target_num:
+            found_idx = idx
+            break
+
+    if found_idx == None:
+        return {
+            "changed": False,
+            "msg": item + " not found on PDU",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    load_oid = base + ".2." + found_idx
+    state_oid = base + ".3." + found_idx
+    load_res = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        host, load_oid
+    ], mutates=False)
+    state_res = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        host, state_oid
+    ], mutates=False)
+
+    if load_res.rc != 0 or state_res.rc != 0:
+        return {
+            "changed": False,
+            "msg": item + " data not available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    current = float(load_res.stdout.strip()) / 10.0
+    state_code = STATE_MAP.get(state_res.stdout.strip(), (3, "unknown"))[0]
+    state_text = STATE_MAP.get(state_res.stdout.strip(), (3, "unknown"))[1]
+
+    if state_code == 0:
+        state = "OK"
+    elif state_code == 1:
+        state = "WARN"
+    else:
+        state = "CRIT"
+
+    return {
+        "changed": False,
+        "msg": item + ": %f A, %s" % (current, state_text),
+        "data": {
+            "state": state,
+            "metrics": {"current": current},
+            "details": item + ": %f A, %s" % (current, state_text),
+        },
+    }
+
+
+def _is_number(s):
+    if s == None or s == "":
+        return False
+    if s[0] in "+-":
+        s = s[1:]
+    return s.replace(".", "", 1).isdigit()
+
+
 STATE_MAP = {
     "1": (0, "load normal"),
     "2": (2, "load low"),
     "3": (1, "load near over load"),
     "4": (2, "load over load"),
 }
-
-def main(ctx, params):
-    # DISCOVERY MODE
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Fetch device info: name + power
-        res_dev = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.12.1.1.0",
-            ".1.3.6.1.4.1.318.1.1.12.1.16.0"
-        ], mutates=False)
-        # Fetch phase count
-        res_phases = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.12.2.1.2.0"
-        ], mutates=False)
-        # Fetch per-bank/phase info
-        res_bank = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.2",  # rPDULoadStatusLoad
-            ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.3",  # rPDULoadStatusLoadState
-            ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.4",  # rPDULoadStatusPhaseNumber
-            ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.5",  # rPDULoadStatusBankNumber
-        ], mutates=False)
-
-        # Parse device info
-        pdu_name = ""
-        power_str = ""
-        for line in res_dev.stdout.splitlines():
-            if ".1.3.6.1.4.1.318.1.1.12.1.1.0 =" in line:
-                pdu_name = line.rsplit(" ", 1)[-1].strip('"')
-            elif ".1.3.6.1.4.1.318.1.1.12.1.16.0 =" in line:
-                power_str = line.rsplit(" ", 1)[-1]
-        
-        device_name = "Device " + pdu_name
-        
-        # Parse phase count
-        n_phases_str = ""
-        for line in res_phases.stdout.splitlines():
-            if ".1.3.6.1.4.1.318.1.1.12.2.1.2.0 =" in line:
-                n_phases_str = line.rsplit(" ", 1)[-1]
-                break
-        n_phases = int(n_phases_str) if n_phases_str.isdigit() else 0
-        
-        # Parse bank/phase info
-        entries = []
-        for line in res_bank.stdout.splitlines():
-            parts = line.strip().split(" ")
-            if len(parts) < 2:
-                continue
-            oid_tail = parts[0].rsplit(".", 1)[-1]
-            value = parts[-1]
-            if oid_tail == "2":  # Load
-                entries.append({"load": value})
-            elif oid_tail == "3":  # State
-                entries[-1]["state"] = value
-            elif oid_tail == "4":  # PhaseNumber
-                entries[-1]["phase"] = value
-            elif oid_tail == "5":  # BankNumber
-                entries[-1]["bank"] = value
-        
-        out = []
-        # Always include the device (PDU) itself
-        out.append({"item": device_name, "params": {}, "metrics": ["power"]})
-        
-        # Process per-phase/bank entries
-        for i in range(len(entries)):
-            entry = entries[i]
-            if i == 0 and n_phases == 1:
-                # First entry maps to device phase (skip — already included in device)
-                continue
-            
-            bank = entry.get("bank", "0")
-            phase = entry.get("phase", "0")
-            
-            name_part = ""
-            num = ""
-            if bank != "0":
-                name_part = "Bank"
-                num = bank
-            elif phase != "0":
-                name_part = "Phase"
-                num = phase
-            else:
-                continue
-            
-            item_name = name_part + " " + num
-            out.append({"item": item_name, "params": {}, "metrics": ["current"]})
-        
-        return {"changed": False, "msg": "discovered %d items" % len(out),
-                "data": {"discovery": out}}
-    
-    # CHECK MODE
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Fetch data for this item
-    res_dev = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.12.1.1.0",
-        ".1.3.6.1.4.1.318.1.1.12.1.16.0"
-    ], mutates=False)
-    res_phases = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.12.2.1.2.0"
-    ], mutates=False)
-    res_bank = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.2",
-        ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.3",
-        ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.4",
-        ".1.3.6.1.4.1.318.1.1.12.2.3.1.1.5"
-    ], mutates=False)
-    
-    # Parse device info
-    pdu_name = ""
-    power_str = ""
-    for line in res_dev.stdout.splitlines():
-        if ".1.3.6.1.4.1.318.1.1.12.1.1.0 =" in line:
-            pdu_name = line.rsplit(" ", 1)[-1].strip('"')
-        elif ".1.3.6.1.4.1.318.1.1.12.1.16.0 =" in line:
-            power_str = line.rsplit(" ", 1)[-1]
-    
-    device_name = "Device " + pdu_name
-    
-    # Parse phase count
-    n_phases_str = ""
-    for line in res_phases.stdout.splitlines():
-        if ".1.3.6.1.4.1.318.1.1.12.2.1.2.0 =" in line:
-            n_phases_str = line.rsplit(" ", 1)[-1]
-            break
-    n_phases = int(n_phases_str) if n_phases_str.isdigit() else 0
-    
-    # Parse bank/phase info
-    entries = []
-    for line in res_bank.stdout.splitlines():
-        parts = line.strip().split(" ")
-        if len(parts) < 2:
-            continue
-        oid_tail = parts[0].rsplit(".", 1)[-1]
-        value = parts[-1]
-        if oid_tail == "2":
-            entries.append({"load": value})
-        elif oid_tail == "3":
-            entries[-1]["state"] = value
-        elif oid_tail == "4":
-            entries[-1]["phase"] = value
-        elif oid_tail == "5":
-            entries[-1]["bank"] = value
-    
-    # Determine which value to check
-    value = None
-    state_code = 0
-    state_text = ""
-    metric_name = ""
-    human_func = lambda v: str(v)
-    infoname = ""
-    
-    if item == device_name:
-        # PDU power (watts)
-        if not power_str.isdigit():
-            return {"changed": False, "msg": "cannot read power value",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        value = float(power_str)
-        metric_name = "power"
-        human_func = lambda v: "%f W" % v
-        infoname = "Power"
-        # PDU has no per-item current; current is per-phase/bank only
-    else:
-        # Look for matching phase/bank entry
-        phase_match = False
-        bank_match = False
-        name_part = ""
-        num = ""
-        
-        if item.startswith("Phase "):
-            name_part = "Phase"
-            num = item[6:]
-            phase_match = True
-        elif item.startswith("Bank "):
-            name_part = "Bank"
-            num = item[5:]
-            bank_match = True
-        
-        # Find matching entry
-        for entry in entries:
-            entry_phase = entry.get("phase", "0")
-            entry_bank = entry.get("bank", "0")
-            
-            if bank_match and entry_bank == num:
-                if not entry.get("load", "").isdigit():
-                    return {"changed": False, "msg": "cannot read current for " + item,
-                            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-                value = float(entry["load"]) / 10
-                state_code = int(entry.get("state", "1"))
-                if str(state_code) not in STATE_MAP:
-                    state_code = 0
-                _, state_text = STATE_MAP.get(str(state_code), (0, "unknown"))
-                metric_name = "current"
-                human_func = lambda v: "%f A" % v
-                infoname = "Current"
-                break
-            elif phase_match and entry_phase == num:
-                if not entry.get("load", "").isdigit():
-                    return {"changed": False, "msg": "cannot read current for " + item,
-                            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-                value = float(entry["load"]) / 10
-                state_code = int(entry.get("state", "1"))
-                if str(state_code) not in STATE_MAP:
-                    state_code = 0
-                _, state_text = STATE_MAP.get(str(state_code), (0, "unknown"))
-                metric_name = "current"
-                human_func = lambda v: "%f A" % v
-                infoname = "Current"
-                break
-        
-        if value == None:
-            # Item not found
-            return {"changed": False, "msg": "item not found: " + item,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Apply levels (defaults: no levels — per Checkmk default params)
-    # Since Checkmk default is empty dict, no levels means always OK
-    params_levels = params.get(metric_name, {})
-    if metric_name == "current":
-        warn = params_levels.get("levels_upper")
-        crit = params_levels.get("levels_upper_critical")
-        # Checkmk default levels: None for both
-        if warn != None:
-            if value >= crit:
-                state = "CRIT"
-            elif value >= warn:
-                state = "WARN"
-            else:
-                state = "OK"
-        else:
-            # No levels defined: use only state from SNMP
-            state = "OK" if state_code == 0 else ("WARN" if state_code == 1 else "CRIT")
-    else:
-        # Power: only levels apply; SNMP state_code is not used for PDU power
-        warn = params_levels.get("levels_upper")
-        crit = params_levels.get("levels_upper_critical")
-        if crit != None and value >= crit:
-            state = "CRIT"
-        elif warn != None and value >= warn:
-            state = "WARN"
-        else:
-            state = "OK"
-    
-    # Build summary message
-    msg = infoname + ": " + human_func(value)
-    if metric_name == "current" and state_text != "":
-        msg = msg + ", " + state_text
-    
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {metric_name: value}, "details": ""}}

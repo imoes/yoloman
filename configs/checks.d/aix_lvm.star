@@ -1,122 +1,144 @@
-def _collect_lvm(ctx):
-    vgs_res = ctx.run(["lsvg"], mutates=False, ok_codes=[0, 1])
-    if vgs_res.rc != 0 or not vgs_res.stdout.strip():
-        return {}
-    lvmconf = {}
-    for vg in [v.strip() for v in vgs_res.stdout.splitlines() if v.strip()]:
-        lv_res = ctx.run(["lsvg", "-l", vg], mutates=False, ok_codes=[0, 1])
-        if lv_res.rc != 0:
+def _split_line(line):
+    """Split an lsvg/LVM agent line into fields, robust to double spaces."""
+    return line.split()
+
+
+def _parse_lvmconf(raw):
+    """Parse `lsvg -p <vg>` style lines into {vg: {lv: tuple}}.
+
+    We re-query the real AIX source via `lsvg -p` for each VG discovered,
+    producing the same tuple layout the Checkmk agent plugin parses:
+    (lvtype, num_lp, int, int, int, activation, mirror, mountpoint_or_None).
+    """
+    section = {}
+    vgname = None
+    for line in raw.splitlines():
+        f = _split_line(line)
+        if len(f) == 1 and f[0].endswith(":"):
+            vgname = f[0][:-1]
+            section[vgname] = {}
             continue
-        lvmconf[vg] = {}
-        for line in lv_res.stdout.splitlines():
-            parts = line.split()
-            if len(parts) < 7:
-                continue
-            if parts[0] == "LV" and parts[1] == "NAME":
-                continue
-            if not (parts[2].isdigit() and parts[3].isdigit() and parts[4].isdigit()):
-                continue
-            act_parts = parts[5].split("/")
-            if len(act_parts) != 2:
-                continue
-            mountpoint = "" if parts[6] == "N/A" else parts[6]
-            lvmconf[vg][parts[0]] = {
-                "lvtype": parts[1],
-                "num_lp": int(parts[2]),
-                "num_pp": int(parts[3]),
-                "num_pv": int(parts[4]),
-                "activation": act_parts[0],
-                "mirror": act_parts[1],
-                "mountpoint": mountpoint,
-            }
-    return lvmconf
+        if len(f) >= 7 and f[0] == "LV" and f[1] == "NAME":
+            continue
+        if vgname == None or len(f) < 7:
+            continue
+        lv = f[0]
+        lvtype = f[1]
+        num_lp = int(f[2])
+        num_pp = int(f[3])
+        num_pv = int(f[4])
+        act_state = f[5]
+        mountpoint_raw = f[6]
+        parts = act_state.split("/")
+        activation = parts[0]
+        mirror = parts[1] if len(parts) > 1 else ""
+        mountpoint = None if mountpoint_raw == "N/A" else mountpoint_raw
+        section[vgname][lv] = (lvtype, num_lp, num_pp, num_pv, activation, mirror, mountpoint)
+    return section
 
 
 def main(ctx, params):
-    lvmconf = _collect_lvm(ctx)
+    # Probe for the real AIX LVM source: the `lsvg` binary.
+    probe = ctx.run(["lsvg", "-o"], mutates=False)
+    if probe.rc == 127:
+        # AIX LVM tooling not present on this host.
+        if params.get("_discover"):
+            return {"changed": False, "msg": "lsvg not found", "data": {"discovery": []}}
+        return {
+            "changed": False,
+            "msg": "no AIX LVM found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "lsvg not installed"},
+        }
 
+    # Discovery: enumerate VG/LV pairs from the on-host source.
     if params.get("_discover"):
-        items = []
-        for vg, volumes in lvmconf.items():
-            for lv in volumes:
-                items.append({
-                    "item": vg + "/" + lv,
-                    "params": {},
-                    "metrics": ["num_lp", "num_pp", "num_pv"],
-                })
+        out = []
+        # `lsvg -o` lists online volume groups, one per line.
+        if probe.rc == 0:
+            for vg in probe.stdout.splitlines():
+                vg = vg.strip()
+                if not vg:
+                    continue
+                # Re-query the real source for this VG's logical volumes.
+                lvres = ctx.run(["lsvg", "-l", vg], mutates=False)
+                if lvres.rc != 0:
+                    continue
+                section = _parse_lvmconf(lvres.stdout)
+                for lv in section.get(vg, {}):
+                    out.append({
+                        "item": vg + "/" + lv,
+                        "params": {},
+                        "metrics": [],
+                    })
         return {
             "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items},
+            "msg": "discovered %d items" % len(out),
+            "data": {"discovery": out},
         }
 
+    # Check mode: grade one item.
     item = params.get("item", "")
-    slash = item.find("/")
-    if slash < 0:
-        return {
-            "changed": False,
-            "msg": "invalid item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    target_vg = item[:slash]
-    target_lv = item[slash + 1:]
-
-    vg_data = lvmconf.get(target_vg)
-    if vg_data == None:
-        return {
-            "changed": False,
-            "msg": "no such volume found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    lv_data = vg_data.get(target_lv)
-    if lv_data == None:
-        return {
-            "changed": False,
-            "msg": "no such volume found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    lvtype = lv_data["lvtype"]
-    num_lp = lv_data["num_lp"]
-    num_pp = lv_data["num_pp"]
-    num_pv = lv_data["num_pv"]
-    activation = lv_data["activation"]
-    mirror = lv_data["mirror"]
-
-    msgs = []
-    state = 0
-
-    if num_lp > 0 and (num_pp // num_lp) > 1:
-        if num_pv > 0 and (num_pp // num_pv) != num_lp:
-            msgs.append("LV Mirrors are misaligned between physical volumes(!)")
-            state = 1
-
-    if lvtype != "boot" and activation != "open":
-        msgs.append("LV is not opened(!)")
-        if state < 1:
-            state = 1
-
-    if mirror != "syncd":
-        msgs.append("LV is not in sync state(!!)")
-        if state < 2:
-            state = 2
-
-    if state == 0:
-        summary = "LV is open/syncd"
+    if "/" not in item:
+        if item == "":
+            return {
+                "changed": False,
+                "msg": "no such volume found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        parts = [item]
     else:
-        summary = ", ".join(msgs)
+        parts = item.split("/")
 
-    state_names = {0: "OK", 1: "WARN", 2: "CRIT"}
-    state_str = state_names.get(state, "UNKNOWN")
+    target_vg = parts[0]
+    target_lv = parts[1]
+
+    # Gather the VG's real LV data from the on-host source.
+    lvres = ctx.run(["lsvg", "-l", target_vg], mutates=False)
+    if lvres.rc != 0:
+        return {
+            "changed": False,
+            "msg": "no such volume group: " + target_vg,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    section = _parse_lvmconf(lvres.stdout)
+
+    if target_vg in section and target_lv in section[target_vg]:
+        msgtxt = []
+        state = 0
+        lvtype, num_lp, num_pp, num_pv, activation, mirror, _mountpoint = section[target_vg][target_lv]
+
+        # Test if the volume is mirrored; if so, check even PP distribution.
+        if num_lp > 0:
+            if int(num_pp / num_lp) > 1:
+                if num_pv > 0 and not (int(num_pp / num_pv) == num_lp):
+                    msgtxt.append("LV Mirrors are misaligned between physical volumes(!)")
+                    state = max(state, 1)
+
+        # Non-boot volumes should be open.
+        if lvtype != "boot":
+            if activation != "open":
+                msgtxt.append("LV is not opened(!)")
+                state = max(state, 1)
+
+        # Stale PPs (not in sync).
+        if mirror != "syncd":
+            msgtxt.append("LV is not in sync state(!!)")
+            state = max(state, 2)
+
+        if state == 0:
+            msgtxt_str = "LV is open/syncd"
+        else:
+            msgtxt_str = ", ".join(msgtxt)
+
+        st_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "CRIT"}
+        return {
+            "changed": False,
+            "msg": msgtxt_str,
+            "data": {"state": st_map.get(state, "UNKNOWN"), "metrics": {}, "details": ""},
+        }
 
     return {
         "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state_str,
-            "metrics": {"num_lp": num_lp, "num_pp": num_pp, "num_pv": num_pv},
-            "details": "",
-        },
+        "msg": "no such volume found",
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
     }

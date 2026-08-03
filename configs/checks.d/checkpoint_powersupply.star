@@ -1,143 +1,148 @@
 def main(ctx, params):
-    # discover mode: enumerate power supplies by walking the SNMP OID
-    if params.get("_discover"):
-        base_oid = ".1.3.6.1.4.1.2620.1.6.7.9.1.1.1"
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Get both index (1) and status (2) under the same tree for pairing
-        # We'll walk index first, then status, then pair them
-        index_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        status_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.2620.1.6.7.9.1.1.2"], mutates=False)
-        
-        # Parse index OIDs: format is ".1.3.6.1.4.1.2620.1.6.7.9.1.1.1.<idx> = STRING: \"<value>\""
-        index_map = {}  # index_number -> index_value
-        for line in index_res.stdout.splitlines():
-            if line.find(" = STRING: ") == -1:
-                continue
-            oid_part, value_part = line.split(" = STRING: ", 1)
-            # Extract last numeric part of OID
-            oid_num = oid_part.rsplit(".", 1)[-1].strip()
-            index_val = value_part.strip().strip('"')
-            if oid_num == "" or oid_num == "":
-                continue
-            index_map[oid_num] = index_val
-        
-        # Parse status OIDs: format is ".1.3.6.1.4.1.2620.1.6.7.9.1.1.2.<idx> = STRING: \"<value>\""
-        status_map = {}  # index_number -> status_value
-        for line in status_res.stdout.splitlines():
-            if line.find(" = STRING: ") == -1:
-                continue
-            oid_part, value_part = line.split(" = STRING: ", 1)
-            oid_num = oid_part.rsplit(".", 1)[-1].strip()
-            status_val = value_part.strip().strip('"')
-            if oid_num != "":
-                status_map[oid_num] = status_val
-        
-        # Combine: for each index that appears in both, emit item with default params
-        out = []
-        for num in index_map:
-            if num in status_map and index_map[num] != "":
-                out.append({
-                    "item": index_map[num],
-                    "params": {
-                        "up": 0,
-                        "ok": 0,
-                        "present": 2,
-                        "no_redundancy": 1
-                    },
-                    "metrics": []
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d power supplies" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # check mode: verify one power supply item
-    item = params.get("item", "")
-    community = params.get("community", "public")
+    # This check monitors Checkpoint firewall power supplies via SNMP.
+    # The SNMP table is at .1.3.6.1.4.1.2620.1.6.7.9.1.1
+    # Column 1 = index (power supply identifier), Column 2 = device status
+
     host = params.get("host", "localhost")
-    
-    # Get status for requested item
-    index_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.2620.1.6.7.9.1.1.1"], mutates=False)
-    status_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.2620.1.6.7.9.1.1.2"], mutates=False)
-    
-    # Build mapping: index_name -> status_string
-    index_map = {}
-    status_map = {}
-    
-    for line in index_res.stdout.splitlines():
-        if line.find(" = STRING: ") == -1:
-            continue
-        oid_part, value_part = line.split(" = STRING: ", 1)
-        oid_num = oid_part.rsplit(".", 1)[-1].strip()
-        index_val = value_part.strip().strip('"')
-        if oid_num != "":
-            index_map[oid_num] = index_val
-    
-    for line in status_res.stdout.splitlines():
-        if line.find(" = STRING: ") == -1:
-            continue
-        oid_part, value_part = line.split(" = STRING: ", 1)
-        oid_num = oid_part.rsplit(".", 1)[-1].strip()
-        status_val = value_part.strip().strip('"')
-        if oid_num != "":
-            status_map[oid_num] = status_val
-    
-    # Find matching item
-    for num in index_map:
-        if index_map[num] == item and num in status_map:
-            dev_status = status_map[num]
-            # Convert status to checkmk param key: replace spaces with underscore, lowercase
-            param_key = dev_status.lower().replace(" ", "_")
-            
-            # Get configured states from params
-            up_state = params.get("up", 0)
-            ok_state = params.get("ok", 0)
-            present_state = params.get("present", 2)
-            no_redundancy_state = params.get("no_redundancy", 1)
-            
-            # Map to checkmk state constants (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
-            if param_key == "up":
-                cmk_state = up_state
-            elif param_key == "ok":
-                cmk_state = ok_state
-            elif param_key == "present":
-                cmk_state = present_state
-            elif param_key == "no_redundancy":
-                cmk_state = no_redundancy_state
+    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.2620.1.6.7.9.1.1"
+
+    # ---- DETECT: verify this is a Checkpoint firewall ----
+    # Checkmk DETECT uses all_of:
+    #   any_of( startswith(sysOID, ".1.3.6.1.4.1.2620"),
+    #           matches(sysDescr, "[^ ]+ [^ ]+ [^ ]*cp( .*)?"),
+    #           startswith(sysDescr, "IPSO "),
+    #           matches(sysDescr, "Linux.*cpx.*") )
+    #   any_of( startswith(.1.3.6.1.4.1.2620.1.1.21.0, "firewall"),
+    #           matches(.1.3.6.1.4.1.2620.1.6.5.1.0, "Gaia") )
+
+    def _snmpwalk(oid):
+        return ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, oid,
+        ], mutates=False)
+
+    def _snmpget(oid):
+        return ctx.run([
+            "snmpget", "-v2c", "-c", community, "-Oqv",
+            host, oid,
+        ], mutates=False)
+
+    # Probe sysOID (.1.3.6.1.2.1.1.2.0) - should start with .1.3.6.1.4.1.2620
+    sys_oid_res = _snmpget(".1.3.6.1.2.1.1.2.0")
+    is_checkpoint = False
+    if sys_oid_res.rc == 0:
+        sys_oid_val = sys_oid_res.stdout.strip()
+        if sys_oid_val.startswith(".1.3.6.1.4.1.2620"):
+            is_checkpoint = True
+
+    # Probe sysDescr (.1.3.6.1.2.1.1.1.0) - check patterns
+    if not is_checkpoint:
+        descr_res = _snmpget(".1.3.6.1.2.1.1.1.0")
+        if descr_res.rc == 0:
+            descr = descr_res.stdout.strip()
+            # matches "[^ ]+ [^ ]+ [^ ]*cp( .*)?"
+            parts = descr.split(" ")
+            if len(parts) >= 3:
+                third = parts[2]
+                if third.startswith("cp"):
+                    is_checkpoint = True
+            # startswith "IPSO "
+            if descr.startswith("IPSO "):
+                is_checkpoint = True
+            # matches "Linux.*cpx.*"
+            if descr.startswith("Linux") and descr.find("cpx") >= 0:
+                is_checkpoint = True
+
+    # Probe firewall product OID (.1.3.6.1.4.1.2620.1.1.21.0) or Gaia (.1.3.6.1.4.1.2620.1.6.5.1.0)
+    if not is_checkpoint:
+        fw_res = _snmpget(".1.3.6.1.4.1.2620.1.1.21.0")
+        if fw_res.rc == 0 and fw_res.stdout.strip().startswith("firewall"):
+            is_checkpoint = True
+
+    if not is_checkpoint:
+        gw_res = _snmpget(".1.3.6.1.4.1.2620.1.6.5.1.0")
+        if gw_res.rc == 0 and gw_res.stdout.strip().startswith("Gaia"):
+            is_checkpoint = True
+
+    # ---- DISCOVERY MODE ----
+    if params.get("_discover"):
+        if not is_checkpoint:
+            return {"changed": False, "msg": "host is not a Checkpoint firewall", "data": {"discovery": []}}
+
+        # Walk the power supply table columns
+        idx_res = _snmpwalk(base_oid + ".1")  # column 1 = index
+        if idx_res.rc != 0:
+            return {"changed": False, "msg": "failed to walk power supply index, no Checkpoint power supply data", "data": {"discovery": []}}
+
+        items = []
+        for line in idx_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            line_oid = parts[0]
+            line_val = parts[1]
+            # Verify the OID is under our base column
+            if not line_oid.startswith(base_oid + ".1."):
+                continue
+            # Index is the OID suffix after the column base
+            index = line_oid[len(base_oid + ".1."):]
+            if index == "" or index == "0":
+                continue
+            # Query the status for this index
+            stat_res = _snmpget(base_oid + ".2." + index)
+            if stat_res.rc == 0:
+                status_val = stat_res.stdout.strip()
             else:
-                cmk_state = 2  # default to CRIT if unknown
-            
-            # Map checkmk state to string
-            if cmk_state == 0:
-                state_str = "OK"
-            elif cmk_state == 1:
-                state_str = "WARN"
-            elif cmk_state == 2:
-                state_str = "CRIT"
-            else:
-                state_str = "UNKNOWN"
-            
-            return {
-                "changed": False,
-                "msg": dev_status,
-                "data": {
-                    "state": state_str,
-                    "metrics": {},
-                    "details": ""
-                }
-            }
-    
-    # Item not found
-    return {
-        "changed": False,
-        "msg": "power supply not found: " + item,
-        "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": ""
-        }
+                status_val = "unknown"
+            items.append({
+                "item": index,
+                "params": {},
+                "metrics": [],
+            })
+        return {"changed": False, "msg": "discovered %d power supplies" % len(items), "data": {"discovery": items}}
+
+    # ---- CHECK MODE ----
+    item = params.get("item", "")
+    if not is_checkpoint:
+        return {"changed": False, "msg": "host is not a Checkpoint firewall, no Checkpoint power supply data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Walk to find the item and fetch its status
+    idx_res = _snmpwalk(base_oid + ".1")
+    if idx_res.rc != 0:
+        return {"changed": False, "msg": "failed to walk power supply index, no Checkpoint power supply data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    found = False
+    for line in idx_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        line_oid = parts[0]
+        if not line_oid.startswith(base_oid + ".1."):
+            continue
+        index = line_oid[len(base_oid + ".1."):]
+        if index == item:
+            found = True
+            stat_res = _snmpget(base_oid + ".2." + index)
+            if stat_res.rc != 0:
+                break
+            dev_status = stat_res.stdout.strip()
+            break
+
+    if not found:
+        return {"changed": False, "msg": "power supply %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Grade using check_default_parameters
+    # up=OK, ok=OK, present=CRIT, no_redundancy=WARN
+    check_default_parameters = {
+        "up": 0,
+        "ok": 0,
+        "present": 2,
+        "no_redundancy": 1,
     }
+    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+    key = dev_status.lower().replace(" ", "_")
+    cmk_state_num = check_default_parameters.get(key, 2)  # default CRIT
+    state_str = state_map.get(cmk_state_num, "UNKNOWN")
+
+    return {"changed": False, "msg": dev_status, "data": {"state": state_str, "metrics": {}, "details": ""}}

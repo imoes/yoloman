@@ -1,284 +1,229 @@
 def main(ctx, params):
-    # SNMP base OID for outlet/relay sensors
-    base_oid = ".1.3.6.1.4.1.46501.5.3.1"
-
-    # Discover mode: enumerate relay sensors
+    # Discovery mode
     if params.get("_discover"):
-        # Fetch relay-related SNMP data: oids 4 (name), 5 (status), 6 (value), 7 (levels)
-        # Note: Checkmk fetches oids [4,5,6,7] under base_oid
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), base_oid
-        ], mutates=False)
+        # First, detect if Didactum is present via sysDescr
+        detect = ctx.run(
+            ["snmpget", "-v2c",
+             "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"),
+             ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if detect.rc != 0 or detect.skipped:
+            return {"changed": False, "msg": "Didactum not detected", "data": {"discovery": []}}
+        if "didactum" not in detect.stdout.lower():
+            return {"changed": False, "msg": "Not a Didactum device", "data": {"discovery": []}}
 
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
+        # Walk the sensor table
+        # OID columns: 4=type, 5=name, 6=status, 7=value
+        # But we need to walk by index to correlate columns
+        # The base is .1.3.6.1.4.1.46501.5.3.1
+        # Column 5 (name) and 6 (status) are the most useful for discovery
+        
+        # Walk the type column to get indices
+        type_res = ctx.run(
+            ["snmpwalk", "-v2c",
+             "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.46501.5.3.1.4"],
+            mutates=False,
+        )
+        if type_res.rc != 0 or type_res.skipped:
+            return {"changed": False, "msg": "Cannot walk Didactum sensor table", "data": {"discovery": []}}
 
-        # Parse snmpwalk output lines: "<OID> = <TYPE>: <value>"
-        relay_items = []
-        current_relay = None
-        relay_data = {}
-        expected_oids = [".4", ".5", ".6", ".7"]  # relative to base_oid
+        # Walk the name column (OID .5)
+        name_res = ctx.run(
+            ["snmpwalk", "-v2c",
+             "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.46501.5.3.1.5"],
+            mutates=False,
+        )
 
-        # Build a map of relay name -> [status, value, warn, crit, warn_l, crit_l]
-        relay_oids = {}
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
+        # Walk the status column (OID .6)
+        status_res = ctx.run(
+            ["snmpwalk", "-v2c",
+             "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.46501.5.3.1.6"],
+            mutates=False,
+        )
+
+        # Parse indices from type walk
+        indices = []
+        for line in type_res.stdout.splitlines():
+            parts = line.strip().split(" ", 1)
             if len(parts) != 2:
                 continue
-            full_oid, value_part = parts
-            value = value_part.strip().split(": ", 1)
-            if len(value) != 2:
+            oid = parts[0]
+            index = oid[len(".1.3.6.1.4.1.46501.5.3.1.4") + 1:]
+            if index == "":
                 continue
-            oid_suffix = full_oid[len(base_oid):]
-            if not oid_suffix.startswith("."):
+            indices.append(index)
+
+        if not indices:
+            return {"changed": False, "msg": "No Didactum sensors found", "data": {"discovery": []}}
+
+        # Build name lookup
+        names = {}
+        for line in name_res.stdout.splitlines():
+            parts = line.strip().split(" ", 1)
+            if len(parts) != 2:
                 continue
-            suffix = oid_suffix[1:]
-            if suffix in expected_oids:
-                # Extract relay index: e.g., ".4.1.1.2.1" -> index part after ".4"
-                # But simpler: parse relay name from .4.1.1.2.1 -> use base + ".4"
-                # Since we only care about relays, group by first number after base_oid
-                # We'll extract relay name from .4.X.Y.Z.W -> use X.Y.Z.W as relay identifier
-                relay_id = suffix.split(".", 1)[1] if "." in suffix else suffix
-                relay_oid_key = relay_id
-                relay_oids.setdefault(relay_oid_key, {})[suffix.split(".", 1)[0]] = value[1]
+            oid = parts[0]
+            value = parts[1].strip()
+            # Remove quotes if present
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            prefix = ".1.3.6.1.4.1.46501.5.3.1.5."
+            if oid.startswith(prefix):
+                index = oid[len(prefix):]
+                names[index] = value
 
-        # Now map relay_id -> relay name, status, value, levels
-        for relay_id, data_map in relay_oids.items():
-            name = data_map.get("4")
-            status = data_map.get("5", "").strip().lower()
-            value_str = data_map.get("6", "")
-            warn_str = data_map.get("7")
-            crit_str = data_map.get("7")  # Checkmk fetches 4 values: name, status, value, levels (4 values total)
-            # But note: the agent uses oids [4,5,6,7], meaning all are scalar per relay
-            # In the original code: line[:3] = ty,name,status; line[3] = value; line[4:] = crit_lower,warn_lower,warn,crit
-            # So for outlets, we need 8 values: ty,name,status,value,warn,crit,warn_l,crit_l — but this check only fetches 4
-            # Looking at the source: fetch=SNMPTree(base=".1.3.6.1.4.1.46501.5.3.1", oids=["4","5","6","7"])
-            # That means 4 values per instance — but parse_didactum_sensors expects up to 8 columns.
-            # Re-examining: the agent plugin actually fetches multiple columns; however, the check is for relay outlets.
-            # In practice: "outlet" sensors only provide name, status, and maybe value — no numeric levels.
-            # So for relay, we only have name (oid 4), status (oid 5), value (oid 6) is often empty.
-            # We'll use what we have.
+        # Build status lookup
+        statuses = {}
+        for line in status_res.stdout.splitlines():
+            parts = line.strip().split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            value = parts[1].strip()
+            # Remove quotes if present
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+            prefix = ".1.3.6.1.4.1.46501.5.3.1.6."
+            if oid.startswith(prefix):
+                index = oid[len(prefix):]
+                statuses[index] = value
 
-            # Status mapping
-            state_map = {
-                "alarm": "CRIT", "high alarm": "CRIT", "low alarm": "CRIT",
-                "warning": "WARN", "high warning": "WARN", "low warning": "WARN",
-                "normal": "OK", "not connected": "UNKNOWN", "on": "OK", "off": "UNKNOWN"
-            }
-            # Normalize status
-            if status in state_map:
-                state = state_map[status]
-                state_readable = status
-            else:
-                state = "UNKNOWN"
-                state_readable = "unknown[" + status + "]"
+        discovery = []
+        for idx in indices:
+            sensor_type = ""
+            for tline in type_res.stdout.splitlines():
+                parts = tline.strip().split(" ", 1)
+                if len(parts) != 2:
+                    continue
+                oid = parts[0]
+                prefix = ".1.3.6.1.4.1.46501.5.3.1.4."
+                if oid.startswith(prefix):
+                    tindex = oid[len(prefix):]
+                    if tindex == idx:
+                        sensor_type = parts[1].strip()
+                        if sensor_type.startswith('"') and sensor_type.endswith('"'):
+                            sensor_type = sensor_type[1:-1]
+                        break
 
-            # Skip 'off' and 'not connected'
-            if state_readable in ("off", "not connected"):
+            # Only relay sensors
+            if sensor_type != "relay":
                 continue
 
-            if name and state_readable != "":
-                # No thresholds for relay (no numeric levels in this fetch)
-                relay_items.append({
+            name = names.get(idx, idx)
+            status_readable = statuses.get(idx, "")
+
+            # Only discover relays that are not "off" or "not connected"
+            if status_readable not in ("off", "not connected"):
+                discovery.append({
                     "item": name,
-                    "params": {},  # no thresholds for relay status
-                    "metrics": []
+                    "params": {"levels": params.get("levels", [80, 90])},
+                    "metrics": [],
                 })
 
-        return {"changed": False, "msg": "discovered %d relays" % len(relay_items),
-                "data": {"discovery": relay_items}}
+        return {"changed": False, "msg": "discovered %d relays" % len(discovery), "data": {"discovery": discovery}}
 
-    # Check mode: verify one relay
+    # Check mode
     item = params.get("item", "")
 
-    # Get SNMP data again — same as discovery
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), base_oid
-    ], mutates=False)
+    # Detect Didactum
+    detect = ctx.run(
+        ["snmpget", "-v2c",
+         "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"),
+         ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if detect.rc != 0 or detect.skipped:
+        return {"changed": False, "msg": "Didactum not reachable", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if "didactum" not in detect.stdout.lower():
+        return {"changed": False, "msg": "Not a Didactum device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "SNMP walk failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # Walk the sensor table to find the relay with the matching name
+    name_res = ctx.run(
+        ["snmpwalk", "-v2c",
+         "-c", params.get("community", "public"),
+         "-Oqn", params.get("host", "localhost"),
+         ".1.3.6.1.4.1.46501.5.3.1.5"],
+        mutates=False,
+    )
+    if name_res.rc != 0 or name_res.skipped:
+        return {"changed": False, "msg": "Cannot walk Didactum sensor table", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse relay name -> status
-    relay_status = None
-    relay_state_readable = None
-
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
+    target_index = None
+    for line in name_res.stdout.splitlines():
+        parts = line.strip().split(" ", 1)
         if len(parts) != 2:
             continue
-        full_oid, value_part = parts
-        value = value_part.strip().split(": ", 1)
-        if len(value) != 2:
-            continue
-        oid_suffix = full_oid[len(base_oid):]
-        if not oid_suffix.startswith("."):
-            continue
-        suffix = oid_suffix[1:]
-        # We need both name (.4) and status (.5) — but they are separate rows
-        # Better: group by relay instance index — we'll do a simpler approach:
-        # Extract name (oid .4) and match next .5 for same relay
-        # Since snmpwalk returns in order, track previous name
-        if suffix.startswith("4."):
-            # This is the name line for a relay — next line is status
-            relay_name = value[1].strip()
-            # Get next line for status
-        elif suffix.startswith("5."):
-            relay_status = value[1].strip().lower()
-            # Now we need to know which name this belongs to — we'll iterate with state
-            pass
-
-    # Simpler: parse all and match item by scanning
-    relay_name = None
-    relay_status = None
-
-    # Re-scan for exact match
-    lines = res.stdout.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if not line:
-            i += 1
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            i += 1
-            continue
-        full_oid, value_part = parts
-        value = value_part.strip().split(": ", 1)
-        if len(value) != 2:
-            i += 1
-            continue
-        oid_suffix = full_oid[len(base_oid):]
-        if oid_suffix.startswith(".4."):
-            # Name line
-            relay_name = value[1].strip()
-            if relay_name == item:
-                # Next line should be status (.5)
-                if i + 1 < len(lines):
-                    next_line = lines[i + 1].strip()
-                    next_parts = next_line.split(" = ")
-                    if len(next_parts) == 2:
-                        next_oid, next_value_part = next_parts
-                        if next_oid[len(base_oid):].strip().startswith(".5"):
-                            next_val = next_value_part.strip().split(": ", 1)
-                            if len(next_val) == 2:
-                                relay_status = next_val[1].strip().lower()
-                break
-        i += 1
-
-    if relay_status == None or relay_name == None:
-        # Try alternate scan — relay items may have same OID index
-        # Instead, use the full OID to match item
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            full_oid, value_part = parts
-            value = value_part.strip().split(": ", 1)
-            if len(value) != 2:
-                continue
-            oid_suffix = full_oid[len(base_oid):]
-            # Match the relay index for both name and status
-            if oid_suffix.startswith(".4."):
-                relay_name = value[1].strip()
-                if relay_name == item:
-                    # Find status line for same index
-                    for other_line in res.stdout.splitlines():
-                        if not other_line.strip():
-                            continue
-                        other_parts = other_line.strip().split(" = ")
-                        if len(other_parts) != 2:
-                            continue
-                        other_oid, other_value_part = other_parts
-                        other_value = other_value_part.strip().split(": ", 1)
-                        if len(other_value) != 2:
-                            continue
-                        other_oid_suffix = other_oid[len(base_oid):]
-                        if other_oid_suffix.startswith(".5.") and other_oid_suffix[3:] == oid_suffix[3:]:
-                            relay_status = other_value[1].strip().lower()
-                            break
-                    break
-            elif oid_suffix.startswith(".5."):
-                relay_status = value[1].strip().lower()
-                # Try to find name line with same index
-                for other_line in res.stdout.splitlines():
-                    if not other_line.strip():
-                        continue
-                    other_parts = other_line.strip().split(" = ")
-                    if len(other_parts) != 2:
-                        continue
-                    other_oid, other_value_part = other_parts
-                    other_value = other_value_part.strip().split(": ", 1)
-                    if len(other_value) != 2:
-                        continue
-                    other_oid_suffix = other_oid[len(base_oid):]
-                    if other_oid_suffix.startswith(".4.") and other_oid_suffix[3:] == oid_suffix[3:]:
-                        relay_name = other_value[1].strip()
-                        break
+        oid = parts[0]
+        value = parts[1].strip()
+        if value.startswith('"') and value.endswith('"'):
+            value = value[1:-1]
+        prefix = ".1.3.6.1.4.1.46501.5.3.1.5."
+        if oid.startswith(prefix):
+            index = oid[len(prefix):]
+            if value == item:
+                target_index = index
                 break
 
-    # If still not matched, try last-resort: item must be in name
-    if relay_name == None:
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            full_oid, value_part = parts
-            value = value_part.strip().split(": ", 1)
-            if len(value) != 2:
-                continue
-            oid_suffix = full_oid[len(base_oid):]
-            if oid_suffix.startswith(".4.") and value[1].strip() == item:
-                relay_name = value[1].strip()
-                # Find status for same index
-                for other_line in res.stdout.splitlines():
-                    if not other_line.strip():
-                        continue
-                    other_parts = other_line.strip().split(" = ")
-                    if len(other_parts) != 2:
-                        continue
-                    other_oid, other_value_part = other_parts
-                    other_value = other_value_part.strip().split(": ", 1)
-                    if len(other_value) != 2:
-                        continue
-                    other_oid_suffix = other_oid[len(base_oid):]
-                    if other_oid_suffix.startswith(".5.") and other_oid_suffix[3:] == oid_suffix[3:]:
-                        relay_status = other_value[1].strip().lower()
-                        break
-                break
+    if target_index == None:
+        return {"changed": False, "msg": "Relay %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Final check
-    if relay_name == None or relay_status == None:
-        return {"changed": False, "msg": "relay not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # Get the type for this index to confirm it's a relay
+    type_res = ctx.run(
+        ["snmpget", "-v2c",
+         "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"),
+         ".1.3.6.1.4.1.46501.5.3.1.4." + target_index],
+        mutates=False,
+    )
+    if type_res.rc != 0 or type_res.skipped:
+        return {"changed": False, "msg": "Cannot read sensor type for %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Map status to Checkmk state
+    # Get the status for this index
+    status_res = ctx.run(
+        ["snmpget", "-v2c",
+         "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"),
+         ".1.3.6.1.4.1.46501.5.3.1.6." + target_index],
+        mutates=False,
+    )
+    if status_res.rc != 0 or status_res.skipped:
+        return {"changed": False, "msg": "Cannot read sensor status for %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    status_raw = status_res.stdout.strip()
+    if status_raw.startswith('"') and status_raw.endswith('"'):
+        status_raw = status_raw[1:-1]
+
+    # Map status to state
     state_map = {
-        "alarm": "CRIT", "high alarm": "CRIT", "low alarm": "CRIT",
-        "warning": "WARN", "high warning": "WARN", "low warning": "WARN",
-        "normal": "OK", "not connected": "UNKNOWN", "on": "OK", "off": "UNKNOWN"
+        "alarm": "CRIT",
+        "high alarm": "CRIT",
+        "low alarm": "CRIT",
+        "warning": "WARN",
+        "high warning": "WARN",
+        "low warning": "WARN",
+        "normal": "OK",
+        "not connected": "UNKNOWN",
+        "on": "OK",
+        "off": "UNKNOWN",
     }
 
-    if relay_status in state_map:
-        state = state_map[relay_status]
-        state_readable = relay_status
-    else:
-        state = "UNKNOWN"
-        state_readable = "unknown[" + relay_status + "]"
+    state = state_map.get(status_raw, "UNKNOWN")
 
-    # Return result — no metrics for relay status
-    return {"changed": False,
-            "msg": "Status: " + state_readable,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+    return {
+        "changed": False,
+        "msg": "Status: %s" % status_raw,
+        "data": {
+            "state": state,
+            "metrics": {},
+            "details": "",
+        },
+    }

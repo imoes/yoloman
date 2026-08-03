@@ -1,126 +1,106 @@
-# Module-level constants
-SENSOR_NAMES = ["Ambient", "Front", "IO-Hub", "Rear"]
-SNMP_BASE_OID = ".1.3.6.1.4.1.9.9.719.1.9.44.1"
-SNMP_OIDS = ["4", "8", "13", "21"]
-DEFAULT_WARN = 30.0
-DEFAULT_CRIT = 35.0
+def _parse_temp(value):
+    if value == None:
+        return None
+    return int(value)
+
+# OID suffix -> friendly name, as in parse_cisco_ucs_temp_env
+OID_NAMES = ["Ambient", "Front", "IO-Hub", "Rear"]
+
+# sysObjectID values that identify Cisco UCS (from lib_ucs.DETECT)
+UCS_OID_SUFFIXES = [
+    ".1.3.6.1.4.1.9.1.1682",
+    ".1.3.6.1.4.1.9.1.1683",
+    ".1.3.6.1.4.1.9.1.1684",
+    ".1.3.6.1.4.1.9.1.1685",
+    ".1.3.6.1.4.1.9.1.2178",
+    ".1.3.6.1.4.1.9.1.2179",
+    ".1.3.6.1.4.1.9.1.2424",
+    ".1.3.6.1.4.1.9.1.2492",
+    ".1.3.6.1.4.1.9.1.2493",
+    ".1.3.6.1.4.1.9.1.3100",
+]
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            SNMP_BASE_OID + "." + SNMP_OIDS[0] + " " +
-            SNMP_BASE_OID + "." + SNMP_OIDS[1] + " " +
-            SNMP_BASE_OID + "." + SNMP_OIDS[2] + " " +
-            SNMP_BASE_OID + "." + SNMP_OIDS[3]
-        ], mutates=False)
-        
-        # Parse snmpwalk output - each OID yields lines like: OID = INTEGER: value
+        # PROBE FOR THE REAL THING FIRST: confirm this is a Cisco UCS host
+        sysoid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysoid_res.rc != 0:
+            # not installed (rc 127) or unreachable or no SNMP -> no UCS here
+            return {"changed": False, "msg": "no SNMP reachable", "data": {"discovery": []}}
+
+        sysoid = sysoid_res.stdout.strip()
+        is_ucs = False
+        for suffix in UCS_OID_SUFFIXES:
+            if sysoid == suffix or sysoid.endswith(suffix):
+                is_ucs = True
+                break
+        if not is_ucs:
+            return {"changed": False, "msg": "host is not a Cisco UCS device", "data": {"discovery": []}}
+
+        # Walk the temperature table: .1.3.6.1.4.1.9.9.719.1.9.44.1.<4|8|13|21>
+        base = ".1.3.6.1.4.1.9.9.719.1.9.44.1"
         temps = {}
-        lines = res.stdout.splitlines() if res.stdout else []
-        for line in lines:
-            if line.find(" = ") == -1:
-                continue
-            oid_part, value_part = line.split(" = ", 1)
-            if value_part.find(": ") != -1:
-                value = value_part.split(": ", 1)[1].strip()
+        for col in ["4", "8", "13", "21"]:
+            res = ctx.run(
+                ["snmpget", "-v2c", "-c", params.get("community", "public"),
+                 "-Oqv", params.get("host", "localhost"), base + "." + col],
+                mutates=False,
+            )
+            if res.rc == 0:
+                temps[col] = res.stdout.strip()
             else:
-                value = value_part.strip()
-            
-            # Map OID suffix to sensor name
-            if oid_part.endswith(".4"):
-                temps["Ambient"] = value
-            elif oid_part.endswith(".8"):
-                temps["Front"] = value
-            elif oid_part.endswith(".13"):
-                temps["IO-Hub"] = value
-            elif oid_part.endswith(".21"):
-                temps["Rear"] = value
-        
+                temps[col] = ""
+
+        if not temps:
+            return {"changed": False, "msg": "no temperature data", "data": {"discovery": []}}
+
         discovery = []
-        for name in SENSOR_NAMES:
-            if name in temps:
+        # Preserve order Ambient, Front, IO-Hub, Rear (indices 0..3)
+        for idx, col in enumerate(["4", "8", "13", "21"]):
+            name = OID_NAMES[idx]
+            if temps.get(col) != "":
                 discovery.append({
                     "item": name,
-                    "params": {"levels": (DEFAULT_WARN, DEFAULT_CRIT)},
-                    "metrics": ["temperature"]
+                    "params": {"levels": (30.0, 35.0)},
+                    "metrics": ["temperature"],
                 })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d sensors" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-    
-    # Check mode
+        return {"changed": False, "msg": "discovered %d sensors" % len(discovery), "data": {"discovery": discovery}}
+
+    # CHECK MODE for a single item
     item = params.get("item", "")
-    warn = params.get("levels", (DEFAULT_WARN, DEFAULT_CRIT))[0]
-    crit = params.get("levels", (DEFAULT_WARN, DEFAULT_CRIT))[1]
-    
-    # Fetch all sensor values via SNMP
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        SNMP_BASE_OID + "." + SNMP_OIDS[0] + " " +
-        SNMP_BASE_OID + "." + SNMP_OIDS[1] + " " +
-        SNMP_BASE_OID + "." + SNMP_OIDS[2] + " " +
-        SNMP_BASE_OID + "." + SNMP_OIDS[3]
-    ], mutates=False)
-    
-    temps = {}
-    lines = res.stdout.splitlines() if res.stdout else []
-    for line in lines:
-        if line.find(" = ") == -1:
-            continue
-        oid_part, value_part = line.split(" = ", 1)
-        if value_part.find(": ") != -1:
-            value = value_part.split(": ", 1)[1].strip()
-        else:
-            value = value_part.strip()
-        
-        # Map OID suffix to sensor name
-        if oid_part.endswith(".4"):
-            temps["Ambient"] = value
-        elif oid_part.endswith(".8"):
-            temps["Front"] = value
-        elif oid_part.endswith(".13"):
-            temps["IO-Hub"] = value
-        elif oid_part.endswith(".21"):
-            temps["Rear"] = value
-    
-    # Check requested item
-    if item not in temps:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Validate temperature value before parsing
-    temp_str = temps[item]
-    temp_val = int(temp_str) if temp_str.isdigit() else 0
-    
-    # Determine state based on thresholds
-    state = "OK"
-    if temp_val >= crit:
-        state = "CRIT"
-    elif temp_val >= warn:
-        state = "WARN"
-    
-    # Format message as Checkmk style
-    msg = "%s: %d C" % (item, temp_val)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"temperature": temp_val},
-            "details": ""
-        }
-    }
+    base = ".1.3.6.1.4.1.9.9.719.1.9.44.1"
+    col_map = {"Ambient": "4", "Front": "8", "IO-Hub": "13", "Rear": "21"}
+    col = col_map.get(item)
+    if col == None:
+        return {"changed": False, "msg": "unknown item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + "." + col],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False, "msg": "no temperature data for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    raw = res.stdout.strip()
+    temp = _parse_temp(raw)
+    if temp == None:
+        return {"changed": False, "msg": "cannot parse temperature for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    levels = params.get("levels")
+    if levels == None:
+        warn = 30.0
+        crit = 35.0
+    else:
+        warn = levels[0]
+        crit = levels[1]
+    state = "CRIT" if temp >= crit else ("WARN" if temp >= warn else "OK")
+    return {"changed": False, "msg": "Temperature %s: %d C" % (item, temp),
+            "data": {"state": state, "metrics": {"temperature": float(temp)}, "details": ""}}

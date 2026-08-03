@@ -1,63 +1,91 @@
-def main(ctx, params):
-    # Discovery mode: enumerate NVIDIA temperature sensors
-    if params.get("_discover"):
-        res = ctx.run(["nvidia-smi", "--query-gpu=name,temperature.gpu", "--format=csv,noheader,nounits"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to query NVIDIA sensors", "data": {"discovery": []}}
-        
-        items = []
-        for line in res.stdout.splitlines():
-            parts = line.split(", ")
-            if len(parts) >= 2:
-                name = parts[0].strip()
-                # Only report GPU temperature (temperature.gpu field)
-                # Filter for core temperature items only (as per check_plugin_nvidia_temp_core)
-                # In the original, _discover_nvidia_temp(True, section) yields only "GPUCoreTemp" items
-                # Since nvidia-smi doesn't expose sensor names, we map "GPUCoreTemp" to the GPU temperature
-                items.append({"item": "GPUCore", "params": {"levels": (90.0, 95.0)}, "metrics": ["temperature"]})
-        
-        # Single-item check for core temperature
-        if not items:
-            items.append({"item": "GPUCore", "params": {"levels": (90.0, 95.0)}, "metrics": ["temperature"]})
-        
-        return {"changed": False, "msg": "discovered %d temperature sensor(s)" % len(items),
-                "data": {"discovery": items}}
+# Checkmk check: nvidia_temp_core
+# Translated to read-only Starlark. Reads the same on-host source the
+# Checkmk agent plugin would (nvidia-smi), enumerates core temperature
+# sensors in discovery and grades temperature in check mode.
 
-    # Check mode: verify a specific item
-    item = params.get("item", "")
-    # Only support "GPUCore" as per check_plugin_nvidia_temp_core logic
-    if item != "GPUCore":
-        return {"changed": False, "msg": "unsupported item: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+def _format_nvidia_name(identifier):
+    identifier = identifier.replace("Temp", "")
+    if identifier == "GPUCore":
+        return "GPU NVIDIA"
+    return "System NVIDIA %s" % identifier
 
-    # Query GPU temperature
-    res = ctx.run(["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"], mutates=False)
+def _discover_nvidia_temp(core, section):
+    out = []
+    for line in section:
+        line_san = line[0].strip(":")
+        if line_san.lower().endswith("temp"):
+            if core == (line_san == "GPUCoreTemp"):
+                out.append(_format_nvidia_name(line_san))
+    return out
+
+def _get_nvidia_section(ctx):
+    res = ctx.run(
+        ["nvidia-smi", "--query-gpu=name,temperature.gpu", "--format=csv,noheader"],
+        mutates=False,
+    )
+    if res.rc == 127:
+        fail("nvidia-smi binary not found")
     if res.rc != 0:
-        return {"changed": False, "msg": "failed to query GPU temperature",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        fail("nvidia-smi failed: %s" % res.stderr)
+    section = []
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split(",")
+        if len(parts) < 2:
+            continue
+        section.append([parts[0].strip(), parts[1].strip()])
+    return section
 
-    out = res.stdout.strip()
-    if not out or not out.replace(".", "").isdigit():
-        return {"changed": False, "msg": "invalid GPU temperature reading",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+def main(ctx, params):
+    if params.get("_discover"):
+        section = _get_nvidia_section(ctx)
+        items = _discover_nvidia_temp(True, section)
+        discovery = []
+        for name in items:
+            discovery.append({
+                "item": name,
+                "params": {"levels": (90.0, 95.0)},
+                "metrics": ["temperature"],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
-    temp = float(out)
-    warn, crit = params.get("levels", (90.0, 95.0))
+    item = params.get("item", "")
+    section = _get_nvidia_section(ctx)
+    value = None
+    for line in section:
+        formatted = _format_nvidia_name(line[0].strip(":"))
+        if formatted == item or item == line[0].strip(":"):
+            value = line[1]
+            break
+    if value == None:
+        return {
+            "changed": False,
+            "msg": "no nvidia core temperature sensor found: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Checkmk temperature check logic: upper levels
+    temp = int(value) if value.isdigit() else 0
+    levels = params.get("levels", (90.0, 95.0))
+    warn = levels[0] if len(levels) > 0 else 90.0
+    crit = levels[1] if len(levels) > 1 else 95.0
     if temp >= crit:
         state = "CRIT"
     elif temp >= warn:
         state = "WARN"
     else:
         state = "OK"
-
     return {
         "changed": False,
-        "msg": "Temperature: %f °C (warn: %f °C, crit: %f °C)" % (temp, warn, crit),
+        "msg": "%s temperature: %dC" % (item, temp),
         "data": {
             "state": state,
             "metrics": {"temperature": temp},
-            "details": ""
-        }
+            "details": "",
+        },
     }

@@ -1,156 +1,136 @@
+DEFAULT_STATE_MAPPING = {
+    "FastSaved": 0,
+    "FastSavedCritical": 2,
+    "FastSaving": 0,
+    "FastSavingCritical": 2,
+    "Off": 1,
+    "OffCritical": 2,
+    "Other": 3,
+    "Paused": 0,
+    "PausedCritical": 2,
+    "Pausing": 0,
+    "PausingCritical": 2,
+    "Reset": 1,
+    "ResetCritical": 2,
+    "Resuming": 0,
+    "ResumingCritical": 2,
+    "Running": 0,
+    "RunningCritical": 2,
+    "Saved": 0,
+    "SavedCritical": 2,
+    "Saving": 0,
+    "SavingCritical": 2,
+    "Starting": 0,
+    "StartingCritical": 2,
+    "Stopping": 1,
+    "StoppingCritical": 2,
+}
+
+def _strip_quotes(s):
+    s2 = s.strip()
+    if len(s2) >= 2 and s2[0] == '"' and s2[-1] == '"':
+        return s2[1:-1]
+    return s2
+
+def _parse_uptime_hex(uptime):
+    parts = uptime.split(":")
+    if len(parts) == 3:
+        h_valid = parts[0].isdigit()
+        m_valid = parts[1].isdigit()
+        s_valid = parts[2].isdigit()
+        if h_valid and m_valid and s_valid:
+            return int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+    return None
+
+def _probe(ctx, params):
+    # Detect whether this is a Windows host with the Hyper-V role / module.
+    res = ctx.run(["powershell", "-NoProfile", "-Command",
+        "Get-WindowsFeature -Name Hyper-V | Where-Object {$_.Installed}"], mutates=False)
+    hv_installed = res.rc == 0 and res.stdout.find("Hyper-V") != -1
+    if not hv_installed:
+        res2 = ctx.run(["powershell", "-NoProfile", "-Command",
+            "Get-Module -ListAvailable -Name Hyper-V"], mutates=False)
+        if res2.rc != 0 or res2.stdout.find("Hyper-V") == -1 and res2.stdout.find("Microsoft.Windows.HyperV") == -1:
+            return None
+    # Enumerate VMs using live data
+    res3 = ctx.run(["powershell", "-NoProfile", "-Command",
+        "Get-VM | ForEach-Object { $_.Name + '|' + $_.State + '|' + $_.Uptime.ToString() + '|' + $_.Status }"],
+        mutates=False)
+    if res3.rc != 0:
+        return {}
+    vms = {}
+    for line in res3.stdout.splitlines():
+        fields = line.split("|")
+        if len(fields) != 4:
+            continue
+        name = fields[0]
+        state = fields[1]
+        uptime = fields[2]
+        status = fields[3]
+        if uptime.find(":") == -1:
+            continue
+        vms[name] = {"state": state, "uptime": uptime, "state_msg": status}
+    return vms
+
 def main(ctx, params):
-    # Discovery mode: enumerate all VMs and their current state
     if params.get("_discover"):
-        # Try both default and tab-separated formats
-        res = ctx.run(["Get-VM"], mutates=False)
-        if res.rc != 0:
-            # Fallback to raw text mode if Get-VM is not available
-            res = ctx.run(["powershell", "-Command", "Get-VM"], mutates=False)
-        
-        vms = []
-        if res.rc == 0:
-            lines = res.stdout.splitlines()
-            # Parse PowerShell Get-VM output: Name, State, Uptime, Status
-            # Format: Name<tab>State<tab>Uptime<tab>Status
-            for line in lines:
-                parts = line.strip().split("\t")
-                if len(parts) >= 2:
-                    vm_name = parts[0]
-                    state = parts[1]
-                    # Skip header line if present
-                    if vm_name == "Name" or state == "State":
-                        continue
-                    # Only include VMs with known states
-                    if state in [
-                        "FastSaved", "FastSavedCritical", "FastSaving", "FastSavingCritical",
-                        "Off", "OffCritical", "Other", "Paused", "PausedCritical",
-                        "Pausing", "PausingCritical", "Reset", "ResetCritical",
-                        "Resuming", "ResumingCritical", "Running", "RunningCritical",
-                        "Saved", "SavedCritical", "Saving", "SavingCritical",
-                        "Starting", "StartingCritical", "Stopping", "StoppingCritical"
-                    ]:
-                        vms.append({
-                            "item": vm_name,
-                            "params": {"discovered_state": state},
-                            "metrics": []
-                        })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d VMs" % len(vms),
-            "data": {"discovery": vms}
-        }
-    
-    # Check mode for a specific VM
+        vms = _probe(ctx, params)
+        if vms == None:
+            return {"changed": False, "msg": "no hyper-v module found",
+                    "data": {"discovery": []}}
+        out = []
+        for name, vm in vms.items():
+            out.append({"item": name,
+                        "params": {"discovered_state": vm["state"]},
+                        "metrics": ["uptime_seconds"]})
+        return {"changed": False, "msg": "discovered %d VMs" % len(out),
+                "data": {"discovery": out}}
     item = params.get("item", "")
-    res = ctx.run(["Get-VM"], mutates=False)
-    if res.rc != 0:
-        res = ctx.run(["powershell", "-Command", "Get-VM"], mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "no VM data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse the VM data
-    lines = res.stdout.splitlines()
-    vm_state = None
-    vm_state_msg = ""
-    for line in lines:
-        parts = line.strip().split("\t")
-        if len(parts) >= 4:
-            name = parts[0]
-            if name == item and name != "Name":
-                vm_state = parts[1]
-                vm_state_msg = parts[3] if len(parts) > 3 else "Operating normally"
-                break
-    
-    if vm_state == None:
-        return {
-            "changed": False,
-            "msg": "VM not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Determine service state based on mapping rules
-    compare_mode = params.get("vm_target_state", ("map", {}))[0]
-    
-    # Default state mapping (from Checkmk source)
-    DEFAULT_STATE_MAPPING = {
-        "FastSaved": 0,
-        "FastSavedCritical": 2,
-        "FastSaving": 0,
-        "FastSavingCritical": 2,
-        "Off": 1,
-        "OffCritical": 2,
-        "Other": 3,
-        "Paused": 0,
-        "PausedCritical": 2,
-        "Pausing": 0,
-        "PausingCritical": 2,
-        "Reset": 1,
-        "ResetCritical": 2,
-        "Resuming": 0,
-        "ResumingCritical": 2,
-        "Running": 0,
-        "RunningCritical": 2,
-        "Saved": 0,
-        "SavedCritical": 2,
-        "Saving": 0,
-        "SavingCritical": 2,
-        "Starting": 0,
-        "StartingCritical": 2,
-        "Stopping": 1,
-        "StoppingCritical": 2,
-    }
-    
-    # Determine target state
+    vms = _probe(ctx, params)
+    if vms == None:
+        return {"changed": False, "msg": "no hyper-v module found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item not in vms:
+        return {"changed": False, "msg": "no such VM: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vm = vms[item]
+    target = params.get("vm_target_state", ("discovery", {}))
+    compare_mode = target[0]
     if compare_mode == "discovery":
         discovered_state = params.get("discovered_state")
         if discovered_state == None:
-            return {
-                "changed": False,
-                "msg": "State is %s (%s), discovery state is not available" % (vm_state, vm_state_msg),
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-        
-        if vm_state == discovered_state:
-            return {
-                "changed": False,
-                "msg": "State %s (%s) matches discovery" % (vm_state, vm_state_msg),
-                "data": {"state": "OK", "metrics": {}, "details": ""}
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "State %s (%s) does not match discovery (%s)" % (vm_state, vm_state_msg, discovered_state),
-                "data": {"state": "CRIT", "metrics": {}, "details": ""}
-            }
-    
-    # Service state defined in rule (map mode)
-    target_states = DEFAULT_STATE_MAPPING
-    extra_states = params.get("vm_target_state", ("map", {}))[1]
-    if type(extra_states) == "dict":
-        for k, v in extra_states.items():
-            target_states[k] = v
-    
-    service_state = target_states.get(vm_state)
-    
+            return {"changed": False,
+                    "msg": "State is %s (%s), discovery state is not available" % (vm["state"], vm["state_msg"]),
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        if vm["state"] == discovered_state:
+            return {"changed": False,
+                    "msg": "State %s (%s) matches discovery" % (vm["state"], vm["state_msg"]),
+                    "data": {"state": "OK", "metrics": {}, "details": ""}}
+        return {"changed": False,
+                "msg": "State %s (%s) does not match discovery (%s)" % (vm["state"], vm["state_msg"], discovered_state),
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+    mapping = DEFAULT_STATE_MAPPING
+    custom = target[1] if len(target) > 1 else {}
+    service_state = mapping.get(vm["state"])
     if service_state == None:
-        return {
-            "changed": False,
-            "msg": "Unknown state %s (%s)" % (vm_state, vm_state_msg),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Map Checkmk states to our state names
-    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    our_state = state_map.get(service_state, "UNKNOWN")
-    
-    return {
-        "changed": False,
-        "msg": "State is %s (%s)" % (vm_state, vm_state_msg),
-        "data": {"state": our_state, "metrics": {}, "details": ""}
-    }
+        service_state = custom.get(vm["state"])
+    if service_state == None:
+        return {"changed": False,
+                "msg": "Unknown state %s (%s)" % (vm["state"], vm["state_msg"]),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    secs = _parse_uptime_hex(vm["uptime"])
+    metrics = {}
+    if secs != None:
+        metrics["uptime_seconds"] = secs
+    st = "OK"
+    if service_state == 0:
+        st = "OK"
+    elif service_state == 1:
+        st = "WARN"
+    elif service_state == 2:
+        st = "CRIT"
+    elif service_state == 3:
+        st = "UNKNOWN"
+    return {"changed": False,
+            "msg": "State is %s (%s)" % (vm["state"], vm["state_msg"]),
+            "data": {"state": st, "metrics": metrics, "details": ""}}

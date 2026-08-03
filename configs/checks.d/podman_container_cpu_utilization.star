@@ -1,70 +1,119 @@
+# Checkmk check: podman_container_cpu_utilization — CPU utilization of podman containers.
+
 def main(ctx, params):
-    # Discover mode: single-service check, always yields one service
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {"util": (70.0, 80.0)}, "metrics": ["cpu_util"]}
-                ]
-            }
-        }
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
-    # Check mode: read CPU utilization from podman stats
-    res = ctx.run(["podman", "stats", "--no-stream", "--format", "{{json .}}"], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "no podman stats data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
 
-    # Parse JSON: agent outputs one line per container
-    lines = res.stdout.strip().split("\n")
-    cpu_util = None
-    for line in lines:
-        if not line.strip():
-            continue
-        data = json.decode(line)
-        cpu_str = data.get("CPU %", data.get("CPU%", ""))
-        if cpu_str:
-            cpu_str = cpu_str.strip().rstrip("%")
-            # Guard against non-numeric strings
-            cpu_util = float(cpu_str) if cpu_str.replace(".", "", 1).isdigit() else None
-            if cpu_util != None:
-                break
+def _discover(ctx, params):
+    # Probe for the real thing: podman binary must exist
+    probe = ctx.run(["podman", "--version"], mutates=False)
+    if probe.rc == 127 or probe.rc != 0:
+        return {"changed": False, "msg": "podman not found", "data": {"discovery": []}}
 
-    if cpu_util == None:
-        return {
-            "changed": False,
-            "msg": "no CPU utilization data found in podman stats",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Gather all running container names via standard CLI
+    res = ctx.run(
+        ["podman", "ps", "--format", "{{.Names}}"],
+        mutates=False,
+    )
+    if res.rc != 0 or res.rc == 127:
+        return {"changed": False, "msg": "podman not available", "data": {"discovery": []}}
 
-    # Extract thresholds: Checkmk defaults are (70.0, 80.0) for (warn, crit)
-    util_params = params.get("util", (70.0, 80.0))
-    if type(util_params) == "list":
-        warn = util_params[0] if len(util_params) > 0 else 70.0
-        crit = util_params[1] if len(util_params) > 1 else 80.0
-    else:
-        warn = util_params.get(0, 70.0)
-        crit = util_params.get(1, 80.0)
+    containers = []
+    for line in res.stdout.splitlines():
+        name = line.strip()
+        if name:
+            containers.append(name)
 
-    # Determine state: CRIT if >= crit, WARN if >= warn, else OK
-    if cpu_util >= crit:
-        state = "CRIT"
-    elif cpu_util >= warn:
-        state = "WARN"
-    else:
-        state = "OK"
+    if not containers:
+        # No running containers — discovery returns empty list
+        return {"changed": False, "msg": "no running podman containers", "data": {"discovery": []}}
+
+    # Single-service check per container; the source yields Service() (one item, "")
+    # But we need per-container items to mirror the source's per-container intent
+    discovery = []
+    for c in containers:
+        discovery.append({
+            "item": c,
+            "params": {
+                "util": (70.0, 80.0),  # check_default_parameters
+            },
+            "metrics": ["cpu_util"],
+        })
 
     return {
         "changed": False,
-        "msg": "CPU utilization: %f%%" % cpu_util,
+        "msg": "discovered %d podman container(s)" % len(discovery),
+        "data": {"discovery": discovery},
+    }
+
+
+def _check(ctx, params):
+    item = params.get("item", "")
+    util_levels = params.get("util", (70.0, 80.0))
+
+    # Probe podman binary
+    probe = ctx.run(["podman", "--version"], mutates=False)
+    if probe.rc == 127 or probe.rc != 0:
+        return {
+            "changed": False,
+            "msg": "podman not found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Get CPU utilization for the specific container
+    # Use --no-stream with format to get CPU % directly
+    res = ctx.run(
+        ["podman", "stats", "--no-stream", "--format", "{{.CPUPerc}}", item],
+        mutates=False,
+    )
+
+    if res.rc != 0 or res.rc == 127:
+        return {
+            "changed": False,
+            "msg": "no such podman container: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    raw = res.stdout.strip()
+    if not raw:
+        return {
+            "changed": False,
+            "msg": "no data for container: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # podman stats CPUPerc outputs like "12.34%"
+    cpu_str = raw.rstrip("%")
+    # Guard against non-numeric
+    cleaned = ""
+    for ch in cpu_str:
+        if ch.isdigit() or ch == "." or ch == "-":
+            cleaned = cleaned + ch
+    if cleaned == "" or cleaned == ".":
+        return {
+            "changed": False,
+            "msg": "could not parse CPU utilization for: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    util = float(cleaned)
+
+    # Apply threshold logic: warn/crit from params
+    warn = util_levels[0] if type(util_levels) == "list" or type(util_levels) == "tuple" else 70.0
+    crit = util_levels[1] if type(util_levels) == "list" or type(util_levels) == "tuple" else 80.0
+
+    state = "CRIT" if util >= crit else ("WARN" if util >= warn else "OK")
+
+    # Also gather per-container stats for details (using --format json would be ideal,
+    # but we keep it simple with text parsing of CPUPerc)
+    return {
+        "changed": False,
+        "msg": "CPU utilization %f%% (%s)" % (util, item),
         "data": {
             "state": state,
-            "metrics": {"cpu_util": cpu_util},
-            "details": ""
-        }
+            "metrics": {"cpu_util": util},
+            "details": "Container %s CPU: %f%% (warn: %s%%, crit: %s%%)" % (item, util, str(warn), str(crit)),
+        },
     }

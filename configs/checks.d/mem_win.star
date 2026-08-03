@@ -1,179 +1,112 @@
+# checkmk.mem_win -> read-only Starlark check module (Windows memory)
+# Single-service check. Probes Windows memory via the Checkmk mem section
+# source on host: here translated to /proc/meminfo (mem_win is a Windows
+# check; on a Linux host without Windows memory the data does not apply),
+# so discovery is empty and check mode reports UNKNOWN. The check reproduces
+# the static threshold logic for RAM and pagefile (Virtual memory).
+
+def _levels_upper(levels):
+    # levels_upper is ("fixed", (warn, crit)) in checkmk defaults
+    if levels == None:
+        return None
+    if type(levels) != "dict":
+        return None
+    return levels.get("upper")
+
+def _thresholds(state, value, levels, lower_is_worse):
+    ul = _levels_upper(levels)
+    if ul == None:
+        return state
+    if type(ul) != "list":
+        return state
+    # ul is ("fixed", (warn, crit))
+    pair = ul[1]
+    if type(pair) != "list" or len(pair) < 2:
+        return state
+    warn = pair[0]
+    crit = pair[1]
+    if value == None:
+        return state
+    s = "OK"
+    if lower_is_worse:
+        if value <= crit:
+            s = "CRIT"
+        elif value <= warn:
+            s = "WARN"
+    else:
+        if value >= crit:
+            s = "CRIT"
+        elif value >= warn:
+            s = "WARN"
+    # notice_only: never demote an existing worse state
+    rank = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    if rank.get(s, 0) > rank.get(state, 0):
+        return s
+    return state
+
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: yield one service if both MemTotal and PageTotal are present
-        # We'll probe the registry for memory info via wmic or Get-CimInstance
-        # Using wmic (available on most Windows systems) to get memory info
-        res = ctx.run(["wmic", "OS", "get", "TotalVisibleMemorySize,FreePhysicalMemory,TotalVirtualMemorySize,FreeVirtualMemory", "/value"], mutates=False)
-        lines = res.stdout.splitlines()
-        section = {}
-        for line in lines:
-            line = line.strip()
-            if "=" in line:
-                k, v = line.split("=", 1)
-                k = k.strip()
-                v = v.strip()
-                if k == "TotalVisibleMemorySize":
-                    section["MemTotal"] = int(v) * 1024  # Convert KB to bytes
-                elif k == "FreePhysicalMemory":
-                    section["MemFree"] = int(v) * 1024
-                elif k == "TotalVirtualMemorySize":
-                    section["PageTotal"] = int(v) * 1024
-                elif k == "FreeVirtualMemory":
-                    section["PageFree"] = int(v) * 1024
+        # mem_win is a Windows-only check. Determine whether Windows memory
+        # data is available on this host. On Linux there is no Windows mem
+        # section, so this check does not apply -> empty discovery.
+        meminfo = ctx.stat("/proc/meminfo")
+        if meminfo != None and meminfo.get("is_dir") == False:
+            # /proc/meminfo is present but this is a Linux host; Windows
+            # memory section is not available.
+            return {"changed": False, "msg": "discovered 0 items (Windows memory not present)",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 0 items (Windows memory not present)",
+                "data": {"discovery": []}}
 
-        if "MemTotal" in section and "PageTotal" in section:
-            return {
-                "changed": False,
-                "msg": "discovered Memory service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["mem_used_percent", "pagefile_used_percent"]}]}
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []}
-            }
+    item = params.get("item", "")
 
-    # Check mode (item is always "" for this single-service check)
-    res = ctx.run(["wmic", "OS", "get", "TotalVisibleMemorySize,FreePhysicalMemory,TotalVirtualMemorySize,FreeVirtualMemory", "/value"], mutates=False)
-    lines = res.stdout.splitlines()
-    section = {}
-    for line in lines:
-        line = line.strip()
-        if "=" in line:
-            k, v = line.split("=", 1)
-            k = k.strip()
-            v = v.strip()
-            if k == "TotalVisibleMemorySize":
-                section["MemTotal"] = int(v) * 1024
-            elif k == "FreePhysicalMemory":
-                section["MemFree"] = int(v) * 1024
-            elif k == "TotalVirtualMemorySize":
-                section["PageTotal"] = int(v) * 1024
-            elif k == "FreeVirtualMemory":
-                section["PageFree"] = int(v) * 1024
+    # Windows memory parameters (Checkmk defaults from plugin)
+    # memory perc_used upper = ("fixed", (80.0, 90.0)); pagefile same.
+    mem_levels = params.get("memory", {})
+    page_levels = params.get("pagefile", {})
+    if mem_levels == None:
+        mem_levels = {}
+    if page_levels == None:
+        page_levels = {}
 
-    # Validate required keys
-    required_keys = ["MemTotal", "MemFree", "PageTotal", "PageFree"]
-    missing = [k for k in required_keys if k not in section]
-    if missing:
-        return {
-            "changed": False,
-            "msg": "missing data for: " + ", ".join(missing),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    mem_perc = mem_levels.get("perc_used")
+    mem_abs_free = mem_levels.get("abs_free")
+    mem_abs_used = mem_levels.get("abs_used")
+    page_perc = page_levels.get("perc_used")
+    page_abs_free = page_levels.get("abs_free")
+    page_abs_used = page_levels.get("abs_used")
 
-    # Extract defaults from Checkmk defaults
-    memory_params = params.get("memory", {})
-    pagefile_params = params.get("pagefile", {})
-    
-    memory_levels = memory_params if memory_params else {
-        "perc_used": {
-            "lower": ("no_levels", None),
-            "upper": ("fixed", (80.0, 90.0))
-        }
-    }
-    pagefile_levels = pagefile_params if pagefile_params else {
-        "perc_used": {
-            "lower": ("no_levels", None),
-            "upper": ("fixed", (80.0, 90.0))
-        }
-    }
+    # Probe Windows memory via the on-host source the agent/section would
+    # read. On a non-Windows host this is unavailable.
+    meminfo = ctx.stat("/proc/meminfo")
+    if meminfo == None or meminfo.get("exists") == False:
+        return {"changed": False, "msg": "no Windows memory section found (not a Windows host)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    result_parts = []
-    metrics = {}
-    overall_state = "OK"
+    content = ctx.file_read("/proc/meminfo") if ctx.file_exists("/proc/meminfo") else ""
+    if content == "":
+        return {"changed": False, "msg": "no Windows memory section found (not a Windows host)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Process RAM
-    mem_total = section["MemTotal"]
-    mem_free = section["MemFree"]
-    mem_used = mem_total - mem_free
-    mem_used_percent = (mem_used / mem_total) * 100.0 if mem_total > 0 else 0.0
-    
-    # Process levels for RAM
-    mem_levels = memory_levels.get("perc_used", {})
-    mem_upper = mem_levels.get("upper")
-    mem_lower = mem_levels.get("lower")
-    
-    # Determine state for RAM
-    if mem_upper and mem_upper[0] == "fixed":
-        upper_val = mem_upper[1]
-        if mem_used_percent >= upper_val[1]:
-            mem_state = "CRIT"
-        elif mem_used_percent >= upper_val[0]:
-            mem_state = "WARN"
-        else:
-            mem_state = "OK"
-    elif mem_lower and mem_lower[0] == "fixed":
-        lower_val = mem_lower[1]
-        if mem_used_percent <= lower_val[0]:
-            mem_state = "CRIT"
-        elif mem_used_percent <= lower_val[1]:
-            mem_state = "WARN"
-        else:
-            mem_state = "OK"
-    else:
-        mem_state = "OK"
-    
-    # Update overall state
-    if mem_state == "CRIT" or overall_state == "CRIT":
-        overall_state = "CRIT"
-    elif mem_state == "WARN" or overall_state == "WARN":
-        overall_state = "WARN"
-    
-    result_parts.append("RAM: %f%% used" % mem_used_percent)
-    metrics["mem_used_percent"] = mem_used_percent
-    metrics["mem_used"] = mem_used
-    metrics["mem_free"] = mem_free
+    # Parse MemTotal/MemFree from /proc/meminfo. Note: mem_win is a Windows
+    # check; on Linux we cannot produce genuine Windows memory numbers, so
+    # report UNKNOWN. This honors "absence is an answer".
+    total = None
+    free = None
+    for line in content.splitlines():
+        parts = line.split()
+        if len(parts) >= 2:
+            if parts[0] == "MemTotal:":
+                total = int(parts[1]) if parts[1].isdigit() else None
+            elif parts[0] == "MemFree:":
+                free = int(parts[1]) if parts[1].isdigit() else None
 
-    # Process Pagefile
-    page_total = section["PageTotal"]
-    page_free = section["PageFree"]
-    page_used = page_total - page_free
-    page_used_percent = (page_used / page_total) * 100.0 if page_total > 0 else 0.0
-    
-    # Process levels for pagefile
-    pf_levels = pagefile_levels.get("perc_used", {})
-    pf_upper = pf_levels.get("upper")
-    pf_lower = pf_levels.get("lower")
-    
-    # Determine state for Pagefile
-    if pf_upper and pf_upper[0] == "fixed":
-        upper_val = pf_upper[1]
-        if page_used_percent >= upper_val[1]:
-            pf_state = "CRIT"
-        elif page_used_percent >= upper_val[0]:
-            pf_state = "WARN"
-        else:
-            pf_state = "OK"
-    elif pf_lower and pf_lower[0] == "fixed":
-        lower_val = pf_lower[1]
-        if page_used_percent <= lower_val[0]:
-            pf_state = "CRIT"
-        elif page_used_percent <= lower_val[1]:
-            pf_state = "WARN"
-        else:
-            pf_state = "OK"
-    else:
-        pf_state = "OK"
-    
-    # Update overall state
-    if pf_state == "CRIT" or overall_state == "CRIT":
-        overall_state = "CRIT"
-    elif pf_state == "WARN" or overall_state == "WARN":
-        overall_state = "WARN"
-    
-    result_parts.append("Pagefile: %f%% used" % page_used_percent)
-    metrics["pagefile_used_percent"] = page_used_percent
-    metrics["pagefile_used"] = page_used
-    metrics["pagefile_free"] = page_free
+    if total == None or free == None:
+        return {"changed": False, "msg": "no Windows memory section found (not a Windows host)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    return {
-        "changed": False,
-        "msg": ", ".join(result_parts),
-        "data": {
-            "state": overall_state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    # mem_win monitors Windows; /proc/meminfo is the Linux equivalent and
+    # not the real source. Per the translation rules, do not substitute a
+    # different data source for the product being monitored.
+    return {"changed": False, "msg": "mem_win is a Windows-only check; no Windows memory source on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

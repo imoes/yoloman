@@ -1,5 +1,60 @@
-# ===== constants =====
-_TRANSLATE_SPEED = {
+def main(ctx, params):
+    if params.get("_discover"):
+        oid_sys = ".1.3.6.1.2.1.1.2.0"
+        res_detect = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                              "-Oqv", "-OQv", params.get("host", "localhost"), oid_sys],
+                             mutates=False)
+        if res_detect.rc != 0:
+            return {"changed": False, "msg": "not a Huawei OSN device (sysObjectID not present)",
+                    "data": {"discovery": []}}
+        sysobj = res_detect.stdout.strip()
+        if sysobj.find(".1.3.6.1.4.1.2011.2.25.1") == -1:
+            return {"changed": False, "msg": "not a Huawei OSN device",
+                    "data": {"discovery": []}}
+
+        base = ".1.3.6.1.4.1.2011.2.25.4.70.20.10.10.1"
+        res_walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                            "-Oqn", "-OQn", params.get("host", "localhost"), base + ".1"],
+                           mutates=False)
+        if res_walk.rc != 0:
+            return {"changed": False, "msg": "walk of fan table failed",
+                    "data": {"discovery": []}}
+
+        items = []
+        for line in res_walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            full_oid = parts[0]
+            idx = full_oid[len(base + ".1") + 1:]
+            items.append({"item": idx, "params": {}, "metrics": ["fan_speed"]})
+
+        return {"changed": False, "msg": "discovered %d fans" % len(items),
+                "data": {"discovery": items}}
+
+    item = params.get("item", "")
+    base = ".1.3.6.1.4.1.2011.2.25.4.70.20.10.10.1"
+    oid_speed = base + ".2." + item
+    res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                   "-Oqv", "-OQv", params.get("host", "localhost"), oid_speed],
+                  mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "fan " + item + " not found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    speed = res.stdout.strip()
+    if len(speed) == 0:
+        return {"changed": False, "msg": "fan " + item + " returned empty speed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    state, readable = _translate(speed)
+    metrics = _speed_to_metric(speed)
+    return {"changed": False,
+            "msg": "Speed: " + readable,
+            "data": {"state": state, "metrics": metrics, "details": ""}}
+
+
+_FAN_STATES = {
     "0": ("WARN", "stop"),
     "1": ("OK", "low"),
     "2": ("OK", "mid-low"),
@@ -8,102 +63,16 @@ _TRANSLATE_SPEED = {
     "5": ("WARN", "high"),
 }
 
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2011.2.25.4.70.20.10.10.1"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-        
-        # Parse OID lines: ".1.3.6.1.4.1.2011.2.25.4.70.20.10.10.1.1 = STRING: \"value\""
-        items = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            # Split on first "=" to separate OID from value
-            parts = line.strip().split("=", 1)
-            if len(parts) != 2:
-                continue
-            # Extract value - handle quoted strings
-            value_str = parts[1].strip()
-            if value_str.startswith('"') and value_str.endswith('"'):
-                value = value_str[1:-1]
-            else:
-                value = value_str.strip()
-            
-            # The fan name is the first OID index (second to last component)
-            oid_path = parts[0].strip()
-            oid_parts = oid_path.rsplit(".", 1)
-            if len(oid_parts) != 2:
-                continue
-            fan_name = oid_parts[1]
-            
-            items.append({
-                "item": fan_name,
-                "params": {},
-                "metrics": []
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode
-    item = params.get("item", "")
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2011.2.25.4.70.20.10.10.1." + item
-    ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "fan " + item + " not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse snmpget output: OID = STRING: "value"
-    line = res.stdout.strip()
-    parts = line.split("=", 1)
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "unable to parse SNMP output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    value_str = parts[1].strip()
-    if value_str.startswith('"') and value_str.endswith('"'):
-        speed_val = value_str[1:-1]
-    else:
-        speed_val = value_str.strip()
-    
-    # Map speed value
-    if speed_val in _TRANSLATE_SPEED:
-        state_str, readable = _TRANSLATE_SPEED[speed_val]
-        state = "CRIT" if state_str == "WARN" else state_str
-    else:
-        state = "UNKNOWN"
-        readable = "unknown"
-    
-    return {
-        "changed": False,
-        "msg": "Speed: " + readable,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+
+def _translate(speed):
+    if speed in _FAN_STATES:
+        s, r = _FAN_STATES[speed]
+        return (s, r)
+    return ("UNKNOWN", "unknown (" + speed + ")")
+
+
+def _speed_to_metric(speed):
+    if speed.isdigit():
+        v = int(speed)
+        return {"fan_speed": v}
+    return {"fan_speed": 0}

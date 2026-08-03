@@ -1,55 +1,98 @@
+# Checkmk check: snmp_info -> read-only Starlark check module
+# Monitors: SNMP system info (sysDescr, sysName, sysLocation, sysContact)
+
+DEFAULT_LEVELS = {"warn": 80, "crit": 90}
+
+def _parse_string(val):
+    return val.strip().replace("\r\n", " ").replace("\n", " ")
+
+def _fetch_snmp_info(ctx, host, community):
+    base = ".1.3.6.1.2.1.1"
+    oids = {
+        "description": base + ".1",
+        "object_id": base + ".2",
+        "contact": base + ".4",
+        "name": base + ".5",
+        "location": base + ".6",
+    }
+    info = {}
+    for field in ("description", "object_id", "contact", "name", "location"):
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oids[field]],
+            mutates=False,
+        )
+        if res.rc != 0 and res.rc != 127:
+            return None
+        if res.rc == 127 or not res.stdout.strip():
+            return None
+        info[field] = _parse_string(res.stdout.strip())
+    return info
+
 def main(ctx, params):
-    # Discovery mode: yield one service with empty item and no perfdata
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "127.0.0.1", ".1.3.6.1.2.1.1.1.0",
-                       ".1.3.6.1.2.1.1.2.0", ".1.3.6.1.2.1.1.4.0", ".1.3.6.1.2.1.1.5.0",
-                       ".1.3.6.1.2.1.1.6.0"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # If no sysDescr, skip discovery (same as detect=HAS_SYSDESC)
-        if ".1.3.6.1.2.1.1.1.0" not in res.stdout:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 item",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
-    
-    # Check mode
-    res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "127.0.0.1", ".1.3.6.1.2.1.1.1.0",
-                   ".1.3.6.1.2.1.1.2.0", ".1.3.6.1.2.1.1.4.0", ".1.3.6.1.2.1.1.5.0",
-                   ".1.3.6.1.2.1.1.6.0"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP query failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    lines = res.stdout.splitlines()
-    # Map OID index to value
-    data = {}
-    for line in lines:
-        parts = line.strip().split(" = ", 1)
-        if len(parts) == 2:
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip().replace('"', '').replace('STRING:', '')
-            if oid_part == ".1.3.6.1.2.1.1.1.0":
-                data["description"] = val_part.replace("\\n", " ").replace("\\r", "")
-            elif oid_part == ".1.3.6.1.2.1.1.2.0":
-                data["object_id"] = val_part.split()[-1] if val_part.split() else ""
-            elif oid_part == ".1.3.6.1.2.1.1.4.0":
-                data["contact"] = val_part
-            elif oid_part == ".1.3.6.1.2.1.1.5.0":
-                data["name"] = val_part
-            elif oid_part == ".1.3.6.1.2.1.1.6.0":
-                data["location"] = val_part
-    
-    # Ensure required fields
-    description = data.get("description", "")
-    object_id = data.get("object_id", "")
-    contact = data.get("contact", "")
-    name = data.get("name", "")
-    location = data.get("location", "")
-    
-    # Build summary in Checkmk style: "desc, name, location, contact"
-    summary = description + ", " + name + ", " + location + ", " + contact
-    
-    return {"changed": False, "msg": summary,
-            "data": {"state": "OK", "metrics": {}, "details": ""}}
+        # Probe for SNMP availability
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if res.rc == 127 or not res.stdout.strip():
+            return {"changed": False, "msg": "SNMP not available", "data": {"discovery": []}}
+
+        info = _fetch_snmp_info(ctx, host, community)
+        if info == None:
+            return {"changed": False, "msg": "no SNMP info available", "data": {"discovery": []}}
+
+        # Determine device type label
+        device_type = "generic"
+        descr_lower = info["description"].lower()
+        if "cisco" in descr_lower:
+            device_type = "cisco"
+        elif ".1.3.6.1.4.1.25597.1" in info["object_id"]:
+            device_type = "fireeye"
+
+        return {
+            "changed": False,
+            "msg": "discovered SNMP info",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": [],
+                        "service_labels": {
+                            "device_type": device_type,
+                            "sysObjectID": info["object_id"],
+                        },
+                    }
+                ],
+                "host_labels": {
+                    "cmk/device_type": device_type,
+                },
+            },
+        }
+
+    # CHECK MODE
+    info = _fetch_snmp_info(ctx, host, community)
+    if info == None:
+        return {
+            "changed": False,
+            "msg": "no SNMP info available from " + host,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    summary = "%s, %s, %s, %s" % (
+        info["description"], info["name"], info["location"], info["contact"]
+    )
+
+    return {
+        "changed": False,
+        "msg": summary,
+        "data": {
+            "state": "OK",
+            "metrics": {},
+            "details": summary,
+        },
+    }

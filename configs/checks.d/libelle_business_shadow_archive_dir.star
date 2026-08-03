@@ -1,140 +1,117 @@
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/libelle_business_shadow"], mutates=False)
-        lines = res.stdout.splitlines()
-        parsed = {}
-        for line in lines:
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] == "Host:":
-                parsed["host"] = parts[1]
-            elif len(parts) >= 3 and parts[0] == "Start-Time:":
-                parsed["start_time"] = parts[1] + ":" + parts[2]
-            elif len(parts) >= 2 and parts[0] == "Release:":
-                parsed["release"] = parts[1]
-            elif len(parts) >= 2 and parts[0] == "Status:":
-                parsed["status"] = parts[1]
-            elif len(parts) >= 4 and (parts[0].startswith("trdrecover:") or parts[0].startswith("trdarchiver:")):
-                parsed["process"] = parts[0].rstrip(":")
-                parsed["process_status"] = parts[3]
-            elif len(parts) >= 4 and parts[0] == "Archive-Dir" and parts[1] == "total:":
-                parsed["arch_total_mb"] = _to_mb(parts[2])
-            elif len(parts) >= 4 and parts[0] == "Archive-Dir" and parts[1] == "free:":
-                parsed["arch_free_mb"] = _to_mb(parts[2])
-        
-        discovery_items = []
-        if "host" in parsed:
-            discovery_items.append({"item": "Info", "params": {}, "metrics": []})
-        if "status" in parsed:
-            discovery_items.append({"item": "Status", "params": {}, "metrics": []})
-        if "process" in parsed:
-            discovery_items.append({"item": "Process", "params": {}, "metrics": []})
-        if "arch_total_mb" in parsed and "arch_free_mb" in parsed:
-            discovery_items.append({
-                "item": "Archive Dir",
-                "params": {"levels": (80, 90)},
-                "metrics": ["used_percent"]
-            })
-        return {"changed": False, "msg": "discovered %d services" % len(discovery_items),
-                "data": {"discovery": discovery_items}}
+# Translation of checkmk.libelle_business_shadow_archive_dir
+# Libelle Business Shadow Archive Dir (filesystem-style) check,
+# reproduced for the yolo-man Starlark runtime WITHOUT Checkmk installed.
+#
+# The original Checkmk agent plugin reads its data from a Libelle Business
+# Shadow installation. There is no on-host "libelle_business_shadow" agent
+# section available to the yolo-man agent, so the REAL data source is the
+# Libelle install directory itself. We probe for it first and report absence
+# honestly (empty discovery / UNKNOWN) rather than synthesising data.
 
-    # Check mode
-    item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/libelle_business_shadow"], mutates=False)
-    lines = res.stdout.splitlines()
+def _to_mb(size):
+    s = size.strip()
+    s = s.replace(" ", "")
+    if s.endswith("MB"):
+        return int(float(s[:-2]))
+    if s.endswith("GB"):
+        return int(float(s[:-2])) * 1024
+    if s.endswith("TB"):
+        return int(float(s[:-2])) * 1024 * 1024
+    if s.endswith("PB"):
+        return int(float(s[:-2])) * 1024 * 1024 * 1024
+    if s.endswith("EB"):
+        return int(float(s[:-2])) * 1024 * 1024 * 1024 * 1024
+    return int(float(s))
+
+def _parse_libelle_info(text):
     parsed = {}
+    lines = text.split("\n")
     for line in lines:
-        parts = line.split()
-        if len(parts) >= 2 and parts[0] == "Host:":
-            parsed["host"] = parts[1]
-        elif len(parts) >= 3 and parts[0] == "Start-Time:":
-            parsed["start_time"] = parts[1] + ":" + parts[2]
-        elif len(parts) >= 2 and parts[0] == "Release:":
-            parsed["release"] = parts[1]
-        elif len(parts) >= 2 and parts[0] == "Status:":
-            parsed["status"] = parts[1]
-        elif len(parts) >= 4 and (parts[0].startswith("trdrecover:") or parts[0].startswith("trdarchiver:")):
-            parsed["process"] = parts[0].rstrip(":")
-            parsed["process_status"] = parts[3]
-        elif len(parts) >= 4 and parts[0] == "Archive-Dir" and parts[1] == "total:":
-            parsed["arch_total_mb"] = _to_mb(parts[2])
-        elif len(parts) >= 4 and parts[0] == "Archive-Dir" and parts[1] == "free:":
-            parsed["arch_free_mb"] = _to_mb(parts[2])
+        cols = line.split()
+        if len(cols) >= 2 and cols[0].startswith("Archive-Dir total"):
+            parsed["arch_total_mb"] = _to_mb(cols[1])
+        elif len(cols) >= 2 and cols[0].startswith("Archive-Dir free"):
+            parsed["arch_free_mb"] = _to_mb(cols[1])
+    return parsed
 
-    if item == "Info":
-        if not parsed:
-            return {"changed": False, "msg": "no information found",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        msg = "Libelle Business Shadow"
-        if "host" in parsed:
-            msg += ", Host: " + parsed["host"]
-        if "release" in parsed:
-            msg += ", Release: " + parsed["release"]
-        if "start_time" in parsed:
-            msg += ", Start Time: " + parsed["start_time"]
-        return {"changed": False, "msg": msg,
-                "data": {"state": "OK", "metrics": {}, "details": ""}}
+def _probe_libelle_install(ctx):
+    home = ctx.stat("/opt/libelle")
+    if home == None or not home.get("exists", False) or not home.get("is_dir", False):
+        return None
+    summary = ctx.stat("/opt/libelle/status.txt")
+    if summary == None or not summary.get("exists", False):
+        res = ctx.run(["ls", "-1", "/opt/libelle"], mutates=False)
+        if res.rc != 0 or res.stdout == "":
+            return None
+        return ""
+    return ctx.file_read("/opt/libelle/status.txt")
 
-    elif item == "Status":
-        if "status" not in parsed:
-            return {"changed": False, "msg": "No information about libelle status found",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        state = "OK" if parsed["status"] == "RUN" else "CRIT"
-        return {"changed": False, "msg": "Status is: " + parsed["status"],
-                "data": {"state": state, "metrics": {}, "details": ""}}
+def main(ctx, params):
+    if params.get("_discover"):
+        text = _probe_libelle_install(ctx)
+        if text == None:
+            return {"changed": False, "msg": "no libelle installation found",
+                    "data": {"discovery": []}}
+        parsed = _parse_libelle_info(text)
+        if "arch_total_mb" in parsed and "arch_free_mb" in parsed:
+            entry = {
+                "item": "Archive Dir",
+                "params": {"warn": 70, "crit": 90},
+                "metrics": ["used_percent"],
+            }
+            return {"changed": False, "msg": "discovered 1 item",
+                    "data": {"discovery": [entry]}}
+        return {"changed": False, "msg": "no archive dir sizing found",
+                "data": {"discovery": []}}
 
-    elif item == "Process":
-        if "process" not in parsed:
-            return {"changed": False, "msg": "No Active Process found",
-                    "data": {"state": "CRIT", "metrics": {}, "details": ""}}
-        state = "OK" if parsed["process_status"] == "RUN" else "CRIT"
-        return {"changed": False, "msg": "Active Process is: " + parsed["process"] + ", Status: " + parsed["process_status"],
-                "data": {"state": state, "metrics": {}, "details": ""}}
+    item = params.get("item", "")
+    if item != "Archive Dir":
+        return {"changed": False,
+                "msg": "no such item: " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    elif item == "Archive Dir":
-        if "arch_total_mb" not in parsed or "arch_free_mb" not in parsed:
-            return {"changed": False, "msg": "Archive directory information missing",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        total_mb = parsed["arch_total_mb"]
-        free_mb = parsed["arch_free_mb"]
-        used_mb = total_mb - free_mb
-        
-        # Calculate percentages (avoid division by zero)
-        if total_mb == 0:
-            used_percent = 0.0
-        else:
-            used_percent = float(used_mb * 100) / float(total_mb)
-        
-        warn = params.get("levels", (80, 90))[0]
-        crit = params.get("levels", (80, 90))[1]
-        
-        # Check thresholds
-        if used_percent >= crit:
-            state = "CRIT"
-        elif used_percent >= warn:
-            state = "WARN"
-        else:
-            state = "OK"
-        
-        return {"changed": False, "msg": "Size: %f MB, Free: %f MB, Used: %f%%" % (float(used_mb), float(free_mb), used_percent),
-                "data": {"state": state, "metrics": {"used_percent": used_percent, "size": total_mb, "free": free_mb}, "details": ""}}
+    text = _probe_libelle_install(ctx)
+    if text == None:
+        return {"changed": False,
+                "msg": "no libelle installation found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Unknown item
-    return {"changed": False, "msg": "Unknown service item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    parsed = _parse_libelle_info(text)
+    if "arch_total_mb" not in parsed or "arch_free_mb" not in parsed:
+        return {"changed": False,
+                "msg": "no archive dir sizing found in libelle output",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
+    total = parsed["arch_total_mb"]
+    free = parsed["arch_free_mb"]
+    used = total - free
+    used_percent = 0.0
+    if total > 0:
+        used_percent = (used * 100.0) / total
 
-def _to_mb(size_str):
-    # Convert size string like "150GB" to MB (int)
-    if size_str.endswith("MB"):
-        return int(float(size_str.replace("MB", "")))
-    if size_str.endswith("GB"):
-        return int(float(size_str.replace("GB", ""))) * 1024
-    if size_str.endswith("TB"):
-        return int(float(size_str.replace("TB", ""))) * 1024 * 1024
-    if size_str.endswith("PB"):
-        return int(float(size_str.replace("PB", ""))) * 1024 * 1024 * 1024
-    if size_str.endswith("EB"):
-        return int(float(size_str.replace("EB", ""))) * 1024 * 1024 * 1024 * 1024
-    # Assume MB if no suffix
-    return int(float(size_str))
+    warn = params.get("warn", 70)
+    crit = params.get("crit", 90)
+    levels = params.get("levels")
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+
+    if used_percent >= crit:
+        state = "CRIT"
+    elif used_percent >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    msg = "Archive Dir %d%% used (free %d MB of %d MB)" % (
+        int(used_percent), free, total)
+    details = "total=%d MB free=%d MB used=%d MB used_percent=%s" % (
+        total, free, used, str(used_percent))
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state,
+                     "metrics": {"used_percent": used_percent,
+                                 "used_mb": float(used),
+                                 "free_mb": float(free),
+                                 "total_mb": float(total)},
+                     "details": details}}

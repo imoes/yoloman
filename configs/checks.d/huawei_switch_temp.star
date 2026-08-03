@@ -1,302 +1,206 @@
-# ===== Starlark translation: huawei_switch_temp =====
-
-# Top-level constants for entity matching
-_ENTITY_NAME_START = "mpu board"
-
-def _parse_snmp_output(entities_lines, values_lines):
-    """
-    Parse the SNMP output into a dict of items.
-    Returns: {item_name: {"stack_member": int, "value": float or None}}
-    """
-    result = {}
+def _discover_huawei_switch_temp(ctx, params):
+    # Verify this is a Huawei switch via sysObjectID
+    sys_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if sys_res.rc != 0:
+        return {"changed": False, "msg": "not a huawei switch", "data": {"discovery": [], "host_labels": {}}}
+    
+    sys_oid = sys_res.stdout.strip()
+    if not sys_oid.find(".1.3.6.1.4.1.2011.2.23") >= 0:
+        return {"changed": False, "msg": "not a huawei switch", "data": {"discovery": [], "host_labels": {}}}
+    
+    # Walk ENTITY-MIB entPhysicalName (.1.3.6.1.2.1.47.1.1.1.1.7)
+    ent_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"), ".1.3.6.1.2.1.47.1.1.1.1.7"], mutates=False)
+    if ent_res.rc != 0:
+        return {"changed": False, "msg": "entity mib not available", "data": {"discovery": [], "host_labels": {}}}
+    
+    # Walk Huawei temp value column (.1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11)
+    val_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"), ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11"], mutates=False)
+    if val_res.rc != 0:
+        return {"changed": False, "msg": "temperature values not available", "data": {"discovery": [], "host_labels": {}}}
+    
+    # Parse entity names: OID.index VALUE -> (index, name)
+    entities = []
+    for line in ent_res.stdout.splitlines():
+        space = line.find(" ")
+        if space < 0:
+            continue
+        oid = line[:space]
+        name = line[space+1:]
+        # strip quotes if present
+        if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
+            name = name[1:-1]
+        # index is the entPhysicalIndex
+        base = ".1.3.6.1.2.1.47.1.1.1.1.7"
+        if oid.startswith(base + "."):
+            index = oid[len(base)+1:]
+        else:
+            index = oid
+        entities.append((index, name))
+    
+    # Parse values: OID.index VALUE -> (index, value)
+    values = {}
+    for line in val_res.stdout.splitlines():
+        space = line.find(" ")
+        if space < 0:
+            continue
+        oid = line[:space]
+        val = line[space+1:]
+        base = ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11"
+        if oid.startswith(base + "."):
+            index = oid[len(base)+1:]
+        else:
+            index = oid
+        values[index] = val
+    
+    # Find mpu board entities, match to values, group by stack member
     stack_member_number = 0
     entities_per_member = {}
-    
-    # Group entities by stack member
-    for line in entities_lines:
-        if len(line) < 2:
-            continue
-        # line = [physical_index, entity_name]
-        entity_name = line[1].lower() if line[1] else ""
-        physical_index = line[0]
+    for entity_line in entities:
+        ent_physical_index = entity_line[0]
+        entity_name = entity_line[1].lower()
         
-        # each mpu board signals the beginning of a new stack member
-        if entity_name.startswith(_ENTITY_NAME_START):
+        if entity_name.startswith("mpu board"):
             stack_member_number += 1
             entities_per_member[stack_member_number] = []
         
-        if entity_name.startswith(_ENTITY_NAME_START):
-            value = None
-            for val_line in values_lines:
-                if len(val_line) >= 2 and val_line[0] == physical_index:
-                    value = val_line[1]
-            
-            if stack_member_number > 0:
-                entities_per_member[stack_member_number].append({
-                    "physical_index": physical_index,
-                    "stack_member": stack_member_number,
-                    "value": value
-                })
+        if entity_name.startswith("mpu board"):
+            value = values.get(ent_physical_index)
+            entities_per_member[stack_member_number].append(value)
     
-    # Build item dict with {stack_member}/{entity_idx} format
-    for member_number, entities in entities_per_member.items():
-        for entity_idx, entity in enumerate(entities):
+    # Build discovery items: since multiple_entities_per_member == False,
+    # item names are just stack_member_number, and each member has one entity
+    discovery = []
+    for member_number in sorted(entities_per_member.keys()):
+        entity_list = entities_per_member[member_number]
+        for entity_idx, entity in enumerate(entity_list):
             item_name = str(member_number)
-            # add sub index since multiple entities per stack member are possible
-            item_name += "/" + str(entity_idx + 1)
-            result[item_name] = entity
-    
-    return result
-
-
-def main(ctx, params):
-    # ===== DISCOVERY MODE =====
-    if params.get("_discover"):
-        # Fetch both SNMP trees needed by the check
-        res_entities = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-            params.get("host", "localhost"), ".1.3.6.1.2.1.47.1.1.1.1"
-        ], mutates=False)
-        
-        res_values = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-            params.get("host", "localhost"), ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1"
-        ], mutates=False)
-        
-        # Parse SNMP lines: "OID = TYPE: value"
-        def parse_snmp_line(line):
-            # Split on " = " to separate OID and value part
-            parts = line.strip().split(" = ", 1)
-            if len(parts) < 2:
-                return None, None
-            oid = parts[0].strip()
-            value_part = parts[1].strip()
-            # Split value_part on ": " to get type and value
-            val_parts = value_part.split(": ", 1)
-            if len(val_parts) < 2:
-                return oid, value_part  # return raw if no type
-            return oid, val_parts[1].strip()  # return value only
-        
-        # Extract entities table lines (base OID: .1.3.6.1.2.1.47.1.1.1.1)
-        entities_lines = []
-        for line in res_entities.stdout.splitlines():
-            oid, val = parse_snmp_line(line)
-            if oid == None:
-                continue
-            # We need both physical index (oid ends with .1) and name (oid ends with .2)
-            # Extract numeric part after last dot (OID end)
-            end_oid = oid.rsplit('.', 1)[-1]
-            if end_oid == '1':
-                # Physical index line - collect for next name line
-                pass  # will be processed in next loop iteration
-            elif end_oid == '2':
-                # Name line
-                physical_idx = None
-                for prev_line in entities_lines:
-                    if prev_line[1] == '1' and prev_line[2] == oid.rsplit('.', 1)[0]:
-                        physical_idx = prev_line[0]
-                        break
-                if physical_idx != None:
-                    entities_lines.append([physical_idx, val])
-                else:
-                    # Try to find the physical index by scanning backward
-                    for i in range(len(entities_lines) - 1, -1, -1):
-                        if entities_lines[i][2] == oid.rsplit('.', 1)[0]:
-                            entities_lines.append([entities_lines[i][0], val])
-                            break
-                # Simpler approach: rebuild from raw data
-                # Reset and redo parsing
-        
-        # Re-parse more carefully - collect all lines and process by index
-        entities_raw = []
-        for line in res_entities.stdout.splitlines():
-            parts = line.strip().split(" = ", 1)
-            if len(parts) < 2:
-                continue
-            oid = parts[0].strip()
-            value_part = parts[1].strip()
-            val_parts = value_part.split(": ", 1)
-            val = val_parts[1].strip() if len(val_parts) > 1 else value_part
-            
-            # Extract index from OID (last component after last dot)
-            end_idx = oid.rsplit('.', 1)[-1]
-            base_oid = oid.rsplit('.', 1)[0]
-            entities_raw.append({"oid": oid, "end": end_idx, "base": base_oid, "value": val})
-        
-        # Build entities table: for each base_oid with end==2, find end==1's value
-        entities_lines = []
-        idx_map = {}  # map base_oid to physical index
-        for entry in entities_raw:
-            if entry["end"] == "1":
-                idx_map[entry["base"]] = entry["value"]
-            elif entry["end"] == "2":
-                physical_idx = idx_map.get(entry["base"])
-                if physical_idx != None:
-                    entities_lines.append([physical_idx, entry["value"]])
-        
-        # Parse values table (base OID: .1.3.6.1.4.1.2011.5.25.31.1.1.1.1)
-        values_lines = []
-        values_raw = []
-        for line in res_values.stdout.splitlines():
-            parts = line.strip().split(" = ", 1)
-            if len(parts) < 2:
-                continue
-            oid = parts[0].strip()
-            value_part = parts[1].strip()
-            val_parts = value_part.split(": ", 1)
-            val = val_parts[1].strip() if len(val_parts) > 1 else value_part
-            
-            # Extract index from OID
-            end_idx = oid.rsplit('.', 1)[-1]
-            base_oid = oid.rsplit('.', 1)[0]
-            values_raw.append({"oid": oid, "end": end_idx, "base": base_oid, "value": val})
-        
-        # Group by base_oid
-        value_map = {}
-        for entry in values_raw:
-            if entry["end"] == "11":
-                value_map[entry["base"]] = entry["value"]
-        
-        for entry in entities_lines:
-            # Find corresponding value
-            physical_idx = entry[0]
-            val = value_map.get(physical_idx)
-            if val != None:
-                values_lines.append([physical_idx, val])
-        
-        # Parse into section
-        section = _parse_snmp_output(entities_lines, values_lines)
-        
-        # Build discovery list
-        discovery_list = []
-        for item in section:
-            entity = section[item]
-            if entity and entity.get("value") != None:
-                discovery_list.append({
-                    "item": item,
-                    "params": {"levels": (80.0, 90.0)},
-                    "metrics": ["temperature"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(discovery_list),
-            "data": {"discovery": discovery_list}
-        }
-    
-    # ===== CHECK MODE =====
-    item = params.get("item", "")
-    
-    # Get SNMP data
-    res_entities = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-        params.get("host", "localhost"), ".1.3.6.1.2.1.47.1.1.1.1"
-    ], mutates=False)
-    
-    res_values = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-        params.get("host", "localhost"), ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1"
-    ], mutates=False)
-    
-    # Parse SNMP lines (same logic as discovery)
-    def parse_snmp_line(line):
-        parts = line.strip().split(" = ", 1)
-        if len(parts) < 2:
-            return None, None, None
-        oid = parts[0].strip()
-        value_part = parts[1].strip()
-        val_parts = value_part.split(": ", 1)
-        val = val_parts[1].strip() if len(val_parts) > 1 else value_part
-        end_idx = oid.rsplit('.', 1)[-1]
-        base_oid = oid.rsplit('.', 1)[0]
-        return end_idx, base_oid, val
-    
-    # Build entities mapping
-    entities_lines = []
-    idx_map = {}
-    for line in res_entities.stdout.splitlines():
-        end_idx, base_oid, val = parse_snmp_line(line)
-        if end_idx == "1":
-            idx_map[base_oid] = val
-        elif end_idx == "2":
-            physical_idx = idx_map.get(base_oid)
-            if physical_idx != None:
-                entities_lines.append([physical_idx, val])
-    
-    # Build values mapping
-    value_map = {}
-    for line in res_values.stdout.splitlines():
-        end_idx, base_oid, val = parse_snmp_line(line)
-        if end_idx == "11":
-            value_map[base_oid] = val
-    
-    # Construct values_lines
-    values_lines = []
-    for entry in entities_lines:
-        physical_idx = entry[0]
-        val = value_map.get(physical_idx)
-        if val != None:
-            values_lines.append([physical_idx, val])
-    
-    # Parse into section
-    section = _parse_snmp_output(entities_lines, values_lines)
-    
-    # Check item exists
-    if item not in section:
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    item_data = section[item]
-    if item_data == None:
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    value = item_data.get("value")
-    
-    if value == None or value == "":
-        return {
-            "changed": False,
-            "msg": "no value for sensor " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Convert to float - guard instead of try/except
-    temp = float(value) if value.replace(".", "", 1).isdigit() or (value.count("-") <= 1 and value.replace("-", "", 1).replace(".", "", 1).isdigit()) else None
-    
-    if temp == None:
-        return {
-            "changed": False,
-            "msg": "invalid temperature value: " + value,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Apply thresholds
-    warn = params.get("levels", (80.0, 90.0))
-    warn_val = warn[0]
-    crit_val = warn[1]
-    
-    if temp >= crit_val:
-        state = "CRIT"
-    elif temp >= warn_val:
-        state = "WARN"
-    else:
-        state = "OK"
-    
-    # Build message
-    msg = "Temperature: %f C" % temp
+            # multiple_entities_per_member == False (entity_name_start == mpu board start)
+            # so no sub-index added
+            discovery.append({
+                "item": item_name,
+                "params": {"levels": (80.0, 90.0)},
+                "metrics": ["temperature"],
+            })
     
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "discovered %d items" % len(discovery),
         "data": {
-            "state": state,
-            "metrics": {"temperature": temp},
-            "details": ""
-        }
+            "discovery": discovery,
+            "host_labels": {"cmk/vendor": "huawei", "cmk/device_type": "switch"},
+        },
     }
+
+def _check_huawei_switch_temp(ctx, params):
+    item = params.get("item", "")
+    levels = params.get("levels", (80.0, 90.0))
+    warn = levels[0] if type(levels) == "tuple" and len(levels) >= 2 else 80.0
+    crit = levels[1] if type(levels) == "tuple" and len(levels) >= 2 else 90.0
+    
+    # Verify this is a Huawei switch
+    sys_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if sys_res.rc != 0:
+        return {"changed": False, "msg": "not a huawei switch",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    sys_oid = sys_res.stdout.strip()
+    if sys_oid.find(".1.3.6.1.4.1.2011.2.23") < 0:
+        return {"changed": False, "msg": "not a huawei switch",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    # Walk entPhysicalName
+    ent_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"), ".1.3.6.1.2.1.47.1.1.1.1.7"], mutates=False)
+    if ent_res.rc != 0:
+        return {"changed": False, "msg": "entity mib not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    # Walk Huawei temp values
+    val_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"), ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11"], mutates=False)
+    if val_res.rc != 0:
+        return {"changed": False, "msg": "temperature values not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    # Parse entities
+    entities = []
+    ent_base = ".1.3.6.1.2.1.47.1.1.1.1.7"
+    for line in ent_res.stdout.splitlines():
+        space = line.find(" ")
+        if space < 0:
+            continue
+        oid = line[:space]
+        name = line[space+1:]
+        if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
+            name = name[1:-1]
+        if oid.startswith(ent_base + "."):
+            index = oid[len(ent_base)+1:]
+        else:
+            index = oid
+        entities.append((index, name))
+    
+    # Parse values
+    values = {}
+    val_base = ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1.11"
+    for line in val_res.stdout.splitlines():
+        space = line.find(" ")
+        if space < 0:
+            continue
+        oid = line[:space]
+        val = line[space+1:]
+        if oid.startswith(val_base + "."):
+            index = oid[len(val_base)+1:]
+        else:
+            index = oid
+        values[index] = val
+    
+    # Find mpu board entities, match to values, group by stack member
+    stack_member_number = 0
+    entities_per_member = {}
+    for entity_line in entities:
+        ent_physical_index = entity_line[0]
+        entity_name = entity_line[1].lower()
+        
+        if entity_name.startswith("mpu board"):
+            stack_member_number += 1
+            entities_per_member[stack_member_number] = []
+        
+        if entity_name.startswith("mpu board"):
+            value = values.get(ent_physical_index)
+            entities_per_member[stack_member_number].append(value)
+    
+    # Build item dict: item_name -> value
+    # multiple_entities_per_member == False since entity_name_start == mpu board start
+    item_value = None
+    for member_number in sorted(entities_per_member.keys()):
+        entity_list = entities_per_member[member_number]
+        for entity_idx, entity in enumerate(entity_list):
+            item_name = str(member_number)
+            if item_name == item:
+                item_value = entity
+                break
+    
+    if item_value == None:
+        return {"changed": False, "msg": "no temperature data for item %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    temp_str = item_value
+    if temp_str == None:
+        return {"changed": False, "msg": "no temperature data for item %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    # Convert to float
+    temp = float(temp_str)
+    
+    state = "CRIT" if temp >= crit else ("WARN" if temp >= warn else "OK")
+    return {"changed": False, "msg": "Temperature %s: %f C" % (item, temp),
+            "data": {"state": state, "metrics": {"temperature": temp}, "details": ""}}
+
+def main(ctx, params):
+    if params.get("_discover"):
+        return _discover_huawei_switch_temp(ctx, params)
+    return _check_huawei_switch_temp(ctx, params)

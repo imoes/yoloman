@@ -1,132 +1,138 @@
-# Starlark module: checkmk.liebert_cooling_status
-# Read-only check for Liebert cooling status via SNMP
+# liebert_cooling_status — Checkmk check translated to read-only Starlark
+
+DETECT_OID = ".1.3.6.1.2.1.1.2.0"
+DETECT_PREFIX = ".1.3.6.1.4.1.476.1.42"
+BASE_OID = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+NAME_COL_OID = ".10.1.2.1.5302"
+VALUE_COL_OID = ".20.1.2.1.5302"
+SNMP_TIMEOUT = "2"
+SNMP_RETRIES = "1"
+
+
+def _oid_suffix(oid, full_oid):
+    if len(full_oid) > len(oid):
+        return full_oid[len(oid) + 1:]
+    return ""
+
+
+def _strip_type_prefix(value):
+    idx = 0
+    ln = len(value)
+    while idx < ln:
+        ch = value[idx]
+        if ch == ":" or ch == " ":
+            idx = idx + 1
+            continue
+        break
+    while idx < ln:
+        ch = value[idx]
+        if ch == ":" or ch == " ":
+            idx = idx + 1
+            continue
+        break
+    out = value[idx:]
+    if len(out) >= 2 and out[0] == "\"" and out[len(out) - 1] == "\"":
+        return out[1:len(out) - 1]
+    return out
+
+
+def _snmpget(ctx, host, community, oid):
+    return ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", "-t", SNMP_TIMEOUT,
+                    "-r", SNMP_RETRIES, host, oid], mutates=False)
+
+
+def _snmpwalk(ctx, host, community, oid):
+    return ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-t", SNMP_TIMEOUT,
+                    "-r", SNMP_RETRIES, host, oid], mutates=False)
+
 
 def main(ctx, params):
-    base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    # OID 10.1.2.1.5302 -> Status Name
-    # OID 20.1.2.1.5302 -> Status Value
-    name_oid = base_oid + ".10.1.2.1.5302"
-    value_oid = base_oid + ".20.1.2.1.5302"
-
-    # Discovery mode
     if params.get("_discover"):
-        # Fetch name and value pairs
-        name_res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), name_oid
-        ], mutates=False)
-        value_res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), value_oid
-        ], mutates=False)
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
 
-        # Parse name and value OIDs into a dict
-        name_map = {}
-        for line in name_res.stdout.splitlines():
-            if line.strip() == "":
+        sysOid = _snmpget(ctx, host, community, DETECT_OID)
+        if sysOid.rc != 0:
+            return {"changed": False, "msg": "host not reachable or not a Liebert device",
+                    "data": {"discovery": []}}
+        sysOidVal = _strip_type_prefix(sysOid.stdout).strip()
+        if sysOidVal.find(DETECT_PREFIX) != 0:
+            return {"changed": False, "msg": "host is not a Liebert device",
+                    "data": {"discovery": []}}
+
+        walk = _snmpwalk(ctx, host, community, BASE_OID + NAME_COL_OID)
+        if walk.rc != 0 or walk.stdout.strip() == "":
+            return {"changed": False, "msg": "no cooling status data available",
+                    "data": {"discovery": []}}
+
+        names = []
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
                 continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
+            full_oid = line[:sp]
+            raw_val = line[sp + 1:]
+            idx = _oid_suffix(BASE_OID + NAME_COL_OID, full_oid)
+            if idx == "":
                 continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            # Extract the numeric suffix from the OID (e.g., .1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.1.5302.1.1 -> suffix "1")
-            suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-            # Extract the name (value after '=')
-            name = value_part.strip('"') if value_part.startswith('"') and value_part.endswith('"') else value_part
-            name_map[suffix] = name
-
-        value_map = {}
-        for line in value_res.stdout.splitlines():
-            if line.strip() == "":
+            val = _strip_type_prefix(raw_val).strip()
+            if val == "":
                 continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-            value = value_part.strip('"') if value_part.startswith('"') and value_part.endswith('"') else value_part
-            value_map[suffix] = value
+            names.append((idx, val))
 
-        # Build discovery list: item = status name, params empty (no thresholds), metrics empty
-        items = []
-        for suffix, name in name_map.items():
-            if suffix != "" and suffix in value_map:
-                items.append({
-                    "item": name,
-                    "params": {},
-                    "metrics": []
-                })
+        if len(names) == 0:
+            return {"changed": False, "msg": "no cooling status names found",
+                    "data": {"discovery": []}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d cooling status items" % len(items),
-            "data": {"discovery": items}
-        }
+        discovery = []
+        for idx, name in names:
+            discovery.append({"item": name, "params": {}, "metrics": ["status"]})
 
-    # Check mode
+        return {"changed": False,
+                "msg": "discovered %d cooling status items" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "item is required for check mode",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    # Fetch name and value lists
-    name_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), name_oid
-    ], mutates=False)
-    value_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), value_oid
-    ], mutates=False)
+    sysOid = _snmpget(ctx, host, community, DETECT_OID)
+    if sysOid.rc != 0:
+        return {"changed": False, "msg": "host not reachable or not a Liebert device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse OIDs into mapping
-    name_map = {}
-    for line in name_res.stdout.splitlines():
-        if line.strip() == "":
+    walk = _snmpwalk(ctx, host, community, BASE_OID + NAME_COL_OID)
+    if walk.rc != 0 or walk.stdout.strip() == "":
+        return {"changed": False, "msg": "no Liebert cooling status data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    found_idx = ""
+    for line in walk.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
             continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
+        full_oid = line[:sp]
+        raw_val = line[sp + 1:]
+        val = _strip_type_prefix(raw_val).strip()
+        idx = _oid_suffix(BASE_OID + NAME_COL_OID, full_oid)
+        if idx == "" or val == "":
             continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-        name = value_part.strip('"') if value_part.startswith('"') and value_part.endswith('"') else value_part
-        name_map[suffix] = name
+        if val == item:
+            found_idx = idx
+            break
 
-    value_map = {}
-    for line in value_res.stdout.splitlines():
-        if line.strip() == "":
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else ""
-        value = value_part.strip('"') if value_part.startswith('"') and value_part.endswith('"') else value_part
-        value_map[suffix] = value
+    if found_idx == "":
+        return {"changed": False,
+                "msg": "no cooling status named '%s' found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Find matching item
-    found = False
-    for suffix, name in name_map.items():
-        if name == item and suffix in value_map:
-            found = True
-            status = value_map[suffix]
-            # Checkmk returns OK regardless of the actual status string
-            return {
-                "changed": False,
-                "msg": status,
-                "data": {"state": "OK", "metrics": {}, "details": ""}
-            }
+    valRes = _snmpget(ctx, host, community, BASE_OID + VALUE_COL_OID + "." + found_idx)
+    if valRes.rc != 0:
+        return {"changed": False,
+                "msg": "could not read cooling status value for '%s'" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Item not found
-    return {
-        "changed": False,
-        "msg": "item not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-    }
+    status = _strip_type_prefix(valRes.stdout).strip()
+    return {"changed": False,
+            "msg": "%s" % status,
+            "data": {"state": "OK", "metrics": {}, "details": status}}

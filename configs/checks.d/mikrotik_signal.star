@@ -1,150 +1,107 @@
-# Mikrotik signal check — read-only Starlark translation
-# Gathers signal strength and mode via SNMP, computes quality %, yields OK/WARN/CRIT
-
-
-def _parse_int(s):
-    """Safely parse integer. Returns 0 if empty or non-numeric."""
-    if not s:
-        return 0
-    if s.startswith("-"):
-        rest = s[1:]
-        if rest.isdigit():
-            return -int(rest)
-        return 0
-    if s.isdigit():
-        return int(s)
-    return 0
-
-
 def main(ctx, params):
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host,
-            ".1.3.6.1.4.1.14988.1.1.1.1.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False,
-                    "msg": "discovered 0 networks",
-                    "data": {"discovery": []}}
-
-        lines = res.stdout.splitlines()
-        entries = {}  # network -> {"strength": str, "mode": str}
-
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            eq_idx = line.find("=")
-            if eq_idx == -1:
-                continue
-            oid_part = line[:eq_idx].strip()
-            val_part = line[eq_idx+1:].strip()
-            colon_idx = val_part.find(": ")
-            if colon_idx == -1:
-                val = val_part
-            else:
-                val = val_part[colon_idx+2:].strip()
-
-            # Detect OID type and network by .5.2
-            if ".5.2" in oid_part:
-                network = val
-                entries[network] = {"strength": "", "mode": ""}
-            elif ".4.2" in oid_part and len(entries) > 0:
-                # Assign to last network (approximation for snmpwalk output order)
-                last_key = list(entries.keys())[-1]
-                entries[last_key]["strength"] = val
-            elif ".8.2" in oid_part and len(entries) > 0:
-                last_key = list(entries.keys())[-1]
-                entries[last_key]["mode"] = val
-
-        discovered = []
-        for network, data in entries.items():
-            if not network:
-                continue
-            discovered.append({
-                "item": network,
-                "params": {"levels_lower": (80.0, 70.0)},
-                "metrics": ["quality"]
-            })
-
-        return {"changed": False,
-                "msg": "discovered %d networks" % len(discovered),
-                "data": {"discovery": discovered}}
-
-    # CHECK mode
-    item = params.get("item", "")
     community = params.get("community", "public")
     host = params.get("host", "localhost")
     warn, crit = params.get("levels_lower", (80.0, 70.0))
 
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host,
-        ".1.3.6.1.4.1.14988.1.1.1.1.1"
-    ], mutates=False)
+    base = ".1.3.6.1.4.1.14988.1.1.1.1.1"
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    detect_oid = ".1.3.6.1.4.1.14988.1"
 
-    if res.rc != 0:
+    # Detect: is this a MikroTik device?
+    det = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, detect_oid], mutates=False)
+    if det.rc != 0:
+        return {"changed": False, "msg": "host is not a MikroTik device",
+                "data": {"discovery": []}}
+
+    if params.get("_discover"):
+        # Walk all three columns by shared index.
+        networks = _walk(ctx, community, host, base + ".5.2")
+        strengths = _walk(ctx, community, host, base + ".4.2")
+        modes = _walk(ctx, community, host, base + ".8.2")
+
+        # Correlate by index; item = network value.
+        rows = []
+        for idx in sorted(networks.keys()):
+            net = networks[idx]
+            if net == "":
+                continue
+            rows.append({
+                "item": net,
+                "params": {"levels_lower": [80.0, 70.0]},
+                "metrics": ["quality"],
+            })
         return {"changed": False,
-                "msg": "Network not found",
+                "msg": "discovered %d signal services" % len(rows),
+                "data": {"discovery": rows}}
+
+    # CHECK MODE
+    item = params.get("item", "")
+    networks = _walk(ctx, community, host, base + ".5.2")
+    strengths = _walk(ctx, community, host, base + ".4.2")
+    modes = _walk(ctx, community, host, base + ".8.2")
+
+    idx_of = None
+    for idx in sorted(networks.keys()):
+        if networks[idx] == item:
+            idx_of = idx
+            break
+
+    if idx_of == None:
+        return {"changed": False, "msg": "Network not found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    lines = res.stdout.splitlines()
-    entries = {}  # network -> {"strength": str, "mode": str}
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        eq_idx = line.find("=")
-        if eq_idx == -1:
-            continue
-        oid_part = line[:eq_idx].strip()
-        val_part = line[eq_idx+1:].strip()
-        colon_idx = val_part.find(": ")
-        if colon_idx == -1:
-            val = val_part
-        else:
-            val = val_part[colon_idx+2:].strip()
-
-        if ".5.2" in oid_part:
-            network = val
-            entries[network] = {"strength": "", "mode": ""}
-        elif ".4.2" in oid_part and len(entries) > 0:
-            last_key = list(entries.keys())[-1]
-            entries[last_key]["strength"] = val
-        elif ".8.2" in oid_part and len(entries) > 0:
-            last_key = list(entries.keys())[-1]
-            entries[last_key]["mode"] = val
-
-    if item not in entries:
-        return {"changed": False,
-                "msg": "Network not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    strength_str = entries[item].get("strength", "")
-    mode_val = entries[item].get("mode", "")
-
-    strength = _parse_int(strength_str)
+    strength = _strconv(strengths.get(idx_of, "0"))
+    mode = modes.get(idx_of, "")
 
     quality = 0
     if strength <= -50 or strength >= -100:
         quality = 2 * (strength + 100)
-    if quality > 100:
-        quality = 100
+    quality = min(quality, 100)
 
-    infotext = "Signal quality %d%% (%sdBm). Mode is: %s" % (quality, str(strength), mode_val)
-
-    state = "OK"
     if quality <= crit:
         state = "CRIT"
     elif quality <= warn:
         state = "WARN"
+    else:
+        state = "OK"
 
-    return {"changed": False,
-            "msg": infotext,
+    infotext = "Signal quality %d%% (%ddBm). Mode is: %s" % (quality, strength, mode)
+    return {"changed": False, "msg": infotext,
             "data": {"state": state,
                      "metrics": {"quality": float(quality)},
                      "details": ""}}
+
+
+def _walk(ctx, community, host, column_oid):
+    """Walk a single column OID; return {index: value} mapping."""
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid], mutates=False)
+    out = {}
+    if res.rc != 0:
+        return out
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        idx = oid[len(column_oid) + 1:]
+        if idx == "":
+            continue
+        out[idx] = _strip_val(val)
+    return out
+
+
+def _strip_val(val):
+    """Remove a leading \"<TYPE>: \" prefix and surrounding quotes if present."""
+    v = val
+    if v.startswith("\""):
+        v = v[1:]
+    if v.endswith("\""):
+        v = v[:-1]
+    return v
+
+
+def _strconv(s):
+    if s.lstrip("-").isdigit():
+        return int(s)
+    return 0

@@ -1,343 +1,291 @@
-def main(ctx, params):
-    # Constants for sensor mapping
-    CMCTC_LCP_SENSORS = {
-        "4": (None, "access"),
-        "12": (None, "humidity"),
-        "13": ("normally open", "user"),
-        "14": ("normally closed", "user"),
-        "23": (None, "flow"),
-        "30": (None, "current"),
-        "31": (None, "status"),
-        "32": (None, "position"),
-        "40": ("1", "blower"),
-        "41": ("2", "blower"),
-        "42": ("3", "blower"),
-        "43": ("4", "blower"),
-        "44": ("5", "blower"),
-        "45": ("6", "blower"),
-        "46": ("7", "blower"),
-        "47": ("8", "blower"),
-        "48": ("Server in 1", "temp"),
-        "49": ("Server out 1", "temp"),
-        "50": ("Server in 2", "temp"),
-        "51": ("Server out 2", "temp"),
-        "52": ("Server in 3", "temp"),
-        "53": ("Server out 3", "temp"),
-        "54": ("Server in 4", "temp"),
-        "55": ("Server out 4", "temp"),
-        "56": ("Overview Server in", "temp"),
-        "57": ("Overview Server out", "temp"),
-        "58": ("Water in", "temp"),
-        "59": ("Water out", "temp"),
-        "60": (None, "flow"),
-        "61": (None, "blowergrade"),
-        "62": (None, "regulator"),
-    }
-    TREES = ["3", "4", "5", "6"]
+# Rittal LCP waterflow sensors — translated from Checkmk cmctc_lcp_flow.
+# This is an SNMP-table per-item check. It discovers flow sensors (typeid "23"),
+# reports the waterflow reading with status levels.
 
-    # State mapping: status code -> (state, text)
-    MAP_SENSOR_STATE = {
-        "1": (3, "not available"),
-        "2": (2, "lost"),
-        "3": (1, "changed"),
-        "4": (0, "ok"),
-        "5": (2, "off"),
-        "6": (0, "on"),
-        "7": (1, "warning"),
-        "8": (2, "too low"),
-        "9": (2, "too high"),
-        "10": (2, "error"),
-    }
-    MAP_UNIT = {
-        "access": "",
-        "current": " A",
-        "status": "",
-        "position": "",
-        "temp": " °C",
-        "blower": " RPM",
-        "blowergrade": "",
-        "humidity": "%",
-        "flow": " l/min",
-        "regulator": "%",
-        "user": "",
-    }
+_TREES = ["3", "4", "5", "6"]
 
-    # ===== DISCOVERY MODE =====
-    if params.get("_discover"):
-        items = []
-        for tree in TREES:
-            # Fetch description table
-            desc_oid = ".1.3.6.1.4.1.2606.4.2.%s.7.2.1" % tree
-            desc_res = ctx.run([
-                "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), desc_oid
-            ], mutates=False)
+_COLUMNS = [
+    "5.2.1.1",  # index
+    "5.2.1.2",  # typeid
+    "5.2.1.4",  # status
+    "5.2.1.5",  # reading
+    "5.2.1.6",  # high
+    "5.2.1.7",  # low
+    "5.2.1.8",  # warn
+    "7.2.1.2",  # description
+]
 
-            # Parse descriptions
-            descriptions = {}
-            for line in desc_res.stdout.splitlines():
-                parts = line.strip().split(" = ", 1)
-                if len(parts) != 2:
-                    continue
-                oid_path = parts[0].strip()
-                value = parts[1].strip()
-                oid_parts = oid_path.split(".")
-                if len(oid_parts) < 20:
-                    continue
-                t = oid_parts[6]
-                idx_str = oid_parts[19]
-                if t == tree and value != None and value != "" and idx_str.isdigit():
-                    idx = int(idx_str)
-                    descriptions[idx] = value
+_BASE = ".1.3.6.1.4.1.2606.4.2"
 
-            # Fetch sensor table
-            sensor_oid = ".1.3.6.1.4.1.2606.4.2.%s.5.2.1" % tree
-            res = ctx.run([
-                "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), sensor_oid
-            ], mutates=False)
+# typeid -> (prefix, sensortype)
+_CMCTC_LCP_SENSORS = {
+    "4": (None, "access"),
+    "12": (None, "humidity"),
+    "13": ("normally open", "user"),
+    "14": ("normally closed", "user"),
+    "23": (None, "flow"),
+    "30": (None, "current"),
+    "31": (None, "status"),
+    "32": (None, "position"),
+    "40": ("1", "blower"),
+    "41": ("2", "blower"),
+    "42": ("3", "blower"),
+    "43": ("4", "blower"),
+    "44": ("5", "blower"),
+    "45": ("6", "blower"),
+    "46": ("7", "blower"),
+    "47": ("8", "blower"),
+    "48": ("Server in 1", "temp"),
+    "49": ("Server out 1", "temp"),
+    "50": ("Server in 2", "temp"),
+    "51": ("Server out 2", "temp"),
+    "52": ("Server in 3", "temp"),
+    "53": ("Server out 3", "temp"),
+    "54": ("Server in 4", "temp"),
+    "55": ("Server out 4", "temp"),
+    "56": ("Overview Server in", "temp"),
+    "57": ("Overview Server out", "temp"),
+    "58": ("Water in", "temp"),
+    "59": ("Water out", "temp"),
+    "60": (None, "flow"),
+    "61": (None, "blowergrade"),
+    "62": (None, "regulator"),
+}
 
-            # Parse sensor table
-            table = {}  # idx -> {typeid, status, reading, high, low, warn}
-            for line in res.stdout.splitlines():
-                parts = line.strip().split(" = ", 1)
-                if len(parts) != 2:
-                    continue
-                oid_path = parts[0].strip()
-                value = parts[1].strip()
-                oid_parts = oid_path.split(".")
-                if len(oid_parts) < 20:
-                    continue
-                t = oid_parts[6]
-                field_str = oid_parts[15]
-                idx_str = oid_parts[16]
-                if t != tree or not field_str.isdigit() or not idx_str.isdigit():
-                    continue
-                field = int(field_str)
-                idx = int(idx_str)
-                if not (idx in table):
-                    table[idx] = {}
-                field_map = {
-                    1: "index",
-                    2: "typeid",
-                    4: "status",
-                    5: "reading",
-                    6: "high",
-                    7: "low",
-                    8: "warn",
-                }
-                field_name = field_map.get(field, "")
-                if field_name != "" and value != None and value != "":
-                    table[idx][field_name] = value
+# status code -> (state_level, text)
+_MAP_SENSOR_STATE = {
+    "1": (3, "not available"),
+    "2": (2, "lost"),
+    "3": (1, "changed"),
+    "4": (0, "ok"),
+    "5": (2, "off"),
+    "6": (0, "on"),
+    "7": (1, "warning"),
+    "8": (2, "too low"),
+    "9": (2, "too high"),
+    "10": (2, "error"),
+}
 
-            # Process sensors
-            for idx in table:
-                data = table[idx]
-                typeid = data.get("typeid", "")
-                if typeid == "":
-                    continue
-                sensor_spec = CMCTC_LCP_SENSORS.get(typeid)
-                if sensor_spec == None:
-                    continue
-                if sensor_spec[1] != "flow":
-                    continue
-                # Build item name
-                item = "%s - %s.%s" % (sensor_spec[0], tree, idx) if sensor_spec[0] != None else "%s.%s" % (tree, idx)
-                items.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": ["flow"]
-                })
+_MAP_UNIT = {
+    "access": "",
+    "current": " A",
+    "status": "",
+    "position": "",
+    "temp": " \u00b0C",
+    "blower": " RPM",
+    "blowergrade": "",
+    "humidity": "%",
+    "flow": " l/min",
+    "regulator": "%",
+    "user": "",
+}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d flow sensors" % len(items),
-            "data": {"discovery": items}
-        }
 
-    # ===== CHECK MODE =====
-    item = params.get("item", "")
+def _to_float(v):
+    if v == None:
+        return None
+    if type(v) == "string":
+        if v == "":
+            return None
+        return float(v)
+    return float(v)
 
-    # Extract tree and index from item (format: "tree.index" or "name - tree.index")
-    tree_idx = item
-    if item.find(" - ") >= 0:
-        tree_idx = item.split(" - ")[1]
 
-    parts = tree_idx.split(".")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "invalid item format: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    tree = parts[0]
-    idx_str = parts[1]
-
-    if not (tree in TREES):
-        return {
-            "changed": False,
-            "msg": "invalid tree in item: " + tree,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Fetch description table
-    desc_oid = ".1.3.6.1.4.1.2606.4.2.%s.7.2.1" % tree
-    desc_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), desc_oid
-    ], mutates=False)
-
-    descriptions = {}
-    for line in desc_res.stdout.splitlines():
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_path = parts[0].strip()
-        value = parts[1].strip()
-        oid_parts = oid_path.split(".")
-        if len(oid_parts) < 20:
-            continue
-        t = oid_parts[6]
-        idx_str_desc = oid_parts[19]
-        if t == tree and value != None and value != "" and idx_str_desc.isdigit():
-            idx = int(idx_str_desc)
-            descriptions[idx] = value
-
-    # Fetch sensor table
-    sensor_oid = ".1.3.6.1.4.1.2606.4.2.%s.5.2.1" % tree
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), sensor_oid
-    ], mutates=False)
-
-    table = {}  # idx -> {typeid, status, reading, high, low, warn}
+def _walk_column(ctx, host, community, col_oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oid], mutates=False)
+    if res.rc != 0:
+        return []
+    rows = []
     for line in res.stdout.splitlines():
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
+        line = line.strip()
+        if line == "":
             continue
-        oid_path = parts[0].strip()
-        value = parts[1].strip()
-        oid_parts = oid_path.split(".")
-        if len(oid_parts) < 20:
+        sp = line.find(" ")
+        if sp < 0:
             continue
-        t = oid_parts[6]
-        field_str = oid_parts[15]
-        idx_str_s = oid_parts[16]
-        if t != tree or not field_str.isdigit() or not idx_str_s.isdigit():
-            continue
-        field = int(field_str)
-        idx = int(idx_str_s)
-        if not (idx in table):
-            table[idx] = {}
-        field_map = {
-            1: "index",
-            2: "typeid",
-            4: "status",
-            5: "reading",
-            6: "high",
-            7: "low",
-            8: "warn",
-        }
-        field_name = field_map.get(field, "")
-        if field_name != "" and value != None and value != "":
-            table[idx][field_name] = value
+        oid = line[:sp]
+        val = line[sp + 1:]
+        rows.append((oid, val))
+    return rows
 
-    # Find the sensor
-    found_sensor = None
-    for idx in table:
-        data = table[idx]
-        typeid = data.get("typeid", "")
-        if typeid == "":
+
+def _get_scalar(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _snmp_get_table(ctx, host, community, tree_idx):
+    base = _BASE + "." + tree_idx
+    # Walk each column OID to collect the index->value maps.
+    col_oids = {}
+    for c in _COLUMNS:
+        col_oids[c] = base + "." + c
+    # Build a map: index -> {col_label: value}
+    data = {}  # index -> dict
+    col_labels = _COLUMNS
+    # We need to walk each column and split off the index suffix.
+    # column_oid is base + "." + col_label, e.g. base.5.2.1.1
+    idx_values = {}  # index -> list aligned with col_labels
+    for c in col_labels:
+        full = base + "." + c
+        rows = _walk_column(ctx, host, community, full)
+        for (oid, val) in rows:
+            suffix = oid[len(full) + 1:] if oid.startswith(full + ".") else None
+            if suffix == None:
+                continue
+            if suffix not in data:
+                data[suffix] = {}
+            data[suffix][c] = val
+    return data
+
+
+def _parse_block(ctx, host, community, tree_idx):
+    data = _snmp_get_table(ctx, host, community, tree_idx)
+    out = []
+    for index, cols in data.items():
+        # columns: 5.2.1.1=index, 5.2.1.2=typeid, 5.2.1.4=status, 5.2.1.5=reading,
+        # 5.2.1.6=high, 5.2.1.7=low, 5.2.1.8=warn, 7.2.1.2=description
+        typeid = cols.get("5.2.1.2")
+        spec = _CMCTC_LCP_SENSORS.get(typeid)
+        if spec == None:
             continue
-        sensor_spec = CMCTC_LCP_SENSORS.get(typeid)
-        if sensor_spec == None:
-            continue
-        if sensor_spec[1] != "flow":
-            continue
-        item_name = "%s - %s.%s" % (sensor_spec[0], tree, idx) if sensor_spec[0] != None else "%s.%s" % (tree, idx)
-        if item_name == item:
-            idx_int = int(idx_str)
-            description = descriptions.get(idx_int, "")
-            reading_val = data.get("reading", "0")
-            high_val = data.get("high", "0")
-            low_val = data.get("low", "0")
-            warn_val = data.get("warn", "0")
-            found_sensor = {
-                "status": data.get("status", "0"),
-                "reading": float(reading_val) if reading_val.replace(".","").lstrip("-").isdigit() else 0.0,
-                "high": float(high_val) if high_val.replace(".","").lstrip("-").isdigit() else 0.0,
-                "low": float(low_val) if low_val.replace(".","").lstrip("-").isdigit() else 0.0,
-                "warn": float(warn_val) if warn_val.replace(".","").lstrip("-").isdigit() else 0.0,
-                "description": description,
-                "type_": "flow"
-            }
+        out.append({
+            "tree": tree_idx,
+            "index": index,
+            "typeid": typeid,
+            "status": cols.get("5.2.1.4"),
+            "reading": cols.get("5.2.1.5"),
+            "high": cols.get("5.2.1.6"),
+            "low": cols.get("5.2.1.7"),
+            "warn": cols.get("5.2.1.8"),
+            "description": cols.get("7.2.1.2"),
+            "prefix": spec[0],
+            "type_": spec[1],
+        })
+    return out
+
+
+def _all_sensors(ctx, host, community):
+    sensors = []
+    for tree_idx in _TREES:
+        sensors.extend(_parse_block(ctx, host, community, tree_idx))
+    return sensors
+
+
+def _item_name(prefix, tree, index):
+    if prefix != None:
+        return prefix + " - " + tree + "." + index
+    return tree + "." + index
+
+
+def _flow_sensors(ctx, host, community):
+    out = []
+    for s in _all_sensors(ctx, host, community):
+        if s["type_"] == "flow":
+            out.append(s)
+    return out
+
+
+def _state_from_levels(reading, warn, crit, lower):
+    if crit != None and reading >= crit:
+        return "CRIT"
+    if lower and lower != None and reading <= lower:
+        return "CRIT"
+    if warn != None and reading >= warn:
+        return "WARN"
+    return "OK"
+
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    sensortype = "flow"
+
+    # Verify the device is a Rittal CMCTC via sysObjectID.
+    sysid = _get_scalar(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if sysid == None or not sysid.startswith(".1.3.6.1.4.1.2606.4"):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not a Rittal CMCTC", "data": {"discovery": []}}
+        return {"changed": False, "msg": "not a Rittal CMCTC",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if params.get("_discover"):
+        sensors = _flow_sensors(ctx, host, community)
+        discovery = []
+        for s in sensors:
+            item = _item_name(s["prefix"], s["tree"], s["index"])
+            discovery.append({
+                "item": item,
+                "params": {"warn": 80, "crit": 90},
+                "metrics": [sensortype],
+            })
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    sensors = _flow_sensors(ctx, host, community)
+    target = None
+    for s in sensors:
+        if _item_name(s["prefix"], s["tree"], s["index"]) == item:
+            target = s
             break
 
-    if found_sensor == None:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    if target == None:
+        return {"changed": False,
+                "msg": "no such waterflow sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    sensor = found_sensor
-    unit = MAP_UNIT.get(sensor["type_"], "")
+    reading = _to_float(target["reading"])
+    high = _to_float(target["high"])
+    low = _to_float(target["low"])
+    warn = _to_float(target["warn"])
+    if reading == None:
+        return {"changed": False,
+                "msg": "no reading for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    unit = _MAP_UNIT.get(sensortype, "")
+    desc = target["description"]
     infotext = ""
-    if sensor["description"] != "":
-        infotext = "[%s] " % sensor["description"]
+    if desc != None and desc != "":
+        infotext += "[" + desc + "] "
 
-    # Status mapping
-    status_code = sensor["status"]
-    state, extra_info = MAP_SENSOR_STATE.get(status_code, (3, "unknown"))
-    cm_state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    state_text = cm_state_map.get(state, "UNKNOWN")
-    summary = "%s%d%s" % (infotext, int(sensor["reading"]), unit)
-
-    # Check levels
-    extra_state = state
-    metrics = {"flow": sensor["reading"]}
-
-    # Get levels from params or use device defaults
-    warn = None
-    crit = None
-    if params != None:
-        if type(params) == "list" and len(params) >= 2:
-            warn_str = str(params[0])
-            crit_str = str(params[1])
-            warn = float(warn_str) if warn_str.replace(".","").lstrip("-").isdigit() else None
-            crit = float(crit_str) if crit_str.replace(".","").lstrip("-").isdigit() else None
-        elif type(params) == "dict":
-            warn_val = params.get("warn", "0")
-            crit_val = params.get("crit", "0")
-            warn_str = str(warn_val)
-            crit_str = str(crit_val)
-            warn = float(warn_str) if warn_str.replace(".","").lstrip("-").isdigit() else None
-            crit = float(crit_str) if crit_str.replace(".","").lstrip("-").isdigit() else None
-
-    if warn != None and crit != None:
-        if sensor["reading"] >= crit:
-            extra_state = 2
-            extra_info = extra_info + " (crit at %d%s)" % (crit, unit)
-        elif sensor["reading"] >= warn:
-            extra_state = 1
-            extra_info = extra_info + " (warn at %d%s)" % (warn, unit)
+    st = target["status"]
+    smap = _MAP_SENSOR_STATE.get(st)
+    if smap != None:
+        state_level = smap[0]
+        extra_info = smap[1]
     else:
-        # Check device default levels
-        if sensor["low"] != 0 or sensor["warn"] != 0 or sensor["high"] != 0:
-            if sensor["low"] < sensor["high"]:
-                if sensor["reading"] >= sensor["high"]:
-                    extra_state = 2
-                    extra_info = extra_info + " (device crit at %d%s)" % (sensor["high"], unit)
-                elif sensor["reading"] >= sensor["warn"]:
-                    extra_state = 1
-                    extra_info = extra_info + " (device warn at %d%s)" % (sensor["warn"], unit)
+        state_level = 3
+        extra_info = "unknown status " + str(st)
 
-    return {
-        "changed": False,
-        "msg": summary + (" " + extra_info if extra_info != "" else ""),
-        "data": {
-            "state": cm_state_map.get(extra_state, "UNKNOWN"),
-            "metrics": metrics,
-            "details": ""
-        },
-    }
+    summary = infotext + str(int(reading)) + unit
+
+    metrics = {"flow": reading}
+    if params:
+        warn_p = params.get("warn")
+        crit_p = params.get("crit")
+        if warn_p != None:
+            warn = float(warn_p)
+        if crit_p != None:
+            crit = float(crit_p)
+        if crit != None:
+            metrics["flow_levels"] = crit
+    else:
+        if warn != None and high != None and low != None:
+            if (low != 0.0 or warn != 0.0 or high != 0.0) and low < high:
+                warn = warn
+                crit = high
+
+    final_state = "OK"
+    if state_level >= 2:
+        final_state = "CRIT"
+    elif state_level == 1:
+        final_state = "WARN"
+
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": final_state, "metrics": metrics, "details": extra_info}}

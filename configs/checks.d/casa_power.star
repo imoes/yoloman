@@ -1,93 +1,74 @@
 def main(ctx, params):
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.20858.10.33.1.5.1.4"
-        
-        # Walk the SNMP OID for power supply statuses
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        
-        items = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) < 2:
-                continue
-            # Extract numeric index from OID: .1.3.6.1.4.1.20858.10.33.1.5.1.4.1 -> 1
-            oid_part = parts[0].strip()
-            # Find last dot-separated number in the OID
-            last_dot = oid_part.rfind(".")
-            if last_dot >= 0:
-                idx_str = oid_part[last_dot+1:]
-                if idx_str.isdigit():
-                    idx = int(idx_str)
-                    items.append({
-                        "item": str(idx),
-                        "params": {},
-                        "metrics": []
-                    })
-        
-        return {"changed": False, "msg": "discovered %d power supplies" % len(items),
-                "data": {"discovery": items}}
-    
-    # Check mode
-    item = params.get("item", "")
-    if not item.isdigit():
-        return {"changed": False, "msg": "invalid item: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    unit_nr = int(item)
-    
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.20858.10.33.1.5.1.4"
-    oid = base_oid + "." + item
-    
-    # Get specific power supply status
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-    
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "Power Supply %s not found in snmp output" % item,
+
+    # Probe for the CASA device (DETECT_CASA: sysObjectID starts with .1.3.6.1.4.1.20858.2.)
+    sysid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv",
+         host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysid_res.rc != 0 or not sysid_res.stdout:
+        return {"changed": False, "msg": "no casa device found",
+                "data": {"discovery": []}}
+    sysid = sysid_res.stdout.strip()
+    if not sysid.startswith(".1.3.6.1.4.1.20858.2."):
+        return {"changed": False, "msg": "no casa device found",
+                "data": {"discovery": []}}
+
+    # Fetch the power supply table rows (OID .4 under base .1.3.6.1.4.1.20858.10.33.1.5.1)
+    walk_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn",
+         host, ".1.3.6.1.4.1.20858.10.33.1.5.1.4"],
+        mutates=False,
+    )
+
+    # Parse: one "<oid>.<idx> <value>" line per row; idx = suffix after the .4 column oid
+    statuses = {}
+    column_oid = ".1.3.6.1.4.1.20858.10.33.1.5.1.4"
+    if walk_res.rc == 0 and walk_res.stdout:
+        for line in walk_res.stdout.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            oid, value = parts[0], parts[1]
+            if oid.startswith(column_oid + "."):
+                idx = oid[len(column_oid) + 1:]
+                if idx.isdigit():
+                    statuses[int(idx)] = value
+
+    if params.get("_discover"):
+        discovery = []
+        for idx in sorted(statuses.keys()):
+            discovery.append({
+                "item": str(idx),
+                "params": {},
+                "metrics": [],
+            })
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    unit_nr = int(item) if item != "" and item.isdigit() else -1
+    if unit_nr not in statuses:
+        return {"changed": False,
+                "msg": "Power Supply %s not found in snmp output" % str(item),
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse output: .1.3.6.1.4.1.20858.10.33.1.5.1.4.1 = INTEGER: 1
-    parts = res.stdout.strip().split(" = ")
-    if len(parts) < 2:
-        return {"changed": False, "msg": "Power Supply %s not found in snmp output" % item,
+
+    status = statuses[unit_nr]
+    verdict = {
+        "0": ("UNKNOWN", "Power supply - Unknown status"),
+        "1": ("OK", "Power supply OK"),
+        "2": ("OK", "Power supply working under threshold"),
+        "3": ("WARN", "Power supply working over threshold"),
+        "4": ("CRIT", "Power failure"),
+    }.get(status)
+    if verdict == None:
+        return {"changed": False,
+                "msg": "Power Supply %s - unknown status %s" % (str(item), status),
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    value_part = parts[1].strip()
-    # Extract value after ':'
-    colon_pos = value_part.find(":")
-    if colon_pos >= 0:
-        status_str = value_part[colon_pos+1:].strip()
-    else:
-        status_str = ""
-    
-    if not status_str.isdigit():
-        return {"changed": False, "msg": "Power Supply %s not found in snmp output" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    status = int(status_str)
-    status_map = {
-        "0": "Power supply - Unknown status",
-        "1": "Power supply OK",
-        "2": "Power supply working under threshold",
-        "3": "Power supply working over threshold",
-        "4": "Power failure"
-    }
-    
-    state_map = {
-        "0": "UNKNOWN",
-        "1": "OK",
-        "2": "OK",
-        "3": "WARN",
-        "4": "CRIT"
-    }
-    
-    summary = status_map.get(str(status), "Power supply - Unknown status")
-    state = state_map.get(str(status), "UNKNOWN")
-    
-    return {"changed": False, "msg": summary,
+    state, msg = verdict
+    return {"changed": False,
+            "msg": msg,
             "data": {"state": state, "metrics": {}, "details": ""}}

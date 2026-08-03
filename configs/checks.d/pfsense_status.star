@@ -1,50 +1,53 @@
-# Checkmk check plugin: cmk/plugins/pfsense/agent_based/pfsense_status.py
-# Translate to read-only Starlark check module
-
 def main(ctx, params):
-    # Discovery mode: always yield one service if section exists (i.e., SNMP available)
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
+        detect = ctx.run(
+            [
+                "snmpget", "-v2c", "-c",
+                params.get("community", "public"),
+                "-Oqv", params.get("host", "localhost"),
+                ".1.3.6.1.2.1.1.1.0",
+            ],
+            mutates=False,
+        )
+        if detect.rc != 0 or not detect.stdout.lower().find("pfsense"):
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": [], "host_labels": {}}}
+        res = ctx.run(
+            [
+                "snmpget", "-v2c", "-c",
+                params.get("community", "public"),
+                "-Oqv", params.get("host", "localhost"),
+                ".1.3.6.1.4.1.12325.1.200.1.1.1",
+            ],
+            mutates=False,
+        )
+        if res.rc == 0 and res.stdout.strip() != "":
+            return {"changed": False, "msg": "discovered 1 item",
+                    "data": {"discovery": [
+                        {"item": "", "params": {}, "metrics": []}
+                    ]}}
+        return {"changed": False, "msg": "discovered 0 items",
+                "data": {"discovery": []}}
 
-    # Check mode: read JSON from the pfsense special agent output
-    path = "/var/lib/check-mk-agent/source/pfsense_status.json"
-    if not ctx.file_exists(path):
-        return {
-            "changed": False,
-            "msg": "pfSense status data not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    res = ctx.run(
+        [
+            "snmpget", "-v2c", "-c",
+            params.get("community", "public"),
+            "-Oqv", params.get("host", "localhost"),
+            ".1.3.6.1.4.1.12325.1.200.1.1.1",
+        ],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout.strip() == "":
+        return {"changed": False, "msg": "pfSense status not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    content = ctx.file_read(path)
-    if not content:
-        return {
-            "changed": False,
-            "msg": "pfSense status data not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    data = json.decode(content)
-
-    # Get status from JSON (pfsense special agent uses string values)
-    status = data.get("status", "")
-
-    # Map status to state
-    if status == "running":
-        state = "OK"
-        summary = "Running"
-    elif status == "notRunning":
-        state = "CRIT"
-        summary = "Not running"
-    else:
-        state = "UNKNOWN"
-        summary = "Unknown status value: " + repr(status)
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    value = res.stdout.strip()
+    if value == "1":
+        return {"changed": False, "msg": "Running",
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
+    if value == "2":
+        return {"changed": False, "msg": "Not running",
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": "Unknown status value: %s" % value,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

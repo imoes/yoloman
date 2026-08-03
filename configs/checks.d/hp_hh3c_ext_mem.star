@@ -1,143 +1,195 @@
+# Memory usage percentage check for HP/3Com devices via SNMP.
+# Reproduces Checkmk check plugin hp_hh3c_ext_mem.
+
+def _parse_snmp_table(res):
+    """Parse -Oqn snmpwalk output: one line per row, '<OID>.<idx> <value>'."""
+    table = {}
+    for line in res.stdout.splitlines():
+        if not line:
+            continue
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid = parts[0]
+        value = parts[1]
+        # Index is the OID suffix after the column base OID.
+        # We store entries keyed by the full OID; caller correlates by index.
+        table[oid] = value
+    return table
+
+def _get_index(oid, column_base):
+    """Extract the table index from a full OID given the column base OID."""
+    prefix = column_base + "."
+    if oid.startswith(prefix):
+        return oid[len(prefix):]
+    return ""
+
+def _is_snmp_available(ctx, params):
+    """Probe for the real thing: SNMP must be reachable."""
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", "-t", "5", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    # rc 127 => snmpget not installed; rc 2 => timeout/no response
+    if res.rc == 127 or res.rc != 0:
+        return False
+    return True
+
+def _fetch_section(ctx, params):
+    """Fetch and parse the SNMP section data, returning a Section dict."""
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Verify SNMP is reachable first.
+    if not _is_snmp_available(ctx, params):
+        return None
+
+    # Walk the entity/ext table: .1.3.6.1.4.1.25506.2.6.1.1.1.1
+    # columns: 1=index, 2=admin, 3=oper, 6=cpu, 8=mem_usage%, 10=temp, 12=mem_size(bytes)
+    ext_table = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-t", "10", host, ".1.3.6.1.4.1.25506.2.6.1.1.1.1"],
+        mutates=False,
+    )
+    if ext_table.rc != 0 and ext_table.rc != 1:
+        # rc 0 = success, rc 1 = noMore (end of walk, still has data)
+        return None
+
+    ext_rows = _parse_snmp_table(ext_table)
+
+    # Walk the entity info table: .1.3.6.1.2.1.47.1.1.1.1
+    # columns: 1=index, 2=entity_name
+    ent_table = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-t", "10", host, ".1.3.6.1.2.1.47.1.1.1.1"],
+        mutates=False,
+    )
+    if ent_table.rc != 0 and ent_table.rc != 1:
+        return None
+
+    ent_rows = _parse_snmp_table(ent_table)
+
+    # Correlate ext table columns by index.
+    # Build a map: index -> {admin, oper, cpu, mem_usage, temp, mem_size}
+    col_base = ".1.3.6.1.4.1.25506.2.6.1.1.1.1"
+    ent_col_base = ".1.3.6.1.2.1.47.1.1.1.1"
+
+    # Group ext rows by index.
+    by_index = {}
+    for full_oid, value in ext_rows.items():
+        idx = _get_index(full_oid, col_base)
+        if idx == "" or idx == "1":
+            # column 1 is the index itself; skip.
+            continue
+        colon_pos = full_oid.rfind(".")
+        col_num = full_oid[colon_pos+1:]
+        if col_num == "1":
+            continue  # index column
+        entry = by_index.get(idx, {"admin": "0", "oper": "0", "cpu": 0, "mem_usage": 0, "temp": 65535, "mem_size": 0})
+        if col_num == "2":
+            entry["admin"] = value
+        elif col_num == "3":
+            entry["oper"] = value
+        elif col_num == "6":
+            entry["cpu"] = int(value) if value.lstrip("-").isdigit() else 0
+        elif col_num == "8":
+            entry["mem_usage"] = int(value) if value.lstrip("-").isdigit() else 0
+        elif col_num == "10":
+            entry["temp"] = int(value) if value.lstrip("-").isdigit() else 0
+        elif col_num == "12":
+            entry["mem_size"] = int(value) if value.lstrip("-").isdigit() else 0
+        by_index[idx] = entry
+
+    # Build entity name lookup.
+    entity_names = {}
+    for full_oid, value in ent_rows.items():
+        idx = _get_index(full_oid, ent_col_base)
+        colon_pos = full_oid.rfind(".")
+        col_num = full_oid[colon_pos+1:]
+        if col_num == "2":
+            entity_names[idx] = value
+
+    # Build section: name+index -> data
+    section = {}
+    for idx, data in by_index.items():
+        name = entity_names.get(idx, "")
+        mem_total = data["mem_size"]
+        if mem_total <= 0:
+            continue
+        # mem_used = 0.01 * mem_usage_pct * mem_total
+        mem_used = 0.01 * data["mem_usage"] * mem_total
+        mem_used_pct = float(data["mem_usage"])
+        key = name + " " + idx
+        section[key] = {
+            "mem_total": mem_total,
+            "mem_used": mem_used,
+            "mem_used_pct": mem_used_pct,
+        }
+
+    return section
+
 def main(ctx, params):
-    # Checkmk check: hp_hh3c_ext_mem
-    # Read-only: gather SNMP data and compute memory usage metrics
-    
-    # Determine mode: discovery or check
     if params.get("_discover"):
-        # Discovery: enumerate all items with mem_total > 0
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.25506.2.6.1.1.1.1"
-        ], mutates=False)
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "SNMP walk failed or empty",
-                    "data": {"discovery": []}}
-        
-        # Parse discovery data: index admin_state oper_state cpu mem_usage temperature mem_size
-        items = []
-        for line in res.stdout.strip().split("\n"):
-            if "=" not in line:
-                continue
-            oid_part, value_part = line.split("=", 1)
-            index = oid_part.strip().split(".")[-1]
-            value = value_part.strip()
-            parts = value.split()
-            if len(parts) < 7:
-                continue
-            admin_state, oper_state, cpu, mem_usage, temperature, mem_size = parts[1:7]
-            mem_total = int(mem_size)
-            # Skip items with mem_total <= 0 (not installed or invalid)
-            if mem_total <= 0:
-                continue
-            item_name = index  # Checkmk uses index as item for this check
-            items.append({
-                "item": item_name,
+        section = _fetch_section(ctx, params)
+        if section == None:
+            return {"changed": False, "msg": "SNMP not available or section not found", "data": {"discovery": []}}
+        discovery = []
+        for name, data in sorted(section.items()):
+            discovery.append({
+                "item": name,
                 "params": {"levels": (80.0, 90.0)},
-                "metrics": ["memused", "memused_percent"]
+                "metrics": ["memused"],
             })
         return {
             "changed": False,
-            "msg": "discovered %d memory modules" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode
+
+    # Check mode.
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Get base table data: .1.3.6.1.4.1.25506.2.6.1.1.1.1
-    # OIDs: .1 (index), .2 (admin), .3 (oper), .6 (cpu), .8 (mem_usage), .12 (temperature), .10 (mem_size)
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.25506.2.6.1.1.1.1." + item
-    ], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "no data for item " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse snmpget response: OID = TYPE: value
-    value_line = res.stdout.strip()
-    if "=" not in value_line:
-        return {"changed": False, "msg": "invalid SNMP response",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Extract value portion
-    value = value_line.split(":", 1)[1].strip()
-    parts = value.split()
-    if len(parts) < 7:
-        return {"changed": False, "msg": "invalid value format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    admin_state, oper_state, cpu, mem_usage, temperature, mem_size = parts[1:7]
-    
-    # Guard against non-numeric values
-    if not mem_size.isdigit() or not mem_usage.isdigit():
-        return {"changed": False, "msg": "invalid numeric values",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Compute memory values
-    mem_total = int(mem_size)
-    mem_usage_percent = int(mem_usage)
-    
-    # Skip items with mem_total <= 0
-    if mem_total <= 0:
-        return {"changed": False, "msg": "module not installed or invalid",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    mem_used = 0.01 * mem_usage_percent * mem_total
-    
-    # Get thresholds
+    section = _fetch_section(ctx, params)
+
+    if section == None:
+        return {
+            "changed": False,
+            "msg": "SNMP not available or section not found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    data = section.get(item)
+    if data == None:
+        return {
+            "changed": False,
+            "msg": "no such item: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    mem_used_pct = data["mem_used_pct"]
     levels = params.get("levels")
-    warn_pct = None
-    crit_pct = None
-    warn_abs = None
-    crit_abs = None
-    
     if levels == None:
-        warn_pct, crit_pct = 80.0, 90.0
-    elif isinstance(levels, list) and len(levels) == 2:
-        # Check if first element is int (absolute) or float (percent)
-        first = levels[0]
-        if isinstance(first, int):
-            warn_abs, crit_abs = levels[0], levels[1]
-        else:
-            warn_pct, crit_pct = levels[0], levels[1]
+        warn, crit = 80.0, 90.0
     else:
-        warn_pct, crit_pct = 80.0, 90.0
-    
-    # Compute state
-    state = "OK"
-    
-    # Percent check
-    if warn_pct != None:
-        if mem_usage_percent >= crit_pct:
-            state = "CRIT"
-        elif mem_usage_percent >= warn_pct and state != "CRIT":
-            state = "WARN"
-    # Absolute check
-    if warn_abs != None:
-        if mem_used >= crit_abs:
-            state = "CRIT"
-        elif mem_used >= warn_abs and state != "CRIT":
-            state = "WARN"
-    
-    # Build message
-    mem_used_mb = mem_used / (1024.0 * 1024.0)
-    msg = "Size: %f MB; Usage: %f%%" % (mem_used_mb, mem_usage_percent)
-    
-    metrics = {
-        "memused": mem_used,
-        "memused_percent": mem_usage_percent,
-    }
-    
+        warn, crit = levels[0], levels[1]
+
+    # upper levels: warn if >= warn, crit if >= crit
+    if mem_used_pct >= crit:
+        state = "CRIT"
+    elif mem_used_pct >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    mem_used_bytes = data["mem_used"]
+    mem_total_bytes = data["mem_total"]
+    msg = "Usage %d%% (%d of %d bytes)" % (int(mem_used_pct), int(mem_used_bytes), int(mem_total_bytes))
+
     return {
         "changed": False,
         "msg": msg,
         "data": {
             "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+            "metrics": {"memused": mem_used_pct},
+            "details": "",
+        },
     }

@@ -1,99 +1,126 @@
-# Top-level constants for state mapping
-STATE_OK = 0
-STATE_WARN = 1
-STATE_CRIT = 2
-STATE_UNKNOWN = 3
+# Translated Checkmk check: oracle_diva_csm_archive
+# A read-only Starlark check module for the yolo-man agent.
+# Monitors Oracle DIVA CSM archive (manager) status via SNMP.
+
+# OID bases used by the original SNMP section (oracle_diva_csm).
+# Section 3 (index into the agent's StringTable list) holds actor/manager status.
+LIB_STATUS_OID = ".1.3.6.1.4.1.110901.1.2.1.1.1"   # library status (idx 0)
+DRIVE_STATUS_OID = ".1.3.6.1.4.1.110901.1.2.2.1.1"   # drive status (idx 1)
+ACTOR_STATUS_OID = ".1.3.6.1.4.1.110901.1.3.1.1"     # actor status (idx 2)
+ARCHIVE_STATUS_OID = ".1.3.6.1.4.1.110901.1.4"       # archive OIDs (idx 3/4/5)
+
+
+def _snmp_get(ctx, host, community, oid):
+    """Fetch a single scalar OID with net-snmp, returning bare value or None."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _snmp_walk(ctx, host, community, oid):
+    """Walk a table OID with net-snmp, returning list of (oid, value) pairs."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        # -Oqn => "<oid> <value>"
+        parts = line.split(" ", 1)
+        if len(parts) == 2:
+            rows.append((parts[0], parts[1].strip()))
+    return rows
+
+
+def _status_result(reading):
+    """Map DIVA status reading to (state_level, summary text)."""
+    if reading == "1":
+        return 0, "online"
+    if reading == "2":
+        return 2, "offline"
+    if reading == "3":
+        return 1, "unknown"
+    return 3, "unexpected state"
+
 
 def main(ctx, params):
-    # Discovery mode: enumerate all archive services
-    if params.get("_discover"):
-        # Fetch archive status OID: .1.3.6.1.4.1.110901.1.4.1.0
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.110901.1.4.1"
-        ], mutates=False)
-        
-        # Parse output: format is "OID = STRING: <value>"
-        # We expect one line like: .1.3.6.1.4.1.110901.1.4.1.0 = STRING: "1"
-        discovery_items = []
-        for line in res.stdout.splitlines():
-            # Extract value after the last space/tab (e.g., "1")
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                value = parts[-1].strip('"')
-                # Map to status text
-                if value == "1":
-                    status = "online"
-                elif value == "2":
-                    status = "offline"
-                elif value == "3":
-                    status = "unknown"
-                else:
-                    status = "unexpected state"
-                discovery_items.append({
-                    "item": "Manager",
-                    "params": {},
-                    "metrics": []
-                })
-                break  # Only one archive manager service
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d archive services" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode: single item ("Manager")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
     item = params.get("item", "")
-    if item != "Manager":
+
+    # --- DISCOVERY MODE ---
+    if params.get("_discover"):
+        # Probe for the real thing first: the DIVA agent must be reachable.
+        sys_oid = _snmp_get(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+        if sys_oid == None:
+            return {
+                "changed": False,
+                "msg": "device unreachable",
+                "data": {"discovery": []},
+            }
+
+        # Walk the manager/archive subcheck OIDs. The original check uses the
+        # section at index 3, which corresponds to archive status entries
+        # (.1.3.6.1.4.1.110901.1.4.1 - .4.5). Each archive entry yields an item.
+        rows = _snmp_walk(ctx, host, community, ".1.3.6.1.4.1.110901.1.2.2.1.1")
+        items = []
+        for oid, _val in rows:
+            # The index is the OID suffix after the column base.
+            idx = oid[len(".1.3.6.1.4.1.110901.1.2.2.1.1") + 1:]
+            label = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.110901.1.2.2.1.1." + idx)
+            name = "Manager " + idx
+            if label != None and len(label) > 0:
+                name = "Manager " + label
+            items.append({
+                "item": name,
+                "params": {"warn": 1, "crit": 2},
+                "metrics": ["diva_status"],
+            })
+        msg = "discovered %d archive items" % len(items)
         return {
             "changed": False,
-            "msg": "no such archive item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": msg,
+            "data": {"discovery": items},
         }
-    
-    # Fetch archive status OID
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.110901.1.4.1.0"
-    ], mutates=False)
-    
-    # Parse status value
-    status_value = ""
-    for line in res.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) >= 2:
-            status_value = parts[-1].strip('"')
-            break
-    
-    # Map status value to Checkmk state and summary
-    if status_value == "1":
-        state = "OK"
-        summary = "online"
-    elif status_value == "2":
-        state = "CRIT"
-        summary = "offline"
-    elif status_value == "3":
-        state = "WARN"
-        summary = "unknown"
-    else:
-        state = "UNKNOWN"
-        summary = "unexpected state: " + (status_value if status_value else "empty")
-    
+
+    # --- CHECK MODE (single-service: archive/manager status) ---
+    # Probe for the real thing first.
+    sys_oid = _snmp_get(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if sys_oid == None:
+        return {
+            "changed": False,
+            "msg": "device unreachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # The archive subcheck (section idx 3) reads archive status entries.
+    # Read the archive status OID directly.
+    status_val = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.110901.1.4.1")
+    if status_val == None:
+        return {
+            "changed": False,
+            "msg": "no archive status found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    state_level, summary = _status_result(status_val)
+    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+    verdict = state_map.get(state_level, "UNKNOWN")
+
+    # Map status level to a numeric metric for perfdata.
+    metric_val = state_level
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "DIVA Status " + summary,
         "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
+            "state": verdict,
+            "metrics": {"diva_status": metric_val},
+            "details": "archive status reading: %s" % status_val,
+        },
     }

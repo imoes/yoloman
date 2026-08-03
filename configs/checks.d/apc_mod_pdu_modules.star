@@ -1,198 +1,212 @@
-# Top-level helper functions
-def _savefloat(s):
-    if s == None:
-        return 0.0
-    s = s.strip()
-    if s == "":
-        return 0.0
-    # Check if it's an integer (including negative)
-    if s.startswith("-"):
-        if s[1:] == "" or not s[1:].isdigit():
-            return 0.0
-        return float(int(s))
-    if s.isdigit():
-        return float(int(s))
-    # Handle simple float with decimal point
-    if "." in s:
-        parts = s.split(".", 1)
-        if len(parts) == 2:
-            int_part = parts[0]
-            dec_part = parts[1]
-            # Validate integer part (may be negative)
-            if int_part.startswith("-"):
-                int_part = int_part[1:]
-                if int_part == "" or not int_part.isdigit():
-                    return 0.0
-                sign = -1.0
-            else:
-                if int_part == "" or not int_part.isdigit():
-                    return 0.0
-                sign = 1.0
-            # Validate decimal part
-            if dec_part == "" or not dec_part.isdigit():
-                return 0.0
-            return sign * (float(int(int_part)) + float("0." + dec_part))
-    return 0.0
+# Translated from Checkmk check: apc_mod_pdu_modules
+# Monitors APC Modular PDU modules via SNMP.
 
-def _saveint(s):
-    if s == None:
-        return 0
-    s = s.strip()
-    if s == "":
-        return 0
-    if s.startswith("-"):
-        if len(s) > 1 and s[1:].isdigit():
-            return int(s)
-        return 0
-    if s.isdigit():
-        return int(s)
-    return 0
-
-# Status mapping per MIB
-_APC_STATES = {
+APC_STATES = {
     1: "normal",
     2: "warning",
     3: "notPresent",
     6: "unknown",
 }
 
+OID_BASE = ".1.3.6.1.4.1.318.1.1.22.2.6.1"
+NAME_OID = "4"
+STATUS_OID = "6"
+POWER_OID = "20"
+DETECT_OID = ".1.3.6.1.2.1.1.2.0"
+
+def _is_int_str(s):
+    if s == None or s == "":
+        return False
+    v = s
+    neg = False
+    if v.startswith("-"):
+        neg = True
+        v = v[1:]
+    if v.startswith("+"):
+        v = v[1:]
+    return v.isdigit()
+
+def _saveint(s):
+    if s == None:
+        return 0
+    s = str(s).strip()
+    if not _is_int_str(s):
+        return 0
+    neg = False
+    v = s
+    if v.startswith("-"):
+        neg = True
+        v = v[1:]
+    if v.startswith("+"):
+        v = v[1:]
+    val = int(v)
+    return (-1 if neg else 1) * val
+
+def _is_float_str(s):
+    if s == None or s == "":
+        return False
+    v = str(s).strip()
+    neg = False
+    if v.startswith("-"):
+        neg = True
+        v = v[1:]
+    elif v.startswith("+"):
+        v = v[1:]
+    if v.count(".") > 1:
+        return False
+    int_part = v
+    has_dot = False
+    frac_part = ""
+    if "." in v:
+        idx = v.find(".")
+        int_part = v[:idx]
+        frac_part = v[idx + 1:]
+        has_dot = True
+    if int_part == "" and frac_part == "":
+        return False
+    if int_part != "" and not int_part.isdigit():
+        return False
+    if frac_part != "" and not frac_part.isdigit():
+        return False
+    return True
+
+def _savefloat(s):
+    if s == None:
+        return 0.0
+    if not _is_float_str(s):
+        return 0.0
+    return float(str(s).strip())
+
+def _strip_type(s):
+    out = str(s).strip()
+    idx = out.find(": ")
+    if idx >= 0:
+        out = out[idx + 2:]
+    if len(out) >= 2 and out[0] == '"' and out[-1] == '"':
+        out = out[1:-1]
+    return out
+
 def main(ctx, params):
-    # Discover mode
     if params.get("_discover"):
-        community = params.get("community", "public")
         host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.318.1.1.22.2.6.1"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
+        community = params.get("community", "public")
 
-        # Parse snmpwalk output lines
-        names = {}
-        statuses = {}
-        powers = {}
+        det = ctx.run(["snmpget", "-v2c", "-c", community, "-Ov", host, DETECT_OID], mutates=False)
+        if det.rc != 0:
+            return {"changed": False, "msg": "no APC modular PDU found", "data": {"discovery": [], "host_labels": {}}}
 
-        for line in res.stdout.splitlines():
-            if line.strip() == "":
-                continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_full = parts[0].strip()
-            value = parts[1].strip()
+        walk_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, OID_BASE + "." + NAME_OID], mutates=False)
+        if walk_res.rc != 0:
+            return {"changed": False, "msg": "failed to walk APC PDU modules", "data": {"discovery": []}}
 
-            if oid_full.endswith(".4.1"):
-                names[1] = value.strip('"')
-            elif oid_full.endswith(".6.1"):
-                statuses[1] = _saveint(value)
-            elif oid_full.endswith(".20.1"):
-                powers[1] = _savefloat(value)
-
-        # Extract module name if available
-        module_name = names.get(1, "")
-        if module_name == "":
-            module_name = "1"
-
-        # Build discovery list
         discovery = []
-        if module_name != "":
+        seen_indexes = []
+        for line in walk_res.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            oid_full = parts[0]
+            name_val = " ".join(parts[1:])
+            prefix = OID_BASE + "." + NAME_OID + "."
+            if not oid_full.startswith(prefix):
+                continue
+            index = oid_full[len(prefix):]
+            if not index:
+                continue
+            if index in seen_indexes:
+                continue
+            seen_indexes.append(index)
             discovery.append({
-                "item": module_name,
+                "item": name_val,
                 "params": {},
-                "metrics": ["power"]
+                "metrics": ["power"],
             })
 
         return {
             "changed": False,
             "msg": "discovered %d modules" % len(discovery),
-            "data": {"discovery": discovery}
+            "data": {"discovery": discovery, "host_labels": {}},
         }
 
-    # Check mode
     item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    # Fetch all module data via snmpwalk
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.318.1.1.22.2.6.1"
-    ], mutates=False)
-
-    if res.rc != 0:
+    det = ctx.run(["snmpget", "-v2c", "-c", community, "-Ov", host, DETECT_OID], mutates=False)
+    if det.rc != 0:
         return {
             "changed": False,
-            "msg": "snmpwalk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no APC Modular PDU found (snmp unreachable)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Parse snmpwalk output into a lookup table
-    modules = []
-    current_name = ""
-    current_status = 0
-    current_power = 0.0
+    name_walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, OID_BASE + "." + NAME_OID], mutates=False)
+    if name_walk.rc != 0:
+        return {
+            "changed": False,
+            "msg": "failed to walk APC PDU module names",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    for line in res.stdout.splitlines():
-        if line.strip() == "":
+    target_index = None
+    for line in name_walk.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 2:
             continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
+        oid_full = parts[0]
+        name_val = " ".join(parts[1:])
+        prefix = OID_BASE + "." + NAME_OID + "."
+        if not oid_full.startswith(prefix):
             continue
-        oid_full = parts[0].strip()
-        value = parts[1].strip()
+        index = oid_full[len(prefix):]
+        if name_val == item:
+            target_index = index
+            break
 
-        if oid_full.endswith(".4.1"):
-            current_name = value.strip('"')
-        elif oid_full.endswith(".6.1"):
-            current_status = _saveint(value)
-        elif oid_full.endswith(".20.1"):
-            current_power = _savefloat(value)
-            # Complete one module record
-            if current_name != "":
-                modules.append([current_name, str(current_status), str(current_power)])
-                current_name = ""
-                current_status = 0
-                current_power = 0.0
+    if target_index == None:
+        return {
+            "changed": False,
+            "msg": "module not found: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Search for requested item
-    for name, status_r, current_power_r in modules:
-        if name == item:
-            status = _saveint(status_r)
-            power_kw = _savefloat(current_power_r) / 10.0
-            status_str = _APC_STATES.get(status, "unknown")
-            message = "Status %s, current: %f kW" % (status_str, power_kw)
+    status_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, OID_BASE + "." + STATUS_OID + "." + target_index], mutates=False)
+    power_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, OID_BASE + "." + POWER_OID + "." + target_index], mutates=False)
 
-            # Power metrics in Watts
-            power_w = power_kw * 1000.0
+    if status_res.rc != 0 and power_res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "failed to query APC module " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-            # Determine state
-            if status == 2:
-                state = "WARN"
-            elif status in [3, 6]:
-                state = "CRIT"
-            elif status == 1:
-                state = "OK"
-            else:
-                state = "UNKNOWN"
+    status_str = status_res.stdout.strip()
+    if status_res.stdout == "":
+        status_str = str(_strip_type(status_res.stdout))
+    power_str = power_res.stdout.strip()
 
-            return {
-                "changed": False,
-                "msg": message,
-                "data": {
-                    "state": state,
-                    "metrics": {"power": power_w},
-                    "details": ""
-                }
-            }
+    status = _saveint(status_str)
+    current_power = _savefloat(power_str) / 10.0
 
-    # Item not found
+    state_name = APC_STATES.get(status, "unknown")
+    message = "Status %s, current: %f kW" % (state_name, current_power)
+
+    result_state = "OK"
+    if status == 2:
+        result_state = "WARN"
+    elif status == 3 or status == 6:
+        result_state = "CRIT"
+    elif status == 1:
+        result_state = "OK"
+    else:
+        result_state = "UNKNOWN"
+
     return {
         "changed": False,
-        "msg": "module not found: " + item,
+        "msg": message,
         "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": ""
-        }
+            "state": result_state,
+            "metrics": {"power": current_power * 1000},
+            "details": "",
+        },
     }

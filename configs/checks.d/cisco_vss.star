@@ -1,103 +1,167 @@
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: yield one service if any chassis has role active(2) or standby(3)
-        chassis = ctx.run([
-            "snmpwalk", "-On", "-c", "public", "-v", "2c",
-            "localhost", ".1.3.6.1.4.1.9.9.388.1.2.2.1.2"
-        ], mutates=False)
-        for line in chassis.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                role = parts[-1].strip()
-                if role in ("2", "3"):
-                    return {
-                        "changed": False,
-                        "msg": "discovered VSS service",
-                        "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-                    }
-        return {"changed": False, "msg": "no VSS chassis found", "data": {"discovery": []}}
+        base = ".1.3.6.1.4.1.9.9.388"
+        sysdesc = ctx.run(["snmpget", "-v2c", "-c",
+                           params.get("community", "public"), "-Oqv",
+                           params.get("host", "localhost"),
+                           ".1.3.6.1.2.1.1.1.0"], mutates=False)
+        if sysdesc.rc == 127 or sysdesc.rc != 0:
+            return {"changed": False, "msg": "snmp not available",
+                    "data": {"discovery": []}}
+        if ("Catalyst 45" not in sysdesc.stdout and
+                "Catalyst 65" not in sysdesc.stdout and
+                "s72033_rp" not in sysdesc.stdout):
+            return {"changed": False, "msg": "not a VSS-capable device",
+                    "data": {"discovery": []}}
+        exists_res = ctx.run(["snmpget", "-v2c", "-c",
+                              params.get("community", "public"), "-Oqv",
+                              params.get("host", "localhost"),
+                              base + ".1.1.1.0"], mutates=False)
+        if exists_res.rc != 0:
+            return {"changed": False, "msg": "VSS not present on device",
+                    "data": {"discovery": []}}
+        walk = ctx.run(["snmpwalk", "-v2c", "-c",
+                        params.get("community", "public"), "-Oqn",
+                        params.get("host", "localhost"),
+                        base + ".1.2.2.1.2"], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no chassis entries",
+                    "data": {"discovery": []}}
+        found = False
+        for line in walk.stdout.splitlines():
+            if not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            role = parts[1].strip().strip('"')
+            if role in ("2", "3"):
+                found = True
+                break
+        if not found:
+            return {"changed": False, "msg": "no active/standby chassis",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": ["vss_chassis", "vsl_ports"]}]}}
+        return {"changed": False, "msg": "no match", "data": {"discovery": []}}
 
-    # Check mode: gather chassis and VSL data
-    chassis = ctx.run([
-        "snmpwalk", "-On", "-c", "public", "-v", "2c",
-        "localhost", ".1.3.6.1.4.1.9.9.388.1.2.2.1"
-    ], mutates=False)
-    ports = ctx.run([
-        "snmpwalk", "-On", "-c", "public", "-v", "2c",
-        "localhost", ".1.3.6.1.4.1.9.9.388.1.3.1.1"
-    ], mutates=False)
+    # CHECK MODE
+    base = ".1.3.6.1.4.1.9.9.388"
+    comm = params.get("community", "public")
+    host = params.get("host", "localhost")
 
-    # Parse chassis section: .1.3.6.1.4.1.9.9.388.1.2.2.1.<index>.2 (chassisRole)
-    chassis_data = []
-    for line in chassis.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) >= 2 and parts[0].endswith(".2"):
-            idx_part = parts[0].rsplit(".", 1)[0].split(".")[-1]
-            switch_id = parts[0].split(".")[-2]  # chassisSwitchID is .1, chassisRole is .2
-            role = parts[-1].strip()
-            chassis_data.append((switch_id, role))
+    sysdesc = ctx.run(["snmpget", "-v2c", "-c", comm, "-Oqv",
+                       host, ".1.3.6.1.2.1.1.1.0"], mutates=False)
+    if sysdesc.rc == 127 or sysdesc.rc != 0:
+        return {"changed": False, "msg": "snmp not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if ("Catalyst 45" not in sysdesc.stdout and
+            "Catalyst 65" not in sysdesc.stdout and
+            "s72033_rp" not in sysdesc.stdout):
+        return {"changed": False, "msg": "not a VSS-capable device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    exists_res = ctx.run(["snmpget", "-v2c", "-c", comm, "-Oqv",
+                          host, base + ".1.1.1.0"], mutates=False)
+    if exists_res.rc != 0:
+        return {"changed": False, "msg": "VSS not present on device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse ports section: VSL entries (.1.3.6.1.4.1.9.9.388.1.3.1.1.<index>.<oid>)
-    # We need to group by index. Extract: coreSwitchID(.2), operStatus(.3), configuredPortCount(.5), operationalPortCount(.6)
-    port_data = {}
-    for line in ports.stdout.splitlines():
-        parts = line.strip().split()
-        if len(parts) >= 2:
-            oid_parts = parts[0].split(".")
-            if len(oid_parts) >= 9:
-                base_idx = ".".join(oid_parts[-5:-1])  # e.g. "1.3.1.1"
-                suffix = oid_parts[-1]
-                if suffix in ("2", "3", "5", "6"):
-                    # Get index from oid_parts[9] (e.g., 41, 42, 1000, etc.)
-                    idx = oid_parts[9]
-                    if idx not in port_data:
-                        port_data[idx] = {}
-                    port_data[idx][suffix] = parts[-1].strip()
+    chassis_walk = ctx.run(["snmpwalk", "-v2c", "-c", comm, "-Oqn",
+                            host, base + ".1.2.2.1.2"], mutates=False)
+    if chassis_walk.rc != 0:
+        return {"changed": False, "msg": "no chassis data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    chassis = []
+    for line in chassis_walk.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        idx = oid.rsplit(".", 1)[-1]
+        role = parts[1].strip().strip('"')
+        chassis.append((idx, role))
 
-    # Build port entries: coreSwitchID, operStatus, conf_portcount, op_portcount
-    port_entries = []
-    for idx, vals in port_data.items():
-        core_switch_id = vals.get("2", "")
-        operstatus = vals.get("3", "")
-        conf_portcount = vals.get("5", "")
-        op_portcount = vals.get("6", "")
-        # Only include if core_switch_id is set
-        if core_switch_id:
-            port_entries.append((core_switch_id, operstatus, conf_portcount, op_portcount))
+    ports_walk = ctx.run(["snmpwalk", "-v2c", "-c", comm, "-Oqn",
+                          host, base + ".1.3.1.1"], mutates=False)
+    ports = []
+    if ports_walk.rc == 0:
+        cols = {"2": [], "3": [], "5": [], "6": []}
+        indices = set()
+        for line in ports_walk.stdout.splitlines():
+            if not line.strip():
+                continue
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            suffix = oid[len(base + ".1.3.1.1"):]
+            bits = suffix.split(".")
+            if len(bits) < 3:
+                continue
+            col = bits[1]
+            idx = bits[2]
+            if col in cols:
+                indices.add(idx)
+        for idx in indices:
+            row = {}
+            for col in ["2", "3", "5", "6"]:
+                r = ctx.run(["snmpget", "-v2c", "-c", comm, "-Oqv",
+                             host, base + ".1.3.1.1." + col + "." + idx],
+                            mutates=False)
+                if r.rc == 0:
+                    row[col] = r.stdout.strip().strip('"')
+                else:
+                    row[col] = ""
+            ports.append((idx, row.get("2", ""), row.get("3", ""),
+                           row.get("5", ""), row.get("6", "")))
 
-    # Generate check results
-    details_parts = []
+    details = ""
+    metrics = {}
     state = "OK"
-    role_names = {"1": "standalone", "2": "active", "3": "standby"}
-    operstatus_names = {"1": "up", "2": "down"}
-
-    for switch_id, chassis_role in chassis_data:
+    for switch_id, chassis_role in chassis:
+        role_name = _role_name(chassis_role)
         if chassis_role == "1":
             state = "CRIT"
-        elif state != "CRIT":
-            state = "OK"
-        details_parts.append("chassis %s: %s" % (switch_id, role_names.get(chassis_role, chassis_role)))
+        details += "chassis %s: %s\n" % (switch_id, role_name)
 
-    details_parts.append("%d VSL connections configured" % len(port_entries))
-
-    for core_switch_id, operstatus, conf_portcount, op_portcount in port_entries:
+    details += "%d VSL connections configured\n" % len(ports)
+    for core_switch_id, operstatus, conf_portcount, op_portcount in ports:
         if operstatus == "1":
-            if state == "OK":
-                state = "OK"
+            s = "OK"
         else:
-            state = "CRIT"
-        details_parts.append("core switch %s: VSL %s" % (core_switch_id, operstatus_names.get(operstatus, operstatus)))
-
-        if conf_portcount.isdigit() and op_portcount.isdigit():
-            if conf_portcount != op_portcount:
+            s = "CRIT"
+            if state != "CRIT":
                 state = "CRIT"
-            details_parts.append("%s/%s ports operational" % (op_portcount, conf_portcount))
-        else:
-            details_parts.append("%s/%s ports operational" % (op_portcount, conf_portcount))
+        details += "core switch %s: VSL %s\n" % (core_switch_id, _operstatus_name(operstatus))
 
-    msg = "; ".join(details_parts)
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+        if conf_portcount == op_portcount:
+            s2 = "OK"
+        else:
+            s2 = "CRIT"
+            if state != "CRIT":
+                state = "CRIT"
+        details += "%s/%s ports operational\n" % (op_portcount, conf_portcount)
+
+    return {"changed": False, "msg": "VSS check complete",
+            "data": {"state": state, "metrics": metrics, "details": details}}
+
+
+def _role_name(role):
+    if role == "1":
+        return "standalone"
+    if role == "2":
+        return "active"
+    if role == "3":
+        return "standby"
+    return "unknown"
+
+
+def _operstatus_name(operstatus):
+    if operstatus == "1":
+        return "up"
+    if operstatus == "2":
+        return "down"
+    return "unknown"

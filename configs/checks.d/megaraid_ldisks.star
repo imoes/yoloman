@@ -1,213 +1,144 @@
-# Helper to extract key-value from megaraid agent lines
-def _parse_line(line):
-    """Parse a megaraid agent line like 'State: Optimal' or 'Default Cache: Enabled'"""
-    if not line:
-        return None, None
-    parts = line.split(":", 1)
-    if len(parts) < 2:
-        return None, None
-    key = parts[0].strip()
-    value = parts[1].strip()
-    return key, value
-
-# State mapping from Checkmk defaults (megaraid.py: LDISKS_DEFAULTS)
-# State mapping: 'Optimal' -> 0, 'Online' -> 0, 'Offline' -> 2, 'Degraded' -> 1, 'Rebuilding' -> 1
-_STATE_MAP = {
-    "Optimal": 0,
-    "Online": 0,
-    "Offline": 2,
-    "Degraded": 1,
-    "Rebuilding": 1,
-    "Failed": 2,
-    "Unknown": 3,
-}
-
-def _get_state_code(state):
-    return _STATE_MAP.get(state, 3)
-
 def main(ctx, params):
     if params.get("_discover"):
-        # Discover items by running storcli -d0 all show
-        # We use storcli because megaraid agent reads /proc/megaraid or similar CLI
-        # The check source expects storcli output format, so run that exact command
-        res = ctx.run(["storcli", "-d0", "all", "show"], mutates=False)
+        probe = ctx.run(["megacli", "--version"], mutates=False)
+        if probe.rc == 127 or probe.rc != 0:
+            return {"changed": False, "msg": "megacli not found", "data": {"discovery": [], "host_labels": {}}}
+
+        res = ctx.run(["megacli", "-LDInfo", "-Lall", "-aALL"], mutates=False)
         if res.rc != 0:
-            # Return empty discovery if command fails (e.g., no megaraid controller)
-            return {"changed": False, "msg": "discovered 0 disks", "data": {"discovery": []}}
-        
-        # Parse the storcli output to extract adapter and disk info
-        out = []
-        lines = res.stdout.splitlines()
+            return {"changed": False, "msg": "megacli failed", "data": {"discovery": []}}
+
+        parsed = {}
         adapter = None
-        
+        disk = None
+        item = None
+        lines = res.stdout.splitlines()
         for line in lines:
             stripped = line.strip()
-            # Check for adapter line
-            if stripped.startswith("Adapter #"):
-                adapter = stripped.split("#")[1].strip()
-            # Check for virtual drive line
-            elif "Virtual Disk" in stripped or "Virtual Drive" in stripped:
-                # Format: "Virtual Disk : 0 (Target Id: 0)"
-                parts = stripped.split(":")
-                if len(parts) >= 2:
-                    disk = parts[1].strip().split()[0]
-                    item = "/c{}/v{}".format(adapter, disk)
-                    # Only yield new-style items (start with /c)
-                    out.append({
-                        "item": item,
-                        "params": {},
-                        "metrics": []
-                    })
-        
-        return {"changed": False, "msg": "discovered %d disks" % len(out),
-                "data": {"discovery": out}}
-    
-    # Check mode - single item
+            l = stripped
+            if not l:
+                continue
+            parts = l.split(" ")
+            if parts[0] == "Adapter" and not l.endswith("No Virtual Drive Configured."):
+                adapter = parts[1]
+                disk = None
+                item = None
+            elif (l.startswith("Virtual Disk:") or l.startswith("Virtual Drive:") or l.startswith("CacheCade Virtual Drive:")) and adapter != None:
+                disk = l.split(": ")[1].split(" ")[0]
+                item = "/c" + adapter + "/v" + disk
+                parsed[item] = {}
+            elif item != None and item in parsed:
+                if parts[0].startswith("State"):
+                    parsed[item]["state"] = l.split(":")[1].strip()
+                elif parts[0].startswith("Default"):
+                    if len(parts) > 1 and parts[1].startswith("Cache"):
+                        parsed[item]["default_cache"] = " ".join(parts[3:]).replace(": ", "")
+                    elif len(parts) > 1 and parts[1].startswith("Write"):
+                        parsed[item]["default_write"] = " ".join(parts[3:]).replace(": ", "")
+                elif parts[0].startswith("Current"):
+                    if len(parts) > 1 and parts[1].startswith("Cache"):
+                        parsed[item]["current_cache"] = " ".join(parts[3:]).replace(": ", "")
+                    elif len(parts) > 1 and parts[1].startswith("Write"):
+                        parsed[item]["current_write"] = " ".join(parts[3:]).replace(": ", "")
+
+        filtered = {}
+        for k in parsed:
+            if "state" in parsed[k]:
+                filtered[k] = parsed[k]
+
+        defaults_map = {"Optimal": 0, "Non-Optimal": 1, "RAIN": 1, "Offline": 2, "Partial": 2, "Dead": 2, "Failed": 2, "Rebuilding": 3, "Foreground Init In Progress": 3, "Background Init In Progress": 3, "Degraded": 3}
+
+        out = []
+        for it in filtered:
+            if it.startswith("/c"):
+                out.append({"item": it, "params": defaults_map, "metrics": []})
+
+        return {"changed": False, "msg": "discovered %d RAID logical disks" % len(out), "data": {"discovery": out, "host_labels": {}}}
+
     item = params.get("item", "")
-    
-    # Run same command as in discovery
-    res = ctx.run(["storcli", "-d0", "all", "show"], mutates=False)
+    if not item:
+        return {"changed": False, "msg": "no item specified", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    probe = ctx.run(["megacli", "--version"], mutates=False)
+    if probe.rc == 127 or probe.rc != 0:
+        return {"changed": False, "msg": "megacli not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": "megacli binary not found on host"}}
+
+    res = ctx.run(["megacli", "-LDInfo", "-Lall", "-aALL"], mutates=False)
     if res.rc != 0:
-        return {"changed": False, "msg": "command failed", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse storcli output to find our item
-    lines = res.stdout.splitlines()
+        return {"changed": False, "msg": "megacli failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": "megacli -LDInfo returned non-zero"}}
+
+    parsed = {}
     adapter = None
-    ldisk_state = None
-    default_cache = None
-    current_cache = None
-    default_write = None
-    current_write = None
-    
+    disk = None
+    found_item = None
+    lines = res.stdout.splitlines()
     for line in lines:
         stripped = line.strip()
-        
-        # Track adapter
-        if stripped.startswith("Adapter #"):
-            adapter = stripped.split("#")[1].strip()
-        
-        # Detect start of a new virtual drive block
-        elif "Virtual Disk" in stripped or "Virtual Drive" in stripped:
-            # Check if this matches our item
-            parts = stripped.split(":")
-            if len(parts) >= 2:
-                disk = parts[1].strip().split()[0]
-                current_item = "/c{}/v{}".format(adapter, disk)
-                if current_item == item:
-                    # Reset state for this item
-                    ldisk_state = None
-                    default_cache = None
-                    current_cache = None
-                    default_write = None
-                    current_write = None
-        
-        # Parse properties of the current virtual drive
-        elif ldisk_state != None or (default_cache == None and current_cache == None and 
-                                     default_write == None and current_write == None):
-            # We need to track which properties we're parsing
-            pass
-        
-        # If we found the item, parse its properties
-        if item and (ldisk_state == None or default_cache == None):
-            if stripped.startswith("State"):
-                ldisk_state = stripped.split(":", 1)[1].strip()
-            elif "Default" in stripped:
-                parts = stripped.split()
-                if len(parts) >= 4:
-                    # e.g., "Default Cache: Caching Enabled"
-                    if "Cache" in stripped:
-                        default_cache = " ".join(parts[3:]).replace(": ", "")
-                    elif "Write" in stripped:
-                        default_write = " ".join(parts[3:]).replace(": ", "")
-            elif "Current" in stripped:
-                parts = stripped.split()
-                if len(parts) >= 4:
-                    if "Cache" in stripped:
-                        current_cache = " ".join(parts[3:]).replace(": ", "")
-                    elif "Write" in stripped:
-                        current_write = " ".join(parts[3:]).replace(": ", "")
-    
-    # Find item in parsed data - need better parsing logic
-    # Reset and use more reliable parsing approach
-    ldisk_state = None
-    default_cache = None
-    current_cache = None
-    default_write = None
-    current_write = None
-    
-    in_item = False
-    
-    for line in lines:
-        stripped = line.strip()
-        
-        if stripped.startswith("Adapter #"):
-            adapter = stripped.split("#")[1].strip()
-        
-        # Check for virtual drive start line
-        elif "Virtual Disk" in stripped or "Virtual Drive" in stripped:
-            parts = stripped.split(":")
-            if len(parts) >= 2:
-                disk = parts[1].strip().split()[0]
-                current_item = "/c{}/v{}".format(adapter, disk)
-                in_item = (current_item == item)
-                ldisk_state = None
-                default_cache = None
-                current_cache = None
-                default_write = None
-                current_write = None
-        
-        # If in our item block, parse properties
-        elif in_item:
-            if stripped.startswith("State"):
-                ldisk_state = stripped.split(":", 1)[1].strip()
-            elif stripped.startswith("Default Cache"):
-                default_cache = stripped.split(":", 1)[1].strip()
-            elif stripped.startswith("Default Write"):
-                default_write = stripped.split(":", 1)[1].strip()
-            elif stripped.startswith("Current Cache"):
-                current_cache = stripped.split(":", 1)[1].strip()
-            elif stripped.startswith("Current Write"):
-                current_write = stripped.split(":", 1)[1].strip()
-    
-    # If item not found
-    if ldisk_state == None:
-        return {"changed": False, "msg": "disk not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Determine state code
-    state_code = _get_state_code(ldisk_state)
-    
-    # Build message
-    msg_parts = []
-    msg_parts.append(ldisk_state.capitalize())
-    if default_cache and current_cache:
-        if current_cache != default_cache:
-            msg_parts.append("Cache: " + current_cache + " (expected: " + default_cache + ")")
-        else:
-            msg_parts.append("Cache: " + current_cache)
-    if default_write and current_write:
-        if current_write != default_write:
-            msg_parts.append("Write: " + current_write + " (expected: " + default_write + ")")
-        else:
-            msg_parts.append("Write: " + current_write)
-    
-    # State determination (WARN if mismatched, CRIT for bad states)
-    if ldisk_state == "Offline" or ldisk_state == "Failed":
-        state = "CRIT"
-    elif ldisk_state == "Degraded" or ldisk_state == "Rebuilding":
-        state = "WARN"
-    elif ldisk_state == "Optimal" or ldisk_state == "Online":
+        l = stripped
+        if not l:
+            continue
+        parts = l.split(" ")
+        if parts[0] == "Adapter" and not l.endswith("No Virtual Drive Configured."):
+            adapter = parts[1]
+            disk = None
+            found_item = None
+        elif (l.startswith("Virtual Disk:") or l.startswith("Virtual Drive:") or l.startswith("CacheCade Virtual Drive:")) and adapter != None:
+            disk = l.split(": ")[1].split(" ")[0]
+            found_item = "/c" + adapter + "/v" + disk
+            parsed[found_item] = {}
+        elif found_item != None and found_item in parsed:
+            if parts[0].startswith("State"):
+                parsed[found_item]["state"] = l.split(":")[1].strip()
+            elif parts[0].startswith("Default"):
+                if len(parts) > 1 and parts[1].startswith("Cache"):
+                    parsed[found_item]["default_cache"] = " ".join(parts[3:]).replace(": ", "")
+                elif len(parts) > 1 and parts[1].startswith("Write"):
+                    parsed[found_item]["default_write"] = " ".join(parts[3:]).replace(": ", "")
+            elif parts[0].startswith("Current"):
+                if len(parts) > 1 and parts[1].startswith("Cache"):
+                    parsed[found_item]["current_cache"] = " ".join(parts[3:]).replace(": ", "")
+                elif len(parts) > 1 and parts[1].startswith("Write"):
+                    parsed[found_item]["current_write"] = " ".join(parts[3:]).replace(": ", "")
+
+    filtered = {}
+    for k in parsed:
+        if "state" in parsed[k]:
+            filtered[k] = parsed[k]
+
+    if item not in filtered:
+        return {"changed": False, "msg": "RAID logical disk not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    ld = filtered[item]
+    st = ld["state"]
+
+    defaults_map = {"Optimal": 0, "Non-Optimal": 1, "RAIN": 1, "Offline": 2, "Partial": 2, "Dead": 2, "Failed": 2, "Rebuilding": 3, "Foreground Init In Progress": 3, "Background Init In Progress": 3, "Degraded": 3}
+    if st in params:
+        level = params.get(st, 3)
+    elif st in defaults_map:
+        level = defaults_map.get(st, 3)
+    else:
+        level = 3
+
+    if level == 0:
         state = "OK"
+    elif level == 1:
+        state = "WARN"
+    elif level == 2:
+        state = "CRIT"
     else:
         state = "UNKNOWN"
-    
-    # Check cache/write mismatch
-    if state == "OK":
-        if (default_cache and current_cache and default_cache != current_cache):
-            state = "WARN"
-        elif (default_write and current_write and default_write != current_write):
-            state = "WARN"
-    
-    return {"changed": False, "msg": ", ".join(msg_parts),
-            "data": {"state": state, "metrics": {}, "details": ""}}
+
+    summary = st.capitalize()
+    details = ""
+
+    if "default_cache" in ld and "current_cache" in ld:
+        if ld["default_cache"] != ld["current_cache"]:
+            details += "Cache policy: default=" + ld["default_cache"] + ", current=" + ld["current_cache"] + "\n"
+    if "default_write" in ld and "current_write" in ld:
+        if ld["default_write"] != ld["current_write"]:
+            details += "Write policy: default=" + ld["default_write"] + ", current=" + ld["current_write"] + "\n"
+
+    if details and state == "OK":
+        state = "WARN"
+
+    return {"changed": False, "msg": summary, "data": {"state": state, "metrics": {}, "details": details.strip()}}

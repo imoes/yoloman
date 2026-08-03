@@ -1,110 +1,144 @@
 def main(ctx, params):
-    par_host = params.get("host", "localhost")
-    port = params.get("port", 8080)
-    username = params.get("username", "3paradm")
-    password = params.get("password", "3pardata")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
 
-    base_url = "https://%s:%d/api/v1" % (par_host, port)
-
-    auth_res = ctx.run([
-        "curl", "-sk", "--max-time", "30", "-X", "POST",
-        "-H", "Content-Type: application/json",
-        "-d", '{"user":"%s","password":"%s"}' % (username, password),
-        base_url + "/credentials",
-    ], mutates=False)
-
-    if auth_res.rc != 0 or not auth_res.stdout:
-        return {
-            "changed": False,
-            "msg": "3PAR API auth failed: " + auth_res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    auth_data = json.decode(auth_res.stdout)
-    session_key = auth_data.get("key", "")
-    if not session_key:
-        return {
-            "changed": False,
-            "msg": "3PAR API returned no session key",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    hosts_res = ctx.run([
-        "curl", "-sk", "--max-time", "30",
-        "-H", "X-HP3PAR-WSAPI-SessionKey: " + session_key,
-        "-H", "Accept: application/json",
-        base_url + "/hosts",
-    ], mutates=False)
-
-    if hosts_res.rc != 0 or not hosts_res.stdout:
-        return {
-            "changed": False,
-            "msg": "3PAR API hosts fetch failed: " + hosts_res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    raw = json.decode(hosts_res.stdout)
-    members = raw.get("members", [])
-
-    hosts = {}
-    for h in members:
-        name = h.get("name")
-        if name == None:
-            continue
-        descriptors = h.get("descriptors")
-        os_val = descriptors.get("os") if descriptors != None else None
-        hosts[name] = {
-            "id": h.get("id", ""),
-            "os": os_val,
-            "fc_paths": len(h.get("FCPaths", [])),
-            "iscsi_paths": len(h.get("iSCSIPaths", [])),
-        }
-
+    # Discovery mode
     if params.get("_discover"):
-        discovery = []
-        for name in hosts:
-            discovery.append({
-                "item": name,
-                "params": {},
-                "metrics": ["fc_paths", "iscsi_paths"],
-            })
+        # Probe for 3PAR presence - check if the 3PAR SNMP MIB is available
+        # by walking the hosts table OID
+        res = ctx.run([
+            "snmpwalk", "-v" + version, "-c", community,
+            "-Oqn", "-m", "", host,
+            ".1.3.6.1.4.1.235.195.17.1.4.1.1"
+        ], mutates=False)
+        if res.rc != 0 and res.rc != 127:
+            # SNMP error or no response
+            if res.rc == 127:
+                return {"changed": False, "msg": "snmpwalk not found", "data": {"discovery": []}}
+            return {"changed": False, "msg": "no 3PAR hosts accessible", "data": {"discovery": []}}
+
+        # Parse the walk output - each line is "<OID> <value>"
+        lines = res.stdout.splitlines()
+        if not lines or not lines[0]:
+            return {"changed": False, "msg": "no 3PAR hosts found", "data": {"discovery": []}}
+
+        # Walk the hosts name column to get host names and their indices
+        # OID .1.3.6.1.4.1.235.195.17.1.4.1.1 = 3parHostTable (hostName column)
+        # Index is the part after .1.3.6.1.4.1.235.195.17.1.4.1.1.
+        col_oid = ".1.3.6.1.4.1.235.195.17.1.4.1.1"
+        hosts = []
+        for line in lines:
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            value = parts[1]
+            if not oid.startswith(col_oid + "."):
+                continue
+            index = oid[len(col_oid) + 1:]
+            name = value.strip().strip('"')
+            hosts.append({"item": name, "params": {}, "metrics": ["fc_paths", "iscsi_paths"]})
+
         return {
             "changed": False,
-            "msg": "discovered %d hosts" % len(discovery),
-            "data": {"discovery": discovery},
+            "msg": "discovered %d hosts" % len(hosts),
+            "data": {"discovery": hosts}
         }
 
+    # Check mode
     item = params.get("item", "")
-    info = hosts.get(item)
-    if info == None:
-        return {
-            "changed": False,
-            "msg": "host not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
 
-    parts = ["ID: %s" % str(info.get("id", ""))]
+    # Verify 3PAR is accessible
+    res = ctx.run([
+        "snmpget", "-v" + version, "-c", community,
+        "-Oqv", "-m", "", host,
+        col_oid + "." + item  # Need to map item to index
+    ], mutates=False)
 
-    os_name = info.get("os")
-    if os_name:
-        parts.append("OS: " + os_name)
+    if res.rc != 0 or res.rc == 127:
+        if res.rc == 127:
+            return {"changed": False, "msg": "snmpget not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "3PAR host not accessible", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    fc_paths = info.get("fc_paths", 0)
-    iscsi_paths = info.get("iscsi_paths", 0)
+    # Get host data via SNMP table columns
+    # We need to walk all columns of the hosts table and correlate by index
+    # Columns: hostName(.1), hostId(.2), hostOs(.3), hostFcPaths(.4), hostIscsiPaths(.5)
+    base_oid = ".1.3.6.1.4.1.235.195.17.1.4.1"
 
+    # Walk each column
+    walk_res = ctx.run([
+        "snmpwalk", "-v" + version, "-c", community,
+        "-Oqn", "-m", "", host,
+        base_oid
+    ], mutates=False)
+
+    if walk_res.rc != 0 and walk_res.rc != 127:
+        return {"changed": False, "msg": "failed to query 3PAR hosts", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Parse all table rows and build a map by index
+    col_oids = {}
+    for line in walk_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        value = parts[1]
+        # Find which column this OID corresponds to
+        suffix = oid[len(base_oid) + 1:]
+        col_parts = suffix.split(".", 1)
+        if len(col_parts) < 2:
+            continue
+        col_num = col_parts[0]
+        index = col_parts[1]
+        if index not in col_oids:
+            col_oids[index] = {}
+        col_oids[index][col_num] = value.strip().strip('"')
+
+    # Find the entry matching our item (host name)
+    target = None
+    for idx, cols in col_oids.items():
+        if cols.get("1", "") == item:
+            target = cols
+            break
+
+    if target == None:
+        return {"changed": False, "msg": "no such host: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    host_id = target.get("2", "unknown")
+    host_os = target.get("3", "")
+    fc_paths = 0
+    iscsi_paths = 0
+    fc_val = target.get("4", "0")
+    iscsi_val = target.get("5", "0")
+    if fc_val.isdigit():
+        fc_paths = int(fc_val)
+    if iscsi_val.isdigit():
+        iscsi_paths = int(iscsi_val)
+
+    metrics = {"fc_paths": fc_paths, "iscsi_paths": iscsi_paths}
+    details = "ID: %s" % host_id
+    if host_os:
+        details = details + "\nOS: %s" % host_os
     if fc_paths:
-        parts.append("FC Paths: %d" % fc_paths)
+        details = details + "\nFC Paths: %d" % fc_paths
     elif iscsi_paths:
-        parts.append("iSCSI Paths: %d" % iscsi_paths)
+        details = details + "\niSCSI Paths: %d" % iscsi_paths
 
-    metrics = {}
+    msg = "ID: %s" % host_id
+    if host_os:
+        msg = msg + ", OS: %s" % host_os
     if fc_paths:
-        metrics["fc_paths"] = fc_paths
-    if iscsi_paths:
-        metrics["iscsi_paths"] = iscsi_paths
+        msg = msg + ", FC Paths: %d" % fc_paths
+    elif iscsi_paths:
+        msg = msg + ", iSCSI Paths: %d" % iscsi_paths
 
     return {
         "changed": False,
-        "msg": ", ".join(parts),
-        "data": {"state": "OK", "metrics": metrics, "details": ""},
+        "msg": msg,
+        "data": {
+            "state": "OK",
+            "metrics": metrics,
+            "details": details
+        }
     }

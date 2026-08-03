@@ -1,118 +1,164 @@
+# checkmk.stormshield_cpu_temp → read-only Starlark check module
+# Translated from the Checkmk stormshield_cpu_temp check plugin.
+
+# OID roots
+SYS_SYSID = ".1.3.6.1.2.1.1.2.0"
+STORMSHIELD_BASIC = ".1.3.6.1.4.1.11256.1.0.1.0"
+CPU_TEMP_BASE = ".1.3.6.1.4.1.11256.1.10.7.1"
+# column OIDs under the CPU temperature table
+COL_INDEX = "1"
+COL_TEMP = "2"
+
+# Stormshield enterprise OID prefix and the legacy/old variants
+SS_PREFIX_NEW = ".1.3.6.1.4.1.11256.1"
+SS_OID_OLD = ".1.3.6.1.4.1.11256.2.0"
+NETSNMP_GENERAL = ".1.3.6.1.4.1.8072"
+
+def _is_stormshield(sysid, basic_exists):
+    """Reproduce DETECT_STORMSHIELD: the host must look like a Stormshield device."""
+    if not basic_exists:
+        return False
+    if sysid == SS_OID_OLD:
+        return True
+    if sysid.startswith(NETSNMP_GENERAL):
+        return True
+    if sysid.startswith(SS_PREFIX_NEW):
+        return True
+    return False
+
+def _is_int(s):
+    if s == None or len(s) == 0:
+        return False
+    if s[0] == "-":
+        return s[1:].isdigit() if len(s) > 1 else False
+    return s.isdigit()
+
 def main(ctx, params):
-    # SNMP base OID for stormshield CPU temp
-    base_oid = ".1.3.6.1.4.1.11256.1.10.7.1"
-    index_oid = base_oid + ".1"
-    temp_oid = base_oid + ".2"
-
+    # --- discovery mode -------------------------------------------------
     if params.get("_discover"):
-        # Discovery mode: walk the temperature index OID and enumerate items
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), index_oid
-        ], mutates=False)
-        items = []
-        for line in res.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                # OID format: .1.3.6.1.4.1.11256.1.10.7.1.1.<index> = INTEGER: <index>
-                oid_part = parts[0]
-                # Extract last component (the index)
-                last_part = oid_part.rsplit(".", 1)[-1]
-                # Guard instead of try/except
-                if last_part.isdigit():
-                    idx = str(int(last_part))
-                    items.append({
-                        "item": idx,
-                        "params": {},
-                        "metrics": ["temp"]
-                    })
-        return {
-            "changed": False,
-            "msg": "discovered %d CPU sensors" % len(items),
-            "data": {"discovery": items}
-        }
+        # Verify this is really a Stormshield device before discovering.
+        sid = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), SYS_SYSID],
+            mutates=False)
+        if sid.rc != 0 and sid.rc != 127:
+            # treat as not installed / unreachable
+            return {"changed": False,
+                    "msg": "no stormshield device found",
+                    "data": {"discovery": []}}
+        sysid = sid.stdout.strip() if sid.rc == 0 else ""
 
-    # Check mode: get temp for specific item
+        basic = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), STORMSHIELD_BASIC],
+            mutates=False)
+        basic_exists = basic.rc == 0
+
+        if not _is_stormshield(sysid, basic_exists):
+            return {"changed": False,
+                    "msg": "no stormshield device found",
+                    "data": {"discovery": []}}
+
+        # Walk the CPU temperature table with -Oqn for clean OID<->value lines.
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"), CPU_TEMP_BASE],
+            mutates=False)
+        if walk.rc != 0:
+            return {"changed": False,
+                    "msg": "could not reach stormshield cpu temp table",
+                    "data": {"discovery": []}}
+
+        # Correlate index and temperature columns by their shared index suffix.
+        temp_for = {}
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:]
+            # oid looks like ".1.3.6.1.4.1.11256.1.10.7.1.1.<index>" (index col)
+            if oid.startswith(CPU_TEMP_BASE + "." + COL_INDEX + "."):
+                idx = oid[len(CPU_TEMP_BASE + "." + COL_INDEX + "."):]
+                idx = idx.lstrip("0") or "0"
+                # Remember index; temperature may arrive on a separate row.
+                if idx not in temp_for:
+                    temp_for[idx] = None
+            elif oid.startswith(CPU_TEMP_BASE + "." + COL_TEMP + "."):
+                idx = oid[len(CPU_TEMP_BASE + "." + COL_TEMP + "."):]
+                idx = idx.lstrip("0") or "0"
+                temp_for[idx] = val
+
+        discovery = []
+        for idx in sorted(temp_for.keys()):
+            discovery.append({
+                "item": idx,
+                "params": {"warn": 70, "crit": 80},
+                "metrics": ["temperature"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d cpu temp sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # --- check mode -----------------------------------------------------
     item = params.get("item", "")
+    if item == None or item == "":
+        return {"changed": False,
+                "msg": "no stormshield cpu temp item specified",
+                "data": {"state": "UNKNOWN",
+                         "metrics": {},
+                         "details": "missing item parameter"}}
 
-    # Fetch both index and temp OID values
-    index_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), index_oid
-    ], mutates=False)
-    temp_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), temp_oid
-    ], mutates=False)
+    # Confirm the device is Stormshield (same gating as discovery).
+    sid = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), SYS_SYSID],
+        mutates=False)
+    sysid = sid.stdout.strip() if sid.rc == 0 else ""
+    basic = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), STORMSHIELD_BASIC],
+        mutates=False)
+    if not _is_stormshield(sysid, basic.rc == 0):
+        return {"changed": False,
+                "msg": "host is not a stormshield device",
+                "data": {"state": "UNKNOWN",
+                         "metrics": {},
+                         "details": "DETECT_STORMSHIELD did not match"}}
 
-    # Build index-to-temp map
-    index_to_temp = {}
-    index_lines = index_res.stdout.splitlines()
-    temp_lines = temp_res.stdout.splitlines()
+    # Read the temperature for this index directly.
+    get_oid = CPU_TEMP_BASE + "." + COL_TEMP + "." + item
+    temp = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), get_oid],
+        mutates=False)
+    if temp.rc != 0:
+        return {"changed": False,
+                "msg": "no cpu temperature for index %s" % item,
+                "data": {"state": "UNKNOWN",
+                         "metrics": {},
+                         "details": "item %s not found in cpu temp table" % item}}
 
-    # Match by position since snmpwalk order is consistent
-    for idx_line, temp_line in zip(index_lines, temp_lines):
-        # Parse index line: ".1.3.6.1.4.1.11256.1.10.7.1.1.<idx> = INTEGER: <value>"
-        # Parse temp line: ".1.3.6.1.4.1.11256.1.10.7.1.2.<idx> = INTEGER: <value>"
-        # Extract temp value (second part after =, strip trailing spaces)
-        if idx_line.strip() == "" or temp_line.strip() == "":
-            continue
+    raw = temp.stdout.strip()
+    if not _is_int(raw):
+        return {"changed": False,
+                "msg": "invalid cpu temperature for index %s: %s" % (item, raw),
+                "data": {"state": "UNKNOWN",
+                         "metrics": {},
+                         "details": "non-numeric temperature value"}}
 
-        idx_parts = idx_line.strip().split()
-        temp_parts = temp_line.strip().split()
-
-        if len(idx_parts) >= 4 and len(temp_parts) >= 4:
-            # Extract index number from OID
-            oid_full = idx_parts[0]
-            last_seg = oid_full.rsplit(".", 1)[-1]
-            # Guard instead of try/except
-            if last_seg.isdigit():
-                idx_val = str(int(last_seg))
-                # Extract temperature value (after "INTEGER: " or "INTEGER:")
-                temp_str = " ".join(temp_parts[3:]).strip().rstrip()
-                # Guard: ensure temp_str is a valid number string
-                # Allow decimal point
-                temp_str_clean = temp_str.replace(".", "", 1)
-                if temp_str_clean.isdigit() or (temp_str[0] == "-" and temp_str[1:].replace(".", "", 1).isdigit()):
-                    temp_val = float(temp_str)
-                    index_to_temp[idx_val] = temp_val
-
-    # Find matching temperature for item
-    if item not in index_to_temp:
-        return {
-            "changed": False,
-            "msg": "sensor %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    temp = index_to_temp[item]
-
-    # Apply temperature check logic (simplified check_temperature equivalent)
-    # Default thresholds: warn=70°C, crit=80°C (common CPU thresholds)
-    warn = params.get("levels", (70.0, 80.0))
-    if type(warn) == "list" or type(warn) == "tuple":
-        warn_val = float(warn[0])
-        crit_val = float(warn[1])
-    else:
-        warn_val = 70.0
-        crit_val = 80.0
-
-    # Determine state
-    state = "OK"
-    if temp >= crit_val:
+    reading = float(raw)
+    warn = params.get("warn", 70)
+    crit = params.get("crit", 80)
+    if reading >= crit:
         state = "CRIT"
-    elif temp >= warn_val:
+    elif reading >= warn:
         state = "WARN"
+    else:
+        state = "OK"
 
-    # Format message
-    msg = "Temperature: %f°C" % temp
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"temp": temp},
-            "details": ""
-        }
-    }
+    return {"changed": False,
+            "msg": "CPU Temp %s: %f C" % (item, reading),
+            "data": {"state": state,
+                     "metrics": {"temperature": reading},
+                     "details": "stormshield cpu temp sensor %s = %f C" % (item, reading)}}

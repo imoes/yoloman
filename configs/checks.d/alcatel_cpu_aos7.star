@@ -1,91 +1,86 @@
-# Constants for SNMP OIDs
-ALCATEL_SYS_OID = ".1.3.6.1.2.1.1.2.0"
-ALCATEL_AOS7_OID = ".1.3.6.1.4.1.6486.801"
-CPU_OID_AOS7 = ".1.3.6.1.4.1.6486.801.1.2.1.16.1.1.1.1.1.15"
-
-# Threshold defaults (from Checkmk source: levels_upper=("fixed", (90.0, 95.0)))
-DEFAULT_WARN = 90.0
-DEFAULT_CRIT = 95.0
-
 def main(ctx, params):
-    # Determine if we're in discovery mode
-    if params.get("_discover"):
-        # Detect if this is an Alcatel AOS7 device
-        res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                       "-On", params.get("host", "localhost"), ALCATEL_SYS_OID],
-                      mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "snmpget failed", "data": {"discovery": []}}
-        
-        # Parse sysObjectID value (format: OID = STRING: "..." or OID = OID: "...")
-        output = res.stdout.strip()
-        if output == "" or "=" not in output:
-            return {"changed": False, "msg": "could not parse sysObjectID", "data": {"discovery": []}}
-        
-        # Extract OID value (after the last dot in the assignment)
-        parts = output.split(":")
-        if len(parts) < 2:
-            return {"changed": False, "msg": "could not parse sysObjectID value", "data": {"discovery": []}}
-        
-        value = ":".join(parts[1:]).strip()
-        # Check if it starts with AOS7 OID
-        is_aos7 = value.startswith(ALCATEL_AOS7_OID)
-        
-        # Only discover if device is AOS7
-        if not is_aos7:
-            return {"changed": False, "msg": "device is not Alcatel AOS7", "data": {"discovery": []}}
-        
-        # Single-service check: yield one service
-        return {"changed": False, "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["util"]}]}}
-
-    # Check mode: gather CPU utilization
-    # Get community and host from params
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Query CPU OID
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, CPU_OID_AOS7],
-                  mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "snmpget failed",
+    community = params.get("community", "public")
+    warn = params.get("warn", 90.0)
+    crit = params.get("crit", 95.0)
+    oid_base = ".1.3.6.1.4.1.6486.801.1.2.1.16.1.1.1.1.1"
+    oid_col = "15"
+
+    sys_oid = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv", host,
+        ".1.3.6.1.2.1.1.2.0",
+    ], mutates=False)
+    if sys_oid.rc != 0 or not sys_oid.stdout.strip():
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not an Alcatel AOS7 device",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False,
+                "msg": "Alcatel AOS7 CPU: device not reachable or not Alcatel",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse output: OID = INTEGER: <value>
-    output = res.stdout.strip()
-    if output == "" or "=" not in output:
-        return {"changed": False, "msg": "could not parse CPU OID output",
+
+    sys_val = sys_oid.stdout.strip()
+    if not sys_val.startswith(".1.3.6.1.4.1.6486.801"):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not an Alcatel AOS7 device",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False,
+                "msg": "Alcatel AOS7 CPU: sysObjectID does not match Alcatel AOS7",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Extract value (last part after ":")
-    parts = output.split(":")
-    if len(parts) < 2:
-        return {"changed": False, "msg": "could not parse CPU value",
+
+    cpu_res = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv", host,
+        oid_base + "." + oid_col,
+    ], mutates=False)
+    if cpu_res.rc != 0 or not cpu_res.stdout.strip():
+        if params.get("_discover"):
+            return {"changed": False, "msg": "Alcatel AOS7 device present but CPU OID not available",
+                    "data": {"discovery": [{"item": "", "params": {"warn": warn, "crit": crit},
+                            "metrics": ["util"]}]}}
+        return {"changed": False,
+                "msg": "Alcatel AOS7 CPU: unable to read CPU utilization OID",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    value_str = ":".join(parts[1:]).strip()
-    
-    # Convert to integer (snmpget returns integer)
-    if not value_str.isdigit():
-        return {"changed": False, "msg": "CPU value is not an integer",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    cpu_percent = int(value_str)
-    
-    # Get thresholds from params (checkmk defaults: 90.0/95.0)
-    warn = params.get("warn", DEFAULT_WARN)
-    crit = params.get("crit", DEFAULT_CRIT)
-    
-    # Determine state based on thresholds (upper levels: CRIT if >= crit, WARN if >= warn)
-    if cpu_percent >= crit:
-        state = "CRIT"
-    elif cpu_percent >= warn:
-        state = "WARN"
+
+    raw = cpu_res.stdout.strip()
+    val = raw
+    for prefix in ["INTEGER:", "COUNTER32:", "COUNTER64:", "GAUGE:"]:
+        if val.startswith(prefix):
+            val = val[len(prefix):].strip()
+            break
+    if val.startswith('"') and val.endswith('"'):
+        val = val[1:-1]
+
+    cpu_val = 0
+    parsed = False
+    digits = val.lstrip("-")
+    if digits.isdigit():
+        cpu_val = int(val)
+        parsed = True
     else:
-        state = "OK"
-    
-    # Build message string (Checkmk style: "Total 45%")
-    msg = "Total %d%%" % cpu_percent
-    
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {"util": float(cpu_percent)}, "details": ""}}
+        parts = val.split()
+        if parts and parts[0].lstrip("-").isdigit():
+            cpu_val = int(parts[0])
+            parsed = True
+
+    if not parsed:
+        if params.get("_discover"):
+            return {"changed": False,
+                    "msg": "Alcatel AOS7 CPU: unparseable value '%s'" % raw,
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "Alcatel AOS7 CPU: unparseable value '%s'" % raw,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if params.get("_discover"):
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [{"item": "", "params": {"warn": warn, "crit": crit},
+                        "metrics": ["util"]}]}}
+
+    state = "OK"
+    if cpu_val >= crit:
+        state = "CRIT"
+    elif cpu_val >= warn:
+        state = "WARN"
+
+    return {"changed": False,
+            "msg": "Total %d%%" % cpu_val,
+            "data": {"state": state, "metrics": {"util": cpu_val}, "details": ""}}

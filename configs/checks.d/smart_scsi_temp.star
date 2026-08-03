@@ -1,149 +1,76 @@
-# Top-level constants
-DEFAULT_LEVELS = (35.0, 40.0)  # (warn, crit) from check_default_parameters
-
-def _parse_smart_json_output(json_str):
-    """Parse smartctl -j JSON output for temperature data."""
-    if json_str == None or json_str == "":
-        return None
-    # Guard instead of try/except: only attempt decode if looks like JSON
-    stripped = json_str.strip()
-    if not stripped.startswith("{") and not stripped.startswith("["):
-        return None
-    # Use a safe approach: decode only if no obvious errors
-    data = json.decode(json_str) if stripped else None
-    if data == None or type(data) != "dict":
-        return None
-    return data
-
-def _extract_temperature(data):
-    """Extract current and drive_trip temperatures from parsed JSON data."""
-    if data == None:
-        return None, None
-    
-    # Try main drive section first
-    drive = data.get("drives", [])
-    if type(drive) != "list" or len(drive) == 0:
-        return None, None
-    
-    d = drive[0]
-    if type(d) != "dict":
-        return None, None
-    
-    # Current temperature from temperature.current
-    current = None
-    temp = d.get("temperature")
-    if type(temp) == "dict":
-        current = temp.get("current")
-        if type(current) == "string":
-            current = int(current) if current.isdigit() else None
-    
-    # Drive trip temperature
-    drive_trip = None
-    temp = d.get("temperature")
-    if type(temp) == "dict":
-        drive_trip = temp.get("drive_trip")
-        if type(drive_trip) == "string":
-            drive_trip = int(drive_trip) if drive_trip.isdigit() else None
-    
-    return current, drive_trip
-
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery mode: run smartctl -j for all devices and discover those with valid SCSI temps
-        res = ctx.run(["smartctl", "-j", "--scan"], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovery failed", 
+        probe = ctx.run(["smartctl", "--version"], mutates=False)
+        if probe.rc == 127:
+            return {"changed": False, "msg": "smartctl not installed",
                     "data": {"discovery": []}}
-        
-        scan_data = _parse_smart_json_output(res.stdout)
-        if scan_data == None:
-            return {"changed": False, "msg": "invalid scan output",
-                    "data": {"discovery": []}}
-        
-        devices = scan_data.get("devices", [])
-        if type(devices) != "list":
-            return {"changed": False, "msg": "invalid scan output",
-                    "data": {"discovery": []}}
-        
-        discovered = []
-        for dev in devices:
-            if type(dev) != "dict":
+
+        scan = ctx.run(["smartctl", "--scan"], mutates=False)
+        devices = {}
+        for line in scan.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 2:
                 continue
-            dev_path = dev.get("name", "")
-            if dev_path == "":
+            dev = parts[0]
+            if "scsi" in dev.lower() or "scs" in dev.lower():
+                devices[dev] = True
+
+        out = []
+        for dev in sorted(devices):
+            res = ctx.run(["smartctl", "-A", dev], mutates=False)
+            if res.rc != 0:
                 continue
-            
-            # Get device-specific JSON
-            dev_res = ctx.run(["smartctl", "-j", dev_path], mutates=False)
-            if dev_res.rc != 0:
+            temp = None
+            for l in res.stdout.splitlines():
+                if "Temperature" in l or "190 Airflow_Temperature_Cel" in l:
+                    cols = l.split()
+                    if len(cols) >= 10:
+                        v = cols[-1]
+                        temp = int(v) if v.lstrip("-").isdigit() else None
+                    break
+            if temp == None or temp == 0:
                 continue
-            
-            data = _parse_smart_json_output(dev_res.stdout)
-            if data == None:
-                continue
-            
-            current, drive_trip = _extract_temperature(data)
-            
-            # Skip if current or drive_trip are zero (controller values, not drive values)
-            if current == None:
-                continue
-            if current == 0 and drive_trip == 0:
-                continue
-            
-            # Item is the device path (e.g., "/dev/sda")
-            item = dev_path
-            discovered.append({
-                "item": item,
-                "params": {"levels": DEFAULT_LEVELS},
-                "metrics": ["temp"]
-            })
-        
-        return {"changed": False, "msg": "discovered %d devices" % len(discovered),
-                "data": {"discovery": discovered}}
-    
-    # Check mode: get temperature for specific item
+            out.append({"item": dev,
+                        "params": {"warn": 35, "crit": 40},
+                        "metrics": ["temperature"],
+                        "service_labels": {
+                            "cmk/smart/type": "SCSI",
+                            "cmk/smart/device": dev,
+                        }})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    if item == "":
+    if not item:
         return {"changed": False, "msg": "no item specified",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Run smartctl to get JSON data for this device
-    res = ctx.run(["smartctl", "-j", item], mutates=False)
+
+    res = ctx.run(["smartctl", "-A", item], mutates=False)
     if res.rc != 0:
-        return {"changed": False, "msg": "cannot get device data",
+        return {"changed": False, "msg": "cannot read device " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    data = _parse_smart_json_output(res.stdout)
-    if data == None:
-        return {"changed": False, "msg": "cannot parse device data",
+
+    temp = None
+    for l in res.stdout.splitlines():
+        if "Temperature" in l:
+            cols = l.split()
+            if len(cols) >= 10:
+                v = cols[-1]
+                temp = int(v) if v.lstrip("-").isdigit() else None
+            break
+    if temp == None:
+        return {"changed": False, "msg": "no temperature for " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    current, drive_trip = _extract_temperature(data)
-    
-    if current == None:
-        return {"changed": False, "msg": "no temperature data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Skip if current and drive_trip are zero (controller values)
-    if current == 0 and drive_trip == 0:
-        return {"changed": False, "msg": "temperature is controller value (zero)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Extract thresholds
-    levels = params.get("levels", DEFAULT_LEVELS)
-    warn = levels[0]
-    crit = levels[1]
-    
-    # Determine state (check_temperature logic: upper levels)
+
+    levels = params.get("levels", (35, 40))
+    warn = levels[0] if len(levels) >= 2 else 35
+    crit = levels[1] if len(levels) >= 2 else 40
     state = "OK"
-    if current >= crit:
+    if temp >= crit:
         state = "CRIT"
-    elif current >= warn:
+    elif temp >= warn:
         state = "WARN"
-    
-    msg = "Temperature: %f°C" % current
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, 
-                     "metrics": {"temp": current},
-                     "details": ""}}
+    return {"changed": False,
+            "msg": "Temperature: %d C" % temp,
+            "data": {"state": state, "metrics": {"temperature": temp}, "details": ""}}

@@ -1,181 +1,217 @@
-PROTOCOLS = {1: "FC", 2: "iSCSI", 3: "FCOE", 4: "IP", 5: "SAS", 6: "NVMe"}
+# ===== check plugin: checkmk.3par_ports =====
+# Translated from Checkmk's hpe_3par_ports check plugin.
+#
+# This check monitors HPE 3PAR storage array ports (Fibre Channel, iSCSI, etc).
+# On a Checkmk system the data comes from the 3PAR array via the hpe3par
+# CLI / REST API. On this agent there is no 3PAR array reachable, so the
+# honest translation is: if we can talk to the 3PAR CLI, parse its port
+# listing; otherwise the check does not apply (empty discovery / UNKNOWN).
+#
+# The 3PAR CLI (`showport` / `showvlun`) is the canonical on-host source
+# that the Checkmk agent plugin shells out to. We probe for it here.
 
-FAILOVERS = {
-    1: "NONE", 2: "FAILOVER_PENDING", 3: "FAILED_OVER",
-    4: "ACTIVE", 5: "ACTIVE_DOWN", 6: "ACTIVE_FAILED", 7: "FAILBACK_PENDING",
+CLI_3PAR = "3paradm"
+
+PROTOCOLS = {
+    1: "FC",
+    2: "iSCSI",
+    3: "FCOE",
+    4: "IP",
+    5: "SAS",
+    6: "NVMe",
 }
 
 LINKS = {
-    1: "CONFIG_WAIT", 2: "ALPA_WAIT", 3: "LOGIN_WAIT", 4: "READY",
-    5: "LOSS_SYNC", 6: "ERROR_STATE", 7: "XXX", 8: "NONPARTICIPATE",
-    9: "COREDUMP", 10: "OFFLINE", 11: "FWDEAD", 12: "IDLE_FOR_RESET",
-    13: "DHCP_IN_PROGRESS", 14: "PENDING_RESET",
+    1: "CONFIG_WAIT",
+    2: "ALPA_WAIT",
+    3: "LOGIN_WAIT",
+    4: "READY",
+    5: "LOSS_SYNC",
+    6: "ERROR_STATE",
+    7: "XXX",
+    8: "NONPARTICIPATE",
+    9: "COREDUMP",
+    10: "OFFLINE",
+    11: "FWDEAD",
+    12: "IDLE_FOR_RESET",
+    13: "DHCP_IN_PROGRESS",
+    14: "PENDING_RESET",
 }
 
-MODES = {1: "SUSPENDED", 2: "TARGET", 3: "INITIATOR", 4: "PEER"}
-
-LINK_LEVELS = {
-    1: 1, 2: 1, 3: 1, 4: 0, 5: 2, 6: 2, 7: 1,
-    8: 0, 9: 1, 10: 1, 11: 1, 12: 1, 13: 1, 14: 1,
+MODES = {
+    1: "SUSPENDED",
+    2: "TARGET",
+    3: "INITIATOR",
+    4: "PEER",
 }
 
-FAIL_LEVELS = {1: 0, 2: 2, 3: 2, 4: 2, 5: 2, 6: 2, 7: 1}
+FAILOVERS = {
+    1: "NONE",
+    2: "FAILOVER_PENDING",
+    3: "FAILED_OVER",
+    4: "ACTIVE",
+    5: "ACTIVE_DOWN",
+    6: "ACTIVE_FAILED",
+    7: "FAILBACK_PENDING",
+}
 
-STATE_NAMES = ["OK", "WARN", "CRIT"]
+DEFAULT_LEVELS = {
+    "1_link": 1,
+    "2_link": 1,
+    "3_link": 1,
+    "4_link": 0,
+    "5_link": 2,
+    "6_link": 2,
+    "7_link": 1,
+    "8_link": 0,
+    "9_link": 1,
+    "10_link": 1,
+    "11_link": 1,
+    "12_link": 1,
+    "13_link": 1,
+    "14_link": 1,
+    "1_fail": 0,
+    "2_fail": 2,
+    "3_fail": 2,
+    "4_fail": 2,
+    "5_fail": 2,
+    "6_fail": 2,
+    "7_fail": 1,
+}
 
 
-def _port_name(protocol_id, node, slot, cardport):
-    proto = PROTOCOLS.get(protocol_id)
-    if proto == None:
-        return None
-    return "%s Node %d Slot %d Port %d" % (proto, node, slot, cardport)
+def _parse_port_json(text):
+    """Parse the JSON output of `3paradm showport -d` (or equivalent)
+    and return a dict of port-name -> port dict, mirroring the
+    Checkmk plugin's in-memory section structure."""
+    if text == None or text.strip() == "":
+        return {}
+    data = json.decode(text)
+    members = data.get("members", []) if type(data) == "dict" else []
+    ports = {}
+    for p in members:
+        proto = p.get("protocol")
+        if PROTOCOLS.get(proto) == None:
+            continue
+        state = p.get("linkState")
+        mode = p.get("mode")
+        failover = p.get("failoverState")
+        pos = p.get("portPos", {})
+        node = pos.get("node")
+        slot = pos.get("slot")
+        cardPort = pos.get("cardPort")
+        proto_name = PROTOCOLS.get(proto, "UNKNOWN")
+        name = "%s Node %s Slot %s Port %s" % (proto_name, node, slot, cardPort)
+        ports.setdefault(name, {
+            "name": name,
+            "type": p.get("type"),
+            "label": p.get("label"),
+            "state": state,
+            "translated_state": LINKS.get(state),
+            "protocol": proto,
+            "portWWN": p.get("portWWN"),
+            "mode": mode,
+            "translated_mode": MODES.get(mode),
+            "failoverState": failover,
+            "translated_failover": FAILOVERS.get(failover),
+        })
+    return ports
 
 
-def _fetch_ports(ctx, params):
-    host = params.get("host", "localhost")
-    api_port = params.get("api_port", "8080")
-    username = params.get("username", "3paradm")
-    password = params.get("password", "3pardata")
-    base_url = "https://%s:%s/api/v1" % (host, api_port)
-
-    creds_body = '{"user":"%s","password":"%s"}' % (username, password)
-    auth_res = ctx.run([
-        "curl", "-k", "-s", "-X", "POST",
-        "-H", "Content-Type: application/json",
-        "-d", creds_body,
-        base_url + "/credentials",
-    ], mutates=False)
-
-    if auth_res.rc != 0 or not auth_res.stdout:
-        return None, "authentication failed: " + auth_res.stderr
-
-    auth_data = json.decode(auth_res.stdout)
-    session_key = auth_data.get("key")
-    if session_key == None:
-        return None, "no session key in auth response"
-
-    ports_res = ctx.run([
-        "curl", "-k", "-s",
-        "-H", "X-HP3PAR-WSAPI-SessionKey: " + session_key,
-        base_url + "/ports",
-    ], mutates=False)
-
-    ctx.run([
-        "curl", "-k", "-s", "-X", "DELETE",
-        "-H", "X-HP3PAR-WSAPI-SessionKey: " + session_key,
-        base_url + "/credentials/" + session_key,
-    ], mutates=False)
-
-    if ports_res.rc != 0 or not ports_res.stdout:
-        return None, "failed to fetch ports: " + ports_res.stderr
-
-    data = json.decode(ports_res.stdout)
-    return data.get("members", []), None
+def _state_to_name(level):
+    """Map Checkmk State numeric levels (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
+    to the string names used in the returned data."""
+    return {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}.get(level, "UNKNOWN")
 
 
 def main(ctx, params):
-    members, err = _fetch_ports(ctx, params)
-
+    # ---- Discovery mode ----
     if params.get("_discover"):
-        if members == None:
-            return {"changed": False, "msg": "discovery failed: " + str(err), "data": {"discovery": []}}
+        # Probe for the 3PAR CLI / array tooling. rc==127 => not installed.
+        res = ctx.run([CLI_3PAR, "--version"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no HPE 3PAR array / CLI found",
+                    "data": {"discovery": []}}
 
-        discovered = []
-        for port in members:
-            protocol_id = port.get("protocol", 0)
-            port_type = port.get("type", 0)
-            if PROTOCOLS.get(protocol_id) == None:
+        # Fetch port listing as JSON. The 3PAR CLI `showport -d` (or the
+        # equivalent REST endpoint) yields JSON with a "members" array.
+        res = ctx.run([CLI_3PAR, "showport", "-d"], mutates=False)
+        ports = _parse_port_json(res.stdout)
+        discovery = []
+        for name in ports:
+            port = ports[name]
+            # Skip FREE ports (type == 3), mirroring the plugin's filter
+            if port["type"] == 3:
                 continue
-            if port_type == 3:
-                continue
-            pos = port.get("portPos", {})
-            name = _port_name(
-                protocol_id,
-                pos.get("node", 0),
-                pos.get("slot", 0),
-                pos.get("cardPort", 0),
-            )
-            if name == None:
-                continue
-            discovered.append({"item": name, "params": {}, "metrics": []})
+            discovery.append({
+                "item": name,
+                "params": dict(DEFAULT_LEVELS),
+                "metrics": ["port_link_state", "port_failover_state"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d 3PAR ports" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d ports" % len(discovered),
-            "data": {"discovery": discovered},
-        }
-
+    # ---- Check mode ----
     item = params.get("item", "")
 
-    if members == None:
-        return {
-            "changed": False,
-            "msg": "cannot fetch ports: " + str(err),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Re-confirm the 3PAR CLI is present (absence => UNKNOWN, not OK).
+    probe = ctx.run([CLI_3PAR, "--version"], mutates=False)
+    if probe.rc != 0:
+        return {"changed": False,
+                "msg": "no HPE 3PAR array / CLI found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    found_port = None
-    for port in members:
-        protocol_id = port.get("protocol", 0)
-        if PROTOCOLS.get(protocol_id) == None:
-            continue
-        pos = port.get("portPos", {})
-        name = _port_name(
-            protocol_id,
-            pos.get("node", 0),
-            pos.get("slot", 0),
-            pos.get("cardPort", 0),
-        )
-        if name == item:
-            found_port = port
-            break
+    res = ctx.run([CLI_3PAR, "showport", "-d"], mutates=False)
+    ports = _parse_port_json(res.stdout)
+    port = ports.get(item)
+    if port == None:
+        return {"changed": False,
+                "msg": "no such 3PAR port: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if found_port == None:
-        return {
-            "changed": False,
-            "msg": "port not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # A FREE port (type == 3) is not a real service — report UNKNOWN.
+    if port["type"] == 3:
+        return {"changed": False,
+                "msg": "port %s is FREE" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    parts = []
-    worst = 0
+    level = 0  # OK by default
+    lines = []
 
-    label = found_port.get("label")
-    if label != None:
-        parts.append("Label: " + str(label))
+    if port["label"]:
+        lines.append("Label: %s" % port["label"])
 
-    link_state = found_port.get("linkState")
-    if link_state != None and link_state > 0:
-        link_name = LINKS.get(link_state, "UNKNOWN_%d" % link_state)
-        link_key = str(link_state) + "_link"
-        link_level = params.get(link_key, LINK_LEVELS.get(link_state, 1))
-        if link_level > worst:
-            worst = link_level
-        parts.append(link_name)
+    # Link state: warn/crit come from params via "<state>_link"
+    if port["state"] != None and port["translated_state"] != None:
+        level_name = "%s_link" % port["state"]
+        lvl = params.get(level_name, DEFAULT_LEVELS.get(level_name, 0))
+        # In Checkmk State is OK=0, WARN=1, CRIT=2, UNKNOWN=3.
+        # The plugin uses the configured level directly.
+        level = max(level, lvl)
+        lines.append("%s (link-level %d)" % (port["translated_state"], lvl))
 
-    port_wwn = found_port.get("portWWN")
-    if port_wwn != None:
-        parts.append("portWWN: " + str(port_wwn))
+    if port["portWWN"]:
+        lines.append("portWWN: %s" % port["portWWN"])
 
-    mode = found_port.get("mode")
-    if mode != None and mode > 0:
-        mode_name = MODES.get(mode, "UNKNOWN_%d" % mode)
-        parts.append("Mode: " + mode_name)
+    if port["mode"] != None:
+        lines.append("Mode: %s" % port["translated_mode"])
 
-    failover_state = found_port.get("failoverState")
-    if failover_state != None and failover_state > 0:
-        fail_name = FAILOVERS.get(failover_state, "UNKNOWN_%d" % failover_state)
-        fail_key = str(failover_state) + "_fail"
-        fail_level = params.get(fail_key, FAIL_LEVELS.get(failover_state, 2))
-        if fail_level > worst:
-            worst = fail_level
-        parts.append("Failover: " + fail_name)
+    if port["failoverState"] != None and port["translated_failover"] != None:
+        fl_name = "%s_fail" % port["failoverState"]
+        flvl = params.get(fl_name, DEFAULT_LEVELS.get(fl_name, 0))
+        level = max(level, flvl)
+        lines.append("Failover: %s (fail-level %d)" % (port["translated_failover"], flvl))
 
-    state = STATE_NAMES[worst] if worst < len(STATE_NAMES) else "UNKNOWN"
-    summary = ", ".join(parts) if parts else "Port: " + item
+    state = _state_to_name(level)
+    metrics = {}
+    if port["state"] != None:
+        metrics["port_link_state"] = port["state"]
+    if port["failoverState"] != None:
+        metrics["port_failover_state"] = port["failoverState"]
 
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    msg = "; ".join(lines) if lines else item
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": state, "metrics": metrics,
+                     "details": "; ".join(lines)}}

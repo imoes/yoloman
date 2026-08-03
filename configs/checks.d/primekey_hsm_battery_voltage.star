@@ -1,152 +1,121 @@
+def _to_int(v):
+    s = str(v).strip()
+    if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+        return int(s)
+    return 0
+
+def _to_float(v):
+    s = str(v).strip()
+    if not s:
+        return None
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    elif s.startswith("+"):
+        s = s[1:]
+    if "." in s:
+        parts = s.split(".")
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            val = float(s)
+            return -val if neg else val
+        return None
+    if s.isdigit():
+        val = float(s)
+        return -val if neg else val
+    return None
+
+def _parse_voltage(entry):
+    if "absence" in entry:
+        return "absence"
+    v = entry
+    suffix = " V"
+    if v.endswith(suffix):
+        v = v[:-len(suffix)]
+    return _to_float(v)
+
+def _fmt_voltage(v):
+    if v == None:
+        return "no"
+    s = "%f" % v
+    if "." in s:
+        s = s.rstrip("0")
+        s = s.rstrip(".")
+    return s
+
+BASE_OID = ".1.3.6.1.4.1.22408.1.1.2.2.4.104.115.109"
+COL_VOLTAGE = "52.1"
+COL_STATUS = "53.1"
+COL_VOLTAGE2 = "55.1"
+COL_STATUS2 = "56.1"
+CHECK_OID = ".1.3.6.1.2.1.1.2.0"
+CHECK_VAL = ".1.3.6.1.4.1.8072.3.2.10"
+
 def main(ctx, params):
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.22408.1.1.2.2.4.104.115.109"
-        ], mutates=False)
+        detect = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), CHECK_OID], mutates=False)
+        if detect.rc != 0:
+            return {"changed": False, "msg": "PrimeKey not detected", "data": {"discovery": []}}
+        sys_oid = detect.stdout.strip()
+        if sys_oid != CHECK_VAL:
+            return {"changed": False, "msg": "PrimeKey not detected", "data": {"discovery": []}}
+        res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn", params.get("host", "localhost"), BASE_OID], mutates=False)
         if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-
-        lines = res.stdout.splitlines()
-        v1 = ""
-        s1 = ""
-        v2 = ""
-        s2 = ""
-        for line in lines:
-            stripped = line.strip()
-            if ".52.1" in stripped:
-                parts = stripped.split(" = ", 1)
-                if len(parts) == 2:
-                    v1 = parts[1]
-            elif ".53.1" in stripped:
-                parts = stripped.split(" = ", 1)
-                if len(parts) == 2:
-                    s1 = parts[1]
-            elif ".55.1" in stripped:
-                parts = stripped.split(" = ", 1)
-                if len(parts) == 2:
-                    v2 = parts[1]
-            elif ".56.1" in stripped:
-                parts = stripped.split(" = ", 1)
-                if len(parts) == 2:
-                    s2 = parts[1]
-
-        discovery = []
-        # Process battery 1
-        has_data_1 = (v1 != "") or (s1 != "")
-        if has_data_1:
-            voltage = None
-            if "absence" in v1:
-                voltage = "absence"
-            elif v1 != "" and v1.endswith(" V"):
-                voltage_str = v1[:-2]
-                if voltage_str.replace(".", "", 1).isdigit() or (voltage_str.startswith("-") and voltage_str[1:].replace(".", "", 1).isdigit()):
-                    voltage = float(voltage_str)
-            state_fail = (s1 == "1")
-            discovery.append({"item": "1", "params": {}, "metrics": ["voltage"]})
-
-        # Process battery 2
-        has_data_2 = (v2 != "") or (s2 != "")
-        if has_data_2:
-            voltage = None
-            if "absence" in v2:
-                voltage = "absence"
-            elif v2 != "" and v2.endswith(" V"):
-                voltage_str = v2[:-2]
-                if voltage_str.replace(".", "", 1).isdigit() or (voltage_str.startswith("-") and voltage_str[1:].replace(".", "", 1).isdigit()):
-                    voltage = float(voltage_str)
-            state_fail = (s2 == "1")
-            discovery.append({"item": "2", "params": {}, "metrics": ["voltage"]})
-
-        return {"changed": False, "msg": "discovered %d batteries" % len(discovery),
-                "data": {"discovery": discovery}}
-
+            return {"changed": False, "msg": "PrimeKey not detected (walk failed)", "data": {"discovery": []}}
+        discovery = [{"item": "1", "params": {"levels": None, "levels_lower": None}, "metrics": ["voltage"]}, {"item": "2", "params": {"levels": None, "levels_lower": None}, "metrics": ["voltage"]}]
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
     item = params.get("item", "")
-    if item != "1" and item != "2":
-        return {"changed": False, "msg": "unknown battery item: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    oid_base = ".1.3.6.1.4.1.22408.1.1.2.2.4.104.115.109"
-    if item == "1":
-        oid_voltage = oid_base + ".52.1"
-        oid_status = oid_base + ".53.1"
-    else:
-        oid_voltage = oid_base + ".55.1"
-        oid_status = oid_base + ".56.1"
-
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host,
-        oid_voltage, oid_status
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP get failed: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    lines = res.stdout.splitlines()
-    if len(lines) < 2:
-        return {"changed": False, "msg": "unexpected SNMP response length",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    v_line = lines[0].strip()
-    s_line = lines[1].strip()
-
-    voltage_str = ""
-    status_str = ""
-    if " = " in v_line:
-        voltage_str = v_line.rsplit(" = ", 1)[1]
-    if " = " in s_line:
-        status_str = s_line.rsplit(" = ", 1)[1]
-
-    voltage = None
-    if "absence" in voltage_str:
-        voltage = "absence"
-    elif voltage_str != "" and voltage_str.endswith(" V"):
-        voltage_str_clean = voltage_str[:-2]
-        if voltage_str_clean.replace(".", "", 1).isdigit() or (voltage_str_clean.startswith("-") and voltage_str_clean[1:].replace(".", "", 1).isdigit()):
-            voltage = float(voltage_str_clean)
-
-    state_fail = False
-    if status_str == "1":
-        state_fail = True
-
+    col_v = COL_VOLTAGE
+    col_s = COL_STATUS
+    if item == "2":
+        col_v = COL_VOLTAGE2
+        col_s = COL_STATUS2
+    elif item != "1":
+        return {"changed": False, "msg": "unknown battery item: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": "unknown battery item"}}
+    g = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), BASE_OID + "." + col_v], mutates=False)
+    gs = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), BASE_OID + "." + col_s], mutates=False)
+    if g.rc != 0 or gs.rc != 0:
+        return {"changed": False, "msg": "PrimeKey HSM battery %s not reachable" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": "SNMP query failed"}}
+    voltage = _parse_voltage(g.stdout.strip())
+    state_fail = bool(_to_int(gs.stdout.strip()))
+    if voltage == "absence":
+        return {"changed": False, "msg": "PrimeKey HSM battery %s status absence" % item, "data": {"state": "OK", "metrics": {}, "details": "battery absence reported"}}
+    levels = params.get("levels", None)
+    levels_lower = params.get("levels_lower", None)
+    warn_upper = None
+    crit_upper = None
+    warn_lower = None
+    crit_lower = None
+    if levels != None:
+        if len(levels) == 2:
+            warn_upper = levels[0]
+            crit_upper = levels[1]
+    if levels_lower != None:
+        if len(levels_lower) == 2:
+            warn_lower = levels_lower[0]
+            crit_lower = levels_lower[1]
+    metric_val = 0.0
+    if voltage != None:
+        metric_val = voltage
     state = "OK"
     if state_fail:
         state = "CRIT"
-    elif voltage == "absence":
-        state = "OK"
-    else:
-        state = "OK"
-
-    if voltage == "absence":
-        msg = "PrimeKey HSM battery %s status absence" % item
-    elif state_fail:
-        msg = "PrimeKey HSM battery %s status not OK" % item
-    else:
+    if voltage == None:
         msg = "PrimeKey HSM battery %s status OK" % item
-
-    levels = params.get("levels")
-    levels_lower = params.get("levels_lower")
-    if voltage != None and voltage != "absence":
-        if levels != None:
-            warn, crit = levels
-            if voltage >= crit:
-                state = "CRIT"
-            elif voltage >= warn:
+        return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {}, "details": "no voltage value"}}
+    if warn_upper != None and crit_upper != None:
+        if voltage >= crit_upper:
+            state = "CRIT"
+        elif voltage >= warn_upper:
+            if state == "OK":
                 state = "WARN"
-        if levels_lower != None and state == "OK":
-            warn_low, crit_low = levels_lower
-            if voltage <= crit_low:
-                state = "CRIT"
-            elif voltage <= warn_low:
+    if warn_lower != None and crit_lower != None:
+        if voltage <= crit_lower:
+            state = "CRIT"
+        elif voltage <= warn_lower:
+            if state == "OK":
                 state = "WARN"
-
-    metrics = {}
-    if voltage != None and voltage != "absence":
-        metrics["voltage"] = voltage
-
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+    msg = "PrimeKey HSM battery %s status OK, %s V" % (item, _fmt_voltage(voltage))
+    if state_fail:
+        msg = "PrimeKey HSM battery %s status not OK, %s V" % (item, _fmt_voltage(voltage))
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"voltage": metric_val}, "details": "voltage=%s state_fail=%s" % (str(voltage), str(state_fail))}}

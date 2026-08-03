@@ -1,5 +1,4 @@
-# Map status codes to (state, text) - State.OK/WARN/CRIT mapped to "OK"/"WARN"/"CRIT"
-DATAPOWER_RIAD_BAT_STATUS = {
+_STATE_MAP = {
     "1": ("OK", "charging"),
     "2": ("WARN", "discharging"),
     "3": ("CRIT", "i2c errors detected"),
@@ -17,8 +16,7 @@ DATAPOWER_RIAD_BAT_STATUS = {
     "15": ("WARN", "undefined"),
 }
 
-# Map battery type codes to text
-DATAPOWER_RIAD_BAT_TYPE = {
+_TYPE_MAP = {
     "1": "no battery present",
     "2": "ibbu",
     "3": "bbu",
@@ -28,93 +26,113 @@ DATAPOWER_RIAD_BAT_TYPE = {
     "7": "unknown",
 }
 
-# Base OID for SNMP walk
-BASE_OID = ".1.3.6.1.4.1.14685.3.1.258.1"
+_DATAPOWER_SYSOIDS = [
+    ".1.3.6.1.4.1.14685.1.8",
+    ".1.3.6.1.4.1.14685.1.7",
+    ".1.3.6.1.4.1.14685.1.3",
+]
+
+_BASE = ".1.3.6.1.4.1.14685.3.1.258.1"
 
 
-def _parse_snmp_output(res):
-    """Parse snmpwalk output: '<OID> = <TYPE>: <value>' lines into list of rows."""
+def _walk_table(ctx, params, column_oid):
+    """Walk a single SNMP table column with -Oqn; return list of (index, value)."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+         "-Oqn", params.get("host", "localhost"), column_oid],
+        mutates=False,
+    )
     rows = []
+    if res.rc != 0:
+        return rows
     for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
+        sp = line.find(" ")
+        if sp < 0:
             continue
-        # Split once on '=' to get oid_part and value_part
-        parts = stripped.split("=", 1)
-        if len(parts) != 2:
+        oid = line[:sp]
+        idx = oid[len(column_oid) + 1:]
+        if idx == "":
             continue
-        value_part = parts[1].strip()
-        # Extract last part after last dot (the actual OID leaf value)
-        # We assume each row corresponds to one row in the table (5 fields per row)
-        rows.append(value_part)
-    # Reconstruct rows of 5 fields each
-    table = []
-    for i in range(0, len(rows), 5):
-        chunk = rows[i:i+5]
-        if len(chunk) == 5:
-            table.append(chunk)
-    return table
+        rows.append((idx, line[sp + 1:].strip()))
+    return rows
 
 
-def _discover_item(section):
-    """Return list of discovered items from parsed section."""
-    items = []
-    for row in section:
-        if len(row) >= 1:
-            items.append({"item": row[0], "params": {}, "metrics": []})
-    return items
+def _is_datapower(ctx, params):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"'):
+        val = val[1:-1]
+    return val in _DATAPOWER_SYSOIDS
 
 
 def main(ctx, params):
-    # Discovery mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), BASE_OID
-        ], mutates=False)
+        if not _is_datapower(ctx, params):
+            return {"changed": False, "msg": "not a Datapower device",
+                    "data": {"discovery": []}}
+        # Column 1 = controller id; index is consistent across all columns.
+        controllers = _walk_table(ctx, params, _BASE + ".1")
+        out = []
+        for idx, oid in controllers:
+            out.append({"item": oid, "params": {},
+                        "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d raid batteries" % len(out),
+                "data": {"discovery": out}}
 
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "no SNMP data", "data": {"discovery": []}}
-
-        section = _parse_snmp_output(res)
-        discovery = _discover_item(section)
-        return {"changed": False, "msg": "discovered %d items" % len(discovery),
-                "data": {"discovery": discovery}}
-
-    # Check mode
     item = params.get("item", "")
-
-    # Gather data via snmpwalk
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), BASE_OID
-    ], mutates=False)
-
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "no SNMP data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    section = _parse_snmp_output(res)
-    state = "UNKNOWN"
-    state_txt = "not found"
-    type_txt = ""
-    serial = ""
-    name = ""
-
-    for row in section:
-        if len(row) >= 5:
-            controller_id, bat_type, serial, name, status = row[0], row[1], row[2], row[3], row[4]
-            if controller_id == item:
-                # Look up status and type
-                status_key = status.strip()
-                type_key = bat_type.strip()
-                state, state_txt = DATAPOWER_RIAD_BAT_STATUS.get(status_key, ("UNKNOWN", "unknown status"))
-                type_txt = DATAPOWER_RIAD_BAT_TYPE.get(type_key, "unknown type")
-                break
-
-    if state == "UNKNOWN":
-        return {"changed": False, "msg": "item not found: " + item,
+    if not _is_datapower(ctx, params):
+        return {"changed": False,
+                "msg": "not a Datapower device",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    infotext = "Status: " + state_txt + ", Name: " + name + ", Type: " + type_txt + ", Serial: " + serial
+    # Pull all columns keyed by table index.
+    cols = {}
+    for col_n, col_idx in [("1", "controller"), ("2", "type"), ("3", "serial"),
+                           ("4", "name"), ("5", "status")]:
+        col_oid = _BASE + "." + col_n
+        rows = _walk_table(ctx, params, col_oid)
+        col_map = {}
+        for idx, val in rows:
+            col_map[idx] = val
+        cols[col_idx] = col_map
+
+    # Find the controller whose id matches the requested item.
+    controller_col = cols.get("controller", {})
+    match_idx = None
+    for idx, oid in controller_col.items():
+        if oid == item:
+            match_idx = idx
+            break
+    if match_idx == None:
+        return {"changed": False,
+                "msg": "no such raid battery controller: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    status_val = cols.get("status", {}).get(match_idx, "0")
+    parsed = _STATE_MAP.get(status_val)
+    if parsed == None:
+        state = "UNKNOWN"
+        state_txt = "unknown status code: %s" % status_val
+    else:
+        state, state_txt = parsed
+
+    bat_type = cols.get("type", {}).get(match_idx, "0")
+    type_txt = _TYPE_MAP.get(bat_type, "unknown type code: %s" % bat_type)
+    serial = cols.get("serial", {}).get(match_idx, "")
+    name = cols.get("name", {}).get(match_idx, "")
+
+    infotext = "Status: %s, Name: %s, Type: %s, Serial: %s" % (
+        state_txt, name, type_txt, serial)
+
     return {"changed": False, "msg": infotext,
             "data": {"state": state, "metrics": {}, "details": ""}}

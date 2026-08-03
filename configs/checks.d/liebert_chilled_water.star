@@ -1,186 +1,149 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-        # OIDs: 10.1.2.100.4626, 20.1.2.100.4626, 10.1.2.100.4703, 20.1.2.100.4703, 10.1.2.100.4980, 20.1.2.100.4980
-        oids = [
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4626",
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4626",
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4703",
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4703",
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4980",
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4980",
-        ]
-        data = {}
-        used_names = set()
-        counter = 2
+# Checkmk check: liebert_chilled_water
+# Translated to a read-only Starlark check module for the yolo-man agent.
 
-        for oid in oids:
-            res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-            if res.rc != 0:
-                continue
-            line = res.stdout.strip()
-            if not line:
-                continue
-            # Format: OID = STRING: value or OID = STRING: "value"
-            if " = STRING: " in line:
-                value = line.split(" = STRING: ")[1].strip().strip('"')
-            elif " = " in line:
-                value = line.split(" = ")[1].strip().strip('"')
-            else:
-                continue
+LIEBERT_BASE_OID = ".1.3.6.1.4.1.476.1.42"
+CHILLED_WATER_BASE = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+NAME_COL_OID = CHILLED_WATER_BASE + ".10.1.2.100"
+EVENT_COL_OID = CHILLED_WATER_BASE + ".20.1.2.100"
 
-            # Extract name (last numeric part of OID after base)
-            # Example: .1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4626
-            # We want to use 4626, 4703, 4980 as identifiers
-            name = ""
-            oid_parts = oid.split(".")
-            if len(oid_parts) >= 2:
-                # Get the last numeric identifier (e.g., 4626)
-                name = oid_parts[-1]
 
-            if not name:
-                continue
+def _snmpget_rows(ctx, base_oid, community, host):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On", host, base_oid],
+        mutates=False,
+    )
+    rows = []
+    if res.rc != 0 and res.rc != 1:
+        return rows
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid, value = parts[0], parts[1]
+        if value.endswith('"') and value.startswith('"'):
+            value = value[1:-1]
+        rows.append((oid, value))
+    return rows
 
-            # Duplicate handling (like in parse_liebert_str_without_unit)
-            if name in used_names:
-                new_name = "%s %d" % (name, counter)
-                counter += 1
-                while new_name in used_names:
-                    new_name = "%s %d" % (name, counter)
-                    counter += 1
-                name = new_name
-            else:
-                used_names.add(name)
 
-            # Map event type to readable name (based on example output)
-            # 4626 -> "Supply Chilled Water Over Temp"
-            # 4703 -> "Chilled Water Control Valve Failure"
-            # 4980 -> "Supply Chilled Water Loss of Flow"
-            if name == "4626":
-                base_name = "Supply Chilled Water Over Temp"
-            elif name == "4703":
-                base_name = "Chilled Water Control Valve Failure"
-            elif name == "4980":
-                base_name = "Supply Chilled Water Loss of Flow"
-            else:
-                base_name = name
+def _index_from_oid(oid, col_oid):
+    prefix = col_oid + "."
+    if oid.startswith(prefix):
+        return oid[len(prefix):]
+    return None
 
-            # Reapply duplicate handling with base_name
-            if base_name in used_names:
-                new_name = "%s %d" % (base_name, counter)
-                counter += 1
-                while new_name in used_names:
-                    new_name = "%s %d" % (base_name, counter)
-                    counter += 1
-                base_name = new_name
-            else:
-                used_names.add(base_name)
 
-            data[base_name] = value
+def _dedupe_name(name, used):
+    counter = 2
+    new_name = name
+    while new_name in used:
+        new_name = "%s %d" % (name, counter)
+        counter += 1
+    used.add(new_name)
+    return new_name
 
-        items = []
-        for key in data:
-            if key:
-                items.append({
-                    "item": key,
-                    "params": {},
-                    "metrics": []
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d chilled water events" % len(items),
-            "data": {"discovery": items}
-        }
 
-    # Check mode
-    item = params.get("item", "")
+def _detect_liebert(ctx, params):
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    oids = [
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4626",
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4626",
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4703",
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4703",
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2.100.4980",
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4980",
-    ]
-    data = {}
-    used_names = set()
-    counter = 2
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ov", "-On", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    sys_oid = res.stdout.strip()
+    return sys_oid.startswith(LIEBERT_BASE_OID)
 
-    for oid in oids:
-        res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-        if res.rc != 0:
-            continue
-        line = res.stdout.strip()
-        if not line:
-            continue
-        if " = STRING: " in line:
-            value = line.split(" = STRING: ")[1].strip().strip('"')
-        elif " = " in line:
-            value = line.split(" = ")[1].strip().strip('"')
-        else:
-            continue
 
-        name = ""
-        oid_parts = oid.split(".")
-        if len(oid_parts) >= 2:
-            name = oid_parts[-1]
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
 
-        if not name:
-            continue
-
-        if name in used_names:
-            new_name = "%s %d" % (name, counter)
-            counter += 1
-            while new_name in used_names:
-                new_name = "%s %d" % (name, counter)
-                counter += 1
-            name = new_name
-        else:
-            used_names.add(name)
-
-        if name == "4626":
-            base_name = "Supply Chilled Water Over Temp"
-        elif name == "4703":
-            base_name = "Chilled Water Control Valve Failure"
-        elif name == "4980":
-            base_name = "Supply Chilled Water Loss of Flow"
-        else:
-            base_name = name
-
-        if base_name in used_names:
-            new_name = "%s %d" % (base_name, counter)
-            counter += 1
-            while new_name in used_names:
-                new_name = "%s %d" % (base_name, counter)
-                counter += 1
-            base_name = new_name
-        else:
-            used_names.add(base_name)
-
-        data[base_name] = value
-
-    value = data.get(item)
-    if value == None:
+    if params.get("_discover"):
+        if not _detect_liebert(ctx, params):
+            return {"changed": False, "msg": "not a Liebert device", "data": {"discovery": []}}
+        names = _snmpget_rows(ctx, NAME_COL_OID, community, host)
+        used = set()
+        discovery = []
+        for oid, value in names:
+            if not value:
+                continue
+            idx = _index_from_oid(oid, NAME_COL_OID)
+            if idx == None:
+                continue
+            name = _dedupe_name(value, used)
+            discovery.append({
+                "item": name,
+                "params": {"warn": 0, "crit": 0},
+                "metrics": [],
+            })
         return {
             "changed": False,
-            "msg": "event not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    if not _detect_liebert(ctx, params):
+        return {
+            "changed": False,
+            "msg": "not a Liebert device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    names = _snmpget_rows(ctx, NAME_COL_OID, community, host)
+    events = _snmpget_rows(ctx, EVENT_COL_OID, community, host)
+
+    name_map = {}
+    used = set()
+    for oid, value in names:
+        if not value:
+            continue
+        idx = _index_from_oid(oid, NAME_COL_OID)
+        if idx == None:
+            continue
+        name = _dedupe_name(value, used)
+        name_map[idx] = name
+
+    event_map = {}
+    for oid, value in events:
+        idx = _index_from_oid(oid, EVENT_COL_OID)
+        if idx == None:
+            continue
+        if value.endswith('"') and value.startswith('"'):
+            value = value[1:-1]
+        event_map[idx] = value
+
+    target_idx = None
+    for idx, name in name_map.items():
+        if name == item:
+            target_idx = idx
+            break
+    if target_idx == None:
+        return {
+            "changed": False,
+            "msg": "item not found: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    value = event_map.get(target_idx, "")
+    if value == "":
+        return {
+            "changed": False,
+            "msg": "no event data for item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
     if value.lower() == "inactive event":
         return {
             "changed": False,
             "msg": "Normal",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
+            "data": {"state": "OK", "metrics": {}, "details": ""},
         }
     else:
         return {
             "changed": False,
             "msg": value,
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
+            "data": {"state": "CRIT", "metrics": {}, "details": ""},
         }

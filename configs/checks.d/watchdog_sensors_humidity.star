@@ -1,149 +1,127 @@
 def main(ctx, params):
-    # Constants
-    SNMP_COMMUNITY = params.get("community", "public")
-    SNMP_HOST = params.get("host", "localhost")
-    OID_BASE = ".1.3.6.1.4.1.21239.5.1"
-    
-    # Discovery mode
     if params.get("_discover"):
-        # Discover humidity sensors by walking the humidity data OID tree
-        oid = OID_BASE + ".2.1.4"  # humidity values at .2.1.4.<sensor-id>
-        res = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, oid], mutates=False)
-        items = []
-        
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            # Parse OID: .1.3.6.1.4.1.21239.5.1.2.1.4.<sensor-id>
-            oid_part = parts[0].strip()
-            if oid_part.startswith(OID_BASE + ".2.1.4."):
-                sensor_id = oid_part.rsplit(".", 1)[-1]
-                sensor_name = "Humidity " + sensor_id
-                
-                # Get description (OID .2.1.3.<sensor-id>)
-                desc_oid = OID_BASE + ".2.1.3." + sensor_id
-                desc_res = ctx.run(["snmpget", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, desc_oid], mutates=False)
-                if desc_res.rc == 0 and desc_res.stdout.strip():
-                    desc_parts = desc_res.stdout.strip().split(" = ")
-                    if len(desc_parts) == 2:
-                        desc_val = desc_parts[1].strip()
-                        # Strip quotes if present
-                        if desc_val.startswith('"') and desc_val.endswith('"'):
-                            desc_val = desc_val[1:-1]
-                        sensor_name = desc_val
-                
-                items.append({
-                    "item": sensor_name,
-                    "params": {
-                        "levels": [50.0, 55.0],
-                        "levels_lower": [10.0, 15.0]
-                    },
-                    "metrics": ["humidity"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d humidity sensors" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode - extract item and parameters
+        sysoid = _get_sysoid(ctx, params)
+        if sysoid == "":
+            return {"changed": False, "msg": "watchdog sensor not present",
+                    "data": {"discovery": [], "host_labels": {}}}
+        section = _fetch_section(ctx, params, sysoid)
+        if section.get("humidity", {}) == {}:
+            return {"changed": False, "msg": "no humidity sensors found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        out = []
+        for name in section["humidity"]:
+            out.append({"item": name,
+                        "params": {"levels": (50.0, 55.0), "levels_lower": (10.0, 15.0)},
+                        "metrics": ["humidity"]})
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out, "host_labels": {}}}
     item = params.get("item", "")
-    warn, crit = params.get("levels", [50.0, 55.0])
-    warn_lower, crit_lower = params.get("levels_lower", [10.0, 15.0])
-    
-    # Extract sensor id from item name (format: "Humidity <id>" or custom name)
-    sensor_id = ""
-    if item.startswith("Humidity "):
-        sensor_id = item.split(" ", 1)[-1]
-    else:
-        # Try to find sensor id by looking for the first number in the item name
-        for i, c in enumerate(item):
-            if c.isdigit():
-                # Extract contiguous digits
-                j = i
-                while j < len(item) and item[j].isdigit():
-                    j += 1
-                sensor_id = item[i:j]
-                break
-    
-    # If no sensor id found, try to use the item itself as sensor_id
-    if not sensor_id.isdigit():
-        # Try to find by walking general description OID
-        desc_oid = OID_BASE + ".2.1.3"
-        desc_res = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, desc_oid], mutates=False)
-        for line in desc_res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip()
-            # Strip quotes if present
-            if val_part.startswith('"') and val_part.endswith('"'):
-                val_part = val_part[1:-1]
-            if val_part == item:
-                sensor_id = oid_part.rsplit(".", 1)[-1]
-                break
-    
-    # Get humidity value from OID .2.1.4.<sensor-id>
-    oid = OID_BASE + ".2.1.4." + sensor_id
-    res = ctx.run(["snmpget", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, oid], mutates=False)
-    
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "humidity sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse humidity value
-    parts = res.stdout.strip().split(" = ")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "unable to parse humidity value: " + res.stdout,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    humidity_str = parts[1].strip()
-    # Convert to int (sometimes会有 extra whitespace or be quoted)
-    humidity_str = humidity_str.strip('"').strip()
-    if not humidity_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid humidity value: " + humidity_str,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    humidity = int(humidity_str)
-    
-    # Determine state based on thresholds
-    if humidity <= crit_lower or humidity >= crit:
-        state = "CRIT"
-    elif humidity <= warn_lower or humidity >= warn:
-        state = "WARN"
-    else:
-        state = "OK"
-    
-    # Build message
-    summary = "%f%%" % float(humidity)
-    if state != "OK":
+    section = _fetch_section_cached(ctx, params)
+    if section.get("humidity", {}) == {}:
+        return {"changed": False, "msg": "no watchdog humidity sensor found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = section["humidity"].get(item)
+    if data == None:
+        return {"changed": False, "msg": "humidity sensor not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    humidity = int(data)
+    levels = params.get("levels", (50.0, 55.0))
+    levels_lower = params.get("levels_lower", (10.0, 15.0))
+    warn = levels[0]
+    crit = levels[1]
+    warn_lower = levels_lower[0]
+    crit_lower = levels_lower[1]
+    state = "CRIT" if not ((crit_lower < humidity) and (humidity < crit)) else ("WARN" if not ((warn_lower < humidity) and (humidity < warn)) else "OK")
+    summary = "%d%%" % humidity
+    if state == "WARN":
         if humidity >= warn:
-            summary += " (warn/crit at %f/%f)" % (warn, crit)
+            summary += " (warn/crit at %s/%s)" % (_f(warn), _f(crit))
         else:
-            summary += " (warn/crit below %f/%f)" % (warn_lower, crit_lower)
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"humidity": float(humidity)},
-            "details": ""
-        }
-    }
+            summary += " (warn/crit below %s/%s)" % (_f(warn_lower), _f(crit_lower))
+    elif state == "CRIT":
+        if humidity >= crit:
+            summary += " (warn/crit at %s/%s)" % (_f(warn), _f(crit))
+        else:
+            summary += " (warn/crit below %s/%s)" % (_f(warn_lower), _f(crit_lower))
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {"humidity": humidity}, "details": ""}}
+
+
+def _f(v):
+    iv = int(v)
+    if float(v) == float(iv):
+        return str(iv)
+    return str(v)
+
+
+def _get_sysoid(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if res.rc != 0:
+        return ""
+    base = res.stdout.strip()
+    if not base.startswith(".1.3.6.1.4.1.21239.5.1") and not base.startswith(".1.3.6.1.4.1.21239.42.1"):
+        return ""
+    if base.startswith(".1.3.6.1.4.1.21239.42.1"):
+        return ".1.3.6.1.4.1.21239.42.1"
+    return ".1.3.6.1.4.1.21239.5.1"
+
+
+def _fetch_section(ctx, params, sysoid):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    section = {"general": {}, "temp": {}, "humidity": {}, "dew": {}}
+    gen_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqpe", host,
+                       sysoid + ".1.1.2.0", sysoid + ".1.1.7.0"], mutates=False)
+    if gen_res.rc != 0:
+        return section
+    gen_lines = [l for l in gen_res.stdout.splitlines() if l != ""]
+    if len(gen_lines) < 2:
+        return section
+    version_str = gen_lines[0].split()[-1].strip('"')
+    temp_unit_code = gen_lines[1].split()[-1].strip('"')
+    temp_unit = "C"
+    if temp_unit_code == "1":
+        temp_unit = "C"
+    elif temp_unit_code == "0":
+        temp_unit = "F"
+    version = int(version_str.replace(".", ""))
+    walk_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+                        sysoid + ".1.2.1"], mutates=False)
+    if walk_res.rc != 0:
+        return section
+    rows = {}
+    for line in walk_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        value = parts[1].strip()
+        if not oid.startswith(sysoid + ".1.2.1."):
+            continue
+        suffix = oid[len(sysoid + ".1.2.1."):]
+        cols = suffix.split(".")
+        sensor_id = cols[0]
+        col = cols[1]
+        rows.setdefault(sensor_id, {})[col] = value
+    for sensor_id in rows:
+        cols = rows[sensor_id]
+        descr = cols.get("3", "")
+        availability = cols.get("5", "")
+        if version <= 300:
+            humidity_val = cols.get("7", "")
+        else:
+            humidity_val = cols.get("5", "")
+        key = "Watchdog " + sensor_id
+        section["general"][key] = {"descr": descr, "availability": (availability,)}
+        hkey = "Humidity " + sensor_id
+        section["humidity"][hkey] = humidity_val
+    return section
+
+
+def _fetch_section_cached(ctx, params):
+    sysoid = _get_sysoid(ctx, params)
+    if sysoid == "":
+        return {"general": {}, "temp": {}, "humidity": {}, "dew": {}}
+    return _fetch_section(ctx, params, sysoid)

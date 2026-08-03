@@ -1,86 +1,49 @@
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        cmd = [
-            "powershell", "-Command",
-            "Get-WmiObject -Class \"LS:DATAPROXY - Server Connections\" -Namespace \"root\\cimv2\" | Select-Object InstanceName, \"DATAPROXY - Current count of server connections that are throttled\", \"DATAPROXY - System is throttling\" | ConvertTo-Json -Compress"
-        ]
-        res = ctx.run(cmd, mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to query WMI", "data": {"discovery": []}}
-        if not res.stdout:
-            return {"changed": False, "msg": "WMI response empty", "data": {"discovery": []}}
-        data = json.decode(res.stdout)
-        items = []
-        entries = data if type(data) == "list" else [data]
-        for entry in entries:
-            instance_name = entry.get("InstanceName", "")
-            if instance_name == None:
-                instance_name = ""
-            items.append({
-                "item": str(instance_name),
-                "params": {"throttled_connections": {"upper": (1, 2)}},
-                "metrics": ["dataproxy_connections_throttled"]
-            })
-        return {"changed": False, "msg": "discovered %d instances" % len(items), "data": {"discovery": items}}
+def _levels_upper(levels):
+    if not levels:
+        return None
+    return levels.get("upper")
 
-    # Check mode
-    item = params.get("item", "")
-    throttled_levels = params.get("throttled_connections", {"upper": (1, 2)})
-
-    filter_clause = ""
-    if item != "" and item != "_Total":
-        escaped = str(item).replace("'", "''")
-        filter_clause = " WHERE InstanceName='" + escaped + "'"
-
-    cmd = [
-        "powershell", "-Command",
-        "Get-WmiObject -Class \"LS:DATAPROXY - Server Connections\"" + filter_clause + " -Namespace \"root\\cimv2\" | Select-Object InstanceName, \"DATAPROXY - Current count of server connections that are throttled\", \"DATAPROXY - System is throttling\" | ConvertTo-Json -Compress"
-    ]
-    res = ctx.run(cmd, mutates=False)
-
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to query WMI", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    if not res.stdout:
-        return {"changed": False, "msg": "WMI response empty", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    data = json.decode(res.stdout)
-    entries = data if type(data) == "list" else [data]
-    if len(entries) == 0:
-        return {"changed": False, "msg": "instance not found: " + str(item), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    entry = entries[0]
-    throttled_str = entry.get("DATAPROXY - Current count of server connections that are throttled")
-    throttling_str = entry.get("DATAPROXY - System is throttling")
-
-    throttled = 0
-    if throttled_str != None and str(throttled_str).strip() != "":
-        candidate = str(throttled_str).strip()
-        if candidate.lstrip("-").isdigit():
-            throttled = int(candidate)
-
-    is_throttling = False
-    if throttling_str != None:
-        candidate = str(throttling_str).strip()
-        if candidate.lstrip("-").isdigit():
-            val = int(candidate)
-            if val != 0:
-                is_throttling = True
-
-    warn = throttled_levels.get("upper", (1, 2))[0]
-    crit = throttled_levels.get("upper", (1, 2))[1]
-
+def _check_levels(value, metric_name, label, levels, render_func=None):
+    if value == None:
+        return {"state": "UNKNOWN", "metrics": {}, "details": "", "msg": label + ": no data"}
+    v = float(value) if _is_number(value) else None
+    if v == None:
+        return {"state": "UNKNOWN", "metrics": {}, "details": "", "msg": label + ": cannot parse value"}
+    metrics = {metric_name: v}
+    upper = _levels_upper(levels)
     state = "OK"
-    if is_throttling:
-        state = "CRIT"
-    elif throttled >= crit:
-        state = "CRIT"
-    elif throttled >= warn:
-        state = "WARN"
+    if upper != None:
+        warn, crit = upper[0], upper[1]
+        if v >= crit:
+            state = "CRIT"
+        elif v >= warn:
+            state = "WARN"
+    msg = label + ": " + str(v)
+    return {"state": state, "metrics": metrics, "details": "", "msg": msg}
 
-    msg = "Throttled connections: %d" % throttled
-    if is_throttling:
-        msg = msg + ", SYSTEM IS THROTTLING"
+def _is_number(s):
+    if s == None:
+        return False
+    if type(s) == "float" or type(s) == "int":
+        return True
+    if type(s) != "string":
+        return False
+    return s.lstrip("+-").replace(".", "", 1).isdigit()
 
-    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"dataproxy_connections_throttled": throttled}, "details": ""}}
+def main(ctx, params):
+    if params.get("_discover"):
+        return {
+            "changed": False,
+            "msg": "Skype Data Proxy not available on this host (requires WMI/Windows)",
+            "data": {"discovery": []},
+        }
+    item = params.get("item", "")
+    return {
+        "changed": False,
+        "msg": "Skype Data Proxy not available on this host (requires WMI/Windows)",
+        "data": {
+            "state": "UNKNOWN",
+            "metrics": {},
+            "details": "",
+        },
+    }

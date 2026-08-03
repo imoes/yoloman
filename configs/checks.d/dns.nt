@@ -1,50 +1,39 @@
 name: dns
 fqcn: checkmk.dns
 collection: checkmk
-short_description: DNS resolution check
-description: Resolves a hostname or IP address via DNS and validates the returned records against an optional list of expected answers. Grades CRIT on lookup failure or when expected addresses are absent (all-must-match or any-must-match, configurable), and WARN/CRIT when resolution time exceeds the configured thresholds.
+short_description:
+description: Checkmk active check 'dns', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
-        type: string
-        description: Service name shown in monitoring
-        required: true
     hostname:
         type: string
-        description: Hostname or IP address to resolve
-        required: true
+        default:
+        description: hostname (from the check's parameters).
+    name:
+        type: string
+        description: name (from the check's parameters).
     server:
         type: string
-        description: DNS server to query (informational — native probe uses the system resolver; specify for documentation or future custom-resolver support)
-    rtype:
-        type: string
-        description: DNS record type to query
-        default: A
-        enum:
-            - A
-            - AAAA
-            - CNAME
-            - MX
-            - NS
-            - TXT
+        description: server (from the check's parameters).
     expect_all_addresses:
         type: bool
-        description: When true all expected_addresses_list entries must appear in the answer; when false at least one must match
-        default: true
-    expected_addresses_list:
+        default: True
+        description: expect_all_addresses (from the check's parameters).
+    expected_addresses:
         type: list
-        description: Expected DNS answer records; CRIT if the match condition (all/any) is not satisfied
-    response_time_warn_s:
+        description: expected_addresses (from the check's parameters).
+    expected_authority:
+        type: string
+        description: expected_authority (from the check's parameters).
+    response_time:
+        type: list
+        description: response_time (from the check's parameters).
+    timeout:
         type: number
-        description: WARN if resolution time exceeds this threshold (seconds)
-    response_time_crit_s:
-        type: number
-        description: CRIT if resolution time exceeds this threshold (seconds)
-    timeout_s:
-        type: number
-        description: Query timeout in seconds
-        default: 10
+        default: 30
+        description: timeout (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

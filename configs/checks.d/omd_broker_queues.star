@@ -1,88 +1,74 @@
-def _node_to_site(node):
-    at = node.find("@")
-    if at >= 0:
-        return node[at + 1:]
-    return node
-
 def main(ctx, params):
-    res = ctx.run(
-        ["rabbitmqctl", "list_queues", "-q", "--formatter", "json",
-         "name", "vhost", "messages", "node"],
-        mutates=False,
-        ok_codes=[0, 1, 2],
-    )
-
-    broker_ok = (res.rc == 0) and (res.stdout.strip() != "")
-    queues_raw = json.decode(res.stdout.strip()) if broker_ok else []
-    if type(queues_raw) != "list":
-        queues_raw = []
-
-    # Build item-key → [queue-dict] map; only vhost="/" and name matching *.app.*
-    site_app_queues = {}
-    for q in queues_raw:
-        vhost = str(q.get("vhost", ""))
-        name = str(q.get("name", ""))
-        node = str(q.get("node", ""))
-        messages = int(q.get("messages", 0))
-
-        if vhost != "/":
-            continue
-        qparts = name.split(".")
-        if len(qparts) < 3 or qparts[1] != "app":
-            continue
-
-        application = qparts[2]
-        site = _node_to_site(node)
-        key = site + " " + application
-        if key not in site_app_queues:
-            site_app_queues[key] = []
-        site_app_queues[key].append({"name": name, "messages": messages})
-
     if params.get("_discover"):
-        if not broker_ok:
-            return {"changed": False, "msg": "broker unavailable",
+        res = ctx.run(["redis-cli", "ping"], mutates=False)
+        if res.rc != 0 or not res.stdout.strip():
+            return {"changed": False, "msg": "redis not available",
                     "data": {"discovery": []}}
-        discovery = []
-        for key in sorted(site_app_queues.keys()):
-            app = key.split(" ", 1)[1] if " " in key else key
-            if app == "cmk-broker-test":
+        keys_res = ctx.run(["redis-cli", "keys", "*"], mutates=False)
+        if keys_res.rc != 0:
+            return {"changed": False, "msg": "redis not available",
+                    "data": {"discovery": []}}
+        seen = {}
+        keys = keys_res.stdout.split() if keys_res.stdout else []
+        for key in keys:
+            key = key.strip()
+            if not key:
                 continue
-            discovery.append({
-                "item": key,
-                "params": {},
-                "metrics": ["omd_application_messages"],
-            })
-        return {"changed": False,
-                "msg": "discovered %d items" % len(discovery),
-                "data": {"discovery": discovery}}
-
-    if not broker_ok:
-        return {"changed": False, "msg": "broker unavailable",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+            parts = key.split(".")
+            if len(parts) < 3 or parts[1] != "app":
+                continue
+            site = parts[0]
+            application = parts[2]
+            if application in ("cmk-broker-test",):
+                continue
+            item = site + " " + application
+            if item not in seen:
+                seen[item] = True
+                out = [{"item": item, "params": {},
+                        "metrics": ["omd_application_messages"]}]
+        if not seen:
+            return {"changed": False, "msg": "no omd broker queues found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
+        return {"changed": False, "msg": "redis not reachable",
+                "data": {"discovery": []}}
 
     item = params.get("item", "")
-    matching = site_app_queues.get(item)
-
-    if matching == None:
-        return {"changed": False, "msg": "queue not found: " + item,
+    if not item:
+        return {"changed": False, "msg": "no item specified",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    total = 0
-    for q in matching:
-        total += q["messages"]
-
-    detail_lines = []
-    for q in matching:
-        qparts = q["name"].split(".")
-        short = qparts[-1] if len(qparts) > 0 else q["name"]
-        detail_lines.append("Messages in queue '%s': %d" % (short, q["messages"]))
-
-    return {
-        "changed": False,
-        "msg": "Queued application messages: %d" % total,
-        "data": {
-            "state": "OK",
-            "metrics": {"omd_application_messages": total},
-            "details": "; ".join(detail_lines),
-        },
-    }
+    site, application = item.split(maxsplit=1)
+    res = ctx.run(["redis-cli", "ping"], mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "redis not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    keys_res = ctx.run(["redis-cli", "keys", "*"], mutates=False)
+    if keys_res.rc != 0:
+        return {"changed": False, "msg": "redis not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    matching_queues = []
+    total_messages = 0
+    keys = keys_res.stdout.split() if keys_res.stdout else []
+    for key in keys:
+        key = key.strip()
+        if not key:
+            continue
+        parts = key.split(".")
+        if len(parts) < 3 or parts[0] != site or parts[1] != "app" or parts[2] != application:
+            continue
+        llen_res = ctx.run(["redis-cli", "llen", key], mutates=False)
+        if llen_res.rc == 0:
+            msg_count = int(llen_res.stdout.strip()) if llen_res.stdout.strip().isdigit() else 0
+            total_messages += msg_count
+            matching_queues.append((parts[-1], msg_count))
+    if not matching_queues:
+        return {"changed": False, "msg": "no queues found for %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    msg = "Total: %d" % total_messages
+    for queue_name, count in matching_queues:
+        msg += ", Messages in queue '%s': %d" % (queue_name, count)
+    return {"changed": False, "msg": msg,
+            "data": {"state": "OK",
+                     "metrics": {"omd_application_messages": total_messages},
+                     "details": msg}}

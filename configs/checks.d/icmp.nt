@@ -1,51 +1,46 @@
 name: icmp
 fqcn: checkmk.icmp
 collection: checkmk
-short_description: ICMP ping latency and loss
-description: Sends ICMP echo requests to a host using the check_icmp Nagios plugin and evaluates round-trip time and packet loss against configurable warn/crit thresholds. The plugin exit code maps directly to OK/WARN/CRIT/UNKNOWN states, and perfdata (rta, pl) is extracted and exposed as metrics. Useful when ping is needed as a dedicated monitored service rather than a host check.
+short_description:
+description: Checkmk active check 'icmp', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
+    family:
+        type: number
+        default: 4
+        description: family (from the check's parameters).
+    packets:
         type: string
-        required: true
-        description: Service display name, e.g. PING
+        description: packets (from the check's parameters).
+    timeout:
+        type: string
+        description: timeout (from the check's parameters).
+    min_pings:
+        type: string
+        description: min_pings (from the check's parameters).
+    rta:
+        type: list
+        description: rta (from the check's parameters).
+    loss:
+        type: list
+        description: loss (from the check's parameters).
+    address_type:
+        type: string
+        default: address
+        description: address_type (from the check's parameters).
+    explicit_address:
+        type: string
+        description: explicit_address (from the check's parameters).
     host:
         type: string
-        required: true
-        description: Hostname or IP address to ping
-    timeout_s:
-        type: number
-        description: Timeout per ICMP request in seconds
-        default: 10
-    packets:
-        type: number
-        description: Number of ICMP packets to send per check
-        default: 5
-    min_pings_ok:
-        type: number
-        description: Minimum successful responses required for OK when pinging multiple targets (0 = all must respond)
-        default: 0
-    rta_warn_ms:
-        type: number
-        description: Round-trip time warning threshold in milliseconds
-        default: 200
-    rta_crit_ms:
-        type: number
-        description: Round-trip time critical threshold in milliseconds
-        default: 500
-    loss_warn_pct:
-        type: number
-        description: Packet loss warning threshold in percent
-        default: 80
-    loss_crit_pct:
-        type: number
-        description: Packet loss critical threshold in percent
-        default: 100
-    ipv6:
+        default: localhost
+        description: host (from the check's parameters).
+    multiple_services:
         type: bool
-        description: Force IPv6 mode (passes -6 to check_icmp)
-        default: false
+        default: False
+        description: multiple_services (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

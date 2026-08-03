@@ -1,88 +1,88 @@
-# Module-level constants
-SNMP_BASE_OID = ".1.3.6.1.4.1.334.72.1.1.6.3.2"
-SNMP_DEFAULT_COMMUNITY = "public"
-SNMP_DEFAULT_HOST = "localhost"
-DEFAULT_LEVELS = (30000, 35000)  # (warn, crit)
-
 def main(ctx, params):
-    # Determine mode: discovery or check
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    levels = params.get("levels", (30000, 35000))
+    warn = levels[0]
+    crit = levels[1]
+
     if params.get("_discover"):
-        # Discovery: check if the SNMP section exists and yield one service
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", SNMP_DEFAULT_COMMUNITY),
-            "-On", params.get("host", SNMP_DEFAULT_HOST), SNMP_BASE_OID
-        ], mutates=False)
-        # Check for at least one line of output (OID found)
-        if res.stdout.strip() == "":
-            return {"changed": False, "msg": "no Domino transactions data found",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {"levels": DEFAULT_LEVELS},
-                                        "metrics": ["transactions"]}]}}
-    
-    # Check mode for single item (item is "" for single-service checks)
+        # DECTECT: only discover on Domino-capable systems
+        sysid = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysid.rc != 0 or sysid.rc == 127:
+            return {"changed": False, "msg": "no SNMP response", "data": {"discovery": []}}
+        sysid_val = sysid.stdout.strip()
+        is_domino = False
+        domino_oids = [
+            ".1.3.6.1.4.1.311.1.1.3.1.2",
+            ".1.3.6.1.4.1.8072.3.1.10",
+            ".1.3.6.1.4.1.8072.3.2.10",
+        ]
+        for oid in domino_oids:
+            if sysid_val.startswith(oid):
+                is_domino = True
+                break
+        if not is_domino:
+            return {"changed": False, "msg": "no Domino detected", "data": {"discovery": []}}
+
+        # FETCH the transaction OID
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.334.72.1.1.6.3.2"],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {"changed": False, "msg": "no Domino transactions data", "data": {"discovery": []}}
+        return {
+            "changed": False,
+            "msg": "discovered 1 service",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {"levels": (warn, crit)},
+                        "metrics": ["transactions"],
+                    }
+                ],
+            },
+        }
+
     item = params.get("item", "")
-    if item != "":
-        return {"changed": False, "msg": "unsupported item: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Fetch the SNMP value
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", SNMP_DEFAULT_COMMUNITY),
-        "-On", params.get("host", SNMP_DEFAULT_HOST), SNMP_BASE_OID
-    ], mutates=False)
-    
-    # Parse the snmpget output: "<OID> = <TYPE>: <value>"
-    out = res.stdout.strip()
-    if out == "":
-        return {"changed": False, "msg": "no SNMP response for transactions",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Extract value after ": "
-    idx = out.find(": ")
-    if idx == -1:
-        return {"changed": False, "msg": "unexpected SNMP output format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    val_str = out[idx + 2:].strip()
-    
-    # Extract numeric part (remove trailing text like "Gauge32:")
-    parts = val_str.split()
-    if len(parts) == 0:
-        return {"changed": False, "msg": "invalid transaction value",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Extract numeric part: take the last word and strip non-digits
-    last_part = parts[-1].strip()
-    # Keep only leading digits
-    digits = ""
-    for c in last_part:
-        if c.isdigit():
-            digits += c
-        else:
-            break
-    
-    if digits == "":
-        return {"changed": False, "msg": "invalid transaction value: " + val_str,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    transactions = int(digits)
-    
-    # Apply levels (upper levels: WARN if >= warn, CRIT if >= crit)
-    warn, crit = params.get("levels", DEFAULT_LEVELS)
-    
-    if transactions >= crit:
+
+    # CHECK MODE: single-service check (item == "")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.334.72.1.1.6.3.2"],
+        mutates=False,
+    )
+    if res.rc != 0 or res.rc == 127:
+        return {
+            "changed": False,
+            "msg": "Domino SNMP not reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    raw = res.stdout.strip()
+    if not raw or not raw.lstrip("-").isdigit():
+        return {
+            "changed": False,
+            "msg": "invalid transaction value from Domino",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    value = int(raw)
+    state = "OK"
+    if value >= crit:
         state = "CRIT"
-    elif transactions >= warn:
+    elif value >= warn:
         state = "WARN"
-    else:
-        state = "OK"
-    
+
     return {
         "changed": False,
-        "msg": "Transactions per minute (avg): %d" % transactions,
+        "msg": "%d transactions/min" % value,
         "data": {
             "state": state,
-            "metrics": {"transactions": transactions},
-            "details": ""
-        }
+            "metrics": {"transactions": value},
+            "details": "",
+        },
     }

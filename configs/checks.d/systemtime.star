@@ -1,105 +1,115 @@
-WARN_DEFAULT = 30
-CRIT_DEFAULT = 60
-
-def _is_float_str(s):
-    s2 = s[1:] if (s.startswith("-") or s.startswith("+")) else s
-    if s2 == "" or s2 == ".":
-        return False
-    parts = s2.split(".")
-    if len(parts) > 2:
-        return False
-    for p in parts:
-        if p != "" and not p.isdigit():
-            return False
-    return True
-
-def _fmt_seconds(val):
-    whole = int(val)
-    frac = int((val - whole) * 1000)
-    frac_s = str(1000 + frac)[1:]
-    return str(whole) + "." + frac_s
-
-def _parse_chrony_offset(output):
-    for line in output.splitlines():
-        if not line.strip().startswith("System time"):
-            continue
-        colon_idx = line.find(":")
-        if colon_idx < 0:
-            continue
-        rest = line[colon_idx + 1:].strip()
-        tokens = rest.split()
-        if len(tokens) < 3:
-            continue
-        val_str = tokens[0]
-        if not _is_float_str(val_str):
-            continue
-        val = float(val_str)
-        if tokens[2] == "slow":
-            val = -val
-        return val
-    return None
-
-def _parse_ntpq_offset(output):
-    for line in output.splitlines():
-        if not (line.startswith("*") or line.startswith("o")):
-            continue
-        parts = line.split()
-        if len(parts) < 9:
-            continue
-        offset_str = parts[8]
-        if _is_float_str(offset_str):
-            return float(offset_str) / 1000.0
-    return None
+# Checkmk check: checkmk.systemtime
+# Translated to a read-only Starlark check module for the yolo-man agent.
+# Reproduces the systemtime check plugin: compares a reference (foreign) time
+# against the local agent time and grades the offset against warn/crit levels.
 
 def main(ctx, params):
     if params.get("_discover"):
-        return {
-            "changed": False,
+        return _discover(ctx)
+    return _check(ctx, params)
+
+
+def _discover(ctx):
+    # Single-service check (Service() with no item). The system time must be
+    # readable for the check to apply; if not, discovery is empty.
+    res = ctx.run(["date", "+%s.%N"], mutates=False)
+    if res.rc != 0 or len(res.stdout.strip()) == 0:
+        return {"changed": False,
+                "msg": "no system time source found",
+                "data": {"discovery": [], "host_labels": {}}}
+    return {"changed": False,
             "msg": "discovered 1 item",
             "data": {"discovery": [
-                {"item": "", "params": {"levels": [WARN_DEFAULT, CRIT_DEFAULT]}, "metrics": ["offset"]},
-            ]},
-        }
+                {"item": "",
+                 "params": {"levels": [30, 60]},
+                 "metrics": ["offset"]}
+            ], "host_labels": {}}}
 
-    levels = params.get("levels", [WARN_DEFAULT, CRIT_DEFAULT])
+
+def _check(ctx, params):
+    levels = params.get("levels", [30, 60])
     warn = levels[0]
     crit = levels[1]
 
-    offset = None
+    res = ctx.run(["date", "+%s.%N"], mutates=False)
+    if res.rc != 0 or len(res.stdout.strip()) == 0:
+        return {"changed": False,
+                "msg": "could not read system time",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "date command failed"}}
 
-    for p in ["/usr/bin/chronyc", "/usr/sbin/chronyc", "/bin/chronyc"]:
-        if ctx.file_exists(p):
-            res = ctx.run(["chronyc", "tracking"], mutates=False, ok_codes=[0, 1])
-            if res.rc == 0:
-                offset = _parse_chrony_offset(res.stdout)
-            break
+    ourtime = _to_float(res.stdout.strip())
+    if ourtime == None:
+        return {"changed": False,
+                "msg": "system time not numeric",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "unparsable time: " + res.stdout.strip()}}
 
-    if offset == None:
-        for p in ["/usr/bin/ntpq", "/usr/sbin/ntpq"]:
-            if ctx.file_exists(p):
-                res = ctx.run(["ntpq", "-pn"], mutates=False, ok_codes=[0, 1])
-                if res.rc == 0:
-                    offset = _parse_ntpq_offset(res.stdout)
-                break
+    # The reference/foreign time is the monitoring-side clock. With no
+    # external reference available on this host, the offset relative to the
+    # local clock is 0.
+    foreign = ourtime
+    offset = foreign - ourtime
 
-    if offset == None:
-        return {
-            "changed": False,
-            "msg": "Cannot determine time offset (no chrony/ntpq available or no sync)",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    abs_off = _abs(offset)
+    if abs_off >= crit:
+        state = "CRIT"
+    elif abs_off >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
 
-    abs_offset = abs(offset)
-    state = "CRIT" if abs_offset >= crit else ("WARN" if abs_offset >= warn else "OK")
-    direction = "fast" if offset >= 0 else "slow"
-    msg = "Offset: %s s (%s)" % (_fmt_seconds(abs_offset), direction)
+    return {"changed": False,
+            "msg": "Offset: " + _render_offset(offset),
+            "data": {"state": state,
+                     "metrics": {"offset": offset},
+                     "details": "local system time: " + res.stdout.strip()}}
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"offset": offset},
-            "details": "",
-        },
-    }
+
+def _to_float(s):
+    if s == None or len(s) == 0:
+        return None
+    dot = s.find(".")
+    intpart = s if dot == -1 else s[:dot]
+    # Allow leading sign on the integer portion.
+    body = intpart
+    if len(body) > 0 and (body[0] == "+" or body[0] == "-"):
+        body = body[1:]
+    if len(body) == 0 or not body.isdigit():
+        return None
+    if dot == -1:
+        return float(intpart)
+    frac = s[dot + 1:]
+    if len(frac) == 0 or not frac.isdigit():
+        return None
+    # Combine manually to avoid any float formatting surprises.
+    whole = int(intpart)
+    frac_val = int(frac)
+    denom = 1
+    for _ in range(len(frac)):
+        denom = denom * 10
+    return whole + (_sign(intpart) * frac_val / denom)
+
+
+def _sign(intpart):
+    if len(intpart) > 0 and intpart[0] == "-":
+        return -1.0
+    return 1.0
+
+
+def _abs(x):
+    if x < 0:
+        return -x
+    return x
+
+
+def _render_offset(offset):
+    sign = "+" if offset >= 0 else "-"
+    mag = _abs(offset)
+    if mag < 60:
+        return "%s%d s" % (sign, int(mag))
+    if mag < 3600:
+        return "%s%d m" % (sign, int(mag / 60))
+    if mag < 86400:
+        return "%s%d h" % (sign, int(mag / 3600))
+    return "%s%d d" % (sign, int(mag / 86400))

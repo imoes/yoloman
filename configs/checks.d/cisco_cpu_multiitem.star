@@ -1,257 +1,180 @@
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: fetch CPU entries and entity mapping from SNMP
-        # First tree: cpmCPUTotal5minRev (OID base .1.3.6.1.4.1.9.9.109.1.1.1.1)
-        res_cpu = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.9.9.109.1.1.1.1.2",
-            ".1.3.6.1.4.1.9.9.109.1.1.1.1.8"
-        ], mutates=False)
-        if res_cpu.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP query failed for CPU utilization data",
-                "data": {"discovery": []}
-            }
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
 
-        # Second tree: entPhysicalName and entPhysicalClass
-        res_entity = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.2.1.47.1.1.1.1.7",
-            ".1.3.6.1.2.1.47.1.1.1.1.5"
-        ], mutates=False)
-        if res_entity.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP query failed for entity data",
-                "data": {"discovery": []}
-            }
+        sys_descr = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv",
+                             host, ".1.3.6.1.2.1.1.1.0"], mutates=False)
+        if sys_descr.rc == 127 or sys_descr.rc != 0:
+            return {"changed": False, "msg": "not a cisco device",
+                    "data": {"discovery": []}}
+        desc = sys_descr.stdout.strip().lower()
+        if "cisco" not in desc or "nx-os" in desc:
+            return {"changed": False, "msg": "not a cisco device",
+                    "data": {"discovery": []}}
 
-        # Parse CPU section (cpmCPUTotal5minRev)
-        cpu_data = {}
-        for line in res_cpu.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
+        exists_probe = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv",
+                                host, ".1.3.6.1.4.1.9.9.109.1.1.1.1.2.1"],
+                               mutates=False)
+        if exists_probe.rc != 0:
+            return {"changed": False, "msg": "no cisco cpu data",
+                    "data": {"discovery": []}}
+
+        cpu_base = ".1.3.6.1.4.1.9.9.109.1.1.1.1"
+        cpu_walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn",
+                            host, cpu_base + ".1"], mutates=False)
+        if cpu_walk.rc != 0:
+            return {"changed": False, "msg": "no cisco cpu data",
+                    "data": {"discovery": []}}
+
+        ent_base = ".1.3.6.1.2.1.47.1.1.1.1"
+        ent_walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn",
+                            host, ent_base + ".1"], mutates=False)
+        ent_name = {}
+        ent_class = {}
+        for line in ent_walk.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) != 2:
                 continue
-            oid_full, value_part = parts
-            value = value_part.split(": ", 1)[1].strip()
-            if ".1.3.6.1.4.1.9.9.109.1.1.1.1.8." in oid_full:
-                idx_str = oid_full.rsplit(".", 1)[-1]
-                if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-                    cpu_data[idx_str] = float(value)
-
-        # Parse entity section
-        entity_data = {}
-        for line in res_entity.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_full, value_part = parts
-            value = value_part.split(": ", 1)[1].strip()
-            if ".1.3.6.1.2.1.47.1.1.1.1.7." in oid_full:
-                idx_str = oid_full.rsplit(".", 1)[-1]
-                desc = value.strip()
-                if desc.lower().startswith("cpu "):
-                    desc = desc[4:]
-                entity_data[idx_str] = (desc, None)
-            elif ".1.3.6.1.2.1.47.1.1.1.1.5." in oid_full:
-                idx_str = oid_full.rsplit(".", 1)[-1]
-                class_idx = int(value) if value.isdigit() else -1
-                phys_class = parse_cisco_physical_class(class_idx)
-                if idx_str in entity_data:
-                    desc, _ = entity_data[idx_str]
-                    entity_data[idx_str] = (desc, phys_class)
-
-        # Get mapping cpu_id -> physical index
-        res_cpu_idx = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.9.9.109.1.1.1.1.2"
-        ], mutates=False)
-        cpu_to_idx = {}
-        if res_cpu_idx.rc == 0:
-            for line in res_cpu_idx.stdout.splitlines():
-                if not line.strip():
-                    continue
-                parts = line.strip().split(" = ")
-                if len(parts) != 2:
-                    continue
-                oid_full, value_part = parts
-                value = value_part.split(": ", 1)[1].strip()
-                if ".1.3.6.1.4.1.9.9.109.1.1.1.1.2." in oid_full:
-                    idx_str = oid_full.rsplit(".", 1)[-1]
-                    cpu_to_idx[idx_str] = value.strip()
+            oid = parts[0]
+            value = parts[1].strip()
+            if oid.endswith(".7"):
+                ent_name[oid[:-2]] = value
+            elif oid.endswith(".5"):
+                ent_class[oid[:-2]] = value
 
         parsed = {}
-        for cpu_id, util in cpu_data.items():
-            idx = cpu_to_idx.get(cpu_id, cpu_id)
-            desc, phys_class = entity_data.get(idx, (cpu_id, None))
-            if phys_class == "fan" or phys_class == "sensor":
+        for line in cpu_walk.stdout.splitlines():
+            fields = line.split()
+            if len(fields) < 3:
                 continue
-            parsed[desc] = util
+            full_oid = fields[0]
+            cpu_id = fields[0]
+            phys_idx = fields[1]
+            util = fields[2]
 
-        # Compute average
-        if parsed:
-            vals = []
-            for v in parsed.values():
-                if type(v) == "int" or type(v) == "float":
-                    vals.append(v)
-            if len(vals) > 0:
-                total = 0
-                for x in vals:
-                    total = total + x
-                parsed["average"] = total / len(vals)
+            suffix = full_oid[len(cpu_base) + 1:]
+            dot = suffix.find(".")
+            index = suffix if dot == -1 else suffix[:dot]
 
-        # Build discovery result
-        discovery_params = {"individual": params.get("individual", True), "average": params.get("average", False)}
-        out = []
-        for item in parsed:
-            if item and item != "average" and discovery_params["individual"]:
-                out.append({"item": item, "params": {"levels": (80.0, 90.0)}, "metrics": ["cpu_util"]})
-            elif item == "average" and discovery_params["average"]:
-                out.append({"item": item, "params": {"levels": (80.0, 90.0)}, "metrics": ["cpu_util"]})
+            name = ent_name.get(ent_base + "." + index + ".7", "")
+            phys_class = ent_class.get(ent_base + "." + index + ".5", "")
 
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(out),
-            "data": {"discovery": out}
-        }
+            lower_class = phys_class.lower()
+            if lower_class in ("fan", "sensor", "12", "13"):
+                continue
 
-    # Check mode
+            if name and name.lower().startswith("cpu"):
+                name = name[4:]
+            item_name = name if name else cpu_id
+
+            if phys_class and phys_class.lower() not in ("cpu", "unknown", ""):
+                continue
+
+            parsed[item_name] = float(util)
+
+        if not parsed:
+            return {"changed": False, "msg": "no cisco cpu instances",
+                    "data": {"discovery": []}}
+
+        discovery = []
+        for it in parsed:
+            discovery.append({"item": it, "params": {"levels": (80.0, 90.0)},
+                              "metrics": ["util"]})
+        discovery.append({"item": "average", "params": {"levels": (80.0, 90.0)},
+                          "metrics": ["util"]})
+
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    res_cpu = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.9.9.109.1.1.1.1.2",
-        ".1.3.6.1.4.1.9.9.109.1.1.1.1.8"
-    ], mutates=False)
-    if res_cpu.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    cpu_data = {}
-    for line in res_cpu.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
+    cpu_base = ".1.3.6.1.4.1.9.9.109.1.1.1.1"
+    cpu_walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn",
+                        host, cpu_base + ".1"], mutates=False)
+    if cpu_walk.rc == 127:
+        return {"changed": False, "msg": "snmp not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if cpu_walk.rc != 0:
+        return {"changed": False, "msg": "no cisco cpu data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    ent_base = ".1.3.6.1.2.1.47.1.1.1.1"
+    ent_walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn",
+                        host, ent_base + ".1"], mutates=False)
+    ent_name = {}
+    ent_class = {}
+    for line in ent_walk.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) != 2:
             continue
-        oid_full, value_part = parts
-        value = value_part.split(": ", 1)[1].strip()
-        if ".1.3.6.1.4.1.9.9.109.1.1.1.1.8." in oid_full:
-            idx_str = oid_full.rsplit(".", 1)[-1]
-            if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-                cpu_data[idx_str] = float(value)
-
-    res_entity = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.2.1.47.1.1.1.1.7",
-        ".1.3.6.1.2.1.47.1.1.1.1.5"
-    ], mutates=False)
-    entity_data = {}
-    if res_entity.rc == 0:
-        for line in res_entity.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_full, value_part = parts
-            value = value_part.split(": ", 1)[1].strip()
-            if ".1.3.6.1.2.1.47.1.1.1.1.7." in oid_full:
-                idx_str = oid_full.rsplit(".", 1)[-1]
-                desc = value.strip()
-                if desc.lower().startswith("cpu "):
-                    desc = desc[4:]
-                entity_data[idx_str] = (desc, None)
-            elif ".1.3.6.1.2.1.47.1.1.1.1.5." in oid_full:
-                idx_str = oid_full.rsplit(".", 1)[-1]
-                class_idx = int(value) if value.isdigit() else -1
-                phys_class = parse_cisco_physical_class(class_idx)
-                if idx_str in entity_data:
-                    desc, _ = entity_data[idx_str]
-                    entity_data[idx_str] = (desc, phys_class)
-
-    res_cpu_idx = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.9.9.109.1.1.1.1.2"
-    ], mutates=False)
-    cpu_to_idx = {}
-    if res_cpu_idx.rc == 0:
-        for line in res_cpu_idx.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_full, value_part = parts
-            value = value_part.split(": ", 1)[1].strip()
-            if ".1.3.6.1.4.1.9.9.109.1.1.1.1.2." in oid_full:
-                idx_str = oid_full.rsplit(".", 1)[-1]
-                cpu_to_idx[idx_str] = value.strip()
+        oid = parts[0]
+        value = parts[1].strip()
+        if oid.endswith(".7"):
+            ent_name[oid[:-2]] = value
+        elif oid.endswith(".5"):
+            ent_class[oid[:-2]] = value
 
     parsed = {}
-    for cpu_id, util in cpu_data.items():
-        idx = cpu_to_idx.get(cpu_id, cpu_id)
-        desc, phys_class = entity_data.get(idx, (cpu_id, None))
-        if phys_class == "fan" or phys_class == "sensor":
+    for line in cpu_walk.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 3:
             continue
-        parsed[desc] = util
+        full_oid = fields[0]
+        cpu_id = fields[0]
+        phys_idx = fields[1]
+        util = fields[2]
 
-    util = None
+        suffix = full_oid[len(cpu_base) + 1:]
+        dot = suffix.find(".")
+        index = suffix if dot == -1 else suffix[:dot]
+
+        name = ent_name.get(ent_base + "." + index + ".7", "")
+        phys_class = ent_class.get(ent_base + "." + index + ".5", "")
+
+        lower_class = phys_class.lower()
+        if lower_class in ("fan", "sensor", "12", "13"):
+            continue
+
+        if name and name.lower().startswith("cpu"):
+            name = name[4:]
+        item_name = name if name else cpu_id
+
+        if phys_class and phys_class.lower() not in ("cpu", "unknown", ""):
+            continue
+
+        parsed[item_name] = float(util)
+
     if item == "average":
-        vals = []
-        for v in parsed.values():
-            if type(v) == "int" or type(v) == "float":
-                vals.append(v)
-        if len(vals) > 0:
-            total = 0
-            for x in vals:
-                total = total + x
-            util = total / len(vals)
+        if not parsed:
+            return {"changed": False, "msg": "no cisco cpu data for average",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        total = 0.0
+        count = 0
+        for k in parsed:
+            total += parsed[k]
+            count += 1
+        util = total / count
+    elif item in parsed:
+        util = parsed[item]
     else:
-        util = parsed.get(item)
+        return {"changed": False, "msg": item + ": no such cpu instance",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if util == None:
-        return {
-            "changed": False,
-            "msg": "no CPU data found for item %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    levels = params.get("levels", (80.0, 90.0))
+    warn = levels[0] if len(levels) > 0 else 80.0
+    crit = levels[1] if len(levels) > 1 else 90.0
 
-    warn = params.get("levels", (80.0, 90.0))
-    warn_val = warn[0]
-    crit_val = warn[1]
-
-    state = "OK"
-    if util >= crit_val:
+    if util >= crit:
         state = "CRIT"
-    elif util >= warn_val:
+    elif util >= warn:
         state = "WARN"
+    else:
+        state = "OK"
 
-    msg = "CPU utilization: %f%%" % util
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {"cpu_util": util}, "details": ""}
-    }
-
-
-def parse_cisco_physical_class(class_idx):
-    mapping = {
-        2: "chassis", 3: "backplane", 4: "container", 5: "powerUnit",
-        6: "module", 7: "port", 8: "stack", 9: "cpu", 10: "disk",
-        11: "fan", 12: "sensor"
-    }
-    return mapping.get(class_idx, "unknown")
+    return {"changed": False,
+            "msg": item + " " + str(util) + "%",
+            "data": {"state": state, "metrics": {"util": util}, "details": ""}}

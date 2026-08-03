@@ -1,70 +1,14 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/sansymphony_ports"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "cannot read sansymphony_ports data",
-                    "data": {"discovery": []}}
-        
-        discovery_items = []
-        for line in res.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 3:
-                portname, porttype, portstatus = parts[0], parts[1], parts[2]
-                if portstatus == "True":
-                    discovery_items.append({
-                        "item": portname,
-                        "params": {},
-                        "metrics": []
-                    })
-        return {
-            "changed": False,
-            "msg": "discovered %d ports" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode for specific item
+        # sansymphony_ports monitors SANsymphony storage array FC/iSCSI ports.
+        # This data comes from a special agent querying the storage array
+        # management system over the network — there is no on-host source
+        # (no local binary, socket, /proc or /sys entry provides Sansymphony
+        # port names and statuses on this host). Report absence honestly.
+        return {"changed": False, "msg": "no sansymphony_ports data source available on host",
+                "data": {"discovery": []}}
+
     item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/sansymphony_ports"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "cannot read sansymphony_ports data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) >= 3:
-            portname, porttype, portstatus = parts[0], parts[1], parts[2]
-            if portname == item:
-                if portstatus == "True":
-                    return {
-                        "changed": False,
-                        "msg": "%s Port %s is up" % (porttype, portname),
-                        "data": {
-                            "state": "OK",
-                            "metrics": {},
-                            "details": ""
-                        }
-                    }
-                else:
-                    return {
-                        "changed": False,
-                        "msg": "%s Port %s is down" % (porttype, portname),
-                        "data": {
-                            "state": "CRIT",
-                            "metrics": {},
-                            "details": ""
-                        }
-                    }
-    
-    # Item not found
-    return {
-        "changed": False,
-        "msg": "port %s not found" % item,
-        "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": ""
-        }
-    }
+    return {"changed": False, "msg": "sansymphony storage array not accessible from host",
+            "data": {"state": "UNKNOWN", "metrics": {},
+                     "details": "Sansymphony port status requires a special agent querying the storage array management system"}}

@@ -1,341 +1,124 @@
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Base OID for quanta_fan section
-        base_oid = ".1.3.6.1.4.1.7244.1.2.1.3.3.1"
-        
-        # Fetch all required OIDs in one walk
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host,
-            base_oid
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", 
-                    "data": {"discovery": []}}
-        
-        # Parse SNMP output
-        lines = res.stdout.splitlines()
-        
-        # Prepare data storage for each fan
-        fans_data = {}  # keyed by item (device name)
-        
-        # Process each line
-        for line in lines:
-            line = line.strip()
-            if not line:
+        sysid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysid_res.rc != 0 or sysid_res.stdout == "":
+            return {"changed": False, "msg": "not a Quanta device", "data": {"discovery": []}}
+        if not sysid_res.stdout.startswith(".1.3.6.1.4.1.8072.3.2.10"):
+            return {"changed": False, "msg": "not a Quanta device", "data": {"discovery": []}}
+        probe_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.7244.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if probe_res.rc != 0:
+            return {"changed": False, "msg": "not a Quanta device", "data": {"discovery": []}}
+        base = ".1.3.6.1.4.1.7244.1.2.1.3.3.1"
+        name_res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn", params.get("host", "localhost"), base + ".3"], mutates=False)
+        if name_res.rc != 0:
+            return {"changed": False, "msg": "no quanta_fan data", "data": {"discovery": []}}
+        discovery = []
+        for line in name_res.stdout.splitlines():
+            sep = line.find(" ")
+            if sep == -1:
                 continue
-            
-            # Format: OID = TYPE: value
-            if "=" not in line:
+            oid = line[:sep]
+            name = line[sep + 1:].strip().strip('"')
+            idx = oid[len(base + ".3") + 1:]
+            if idx == "":
                 continue
-            parts = line.split("=", 1)
-            if len(parts) != 2:
-                continue
-            oid = parts[0].strip()
-            value_part = parts[1].strip()
-            # Remove type prefix if present (e.g., "INTEGER: " or "STRING: ")
-            if ":" in value_part:
-                value = value_part.split(":", 1)[1].strip()
-            else:
-                value = value_part
-            value = value.strip('"')
-            
-            # Extract the numeric suffix from OID
-            # OID structure: .1.3.6.1.4.1.7244.1.2.1.3.3.1.{field}.{index}
-            # where field is 1-9
-            oid_parts = oid.split(".")
-            if len(oid_parts) < 11:
-                continue
-            
-            field_num_str = oid_parts[-2]
-            index_str = oid_parts[-1]
-            
-            # Check if numeric before converting
-            if not field_num_str.replace("-", "", 1).isdigit():
-                continue
-            field_num = int(field_num_str)
-            if not index_str.replace("-", "", 1).isdigit():
-                continue
-            index = int(index_str)
-            
-            # Map field numbers to names
-            field_map = {
-                1: "index",
-                2: "status",
-                3: "name",
-                4: "value",
-                6: "upper_crit",
-                7: "upper_warn",
-                8: "lower_warn",
-                9: "lower_crit"
-            }
-            
-            field_name = field_map.get(field_num)
-            if not field_name:
-                continue
-            
-            # Get the device name for indexing
-            dev_name = ""
-            if field_name == "name":
-                dev_name = value
-            else:
-                # Find existing name for this index by scanning data we've collected
-                for name, fan_data in fans_data.items():
-                    if fan_data.get("index") == str(index):
-                        dev_name = name
-                        break
-                if not dev_name:
-                    dev_name = str(index)
-            
-            # Initialize fan_data if not exists
-            if dev_name not in fans_data:
-                fans_data[dev_name] = {
-                    "index": str(index)
-                }
-            
-            # Store the value
-            fans_data[dev_name][field_name] = value
-        
-        # Build discovery result
-        discovery_items = []
-        for dev_name, data in fans_data.items():
-            # Get default thresholds from the data (or None if not available)
-            upper_warn = None
-            upper_crit = None
-            lower_warn = None
-            lower_crit = None
-            
-            # Parse upper levels
-            if "upper_warn" in data and data["upper_warn"] != "-99":
-                upper_warn_str = data["upper_warn"]
-                if upper_warn_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (upper_warn_str.startswith("-") and upper_warn_str[1:].replace(".", "", 1).isdigit()):
-                    upper_warn = float(upper_warn_str)
-            
-            if "upper_crit" in data and data["upper_crit"] != "-99":
-                upper_crit_str = data["upper_crit"]
-                if upper_crit_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (upper_crit_str.startswith("-") and upper_crit_str[1:].replace(".", "", 1).isdigit()):
-                    upper_crit = float(upper_crit_str)
-            
-            # Parse lower levels
-            if "lower_warn" in data and data["lower_warn"] != "-99":
-                lower_warn_str = data["lower_warn"]
-                if lower_warn_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (lower_warn_str.startswith("-") and lower_warn_str[1:].replace(".", "", 1).isdigit()):
-                    lower_warn = float(lower_warn_str)
-            
-            if "lower_crit" in data and data["lower_crit"] != "-99":
-                lower_crit_str = data["lower_crit"]
-                if lower_crit_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (lower_crit_str.startswith("-") and lower_crit_str[1:].replace(".", "", 1).isdigit()):
-                    lower_crit = float(lower_crit_str)
-            
-            discovery_items.append({
-                "item": dev_name,
-                "params": {
-                    "upper": (upper_warn, upper_crit),
-                    "lower": (lower_warn, lower_crit)
-                },
-                "metrics": ["speed"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode
+            discovery.append({"item": name, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d fan items" % len(discovery), "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    item = params.get("item", "")
-    
-    base_oid = ".1.3.6.1.4.1.7244.1.2.1.3.3.1"
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host,
-        base_oid
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    lines = res.stdout.splitlines()
-    
-    # Data storage for fans
-    fans_data = {}
-    
-    # Process each line
-    for line in lines:
-        line = line.strip()
-        if not line:
+    base = ".1.3.6.1.4.1.7244.1.2.1.3.3.1"
+    name_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Opn", host, base + ".3"], mutates=False)
+    if name_res.rc != 0 or name_res.stdout == "":
+        return {"changed": False, "msg": "no quanta_fan data available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    idx = ""
+    for line in name_res.stdout.splitlines():
+        sep = line.find(" ")
+        if sep == -1:
             continue
-        
-        if "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        value_part = parts[1].strip()
-        if ":" in value_part:
-            value = value_part.split(":", 1)[1].strip()
-        else:
-            value = value_part
-        value = value.strip('"')
-        
-        oid_parts = oid.split(".")
-        if len(oid_parts) < 11:
-            continue
-        
-        field_num_str = oid_parts[-2]
-        index_str = oid_parts[-1]
-        
-        if not field_num_str.replace("-", "", 1).isdigit():
-            continue
-        field_num = int(field_num_str)
-        if not index_str.replace("-", "", 1).isdigit():
-            continue
-        index = int(index_str)
-        
-        field_map = {
-            1: "index",
-            2: "status",
-            3: "name",
-            4: "value",
-            6: "upper_crit",
-            7: "upper_warn",
-            8: "lower_warn",
-            9: "lower_crit"
-        }
-        
-        field_name = field_map.get(field_num)
-        if not field_name:
-            continue
-        
-        dev_name = ""
-        if field_name == "name":
-            dev_name = value
-        else:
-            for name, fan_data in fans_data.items():
-                if fan_data.get("index") == str(index):
-                    dev_name = name
-                    break
-            if not dev_name:
-                dev_name = str(index)
-        
-        if dev_name not in fans_data:
-            fans_data[dev_name] = {"index": str(index)}
-        
-        fans_data[dev_name][field_name] = value
-    
-    # Find the requested item
-    if item not in fans_data:
-        return {"changed": False, "msg": "fan not found: %s" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    fan_data = fans_data[item]
-    
-    # Process status
-    status_raw = fan_data.get("status", "1")
-    status_map = {
-        "1": ("WARN", "other"),
-        "2": ("UNKNOWN", "unknown"),
-        "3": ("OK", "OK"),
-        "4": ("WARN", "non critical upper"),
-        "5": ("CRIT", "critical upper"),
-        "6": ("CRIT", "non recoverable upper"),
-        "7": ("WARN", "non critical lower"),
-        "8": ("CRIT", "critical lower"),
-        "9": ("CRIT", "non recoverable lower"),
-        "10": ("CRIT", "failed")
-    }
-    
-    status_tuple = status_map.get(status_raw, ("UNKNOWN", "unknown[%s]" % status_raw))
-    status_state = status_tuple[0]
-    
-    # Initialize state and summary
-    state = "OK"
-    summary = "Status: " + status_tuple[1]
-    
-    # Process value and thresholds
+        oid = line[:sep]
+        name = line[sep + 1:].strip().strip('"')
+        if name == item:
+            idx = oid[len(base + ".3") + 1:]
+            break
+    if idx == "":
+        return {"changed": False, "msg": "no such fan item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    def snmp_get(oid):
+        r = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+        if r.rc != 0:
+            return ""
+        return r.stdout.strip().strip('"')
+
+    dev_status = snmp_get(base + ".2." + idx)
+    dev_value = snmp_get(base + ".4." + idx)
+    dev_upper_crit = snmp_get(base + ".6." + idx)
+    dev_upper_warn = snmp_get(base + ".7." + idx)
+    dev_lower_warn = snmp_get(base + ".8." + idx)
+    dev_lower_crit = snmp_get(base + ".9." + idx)
+    if dev_status == "":
+        return {"changed": False, "msg": "could not read fan status for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    status_map = {"1": 1, "2": 3, "3": 0, "4": 1, "5": 2, "6": 2, "7": 1, "8": 2, "9": 2, "10": 2}
+    status_desc = {"1": "other", "2": "unknown", "3": "OK", "4": "non critical upper", "5": "critical upper", "6": "non recoverable upper", "7": "non critical lower", "8": "critical lower", "9": "non recoverable lower", "10": "failed"}
+    state_code = status_map.get(dev_status, 3)
+    status_text = status_desc.get(dev_status, "unknown[" + dev_status + "]")
+    summary = "Status: " + status_text
+
     value = None
-    if "value" in fan_data and fan_data["value"] != "-99":
-        value_str = fan_data["value"]
-        if value_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (value_str.startswith("-") and value_str[1:].replace(".", "", 1).isdigit()):
-            value = float(value_str)
-    
-    if value != None:
-        # Get thresholds
-        params_upper = params.get("upper", (None, None))
-        params_lower = params.get("lower", (None, None))
-        
-        # Extract from params if provided as tuples
-        upper_warn = params_upper[0] if params_upper else None
-        upper_crit = params_upper[1] if len(params_upper) > 1 else None
-        lower_warn = params_lower[0] if params_lower else None
-        lower_crit = params_lower[1] if len(params_lower) > 1 else None
-        
-        # Use fan defaults if not in params (parse from fan data if available)
-        if upper_warn == None and "upper_warn" in fan_data and fan_data["upper_warn"] != "-99":
-            upper_warn_str = fan_data["upper_warn"]
-            if upper_warn_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (upper_warn_str.startswith("-") and upper_warn_str[1:].replace(".", "", 1).isdigit()):
-                upper_warn = float(upper_warn_str)
-        
-        if upper_crit == None and "upper_crit" in fan_data and fan_data["upper_crit"] != "-99":
-            upper_crit_str = fan_data["upper_crit"]
-            if upper_crit_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (upper_crit_str.startswith("-") and upper_crit_str[1:].replace(".", "", 1).isdigit()):
-                upper_crit = float(upper_crit_str)
-        
-        if lower_warn == None and "lower_warn" in fan_data and fan_data["lower_warn"] != "-99":
-            lower_warn_str = fan_data["lower_warn"]
-            if lower_warn_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (lower_warn_str.startswith("-") and lower_warn_str[1:].replace(".", "", 1).isdigit()):
-                lower_warn = float(lower_warn_str)
-        
-        if lower_crit == None and "lower_crit" in fan_data and fan_data["lower_crit"] != "-99":
-            lower_crit_str = fan_data["lower_crit"]
-            if lower_crit_str.replace(".", "", 1).replace("-", "", 1).isdigit() or (lower_crit_str.startswith("-") and lower_crit_str[1:].replace(".", "", 1).isdigit()):
-                lower_crit = float(lower_crit_str)
-        
-        # Apply upper thresholds
-        if upper_warn != None or upper_crit != None:
-            if upper_crit != None and value >= upper_crit:
-                state = "CRIT"
-            elif upper_warn != None and value >= upper_warn:
-                if state not in ["CRIT"]:
-                    state = "WARN"
-        
-        # Apply lower thresholds
-        if lower_warn != None or lower_crit != None:
-            if lower_crit != None and value <= lower_crit:
-                state = "CRIT"
-            elif lower_warn != None and value <= lower_warn:
-                if state not in ["CRIT"]:
-                    state = "WARN"
-    
-    # Final state override if status was already CRIT/WARN
-    if status_state in ["CRIT", "WARN"]:
-        if state == "OK":
-            state = status_state
-    
-    # Build metrics
-    metrics = {}
-    if value != None:
-        metrics["speed"] = value
-    
-    # Build details
-    details = ""
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": details
-        }
-    }
+    if dev_value != "" and dev_value != "-99":
+        v = dev_value.replace(".", "", 1) if dev_value.startswith("-") else dev_value.replace(".", "", 0)
+        # Simple float validation: allow digits and one dot
+        cleaned = dev_value.lstrip("-")
+        if cleaned.replace(".", "", 1).isdigit():
+            value = float(dev_value)
+
+    if value == None or dev_value == "-99":
+        return {"changed": False, "msg": summary, "data": {"state": _state_name(state_code), "metrics": {}, "details": ""}}
+
+    def validate_levels(dev_warn, dev_crit):
+        crit = None
+        warn = None
+        if dev_crit != "" and dev_crit != "-99":
+            crit = float(dev_crit)
+        if dev_warn != "" and dev_warn != "-99":
+            warn = float(dev_warn)
+        elif crit != None:
+            warn = crit
+        return warn, crit
+
+    upper_warn, upper_crit = validate_levels(dev_upper_warn, dev_upper_crit)
+    lower_warn, lower_crit = validate_levels(dev_lower_warn, dev_lower_crit)
+    upper_levels = params.get("upper", (upper_warn, upper_crit))
+    warn = upper_levels[0] if upper_levels != None else upper_warn
+    crit = upper_levels[1] if upper_levels != None else upper_crit
+
+    if warn != None and value >= warn:
+        if crit != None and value >= crit:
+            state_code = 2
+        else:
+            state_code = 1
+    elif lower_warn != None and value <= lower_warn:
+        if lower_crit != None and value <= lower_crit:
+            state_code = 2
+        else:
+            state_code = 1
+
+    return {"changed": False, "msg": item + ": " + summary, "data": {"state": _state_name(state_code), "metrics": {"fan": value}, "details": ""}}
+
+
+def _state_name(code):
+    if code == 0:
+        return "OK"
+    if code == 1:
+        return "WARN"
+    if code == 2:
+        return "CRIT"
+    return "UNKNOWN"

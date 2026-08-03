@@ -1,216 +1,177 @@
-# ===== module-level constants =====
-OID_BASE = ".1.3.6.1.4.1.318.1.1.25.2.2.1"
-OID_NAME = OID_BASE + ".3"
-OID_LOCATION = OID_BASE + ".4"
-OID_STATE = OID_BASE + ".5"
-OID_ALARM_STATUS = OID_BASE + ".6"
+# Translation of Checkmk check apc_inputs -> SNMP-based input monitor.
+# Walks the APC UPS input table over SNMPv2c and reports each input's
+# alarm state and port-state change against the discovered baseline.
+#
+# OID layout (base .1.3.6.1.4.1.318.1.1.25.2.2.1):
+#   .3  inputName           (display name / item)
+#   .4  inputLocation
+#   .5  inputState          (1=closed 2=open 3=disabled 4=not applicable)
+#   .6  inputAlarmStatus    (1=normal 2=warning 3=critical 4=not applicable)
+#
+# sysObjectID (.1.3.6.1.2.1.1.2.0) must start with the APC enterprise prefix
+# .1.3.6.1.4.1.318 to confirm the device is an APC UPS.
 
-# SNMP OID mapping for states and alarm statuses
-STATES_MAP = {
-    "1": "closed",
-    "2": "open",
-    "3": "disabled",
-    "4": "not applicable",
-}
+OID_BASE = "1.3.6.1.4.1.318.1.1.25.2.2.1"
+OID_SYS_OBJ_ID = "1.3.6.1.2.1.1.2.0"
+APC_PREFIX = "1.3.6.1.4.1.318"
 
-ALARM_STATES_MAP = {
-    "1": "normal",
-    "2": "warning",
-    "3": "critical",
-    "4": "not applicable",
-}
+COL_NAME = "3"
+COL_LOC = "4"
+COL_STATE = "5"
+COL_ALARM = "6"
 
-# Detect OID for ATS devices (same logic as DETECT in source)
-SYSOID = ".1.3.6.1.2.1.1.2.0"
-DETECT_ATS_OIDS = [
-    ".1.3.6.1.4.1.318.1.3.11",
-    ".1.3.6.1.4.1.318.1.3.32",
-    ".1.3.6.1.4.1.318.1.3.38",
-]
+STATE_MAP = {"1": "closed", "2": "open", "3": "disabled", "4": "not applicable"}
+ALARM_MAP = {"1": "normal", "2": "warning", "3": "critical", "4": "not applicable"}
 
-# ===== helper: parse snmpwalk output =====
-def _parse_snmp_line(line):
-    # Format: OID = TYPE: value  or  OID::name = TYPE: value
-    # Example: .1.3.6.1.4.1.318.1.1.25.2.2.1.3.1 = STRING: "Inlet 1"
-    if "=" not in line:
-        return None, None
-    left, right = line.split("=", 1)
-    oid_part = left.strip()
-    value_part = right.strip()
-    
-    # Extract value after colon or space after type
-    # e.g., "STRING: \"Inlet 1\"" -> "\"Inlet 1\""
-    if ":" in value_part:
-        value = value_part.split(":", 1)[1].strip()
-    else:
-        value = value_part
-    # Strip quotes if present
-    if value.startswith('"') and value.endswith('"'):
-        value = value[1:-1]
-    return oid_part, value
-
-
-def _get_sysoid(ctx, host, community):
-    res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, SYSOID], mutates=False)
+def _snmpget(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
     if res.rc != 0:
-        return ""
-    line = res.stdout.strip()
-    _, value = _parse_snmp_line(line)
-    return value.strip() if value else ""
+        return None
+    return res.stdout.strip()
 
-
-def _is_ats_device(ctx, host, community):
-    sysoid = _get_sysoid(ctx, host, community)
-    if sysoid == "":
-        return False
-    for oid in DETECT_ATS_OIDS:
-        if sysoid == oid:
-            return True
-    # Also match if sysoid starts with .1.3.6.1.4.1.318 (DETECT = startswith)
-    if sysoid.startswith(".1.3.6.1.4.1.318"):
-        return True
-    return False
-
-
-def _walk_oid(ctx, host, community, base_oid):
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
+def _snmpwalk(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
     if res.rc != 0:
-        fail("snmpwalk failed: " + res.stderr)
-    lines = res.stdout.splitlines()
+        return []
     out = []
-    for line in lines:
-        if line.strip() == "":
+    for line in res.stdout.splitlines():
+        if not line:
             continue
-        oid, value = _parse_snmp_line(line)
-        if oid != None and value != None:
-            # Extract numeric suffix (last number after last dot)
-            # e.g., .1.3.6.1.4.1.318.1.1.25.2.2.1.3.1 -> "1"
-            suffix = oid.rsplit(".", 1)[-1] if "." in oid else oid
-            out.append((oid, suffix, value))
+        sp = line.split(" ", 1)
+        if len(sp) != 2:
+            continue
+        out.append((sp[0], sp[1].strip()))
     return out
-
-
-def _gather_inputs(ctx, host, community):
-    # Gather all four columns in parallel (same index → same row)
-    names = _walk_oid(ctx, host, community, OID_NAME)
-    locations = _walk_oid(ctx, host, community, OID_LOCATION)
-    states = _walk_oid(ctx, host, community, OID_STATE)
-    alarm_statuses = _walk_oid(ctx, host, community, OID_ALARM_STATUS)
-
-    # Build map by suffix (index) for each column
-    name_map = {suffix: value for _, suffix, value in names}
-    loc_map = {suffix: value for _, suffix, value in locations}
-    state_map = {suffix: value for _, suffix, value in states}
-    alarm_map = {suffix: value for _, suffix, value in alarm_statuses}
-
-    # Collect all suffixes
-    all_suffixes = set()
-    for _, suffix, _ in names + locations + states + alarm_statuses:
-        all_suffixes.add(suffix)
-
-    # Build section rows
-    section = []
-    for suffix in sorted(all_suffixes, key=lambda x: int(x) if x.isdigit() else 0):
-        name = name_map.get(suffix, "")
-        location = loc_map.get(suffix, "")
-        state = state_map.get(suffix, "")
-        alarm_status = alarm_map.get(suffix, "")
-
-        # Skip if no name (empty item) — ensure at least name exists
-        if name == "":
-            continue
-        # Only discover if state not in ["3", "4"] (same as source)
-        if state in ["3", "4"]:
-            continue
-
-        section.append([name, location, state, alarm_status])
-
-    return section
-
 
 def main(ctx, params):
     host = params.get("host", "localhost")
     community = params.get("community", "public")
 
-    # Discovery mode
+    # --- Presence probe: confirm this is an APC device via sysObjectID ---
+    sysOid = _snmpget(ctx, host, community, OID_SYS_OBJ_ID)
+    if sysOid == None or not sysOid.startswith(APC_PREFIX):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no APC device found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "device at %s is not an APC UPS" % host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     if params.get("_discover"):
-        if not _is_ats_device(ctx, host, community):
-            return {"changed": False, "msg": "not an ATS device", "data": {"discovery": []}}
+        # --- Discovery: enumerate every input whose state is not disabled/not-applicable ---
+        rows = _snmpwalk(ctx, host, community, OID_BASE + "." + COL_NAME)
+        byIndex = {}
+        for lineOid, nameVal in rows:
+            suffix = lineOid[len(OID_BASE) + 1:]
+            if not suffix:
+                continue
+            parts = suffix.split(".")
+            index = parts[0]
+            byIndex[index] = {"name": nameVal, "location": "", "state": "", "alarm": ""}
 
-        section = _gather_inputs(ctx, host, community)
-        discovery_list = []
-        for line in section:
-            name = line[0]
-            state = line[2]
-            if state not in ["3", "4"]:
-                discovery_list.append({
-                    "item": name,
-                    "params": {"state": state},
-                    "metrics": [],
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d inputs" % len(discovery_list),
-            "data": {"discovery": discovery_list},
-        }
+        if not byIndex:
+            return {"changed": False, "msg": "no APC inputs discovered",
+                    "data": {"discovery": []}}
 
-    # Check mode (single item)
+        # Pull state + alarm columns keyed by numeric index.
+        stateRows = _snmpwalk(ctx, host, community, OID_BASE + "." + COL_STATE)
+        for lineOid, stateVal in stateRows:
+            suffix = lineOid[len(OID_BASE) + 1:]
+            if not suffix:
+                continue
+            index = suffix.split(".")[0]
+            if index in byIndex:
+                byIndex[index]["state"] = stateVal
+
+        alarmRows = _snmpwalk(ctx, host, community, OID_BASE + "." + COL_ALARM)
+        for lineOid, alarmVal in alarmRows:
+            suffix = lineOid[len(OID_BASE) + 1:]
+            if not suffix:
+                continue
+            index = suffix.split(".")[0]
+            if index in byIndex:
+                byIndex[index]["alarm"] = alarmVal
+
+        discovery = []
+        for index in sorted(byIndex.keys()):
+            rec = byIndex[index]
+            # Skip disabled (3) and not applicable (4) inputs, mirroring the source filter.
+            if rec["state"] in ("3", "4"):
+                continue
+            discovery.append({
+                "item": rec["name"],
+                "params": {"state": rec["state"],
+                           "alarm_status": rec["alarm"]},
+                "metrics": ["alarm_level"],
+            })
+
+        return {"changed": False,
+                "msg": "discovered %d APC inputs" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # --- Check mode: grade one input ---
     item = params.get("item", "")
     if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        return {"changed": False, "msg": "no APC input item selected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if not _is_ats_device(ctx, host, community):
-        return {
-            "changed": False,
-            "msg": "not an ATS device",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Read all columns, then locate the row whose name matches the item.
+    nameRows = _snmpwalk(ctx, host, community, OID_BASE + "." + COL_NAME)
+    matchIndex = None
+    for lineOid, nameVal in nameRows:
+        if nameVal == item:
+            suffix = lineOid[len(OID_BASE) + 1:]
+            matchIndex = suffix.split(".")[0]
+            break
 
-    section = _gather_inputs(ctx, host, community)
-    found = False
-    for name, location, state, alarm_status in section:
-        if name == item:
-            found = True
-            # Determine check_state from alarm_status
-            check_state = "UNKNOWN"
-            if alarm_status in ["2", "4"]:
-                check_state = "WARN"
-            elif alarm_status == "3":
-                check_state = "CRIT"
-            elif alarm_status == "1":
-                check_state = "OK"
+    if matchIndex == None:
+        return {"changed": False,
+                "msg": "input not found: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-            # Build summary
-            alarm_desc = ALARM_STATES_MAP.get(alarm_status, "unknown")
-            msg = "State is %s" % alarm_desc
+    def _col(index, col):
+        res = _snmpget(ctx, host, community, OID_BASE + "." + col + "." + index)
+        return res if res != None else ""
 
-            # Check for port state change
-            saved_state = params.get("state", "")
-            if saved_state != "" and saved_state != state:
-                saved_desc = STATES_MAP.get(saved_state, "unknown")
-                curr_desc = STATES_MAP.get(state, "unknown")
-                msg += "; Port state Change from %s to %s" % (saved_desc, curr_desc)
-                # If alarm_status was OK, upgrade to WARN due to state change
-                if alarm_status == "1":
-                    check_state = "WARN"
+    state = _col(matchIndex, COL_STATE)
+    alarm = _col(matchIndex, COL_ALARM)
 
-            return {
-                "changed": False,
-                "msg": msg,
-                "data": {
-                    "state": check_state,
-                    "metrics": {},
-                    "details": "",
-                },
-            }
+    if alarm == "":
+        return {"changed": False,
+                "msg": "could not read alarm status for input %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Item not found
-    return {
-        "changed": False,
-        "msg": "input not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-    }
+    # Grade alarm: 2|4 -> WARN, 3 -> CRIT, 1 -> OK (source ordering).
+    if alarm == "3":
+        checkState = "CRIT"
+    elif alarm == "2" or alarm == "4":
+        checkState = "WARN"
+    elif alarm == "1":
+        checkState = "OK"
+    else:
+        checkState = "UNKNOWN"
+
+    alarmLevel = int(alarm) if alarm.isdigit() else 0
+    summary = "State is %s" % ALARM_MAP.get(alarm, "unknown")
+
+    # Port-state change check against the baseline captured at discovery time.
+    baselineState = params.get("state", "")
+    if baselineState != "":
+        if baselineState != state:
+            summary = summary + " | Port state Change from %s to %s" % (
+                STATE_MAP.get(baselineState, "unknown"),
+                STATE_MAP.get(state, "unknown"),
+            )
+            if checkState == "OK":
+                checkState = "WARN"
+
+    return {"changed": False,
+            "msg": "Input %s: %s" % (item, summary),
+            "data": {"state": checkState,
+                     "metrics": {"alarm_level": alarmLevel},
+                     "details": "inputState=%s inputAlarmStatus=%s" % (state, alarm)}}

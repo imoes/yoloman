@@ -1,73 +1,35 @@
-# Module-level constants for thresholds
-DEFAULT_WARN = 1
-DEFAULT_CRIT = 2
-
 def main(ctx, params):
-    # Discovery mode: yield one service with empty item and suggested params
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {"levels": [DEFAULT_WARN, DEFAULT_CRIT]},
-                        "metrics": ["alerts"]
-                    }
-                ]
-            }
-        }
+        res = ctx.run(["sansymphony_alerts_probe"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "sansymphony not installed",
+                    "data": {"discovery": []}}
+        if not res.stdout:
+            return {"changed": False, "msg": "no sansymphony data",
+                    "data": {"discovery": []}}
+        data = json.decode(res.stdout)
+        return {"changed": False, "msg": "discovered sansymphony alerts",
+                "data": {"discovery": [
+                    {"item": "", "params": {"levels": (1, 2)}, "metrics": ["alerts"]}
+                ]}}
 
-    # Check mode: fetch the number of unacknowledged alerts
-    res = ctx.run(["cat", "/var/lib/sansymphony/alerts/unacknowledged"], mutates=False)
-    # Guard against missing file or empty output
-    if not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "no data available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    lines = res.stdout.strip().splitlines()
-    nr_of_alerts_str = lines[0].strip() if lines else ""
-    nr_of_alerts = int(nr_of_alerts_str) if nr_of_alerts_str.isdigit() else -1
-    
-    # Guard against parse failures
-    if nr_of_alerts < 0:
-        return {
-            "changed": False,
-            "msg": "unable to parse alert count",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    # Extract levels from params with defaults
-    levels = params.get("levels", [DEFAULT_WARN, DEFAULT_CRIT])
-    warn = levels[0] if isinstance(levels, list) else DEFAULT_WARN
-    crit = levels[1] if isinstance(levels, list) else DEFAULT_CRIT
-
-    # Determine state based on fixed levels
+    res = ctx.run(["sansymphony_alerts_probe"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "sansymphony not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if not res.stdout:
+        return {"changed": False, "msg": "no sansymphony data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = json.decode(res.stdout)
+    nr_of_alerts = int(data.get("alerts", 0))
+    levels = params.get("levels", (1, 2))
+    warn, crit = levels[0], levels[1]
     if nr_of_alerts >= crit:
         state = "CRIT"
     elif nr_of_alerts >= warn:
         state = "WARN"
     else:
         state = "OK"
-
-    return {
-        "changed": False,
-        "msg": "Unacknowledged alerts: %d" % nr_of_alerts,
-        "data": {
-            "state": state,
-            "metrics": {"alerts": nr_of_alerts},
-            "details": ""
-        }
-    }
+    return {"changed": False,
+            "msg": "Unacknowlegded alerts: %d" % nr_of_alerts,
+            "data": {"state": state, "metrics": {"alerts": nr_of_alerts}, "details": ""}}

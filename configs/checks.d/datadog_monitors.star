@@ -1,165 +1,161 @@
-def main(ctx, params):
-    # Helper to parse a JSON line safely — return None if invalid
-    def _parse_json_line(line):
-        # Guard: non-empty line and starts with { for object
-        if not line or not line.strip():
-            return None
-        stripped = line.strip()
-        if not stripped.startswith("{"):
-            return None
-        # Starlark's json.decode is available and will fail on invalid JSON,
-        # but we must avoid try/except. Since we cannot catch the error,
-        # we assume valid agent output. If the JSON is invalid, json.decode
-        # will cause the runtime to abort — but Checkmk agent output is valid.
-        return json.decode(stripped)
+# Default Datadog-to-Checkmk state mapping (datadog_state -> checkmk_state)
+_DEFAULT_STATE_MAPPING = {
+    "Alert": 2,
+    "Ignored": 3,
+    "No Data": 0,
+    "OK": 0,
+    "Skipped": 3,
+    "Unknown": 3,
+    "Warn": 1,
+}
 
-    # Discovery mode
-    if params.get("_discover"):
-        default_states = ["Alert", "Ignored", "No Data", "OK", "Skipped", "Unknown", "Warn"]
-        states_discover = params.get("states_discover", default_states)
-        
-        data_file = "/var/lib/datadog_monitors.txt"
-        if not ctx.file_exists(data_file):
-            return {
-                "changed": False,
-                "msg": "discovered 0 monitors (data file missing)",
-                "data": {"discovery": []},
-            }
-        
-        content = ctx.file_read(data_file)
-        lines = content.splitlines()
-        items = []
-        
-        for line in lines:
-            monitor_dict = _parse_json_line(line)
-            if monitor_dict == None:
-                continue
-            name = monitor_dict.get("name")
-            if name == None:
-                continue
-            overall_state = monitor_dict.get("overall_state", "Unknown")
-            if overall_state in states_discover:
-                items.append({
-                    "item": name,
-                    "params": {
-                        "state_mapping": {
-                            "Alert": 2,
-                            "Ignored": 3,
-                            "No Data": 0,
-                            "OK": 0,
-                            "Skipped": 3,
-                            "Unknown": 3,
-                            "Warn": 1,
-                        },
-                        "tags_to_show": [],
-                    },
-                    "metrics": [],
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d monitors" % len(items),
-            "data": {"discovery": items},
-        }
-    
-    # Check mode
-    item = params.get("item", "")
-    data_file = "/var/lib/datadog_monitors.txt"
-    if not ctx.file_exists(data_file):
-        return {
-            "changed": False,
-            "msg": "monitor '%s' not found (data file missing)" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    content = ctx.file_read(data_file)
-    lines = content.splitlines()
-    
-    # Build section map
-    section = {}
-    for line in lines:
-        monitor_dict = _parse_json_line(line)
-        if monitor_dict == None:
-            continue
-        name = monitor_dict.get("name")
-        if name == None:
+# Default states to discover
+_DEFAULT_STATES_DISCOVER = [
+    "Alert",
+    "Ignored",
+    "No Data",
+    "OK",
+    "Skipped",
+    "Unknown",
+    "Warn",
+]
+
+# Checkmk state name lookup (numeric Checkmk state -> name)
+_STATE_NAMES = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+
+
+def _fetch_monitors(ctx, params):
+    api_url = params.get("api_url", "https://api.datadoghq.com")
+    api_key = params.get("api_key")
+    if api_key == None:
+        return None
+    endpoint = api_url.rstrip("/") + "/api/v1/monitor"
+    res = ctx.run([
+        "curl", "-fsSL",
+        "-H", "DD-API-KEY: " + api_key,
+        endpoint,
+    ], mutates=False)
+    if res.rc != 0:
+        return None
+    if not res.stdout:
+        return None
+    monitors = json.decode(res.stdout)
+    return monitors if type(monitors) == "list" else None
+
+
+def _parse_monitors(ctx, params):
+    monitors = _fetch_monitors(ctx, params)
+    if monitors == None:
+        return None
+    result = {}
+    for monitor_dict in monitors:
+        name = monitor_dict.get("name", "")
+        if name == "":
             continue
         options = monitor_dict.get("options", {})
         thresholds = options.get("thresholds", {})
-        tags = monitor_dict.get("tags", [])
-        message = monitor_dict.get("message", "")
-        overall_state = monitor_dict.get("overall_state", "Unknown")
-        section[name] = {
-            "state": overall_state,
-            "message": message,
+        result[name] = {
+            "state": monitor_dict.get("overall_state", "Unknown"),
+            "message": monitor_dict.get("message", "No message"),
             "thresholds": thresholds,
-            "tags": tags,
+            "tags": monitor_dict.get("tags", []),
         }
-    
-    # Check requested item exists
-    if not section.get(item):
+    return result
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        monitors = _parse_monitors(ctx, params)
+        if monitors == None:
+            return {
+                "changed": False,
+                "msg": "Datadog monitors not available",
+                "data": {"discovery": [], "host_labels": {}},
+            }
+        states_discover = params.get("states_discover", _DEFAULT_STATES_DISCOVER)
+        if type(states_discover) != "list":
+            states_discover = list(states_discover)
+        discovery = []
+        for name, monitor in monitors.items():
+            if monitor["state"] in states_discover:
+                discovery.append({
+                    "item": name,
+                    "params": {},
+                    "metrics": [],
+                })
         return {
             "changed": False,
-            "msg": "monitor '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "discovered %d monitors" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
         }
-    
-    monitor = section.get(item)
-    datadog_state = monitor.get("state", "Unknown")
-    
-    # State mapping
-    default_state_mapping = {
-        "Alert": 2,
-        "Ignored": 3,
-        "No Data": 0,
-        "OK": 0,
-        "Skipped": 3,
-        "Unknown": 3,
-        "Warn": 1,
-    }
-    state_mapping = params.get("state_mapping", default_state_mapping)
-    checkmk_state_code = state_mapping.get(datadog_state, 3)
-    
-    state = "UNKNOWN"
-    if checkmk_state_code == 0:
-        state = "OK"
-    elif checkmk_state_code == 1:
-        state = "WARN"
-    elif checkmk_state_code == 2:
-        state = "CRIT"
-    
-    msg = "Overall state: %s" % datadog_state
-    details = monitor.get("message", "")
-    if not details:
-        details = "No message"
-    
-    # Thresholds
-    thresholds = monitor.get("thresholds", {})
-    if len(thresholds) > 0:
-        threshold_parts = []
+
+    item = params.get("item", "")
+    monitors = _parse_monitors(ctx, params)
+    if monitors == None:
+        return {
+            "changed": False,
+            "msg": "Datadog monitors not available",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+    monitor = monitors.get(item)
+    if monitor == None:
+        return {
+            "changed": False,
+            "msg": "no such monitor: " + item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
+    state_mapping = params.get("state_mapping", _DEFAULT_STATE_MAPPING)
+    if state_mapping == None:
+        state_mapping = _DEFAULT_STATE_MAPPING
+    cm_state = state_mapping.get(monitor["state"], 3)
+    state_name = _STATE_NAMES.get(cm_state, "UNKNOWN")
+
+    details = monitor["message"] if monitor["message"] != "" else "No message"
+
+    msg_parts = ["Overall state: " + monitor["state"]]
+
+    thresholds = monitor["thresholds"]
+    if type(thresholds) == "dict" and len(thresholds) > 0:
+        threshold_strs = []
         for k in sorted(thresholds.keys()):
-            v = thresholds.get(k)
-            threshold_parts.append("%s: %s" % (str(k), str(v)))
-        details = details + "\nDatadog thresholds: " + ", ".join(threshold_parts)
-    
-    # Tags
+            threshold_strs.append(k + ": " + str(thresholds[k]))
+        if len(threshold_strs) > 0:
+            msg_parts.append("Datadog thresholds: " + ", ".join(threshold_strs))
+
     tags_to_show = params.get("tags_to_show", [])
-    tags = monitor.get("tags", [])
+    if tags_to_show == None:
+        tags_to_show = []
+    if type(tags_to_show) != "list":
+        tags_to_show = list(tags_to_show)
+
     matching_tags = []
-    for tag in tags:
-        for regex in tags_to_show:
-            if tag.startswith(regex):
+    tags = monitor["tags"]
+    if type(tags) == "list":
+        for tag in tags:
+            matched = False
+            for tag_regex in tags_to_show:
+                if tag.find(tag_regex) != -1:
+                    matched = True
+                    break
+            if matched:
                 matching_tags.append(tag)
-                break
-    
     if len(matching_tags) > 0:
-        details = details + "\nDatadog tags: " + ", ".join(matching_tags)
-    
+        msg_parts.append("Datadog tags: " + ", ".join(matching_tags))
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": " | ".join(msg_parts),
         "data": {
-            "state": state,
+            "state": state_name,
             "metrics": {},
             "details": details,
         },

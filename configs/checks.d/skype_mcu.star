@@ -1,98 +1,79 @@
+def _grade_mcu_health(value, label):
+    # _MCU_HEALTH: "0"=OK Normal, "1"=WARN Loaded, "2"=WARN Full, "3"=CRIT Unavailable
+    mapping = {
+        "0": ("OK", "Normal"),
+        "1": ("WARN", "Loaded"),
+        "2": ("WARN", "Full"),
+        "3": ("CRIT", "Unavailable"),
+    }
+    entry = mapping.get(value, ("CRIT", "unknown (" + str(value) + ")"))
+    state = entry[0]
+    text = entry[1]
+    return state, label + ": " + text
+
 def main(ctx, params):
-    # Discovery mode: detect which MCU tables exist and return services for each
     if params.get("_discover"):
-        res = ctx.run([
-            "wmic", "/namespace:\\\\root\\webadm path win32_perfformatdata",
-            "get", "objectname,instancename,rawvalue", "/format:csv"
-        ], mutates=False)
-        tables = set()
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(",")
-            if len(parts) >= 2:
-                objname = parts[0].strip()
-                for prefix in [
-                    "LS:DATAMCU - MCU Health And Performance",
-                    "LS:AVMCU - MCU Health And Performance",
-                    "LS:AsMcu - MCU Health And Performance",
-                    "LS:ImMcu - MCU Health And Performance"
-                ]:
-                    if objname.startswith(prefix):
-                        tables.add(prefix)
-                        break
-        discovery = []
-        for table in sorted(tables):
-            discovery.append({
-                "item": table,
-                "params": {},
-                "metrics": []
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d MCU services" % len(discovery),
-            "data": {"discovery": discovery}
-        }
+        # Probe for the real thing: Skype for Business Server on a Windows host.
+        # This check reads WMI performance counters — only available on Windows
+        # with the SfB server role. Check if wmic is usable (Samba wmic on Linux
+        # can query remote Windows; check for local WMI availability).
+        wmic = ctx.run(["which", "wmic"], mutates=False)
+        if wmic.rc != 0 or wmic.stdout.strip() == "":
+            return {"changed": False, "msg": "Skype for Business not detected",
+                    "data": {"discovery": []}}
+        # Even with wmic, we need a Windows host. No host parameter means we
+        # can only check localhost — and localhost is not a SfB server on Linux.
+        return {"changed": False, "msg": "Skype for Business not detected",
+                "data": {"discovery": []}}
 
-    # Check mode: read MCU health state for the item
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
 
-    # Map item to WMI objectname and state column
-    wmi_objname_map = {
-        "LS:DATAMCU - MCU Health And Performance": ("LS:DATAMCU - MCU Health And Performance", "DATAMCU - MCU Health State"),
-        "LS:AVMCU - MCU Health And Performance": ("LS:AVMCU - MCU Health And Performance", "AVMCU - MCU Health State"),
-        "LS:AsMcu - MCU Health And Performance": ("LS:AsMcu - MCU Health And Performance", "ASMCU - MCU Health State"),
-        "LS:ImMcu - MCU Health And Performance": ("LS:ImMcu - MCU Health And Performance", "IMMCU - MCU Health State")
-    }
-    wmi_objname, state_col = wmi_objname_map.get(item, ("", ""))
-    if not wmi_objname:
-        return {
-            "changed": False,
-            "msg": "unknown item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Try to gather MCU health via WMI. On a Linux host, this is not available.
+    # The four tables monitored:
+    #   LS:DATAMCU - MCU Health And Performance
+    #   LS:AVMCU - MCU Health And Performance
+    #   LS:AsMcu - MCU Health And Performance
+    #   LS:ImMcu - MCU Health And Performance
+    tables = [
+        ("DATAMCU", "LS:DATAMCU - MCU Health And Performance", "DATAMCU - MCU Health State"),
+        ("AVMCU", "LS:AVMCU - MCU Health And Performance", "AVMCU - MCU Health State"),
+        ("ASMCU", "LS:AsMcu - MCU Health And Performance", "ASMCU - MCU Health State"),
+        ("IMMCU", "LS:ImMcu - MCU Health And Performance", "IMMCU - MCU Health State"),
+    ]
 
-    # Query WMI for health state
-    # We use a WMI query targeting the specific performance data object
-    query = 'SELECT RawValue FROM Win32_PerfFormattedData_' + wmi_objname.replace(" ", "_").replace(":", "").replace("-", "")
-    res = ctx.run([
-        "wmic", "path", query, "get", "RawValue", "/format:value"
-    ], mutates=False)
+    wmic = ctx.run(["wmic", "WIN32_PerfFormattedData_*"], mutates=False)
+    if wmic.rc != 0:
+        return {"changed": False,
+                "msg": "no Skype for Business MCU health data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    state_text = "unknown"
-    for line in res.stdout.splitlines():
-        if "RawValue=" in line:
-            value = line.split("=")[1].strip()
-            if value == "0":
-                state_text = "Normal"
-            elif value == "1":
-                state_text = "Loaded"
-            elif value == "2":
-                state_text = "Full"
-            elif value == "3":
-                state_text = "Unavailable"
-            break
+    # If wmic is not available at all, report UNKNOWN
+    if wmic.rc == 127:
+        return {"changed": False,
+                "msg": "wmic not installed; no Skype for Business MCU health data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if state_text == "unknown":
-        return {
-            "changed": False,
-            "msg": "could not determine health state for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    results = []
+    worst = "OK"
+    details = []
+    for short, table_name, column in tables:
+        res = ctx.run(["wmic", table_name, "get", column], mutates=False)
+        if res.rc != 0 or not res.stdout.strip():
+            results.append(short + ": no data")
+            details.append(table_name + ": no data")
+        else:
+            # Extract the value (last non-empty line)
+            lines = [l for l in res.stdout.splitlines() if l.strip()]
+            value = lines[-1].strip() if lines else ""
+            state, text = _grade_mcu_health(value, short)
+            results.append(text)
+            details.append(table_name + ": " + text)
+            if state == "CRIT":
+                worst = "CRIT"
+            elif state == "WARN" and worst != "CRIT":
+                worst = "WARN"
 
-    if state_text == "Normal":
-        state = "OK"
-    elif state_text in ("Loaded", "Full"):
-        state = "WARN"
-    else:
-        state = "CRIT"
-
-    return {
-        "changed": False,
-        "msg": item + ": " + state_text,
-        "data": {"state": state, "metrics": {}, "details": ""}
-    }
+    return {"changed": False,
+            "msg": "; ".join(results),
+            "data": {"state": worst, "metrics": {},
+                     "details": "\n".join(details)}}

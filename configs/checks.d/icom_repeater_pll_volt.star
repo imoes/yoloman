@@ -1,227 +1,191 @@
+# Checkmk check → read-only Starlark check module
+# icom_repeater_pll_volt: %s PLL Lock Voltage (per TX/RX)
+
+ICOM_BASE = ".1.3.6.1.4.1.2021.8.1"
+SYSTEM_OID = ".1.3.6.1.2.1.1.1.0"
+COL_IDX = "1"
+COL_NAME = "2"
+COL_VALUE = "101"
+
+
+def _snmp_get_int(ctx, oid, community, host):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    s = res.stdout.strip()
+    if s == "" or s == "No Such Instance":
+        return None
+    if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+        return int(s)
+    if _is_float(s):
+        return float(s)
+    return None
+
+
+def _is_float(s):
+    if s == "":
+        return False
+    i = 0
+    n = len(s)
+    if s[0] == "-":
+        i = 1
+    seen_digit = False
+    seen_dot = False
+    while i < n:
+        c = s[i]
+        if c >= "0" and c <= "9":
+            seen_digit = True
+        elif c == "." and not seen_dot:
+            seen_dot = True
+        else:
+            return False
+        i += 1
+    return seen_digit
+
+
+def _snmp_walk_table(ctx, community, host):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ICOM_BASE], mutates=False)
+    if res.rc != 0 or res.stdout.strip() == "":
+        return {}
+    table = {}
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        value = line[sp + 1:]
+        parts = oid.split(".")
+        if len(parts) < 3:
+            continue
+        col = parts[2]
+        idx = ".".join(parts[3:])
+        if idx == "":
+            idx = "0"
+        if idx not in table:
+            table[idx] = {}
+        table[idx][col] = value
+    return table
+
+
+def _detect_active(ctx, community, host):
+    sys_res = ctx.run(["snmpget", "-v2c", "-c", community, "-OvQ", host, SYSTEM_OID], mutates=False)
+    if sys_res.rc != 0:
+        return False
+    return "fr5000" in sys_res.stdout.upper()
+
+
+def _parse_section(table):
+    parsed = {}
+    for idx in sorted(table.keys()):
+        row = table[idx]
+        name = row.get(COL_NAME, "")
+        value = row.get(COL_VALUE, "")
+        low = name.lower()
+        if low == "temperature":
+            parsed["temp"] = float(value[:-1]) if len(value) > 1 and _is_float(value[:-1]) else 0.0
+            parsed["temp_devunit"] = value[-1:].lower() if value else ""
+        elif low == "esn number":
+            parsed["esnno"] = value
+        elif low == "repeater operation":
+            parsed["repop"] = value.lower()
+        elif low == "abnormal temperature detection":
+            parsed["temp_devstatus"] = 0 if value == "Not detected" else 2
+        elif low == "power-supply voltage":
+            parsed["ps_voltage"] = float(value[:-1]) if _is_float(value[:-1]) else 0.0
+        elif low == "abnormal power-supply voltage detection":
+            parsed["ps_volt_devstatus"] = 0 if value == "Not detected" else 2
+        elif low == "tx pll lock voltage":
+            parsed["tx_pll_lock_voltage"] = float(value[:-1]) if _is_float(value[:-1]) else 0.0
+        elif low == "rx pll lock voltage":
+            parsed["rx_pll_lock_voltage"] = float(value[:-1]) if _is_float(value[:-1]) else 0.0
+        elif low == "repeater frequency":
+            freq = {}
+            for part in value.split(","):
+                p = part.lstrip()
+                sp = p.find(":")
+                if sp >= 0:
+                    k = p[:sp].lower()
+                    v = p[sp + 1:].strip()
+                    freq[k] = int(v) if _is_float(v) else 0
+            parsed["repeater_frequency"] = freq
+    return parsed
+
+
 def main(ctx, params):
+    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2021.8.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        # Parse raw SNMP output into a section-like dict
-        section = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_val = parts[0].strip()
-            val_part = parts[1].strip()
-            # Extract value (type: value format)
-            if ": " in val_part:
-                val_str = val_part.split(": ", 1)[1]
-            else:
-                val_str = val_part
-            
-            # Parse relevant fields — mimic parse_icom_repeater logic
-            if "ESN number" in val_str and val_str.startswith("String: "):
-                section["esnno"] = val_str[8:]
-            elif "Temperature" in val_str and val_str.startswith("String: "):
-                temp_raw = val_str[8:]
-                if temp_raw.endswith("C"):
-                    temp_val = temp_raw[:-1]
-                    if temp_val.replace(".", "", 1).isdigit() or (temp_val.startswith("-") and temp_val[1:].replace(".", "", 1).isdigit()):
-                        section["temp"] = float(temp_val)
-                        section["temp_devunit"] = "c"
-            elif "Repeater operation" in val_str:
-                section["repop"] = val_str.lower()
-            elif "Abnormal temperature detection" in val_str:
-                if val_str.find("Not detected") != -1:
-                    section["temp_devstatus"] = 0
-                elif val_str.find("detected") != -1:
-                    section["temp_devstatus"] = 2
-            elif "Power-supply voltage" in val_str:
-                ps_raw = val_str
-                if ps_raw.endswith("V"):
-                    ps_val = ps_raw[:-1]
-                    if ps_val.replace(".", "", 1).isdigit() or (ps_val.startswith("-") and ps_val[1:].replace(".", "", 1).isdigit()):
-                        section["ps_voltage"] = float(ps_val)
-            elif "Abnormal power-supply voltage detection" in val_str:
-                if val_str.find("Not detected") != -1:
-                    section["ps_volt_devstatus"] = 0
-                elif val_str.find("detected") != -1:
-                    section["ps_volt_devstatus"] = 2
-            elif "TX PLL lock voltage" in val_str:
-                tx_raw = val_str
-                if tx_raw.endswith("V"):
-                    tx_val = tx_raw[:-1]
-                    if tx_val.replace(".", "", 1).isdigit() or (tx_val.startswith("-") and tx_val[1:].replace(".", "", 1).isdigit()):
-                        section["tx_pll_lock_voltage"] = float(tx_val)
-            elif "RX PLL lock voltage" in val_str:
-                rx_raw = val_str
-                if rx_raw.endswith("V"):
-                    rx_val = rx_raw[:-1]
-                    if rx_val.replace(".", "", 1).isdigit() or (rx_val.startswith("-") and rx_val[1:].replace(".", "", 1).isdigit()):
-                        section["rx_pll_lock_voltage"] = float(rx_val)
-            elif "Repeater frequency" in val_str:
-                freq_dict = {}
-                pairs = val_str.split(",")
-                for pair in pairs:
-                    pair = pair.strip()
-                    if pair.find(":") != -1:
-                        k, v = pair.split(":", 1)
-                        k = k.strip().lower()
-                        v = v.strip()
-                        if v.replace(".", "", 1).isdigit() or (v.startswith("-") and v[1:].replace(".", "", 1).isdigit()):
-                            freq_dict[k] = int(float(v))
-                section["repeater_frequency"] = freq_dict
-        
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        if not _detect_active(ctx, community, host):
+            return {"changed": False, "msg": "no Icom repeater found",
+                    "data": {"discovery": []}}
+        table = _snmp_walk_table(ctx, community, host)
+        if not table:
+            return {"changed": False, "msg": "no Icom repeater data",
+                    "data": {"discovery": []}}
+        section = _parse_section(table)
         items = []
         if "rx_pll_lock_voltage" in section:
             items.append({"item": "RX", "params": {}, "metrics": ["voltage"]})
         if "tx_pll_lock_voltage" in section:
             items.append({"item": "TX", "params": {}, "metrics": ["voltage"]})
-        
-        return {"changed": False, "msg": "discovered %d PLL voltage services" % len(items), "data": {"discovery": items}}
-    
+        return {"changed": False, "msg": "discovered %d items" % len(items),
+                "data": {"discovery": items}}
+
+    # Check mode — single item
     item = params.get("item", "")
-    if item != "RX" and item != "TX":
-        return {"changed": False, "msg": "unknown item", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2021.8.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    section = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_val = parts[0].strip()
-        val_part = parts[1].strip()
-        if ": " in val_part:
-            val_str = val_part.split(": ", 1)[1]
-        else:
-            val_str = val_part
-        
-        if "ESN number" in val_str and val_str.startswith("String: "):
-            section["esnno"] = val_str[8:]
-        elif "Temperature" in val_str and val_str.startswith("String: "):
-            temp_raw = val_str[8:]
-            if temp_raw.endswith("C"):
-                temp_val = temp_raw[:-1]
-                if temp_val.replace(".", "", 1).isdigit() or (temp_val.startswith("-") and temp_val[1:].replace(".", "", 1).isdigit()):
-                    section["temp"] = float(temp_val)
-                    section["temp_devunit"] = "c"
-        elif "Repeater operation" in val_str:
-            section["repop"] = val_str.lower()
-        elif "Abnormal temperature detection" in val_str:
-            if val_str.find("Not detected") != -1:
-                section["temp_devstatus"] = 0
-            elif val_str.find("detected") != -1:
-                section["temp_devstatus"] = 2
-        elif "Power-supply voltage" in val_str:
-            ps_raw = val_str
-            if ps_raw.endswith("V"):
-                ps_val = ps_raw[:-1]
-                if ps_val.replace(".", "", 1).isdigit() or (ps_val.startswith("-") and ps_val[1:].replace(".", "", 1).isdigit()):
-                    section["ps_voltage"] = float(ps_val)
-        elif "Abnormal power-supply voltage detection" in val_str:
-            if val_str.find("Not detected") != -1:
-                section["ps_volt_devstatus"] = 0
-            elif val_str.find("detected") != -1:
-                section["ps_volt_devstatus"] = 2
-        elif "TX PLL lock voltage" in val_str:
-            tx_raw = val_str
-            if tx_raw.endswith("V"):
-                tx_val = tx_raw[:-1]
-                if tx_val.replace(".", "", 1).isdigit() or (tx_val.startswith("-") and tx_val[1:].replace(".", "", 1).isdigit()):
-                    section["tx_pll_lock_voltage"] = float(tx_val)
-        elif "RX PLL lock voltage" in val_str:
-            rx_raw = val_str
-            if rx_raw.endswith("V"):
-                rx_val = rx_raw[:-1]
-                if rx_val.replace(".", "", 1).isdigit() or (rx_val.startswith("-") and rx_val[1:].replace(".", "", 1).isdigit()):
-                    section["rx_pll_lock_voltage"] = float(rx_val)
-        elif "Repeater frequency" in val_str:
-            freq_dict = {}
-            pairs = val_str.split(",")
-            for pair in pairs:
-                pair = pair.strip()
-                if pair.find(":") != -1:
-                    k, v = pair.split(":", 1)
-                    k = k.strip().lower()
-                    v = v.strip()
-                    if v.replace(".", "", 1).isdigit() or (v.startswith("-") and v[1:].replace(".", "", 1).isdigit()):
-                        freq_dict[k] = int(float(v))
-            section["repeater_frequency"] = freq_dict
-    
-    freq_key = item.lower() + "_pll_lock_voltage"
-    if not section.get("repeater_frequency", {}).get(item.lower(), 0) or not section.get(freq_key):
-        return {"changed": False, "msg": "missing data for %s PLL lock voltage" % item,
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    if not _detect_active(ctx, community, host):
+        return {"changed": False, "msg": "no Icom repeater found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    voltage = section[freq_key]
-    freq = section["repeater_frequency"].get(item.lower(), 0)
-    
+    table = _snmp_walk_table(ctx, community, host)
+    if not table:
+        return {"changed": False, "msg": "no Icom repeater data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _parse_section(table)
+    key = item.lower() + "_pll_lock_voltage"
+    if key not in section:
+        return {"changed": False, "msg": "no PLL voltage for item %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if "repeater_frequency" not in section or item.lower() not in section["repeater_frequency"]:
+        return {"changed": False, "msg": "no frequency for item %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    voltage = section[key]
+    freq = section["repeater_frequency"][item.lower()]
     paramlist = params.get(item.lower(), None)
-    
-    if paramlist == None or type(paramlist) != "list" or len(paramlist) == 0:
-        return {"changed": False, "msg": "Please specify parameters for %s PLL voltage" % item,
+    if not paramlist:
+        return {"changed": False, "msg": "Please specify parameters for PLL voltage",
                 "data": {"state": "WARN", "metrics": {"voltage": voltage}, "details": ""}}
-    
-    # Find row with freq_threshold >= freq
-    warn_lower = 0.0
-    crit_lower = 0.0
-    warn = 0.0
-    crit = 0.0
-    found = False
-    
-    for i in range(len(paramlist)):
-        row = paramlist[i]
-        if len(row) < 4:
-            continue
-        freq_threshold = row[0]
-        if freq_threshold >= freq:
+    warn_lower = None
+    crit_lower = None
+    warn = None
+    crit = None
+    i = 0
+    n = len(paramlist)
+    while i < n:
+        entry = paramlist[i]
+        if len(entry) >= 1 and entry[0] >= freq:
             if i > 0:
-                prev_row = paramlist[i - 1]
-                if len(prev_row) >= 5:
-                    warn_lower, crit_lower, warn, crit = prev_row[1], prev_row[2], prev_row[3], prev_row[4]
-                else:
-                    warn_lower, crit_lower, warn, crit = prev_row[1], prev_row[2], prev_row[3], prev_row[3]
-            else:
-                # No previous row — use current
-                warn_lower, crit_lower, warn, crit = row[1], row[2], row[3], row[3]
-            found = True
+                prev = paramlist[i - 1]
+                if len(prev) >= 5:
+                    warn_lower = prev[1]
+                    crit_lower = prev[2]
+                    warn = prev[3]
+                    crit = prev[4]
             break
-    
-    if not found:
-        # Use last row
-        last_row = paramlist[-1]
-        if len(last_row) >= 5:
-            warn_lower, crit_lower, warn, crit = last_row[1], last_row[2], last_row[3], last_row[4]
-        elif len(last_row) >= 4:
-            warn_lower, crit_lower, warn, crit = last_row[1], last_row[2], last_row[3], last_row[3]
-        else:
-            return {"changed": False, "msg": "malformed params row",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # State determination
+        i += 1
+    if warn_lower == None or crit_lower == None or warn == None or crit == None:
+        return {"changed": False, "msg": "Please specify parameters for PLL voltage",
+                "data": {"state": "WARN", "metrics": {"voltage": voltage}, "details": ""}}
     if voltage < crit_lower or voltage >= crit:
-        status = 2
+        status = "CRIT"
     elif voltage < warn_lower or voltage >= warn:
-        status = 1
+        status = "WARN"
     else:
-        status = 0
-    
-    infotext = "%f V" % voltage
-    levelstext = " (warn/crit below %f/%f V and at or above %f/%f V)" % (warn_lower, crit_lower, warn, crit)
-    if status != 0:
-        infotext += levelstext
-    
+        status = "OK"
+    levelstext = " (warn/crit below %f/%f V and at or above %f/%f V)" % (
+        warn_lower, crit_lower, warn, crit)
+    infotext = "%f V%s" % (voltage, levelstext) if status != "OK" else "%f V" % voltage
     return {"changed": False, "msg": infotext,
-            "data": {"state": "CRIT" if status == 2 else ("WARN" if status == 1 else "OK"),
-                     "metrics": {"voltage": voltage}, "details": ""}}
+            "data": {"state": status, "metrics": {"voltage": voltage}, "details": ""}}

@@ -2,32 +2,19 @@ name: apc_netbotz_other_sensors
 fqcn: checkmk.apc_netbotz_other_sensors
 collection: checkmk
 short_description: Numeric sensors summary
-description:
-    > ## Overview
-    > This check monitors numeric sensors on APC NetBotz devices (v2 and v50 series), providing a summary of sensor states via SNMP. It matters because these sensors detect environmental issues like leaks, temperature extremes, or humidity problems critical for data center reliability.
-    >
-    > ## What it monitors
-    > - Numeric sensor states (e.g., water leak, temperature, humidity)
-    > - Sensor labels (descriptive names)
-    > - Error state codes and human-readable status strings
-    >
-    > ## How it works
-    > In discovery mode, it runs `snmpwalk` against both v2 (`.1.3.6.1.4.1.5528.100.4.2.10.1`) and v50 (`.1.3.6.1.4.1.52674.500.4.2.10.1`) OIDs for sensor label (`.4`), error state (`.3`), and readable state (`.7`). In check mode, it repeats the SNMP query and evaluates each sensor: non-OK `state_readable` values (unless error state is `0`) trigger CRIT. Discovery yields one service if any sensor has a non-empty `state_readable`.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - **OK**: At least one sensor is present and all sensors are either `state_readable == "OK"` or have `error_state == "0"`.
-    > - **CRIT**: One or more sensors have non-OK `state_readable` *and* non-zero `error_state`.
-    > - **UNKNOWN**: No sensors are found (no `state_readable` values returned).
-    >
-    > ## Metrics
-    > None.
+description: Checkmk check 'apc_netbotz_other_sensors' (service: Numeric sensors summary), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Hardware & Sensors
+execution: snmp
+prompt_version: c21f0f5a7229

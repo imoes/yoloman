@@ -1,84 +1,134 @@
+def _parse_hint_row(line):
+    f = line.split()
+    if len(f) != 4:
+        return None
+    out = []
+    for x in f:
+        if not x.lstrip("-").isdigit():
+            return None
+        out.append(int(x))
+    return out
+
+def _probe_sylo_hint(ctx):
+    path = "/var/cache/sylo/hint"
+    st = ctx.stat(path)
+    if st == None or not st.get("exists"):
+        return None
+    content = ctx.file_read(path)
+    rows = []
+    for line in content.splitlines():
+        row = _parse_hint_row(line)
+        if row == None:
+            continue
+        rows.append(row)
+    if len(rows) < 3:
+        return None
+    mtime = int(st.get("mtime", 0))
+    if len(rows) >= 4 and rows[0][0] > 0 and rows[0][0] < 2000000000:
+        mtime = rows[0][0]
+        in_off = rows[1][0]
+        out_off = rows[2][0]
+        size = rows[3][0]
+    else:
+        in_off = rows[0][0]
+        out_off = rows[1][0]
+        size = rows[2][0]
+    return (mtime, in_off, out_off, size)
+
 def main(ctx, params):
-    # Read the hint file from the agent output location
-    # The Checkmk agent section expects this file to exist at a fixed path
-    # We assume the agent has already placed it here (same path the Checkmk agent plugin reads)
-    hint_file = "/var/lib/sylo/sylo.hint"
-    
-    # Try to read the hint file
-    if not ctx.file_exists(hint_file):
-        return {
-            "changed": False,
-            "msg": "No hint file (sylo probably never ran on this system)",
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
-        }
-    
-    content = ctx.file_read(hint_file)
-    lines = content.splitlines()
-    
-    # Check if we have valid hint file format (4 lines)
-    if len(lines) != 1 or len(lines[0].strip().split()) != 4:
-        # Single line expected, check content
-        parts = content.strip().split()
-        if len(parts) != 4:
+    if params.get("_discover"):
+        data = _probe_sylo_hint(ctx)
+        if data == None:
             return {
                 "changed": False,
-                "msg": "Invalid hint file contents: %s" % content.strip(),
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+                "msg": "Sylo not installed",
+                "data": {"discovery": []},
             }
-        lines = [content.strip()]
-    
-    # Extract values from hint file
-    mtime_str, inOffset_str, outOffset_str, size_str = lines[0].strip().split()
-    mtime = int(mtime_str)
-    inOffset = int(inOffset_str)
-    outOffset = int(outOffset_str)
-    size = int(size_str)
-    
-    size_mb = size / (1024.0 * 1024.0)
-    
-    # Get thresholds from params with Checkmk defaults
-    levels_usage_perc = params.get("levels_usage_perc", (5.0, 25.0))
-    usage_warn_perc, usage_crit_perc = levels_usage_perc
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {
+                            "max_age_secs": params.get("max_age_secs", 70),
+                            "levels_usage_perc": params.get("levels_usage_perc", (5.0, 25.0)),
+                        },
+                        "metrics": ["in", "out", "used"],
+                    }
+                ],
+                "service_labels": {"cmk/check_name": "sylo"},
+            },
+        }
+
+    item = params.get("item", "")
+    data = _probe_sylo_hint(ctx)
+    if data == None:
+        return {
+            "changed": False,
+            "msg": "No Sylo hint file found (sylo probably never ran on this system)",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
+    mtime, in_offset, out_offset, size = data
+
+    if size <= 0:
+        return {
+            "changed": False,
+            "msg": "Invalid Sylo hint file contents (non-positive size)",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
+    usage_levels = params.get("levels_usage_perc", (5.0, 25.0))
+    usage_warn_perc = usage_levels[0]
+    usage_crit_perc = usage_levels[1]
     max_age_secs = params.get("max_age_secs", 70)
-    
-    # CRIT: too old
-    now = int(ctx.run(["date", "+%s"], mutates=False).stdout.strip())
+
+    now_res = ctx.run(["date", "+%s"], mutates=False)
+    now = int(now_res.stdout.strip())
     age = now - mtime
     if age > max_age_secs:
         return {
             "changed": False,
             "msg": "Sylo not running (Hintfile too old: last update %d secs ago)" % age,
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
+            "data": {
+                "state": "CRIT",
+                "metrics": {"age": age},
+                "details": "Hint file mtime: %d, age: %d secs, threshold: %d secs" % (mtime, age, max_age_secs),
+            },
         }
-    
-    # Current fill state
-    if inOffset == outOffset:
+
+    if in_offset == out_offset:
         bytesUsed = 0
-    elif inOffset > outOffset:
-        bytesUsed = inOffset - outOffset
+    elif in_offset > out_offset:
+        bytesUsed = in_offset - out_offset
     else:
-        bytesUsed = size - outOffset + inOffset
-    
-    if size == 0:
-        percUsed = 0.0
-    else:
-        percUsed = float(bytesUsed) / size * 100
+        bytesUsed = size - out_offset + in_offset
+    percUsed = float(bytesUsed) / size * 100
     used_mb = bytesUsed / (1024.0 * 1024.0)
-    
-    warn_mb = size_mb * usage_warn_perc / 100.0
-    crit_mb = size_mb * usage_crit_perc / 100.0
-    
-    # Determine state
-    state = "CRIT" if percUsed >= usage_crit_perc else ("WARN" if percUsed >= usage_warn_perc else "OK")
-    
-    # For rates we would need to track previous values in value_store
-    # Since Starlark has no persistent storage, we'll report 0.0 for rates
-    # In a real implementation, the agent would provide this data directly
+    size_mb = size / (1024.0 * 1024.0)
+
     in_rate = 0.0
     out_rate = 0.0
-    
+
     msg = "Silo is filled %fMB (%f%%), in %f B/s, out %f B/s" % (used_mb, percUsed, in_rate, out_rate)
-    
+
+    if percUsed >= usage_crit_perc:
+        state = "CRIT"
+    elif percUsed >= usage_warn_perc:
+        state = "WARN"
+    else:
+        state = "OK"
+
     return {
         "changed": False,
         "msg": msg,
@@ -87,8 +137,12 @@ def main(ctx, params):
             "metrics": {
                 "in": in_rate,
                 "out": out_rate,
-                "used": used_mb
+                "used": used_mb,
+                "used_percent": percUsed,
+                "age": age,
             },
-            "details": ""
-        }
+            "details": "in_offset=%d out_offset=%d size=%d bytesUsed=%d percUsed=%f%% warn=%f%% crit=%f%%" % (
+                in_offset, out_offset, size, bytesUsed, percUsed, usage_warn_perc, usage_crit_perc,
+            ),
+        },
     }

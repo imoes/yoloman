@@ -1,198 +1,100 @@
-# Constants for SNMP OIDs
-FJDARYE_POLS_BASE_150 = ".1.3.6.1.4.1.211.1.21.1.150.14.5.2.1"
-FJDARYE_POLS_BASE_153 = ".1.3.6.1.4.1.211.1.21.1.153.14.5.2.1"
-SYSOID = ".1.3.6.1.2.1.1.2.0"
-SYSOID_150 = ".1.3.6.1.4.1.211.1.21.1.150"
-SYSOID_153 = ".1.3.6.1.4.1.211.1.21.1.153"
-FJDARYE_POOL_OID_NUMBER = "1"
-FJDARYE_POOL_OID_CAPACITY = "3"
-FJDARYE_POOL_OID_USAGE = "4"
+def _to_float(s):
+    s = s.strip()
+    if s == "" or s == "None":
+        return 0.0
+    return float(s)
 
-def main(ctx, params):
-    if params.get("_discover"):
-        # Detect device family via sysObjectID
-        res_sys = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-On",
-                           params.get("host", "localhost"), SYSOID], mutates=False)
-        sysoid = ""
-        if res_sys.rc == 0 and res_sys.stdout.strip() != "":
-            parts = res_sys.stdout.strip().split(" = ")
-            if len(parts) >= 2:
-                sysoid = parts[-1].strip()
+def _round2(x):
+    return int(x * 100 + 0.5) / 100.0
 
-        base_oids = []
-        if sysoid == SYSOID_150:
-            base_oids.append(FJDARYE_POLS_BASE_150)
-        elif sysoid == SYSOID_153:
-            base_oids.append(FJDARYE_POLS_BASE_153)
-
-        if not base_oids:
-            return {"changed": False, "msg": "discovered 0 pools (unsupported device)",
-                    "data": {"discovery": []}}
-
-        # Walk all applicable pools
-        out = []
-        for base_oid in base_oids:
-            res_walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-                                params.get("host", "localhost"), base_oid + "." + FJDARYE_POOL_OID_NUMBER,
-                                base_oid + "." + FJDARYE_POOL_OID_CAPACITY,
-                                base_oid + "." + FJDARYE_POOL_OID_USAGE], mutates=False)
-            if res_walk.rc != 0:
-                continue
-
-            lines = res_walk.stdout.splitlines()
-            pool_data = {}
-            # Parse snmpwalk lines: "<OID> = INTEGER: value" or "<OID> = GAUGE: value"
-            for line in lines:
-                if not line:
-                    continue
-                parts = line.strip().split(" = ")
-                if len(parts) < 2:
-                    continue
-                oid_full = parts[0].strip()
-                value_str = parts[1].strip()
-                if ":" in value_str:
-                    value_str = value_str.split(":", 1)[1].strip()
-
-                # Extract index from OID tail (last number after the base)
-                tail = oid_full[len(base_oid) + 1:]
-                idx = ""
-                for ch in tail:
-                    if ch.isdigit():
-                        idx += ch
-                    elif ch == ".":
-                        break
-
-                if not idx:
-                    continue
-                if idx not in pool_data:
-                    pool_data[idx] = {"number": "", "capacity": "", "usage": ""}
-                if "1" in oid_full and oid_full.endswith(FJDARYE_POOL_OID_NUMBER):
-                    pool_data[idx]["number"] = value_str
-                elif "3" in oid_full and oid_full.endswith(FJDARYE_POOL_OID_CAPACITY):
-                    pool_data[idx]["capacity"] = value_str
-                elif "4" in oid_full and oid_full.endswith(FJDARYE_POOL_OID_USAGE):
-                    pool_data[idx]["usage"] = value_str
-
-            # Build list of pools with numeric IDs
-            for idx, data in pool_data.items():
-                if data["capacity"] == "" or data["usage"] == "":
-                    continue
-                # Guard against invalid float values
-                cap_str = data["capacity"]
-                usage_str = data["usage"]
-                if cap_str.replace(".", "").replace("-", "").isdigit() and usage_str.replace(".", "").replace("-", "").isdigit():
-                    capacity = float(cap_str)
-                    usage = float(usage_str)
-                    item = data["number"] if data["number"] else idx
-                    out.append({"item": item, "params": {}, "metrics": ["used_percent"]})
-
-        return {"changed": False, "msg": "discovered %d pools" % len(out),
-                "data": {"discovery": out}}
-
-    # CHECK mode
-    item = params.get("item", "")
-    # Detect device family first
-    res_sys = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-On",
-                       params.get("host", "localhost"), SYSOID], mutates=False)
-    sysoid = ""
-    if res_sys.rc == 0 and res_sys.stdout.strip() != "":
-        parts = res_sys.stdout.strip().split(" = ")
-        if len(parts) >= 2:
-            sysoid = parts[-1].strip()
-
-    base_oid = ""
-    if sysoid == SYSOID_150:
-        base_oid = FJDARYE_POLS_BASE_150
-    elif sysoid == SYSOID_153:
-        base_oid = FJDARYE_POLS_BASE_153
-    else:
-        return {"changed": False, "msg": "unsupported device",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Fetch pool data by item (match number field)
-    res_walk = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-                        base_oid + "." + FJDARYE_POOL_OID_NUMBER,
-                        base_oid + "." + FJDARYE_POOL_OID_CAPACITY,
-                        base_oid + "." + FJDARYE_POOL_OID_USAGE], mutates=False)
-    if res_walk.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    lines = res_walk.stdout.splitlines()
-    pool_data = {}
-    for line in lines:
-        if not line:
-            continue
-        parts = line.strip().split(" = ")
+def _get_pool_index(ctx, community, host, base, item):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".1"], mutates=False)
+    if res.rc != 0:
+        return None
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) < 2:
             continue
-        oid_full = parts[0].strip()
-        value_str = parts[1].strip()
-        if ":" in value_str:
-            value_str = value_str.split(":", 1)[1].strip()
+        oid, val = parts[0], parts[1].strip()
+        suffix = oid[len(base) + 1:]
+        idx_parts = suffix.split(".")
+        pool_id = idx_parts[0]
+        disp = val.strip().strip('"')
+        if disp == item or pool_id == item:
+            return pool_id
+    return None
 
-        tail = oid_full[len(base_oid) + 1:]
-        idx = ""
-        for ch in tail:
-            if ch.isdigit():
-                idx += ch
-            elif ch == ".":
-                break
-        if not idx:
+def _discover(ctx, community, host, base):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "no pools discovered", "data": {"discovery": []}}
+    pools = {}
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
             continue
-        if idx not in pool_data:
-            pool_data[idx] = {"number": "", "capacity": "", "usage": ""}
-        if "1" in oid_full and oid_full.endswith(FJDARYE_POOL_OID_NUMBER):
-            pool_data[idx]["number"] = value_str
-        elif "3" in oid_full and oid_full.endswith(FJDARYE_POOL_OID_CAPACITY):
-            pool_data[idx]["capacity"] = value_str
-        elif "4" in oid_full and oid_full.endswith(FJDARYE_POOL_OID_USAGE):
-            pool_data[idx]["usage"] = value_str
+        oid, val = parts[0], parts[1].strip()
+        suffix = oid[len(base) + 1:]
+        idx_parts = suffix.split(".")
+        pool_id = idx_parts[0]
+        if len(idx_parts) < 2:
+            continue
+        col = idx_parts[1]
+        if pool_id not in pools:
+            pools[pool_id] = {"capacity": 0.0, "usage": 0.0, "pool_id": ""}
+        if col == "1":
+            pools[pool_id]["pool_id"] = val.strip().strip('"')
+        elif col == "3":
+            pools[pool_id]["capacity"] = _to_float(val)
+        elif col == "4":
+            pools[pool_id]["usage"] = _to_float(val)
+    discovery = []
+    for pool_id in sorted(pools.keys()):
+        p = pools[pool_id]
+        name = p["pool_id"] if p["pool_id"] != "" else pool_id
+        discovery.append({"item": name, "params": {"warn": 90, "crit": 95}, "metrics": ["used_percent"]})
+    return {"changed": False, "msg": "discovered %d pools" % len(discovery), "data": {"discovery": discovery}}
 
-    pool_capacity = 0.0
-    pool_usage = 0.0
-    found = False
-    for idx, data in pool_data.items():
-        if data["number"] == item or (data["number"] == "" and item == idx):
-            # Guard against invalid float values
-            cap_str = data["capacity"]
-            usage_str = data["usage"]
-            if cap_str.replace(".", "").replace("-", "").isdigit() and usage_str.replace(".", "").replace("-", "").isdigit():
-                pool_capacity = float(cap_str)
-                pool_usage = float(usage_str)
-                found = True
-            break
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+    warn = params.get("warn", 90)
+    crit = params.get("crit", 95)
 
-    if not found:
-        return {"changed": False, "msg": "pool not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, sys_oid], mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return {"changed": False, "msg": "SNMP not available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sys_val = res.stdout.strip()
 
-    used_percent = (pool_usage / pool_capacity * 100.0) if pool_capacity > 0 else 0.0
+    base_150 = ".1.3.6.1.4.1.211.1.21.1.150.14.5.2.1"
+    base_153 = ".1.3.6.1.4.1.211.1.21.1.153.14.5.2.1"
 
-    # Apply filesystem levels (Checkmk df defaults)
-    warn = 80.0
-    crit = 90.0
-    levels = params.get("levels", None)
-    if levels != None and type(levels) == "list" and len(levels) >= 2:
-        warn = float(levels[0]) if str(levels[0]).replace(".", "").replace("-", "").isdigit() else 80.0
-        crit = float(levels[1]) if str(levels[1]).replace(".", "").replace("-", "").isdigit() else 90.0
-    elif levels != None and type(levels) == "list" and len(levels) == 2:
-        warn = float(levels[0])
-        crit = float(levels[1])
-
-    state = "OK"
-    msg = ""
-    if used_percent >= crit:
-        state = "CRIT"
-        msg = "Size: %f GB, %f%% used (>= %f%% CRIT)" % (pool_capacity / 1024.0 / 1024.0 / 1024.0,
-                                                                used_percent, crit)
-    elif used_percent >= warn:
-        state = "WARN"
-        msg = "Size: %f GB, %f%% used (>= %f%% WARN)" % (pool_capacity / 1024.0 / 1024.0 / 1024.0,
-                                                                used_percent, warn)
+    if sys_val == ".1.3.6.1.4.1.211.1.21.1.150":
+        base = base_150
+    elif sys_val == ".1.3.6.1.4.1.211.1.21.1.153":
+        base = base_153
     else:
-        msg = "Size: %f GB, %f%% used" % (pool_capacity / 1024.0 / 1024.0 / 1024.0, used_percent)
+        return {"changed": False, "msg": "not a FJD ETERNUS device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {"used_percent": used_percent},
-                     "details": ""}}
+    if params.get("_discover"):
+        return _discover(ctx, community, host, base)
+
+    pool_index = _get_pool_index(ctx, community, host, base, item)
+    if pool_index == None:
+        return {"changed": False, "msg": "no such pool: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    cap_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base + ".3." + pool_index], mutates=False)
+    use_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base + ".4." + pool_index], mutates=False)
+    if cap_res.rc != 0 or use_res.rc != 0:
+        return {"changed": False, "msg": "cannot read pool data: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    capacity = _to_float(cap_res.stdout.strip())
+    usage = _to_float(use_res.stdout.strip())
+    if capacity == 0:
+        return {"changed": False, "msg": "zero capacity pool: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    available = capacity - usage
+    used_percent = (usage / capacity) * 100.0
+    state = "CRIT" if used_percent >= crit else ("WARN" if used_percent >= warn else "OK")
+    msg = "%s: %f%% used (%s of %s free)" % (item, used_percent, str(available), str(capacity))
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"used_percent": _round2(used_percent)}, "details": ""}}

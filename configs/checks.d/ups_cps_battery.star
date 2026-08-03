@@ -1,171 +1,196 @@
-def main(ctx, params):
-    # SNMP base for CPS UPS battery: .1.3.6.1.4.1.3808.1.1.1.2.2
-    # OIDs: 1=capacity (%), 3=temperature (Celsius), 4=battime (TimeTicks)
-    base_oid = ".1.3.6.1.4.1.3808.1.1.1.2.2"
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
+def _parse_battery_table(stdout):
+    lines = stdout.splitlines()
+    section = {}
+    i = 0
+    for col_idx in [1, 3, 4]:
+        if i < len(lines):
+            line = lines[i]
+            # -Oqv gives bare value per line
+            if line and line != "No Such Instance currently exists" and col_idx != 4:
+                section[str(col_idx)] = line
+            i += 1
+    return section
 
-    # Discovery mode
+def _fetch_oids(ctx, host, community, version, base, oids):
+    result = {}
+    for oid in oids:
+        res = ctx.run(
+            ["snmpget", "-Oqv", "-c", community, "-v", version, host, base + "." + oid],
+            mutates=False,
+        )
+        val = res.stdout.strip()
+        result[oid] = val
+    return result
+
+def _is_cps(ctx, host, community, version):
+    res = ctx.run(
+        ["snmpget", "-Oqv", "-c", community, "-v", version, host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    sys_oid = res.stdout.strip()
+    if res.rc != 0 or not sys_oid:
+        return False
+    return sys_oid.startswith(".1.3.6.1.4.1.3808.1.1.1")
+
+def _grade_lower(value, levels):
+    if not levels:
+        return "OK"
+    warn, crit = levels
+    if value < crit:
+        return "CRIT"
+    if value < warn:
+        return "WARN"
+    return "OK"
+
+def _grade_upper(value, levels):
+    if not levels:
+        return "OK"
+    warn, crit = levels
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+def _level_state(state):
+    m = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    return m.get(state, 3)
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+    base = ".1.3.6.1.4.1.3808.1.1.1.2.2"
+
+    # Probe: verify this is a CPS UPS via sysObjectID before reporting anything
+    if not _is_cps(ctx, host, community, version):
+        return {
+            "changed": False,
+            "msg": "not a CPS UPS (sysObjectID mismatch)",
+            "data": {"discovery": [], "host_labels": {}},
+        }
+
     if params.get("_discover"):
-        # We discover both the battery capacity and temperature services
-        # Since the check is per-host (not per-item), we emit single-service entries
+        caps = _fetch_oids(ctx, host, community, version, base, ["1", "3", "4"])
+
         discovery = []
 
-        # Battery capacity service
-        discovery.append({
-            "item": "",
-            "params": {
-                "capacity": (95, 90),
-                "battime": (0, 0)
-            },
-            "metrics": ["battery_capacity", "battery_seconds_remaining"]
-        })
+        cap_raw = caps.get("1", "")
+        has_capacity = cap_raw != "" and cap_raw != "No Such Instance currently exists"
+        if has_capacity:
+            discovery.append({
+                "item": "",
+                "params": {"capacity": (95, 90), "battime": (0, 0)},
+                "metrics": ["battery_capacity", "battery_seconds_remaining"],
+            })
 
-        # Battery temperature service
-        discovery.append({
-            "item": "Battery",
-            "params": {},
-            "metrics": ["temp"]
-        })
+        temp_raw = caps.get("3", "")
+        has_temp = temp_raw != "" and temp_raw != "No Such Instance currently exists" \
+            and temp_raw != "NULL"
+        if has_temp:
+            discovery.append({
+                "item": "Battery",
+                "params": {"levels": (None, None)},
+                "metrics": ["temperature"],
+            })
 
         return {
             "changed": False,
-            "msg": "discovered 2 services",
-            "data": {"discovery": discovery}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
         }
 
-    # Check mode
     item = params.get("item", "")
-    # Run snmpwalk to fetch all battery-related OIDs
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        base_oid + ".1", base_oid + ".3", base_oid + ".4"
-    ], mutates=False)
 
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Parse SNMP output into dict
-    parsed = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(None, 1)
-        if len(parts) != 2:
-            continue
-        oid_part, value_part = parts
-        # Strip leading base to get OID tail
-        tail = oid_part.replace(base_oid + ".", "")
-        if tail == "1":  # capacity
-            val = value_part.split(":")[-1].strip()
-            if val and val.isdigit():
-                parsed["capacity"] = int(val)
-        elif tail == "3":  # temperature
-            val = value_part.split(":")[-1].strip()
-            if val and val.isdigit() and val != "NULL":
-                parsed["temperature"] = int(val)
-        elif tail == "4":  # battime (TimeTicks)
-            val = value_part.split(":")[-1].strip()
-            if val and val.isdigit():
-                parsed["battime"] = float(val) / 100.0  # convert to seconds
-
-    # Handle temperature check
+    # Fetch all needed OIDs for whichever check is requested
+    oids_needed = ["1", "4"]
     if item == "Battery":
-        if "temperature" not in parsed:
+        oids_needed = ["3"]
+    else:
+        oids_needed = ["1", "4"]
+    data = _fetch_oids(ctx, host, community, version, base, oids_needed)
+
+    if item == "Battery":
+        # Temperature check
+        temp_raw = data.get("3", "")
+        if temp_raw == "" or temp_raw == "No Such Instance currently exists" or temp_raw == "NULL":
             return {
                 "changed": False,
-                "msg": "no temperature data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+                "msg": "No temperature data from UPS",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
             }
-
-        temp = parsed["temperature"]
-        warn = params.get("levels_upper", (None, None))[0] if params.get("levels_upper") else None
-        crit = params.get("levels_upper", (None, None))[1] if params.get("levels_upper") else None
-        # Default to standard thresholds if none provided
-        if not warn and not crit:
-            warn = 30
-            crit = 40
-
+        temperature = int(temp_raw)
+        levels = params.get("levels", (None, None))
+        warn = levels[0] if len(levels) >= 1 else None
+        crit = levels[1] if len(levels) >= 2 else None
+        tlvs = []
+        if crit != None:
+            tlvs.append("crit %dC" % crit)
+        if warn != None:
+            tlvs.append("warn %dC" % warn)
+        levelstext = " (%s)" % ", ".join(tlvs) if tlvs else ""
         state = "OK"
-        details_parts = []
-
-        if crit != None and temp >= crit:
+        if crit != None and temperature >= crit:
             state = "CRIT"
-            details_parts.append("Crit: %d C" % crit)
-        elif warn != None and temp >= warn:
+        elif warn != None and temperature >= warn:
             state = "WARN"
-            details_parts.append("Warn: %d C" % warn)
-
-        details = " ".join(details_parts) if details_parts else ""
         return {
             "changed": False,
-            "msg": "Temperature: %d C" % temp,
+            "msg": "Temperature: %dC%s" % (temperature, levelstext),
             "data": {
                 "state": state,
-                "metrics": {"temp": temp},
-                "details": details
-            }
+                "metrics": {"temperature": temperature},
+                "details": "",
+            },
         }
 
-    # Battery capacity check (item == "")
-    if "capacity" not in parsed:
+    # Capacity + battime check (item == "")
+    cap_raw = data.get("1", "")
+    if cap_raw == "" or cap_raw == "No Such Instance currently exists":
         return {
             "changed": False,
-            "msg": "no battery data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "No capacity data from UPS",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    capacity = parsed["capacity"]
-    battime = parsed.get("battime")
-
-    # Capacity thresholds (lower levels)
+    capacity = int(cap_raw)
     capacity_levels = params.get("capacity", (95, 90))
-    capacity_warn = capacity_levels[0]
-    capacity_crit = capacity_levels[1]
+    cap_state = _grade_lower(capacity, capacity_levels)
+    warn_c, crit_c = capacity_levels
+    cap_text = ""
+    if cap_state != "OK":
+        cap_text = " (warn/crit at %d/%d%%)" % (warn_c, crit_c)
 
-    # Check capacity against lower levels
-    if capacity <= capacity_crit:
-        state = "CRIT"
-    elif capacity <= capacity_warn:
-        state = "WARN"
-    else:
-        state = "OK"
+    bt_raw = data.get("4", "")
+    battime_value = 0.0
+    if bt_raw != "" and bt_raw != "No Such Instance currently exists":
+        battime_value = float(bt_raw) / 100.0
+    bt_minutes = battime_value / 60.0
+    battime_levels = params.get("battime", (0, 0))
+    bt_state = _grade_lower(bt_minutes, battime_levels)
+    bt_text = ""
+    if bt_state != "OK" and battime_levels != None:
+        bt_text = " (warn/crit at %d/%d min)" % (battime_levels[0], battime_levels[1])
 
-    details_parts = []
-    if state != "OK":
-        details_parts.append("(warn/crit at %d/%d%%)" % (capacity_warn, capacity_crit))
+    # Summary message: pick the most severe
+    states = [cap_state, bt_state]
+    severity = max([_level_state(s) for s in states])
+    sev_map_inv = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+    overall = sev_map_inv.get(severity, "UNKNOWN")
 
-    msg = "Capacity at %d%%" % capacity
-    if details_parts:
-        msg += " " + " ".join(details_parts)
-
-    metrics = {"battery_capacity": capacity}
-
-    # Add remaining time if available
-    if battime != None:
-        minutes_left = battime / 60.0
-        battime_levels = params.get("battime", (0, 0))
-        if battime_levels and (battime_levels[0] > 0 or battime_levels[1] > 0):
-            warn_mins, crit_mins = battime_levels
-            if minutes_left <= crit_mins:
-                state = "CRIT"
-            elif minutes_left <= warn_mins:
-                state = "WARN"
-
-            metrics["battery_seconds_remaining"] = battime
-
-        msg += ", %f minutes remaining on battery" % minutes_left
+    msg = "Capacity at %d%%%s, %f minutes remaining on battery%s" % (
+        capacity, cap_text, bt_minutes, bt_text
+    )
 
     return {
         "changed": False,
         "msg": msg,
         "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+            "state": overall,
+            "metrics": {
+                "battery_capacity": capacity,
+                "battery_seconds_remaining": battime_value,
+            },
+            "details": "",
+        },
     }

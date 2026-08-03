@@ -1,77 +1,53 @@
-# Map status codes to (State label, summary text)
-# Note: Checkmk uses State.OK=0, State.WARN=1, State.CRIT=2, State.UNKNOWN=3
-# We map directly to strings "OK", "WARN", "CRIT", "UNKNOWN" for Starlark return
-_fsc_ipmi_mem_status_levels = [
-    ("OK", "Empty slot"),
-    ("OK", "Running"),
-    ("WARN", "Reserved"),
-    ("CRIT", "Error (module has encountered errors, but is still in use)"),
-    ("CRIT", "Fail (module has encountered errors and is therefore disabled)"),
-    ("CRIT", "Prefail (module exceeded the correctable errors threshold)"),
-]
-
 def main(ctx, params):
+    rows = _gather(ctx)
+
+    # No IPMI sensor source on this host -> the check does not apply.
+    if rows == None:
+        return {
+            "changed": False,
+            "msg": "no IPMI memory sensor source available on this host",
+            "data": {"discovery": []},
+        }
+
     if params.get("_discover"):
-        res = ctx.run(["ipmitool", "sdr", "type", "Memory"], mutates=False)
-        lines = res.stdout.splitlines() if res.stdout else []
-        out = []
-        for line in lines:
-            parts = line.split("|") if line else []
-            if len(parts) < 3:
-                continue
-            name = parts[0].strip()
-            status_raw = parts[2].strip()
-            # Skip empty slots (status 00) and lines that start with 'E'
-            if status_raw == "00" or name.startswith("E"):
-                continue
-            # Only include lines with valid status codes (00-05)
-            if status_raw in ["00", "01", "02", "03", "04", "05"]:
-                out.append({
-                    "item": name,
+        discovery = []
+        for line in rows:
+            if line[0] != "E" and len(line) > 2 and line[2] != "00":
+                discovery.append({
+                    "item": line[1],
                     "params": {},
-                    "metrics": []
+                    "metrics": [],
                 })
         return {
             "changed": False,
-            "msg": "discovered %d memory modules" % len(out),
-            "data": {"discovery": out}
+            "msg": "discovered %d IPMI memory slots" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
     item = params.get("item", "")
-    res = ctx.run(["ipmitool", "sdr", "type", "Memory"], mutates=False)
-    lines = res.stdout.splitlines() if res.stdout else []
-
-    # First pass: check for agent errors (lines starting with "E")
-    for line in lines:
-        if line and line.startswith("E"):
+    for line in rows:
+        if line[0] == "E":
             return {
                 "changed": False,
-                "msg": "Error in agent plug-in output",
+                "msg": "Error in IPMI sensor output: %s" % " ".join(line[1:]),
                 "data": {
                     "state": "UNKNOWN",
                     "metrics": {},
-                    "details": ""
-                }
+                    "details": "",
+                },
             }
-
-    # Second pass: find the specific item
-    for line in lines:
-        parts = line.split("|") if line else []
-        if len(parts) < 3:
-            continue
-        name = parts[0].strip()
-        status_raw = parts[2].strip()
-        if name == item and status_raw in ["00", "01", "02", "03", "04", "05"]:
-            status_idx = int(status_raw)
-            state, summary = _fsc_ipmi_mem_status_levels[status_idx]
+        if line[1] == item:
+            code = int(line[2])
+            label = _status_label(code)
+            state = _state_for(code)
             return {
                 "changed": False,
-                "msg": summary,
+                "msg": label,
                 "data": {
                     "state": state,
                     "metrics": {},
-                    "details": ""
-                }
+                    "details": "",
+                },
             }
 
     return {
@@ -80,6 +56,62 @@ def main(ctx, params):
         "data": {
             "state": "UNKNOWN",
             "metrics": {},
-            "details": ""
-        }
+            "details": "",
+        },
     }
+
+
+def _gather(ctx):
+    probe = ctx.run(
+        ["ipmitool", "sensor", "list", "memory"],
+        mutates=False,
+    )
+    if probe.rc == 127:
+        return None
+    if not probe.stdout:
+        probe = ctx.run(
+            ["ipmitool", "sdr", "list", "memory"],
+            mutates=False,
+        )
+        if not probe.stdout:
+            return None
+
+    rows = []
+    for line in probe.stdout.splitlines():
+        parts = line.split()
+        if parts and parts[0] == "E":
+            rows.append(parts)
+            continue
+        if len(parts) >= 3:
+            rows.append(parts)
+    return rows
+
+
+def _status_label(code):
+    table = {
+        0: "Empty slot",
+        1: "OK, running",
+        2: "Reserved",
+        3: "Error (module has encountered errors, but is still in use)",
+        4: "Fail (module has encountered errors and is therefore disabled)",
+        5: "Prefail (module exceeded the correctable errors threshold)",
+    }
+    return table.get(code, "Unknown status code %d" % code)
+
+
+def _state_for(code):
+    # 00 = Empty slot -> OK (slot present but unused)
+    # 01 = OK, running -> OK
+    # 02 = Reserved -> OK
+    # 03 = Error -> CRIT
+    # 04 = Fail -> CRIT
+    # 05 = Prefail -> WARN
+    mapping = {
+        0: "OK",
+        1: "OK",
+        2: "OK",
+        3: "CRIT",
+        4: "CRIT",
+        5: "WARN",
+    }
+    return mapping.get(code, "UNKNOWN")

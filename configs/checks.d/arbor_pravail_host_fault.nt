@@ -2,30 +2,19 @@ name: arbor_pravail_host_fault
 fqcn: checkmk.arbor_pravail_host_fault
 collection: checkmk
 short_description: Host Fault
-description:
-    > ## Overview
-    > This check monitors hardware fault conditions on an Arbor network appliance host via SNMP, reporting critical if any fault is detected.
-    >
-    > ## What it monitors
-    > - Host-level hardware fault status reported by the appliance (e.g., fan failure, power supply issue, temperature fault)
-    >
-    > ## How it works
-    > The check performs a single SNMP walk query (SNMP v2c, community `public`, localhost) against OID `.1.3.6.1.4.1.9694.1.6.2.1.0`. The response is parsed as a STRING value; if it equals `"No Fault"`, the state is OK, otherwise CRIT. Discovery always yields one service item `""`.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - **OK**: Host fault string is exactly `"No Fault"`.
-    > - **CRIT**: Host fault string is any non-empty string other than `"No Fault"`.
-    > - **UNKNOWN**: SNMP query fails or output format is unexpected.
-    >
-    > ## Metrics
-    > None.
+description: Checkmk check 'arbor_pravail_host_fault' (service: Host Fault), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Hardware & Sensors
+execution: snmp
+prompt_version: c21f0f5a7229

@@ -1,77 +1,100 @@
+# Checkmk check "solaris_services_summary" -> read-only Starlark check module.
+#
+# Monitors SMF (Service Management Facility) services on Solaris. The original
+# Checkmk solaris agent runs `svcs -H` and formats output into the
+# `<<<solaris_services>>>` section. Since this translation runs on our agent
+# (no Checkmk installed), we read the SAME on-host source the Checkmk agent
+# reads: the `svcs` command.
+
+def _empty_discovery():
+    return {"changed": False, "msg": "no SMF services found",
+            "data": {"discovery": []}}
+
+
+def _count_summary(count):
+    if count == 1:
+        return "1 service"
+    return "%d services" % count
+
+
+def _state_label(svc_state):
+    return svc_state.replace("_", " ")
+
+
+def _grade_state(svc_state, maint_names, maint_state):
+    if svc_state == "maintenance" and maint_state and maint_names:
+        return maint_state, " (%s)" % ", ".join(maint_names)
+    return 0, ""
+
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["svcs", "-a", "-H"], mutates=False)
-        services = []
-        for line in res.stdout.splitlines():
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            state, stime, fmri = parts[0], parts[1], parts[2]
-            services.append({
-                "item": "",
-                "params": {},
-                "metrics": []
-            })
-        return {
-            "changed": False,
-            "msg": "discovered SMF services summary",
-            "data": {"discovery": services if services else []}
-        }
-    
-    res = ctx.run(["svcs", "-a", "-H"], mutates=False)
-    services = []
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        state, stime, fmri = parts[0], parts[1], parts[2]
-        services.append({
-            "state": state,
-            "stime": stime,
-            "fmri": fmri
-        })
-    
-    count = len(services)
+        probe = ctx.run(["svcs", "-H"], mutates=False)
+        if probe.rc != 0:
+            return _empty_discovery()
+        return {"changed": False, "msg": "discovered SMF services summary",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}
+                ]}}
+
+    item = params.get("item", "")
+
+    probe = ctx.run(["svcs", "-H"], mutates=False)
+    if probe.rc != 0:
+        return {"changed": False,
+                "msg": "no SMF services found (svcs unavailable)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    out = probe.stdout
+    if not out or not out.strip():
+        return {"changed": False,
+                "msg": "no SMF services found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     services_by_state = {}
-    for svc in services:
-        state = svc["state"]
-        if state not in services_by_state:
-            services_by_state[state] = []
-        services_by_state[state].append(svc)
-    
-    msg_parts = []
-    msg_parts.append("%d service%s" % (count, "" if count == 1 else "s"))
-    
-    state_order = ["online", "disabled", "legacy_run", "maintenance"]
-    result_state = "OK"
-    
-    for svc_state in state_order:
-        if svc_state not in services_by_state:
+    total = 0
+    for line in out.split("\n"):
+        stripped = line.strip()
+        if not stripped:
             continue
-        svc_names = services_by_state[svc_state]
-        state_code = 0
-        extra_info = ""
-        if svc_state == "maintenance":
-            maintenance_state = params.get("maintenance_state", 0)
-            if maintenance_state != 0:
-                extra_info = " (%s)" % ", ".join([s["fmri"] for s in svc_names])
-                state_code = maintenance_state
-        
-        state_label = svc_state.replace("_", " ")
-        msg_parts.append("%d %s%s" % (len(svc_names), state_label, extra_info))
-        
-        if state_code > 0 and result_state != "CRIT":
-            if state_code == 2:
-                result_state = "CRIT"
-            elif state_code == 1:
-                result_state = "WARN"
-    
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": result_state,
-            "metrics": {"services_total": count},
-            "details": ""
-        }
-    }
+        fields = stripped.split()
+        if len(fields) < 3:
+            continue
+        svc_state = fields[1]
+        svc_descr = fields[-1]
+        total = total + 1
+        lst = services_by_state.get(svc_state, [])
+        lst.append(svc_descr)
+        services_by_state[svc_state] = lst
+
+    maint_state = params.get("maintenance_state", 0)
+
+    summary_line = _count_summary(total)
+    details_lines = [summary_line]
+    top_state_num = 0
+
+    states = sorted(services_by_state.keys())
+    for svc_state in states:
+        names = services_by_state[svc_state]
+        grade, extra = _grade_state(svc_state, names, maint_state)
+        label = _state_label(svc_state)
+        line = "%d %s%s" % (len(names), label, extra)
+        details_lines.append(line)
+        if grade > top_state_num:
+            top_state_num = grade
+
+    if top_state_num >= 2:
+        verdict = "CRIT"
+    elif top_state_num >= 1:
+        verdict = "WARN"
+    else:
+        verdict = "OK"
+
+    combined = "; ".join(details_lines)
+    return {"changed": False,
+            "msg": combined,
+            "data": {
+                "state": verdict,
+                "metrics": {},
+                "details": combined,
+            }}

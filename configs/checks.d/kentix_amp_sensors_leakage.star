@@ -1,130 +1,101 @@
 def main(ctx, params):
-    # Discovery mode: enumerate sensors by walking the SNMP tree
     if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", "public")
-        base_oid = ".1.3.6.1.4.1.37954.1"
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
+        res = ctx.run([
+            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
+            "-Oqn", "-On", "-IR",
+            params.get("host", "localhost"),
+            ".1.3.6.1.4.1.37954.1.2",
+        ], mutates=False)
         if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []},
-            }
+            return {"changed": False, "msg": "no kentix device found",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-        # Extract sensor names from OID .1.3.6.1.4.1.37954.1.2.7.1.<instance>
-        sensor_items = []
+        sensors = {}
         for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
+            sp = line.split(" ", 1)
+            if len(sp) != 2:
                 continue
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
+            oid, value = sp
+            rest = oid[len(".1.3.6.1.4.1.37954.1.2."):]
+            parts = rest.split(".")
+            if len(parts) < 2:
                 continue
-            oid_part = parts[0].strip()
-            # Sensor name OID: .1.3.6.1.4.1.37954.1.2.7.1.<instance>
-            if oid_part.startswith(".1.3.6.1.4.1.37954.1.2.7.1."):
-                sensor_name = parts[1].strip().strip('"')
-                if sensor_name:
-                    sensor_items.append({
-                        "item": sensor_name,
-                        "params": {},
-                        "metrics": [],
-                    })
+            sensor_idx = parts[0]
+            col = parts[1]
+            if not sensor_idx or not col:
+                continue
+            if col == "2":
+                sensors.setdefault(sensor_idx, {})["name"] = value
+        if not sensors:
+            return {"changed": False, "msg": "no kentix sensors found",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d leakage sensors" % len(sensor_items),
-            "data": {"discovery": sensor_items},
-        }
+        out = []
+        for idx in sensors:
+            name = sensors[idx].get("name", idx)
+            out.append({"item": name, "params": {}, "metrics": ["leakage"]})
+        return {"changed": False,
+                "msg": "discovered %d leakage sensors" % len(out),
+                "data": {"discovery": out,
+                         "host_labels": {"cmk/snmp": "yes"}}}
 
-    # Check mode: check one sensor's leakage state
     item = params.get("item", "")
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-    # OID for leakage state: .1.3.6.1.4.1.37954.1.2.7.7.<instance>
-    # We must discover the instance number for the given item name first.
-    # First, get the sensor name OID to find the instance index.
-    name_oid_prefix = ".1.3.6.1.4.1.37954.1.2.7.1."
-    res_names = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, name_oid_prefix], mutates=False)
-    if res_names.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to query sensor names",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if not item:
+        return {"changed": False, "msg": "no leakage sensor item given",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Build a map from sensor name to instance index (the trailing number)
-    name_to_instance = {}
-    for line in res_names.stdout.splitlines():
-        line = line.strip()
-        if not line:
+    base = ".1.3.6.1.4.1.37954.1.2.7"
+    name_res = ctx.run([
+        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", "-On",
+        params.get("host", "localhost"),
+        ".1.3.6.1.4.1.37954.1.2.7.1",
+    ], mutates=False)
+    if name_res.rc != 0 or not name_res.stdout.strip():
+        return {"changed": False, "msg": "no kentix sensors found",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "kentix device not reachable"}}
+
+    found_idx = None
+    for line in name_res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) != 2:
             continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip().strip('"')
-        if oid_part.startswith(name_oid_prefix):
-            instance_str = oid_part[len(name_oid_prefix):]
-            # instance_str should be a positive integer
-            if instance_str.isdigit():
-                name_to_instance[value_part] = instance_str
+        oid, value = sp
+        rest = oid[len(base + ".1."):]
+        parts = rest.split(".")
+        sensor_idx = parts[0] if parts else ""
+        if value == item or sensor_idx == item:
+            found_idx = sensor_idx
+            break
+    if found_idx == None:
+        return {"changed": False, "msg": "no such leakage sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Find the instance index for this item
-    if item not in name_to_instance:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    instance = name_to_instance[item]
-    leakage_oid = ".1.3.6.1.4.1.37954.1.2.7.7." + instance
-    res_leak = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, leakage_oid], mutates=False)
-    if res_leak.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to query leakage state",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    leak_res = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-Oqv", "-On",
+        params.get("host", "localhost"),
+        base + ".7." + found_idx,
+    ], mutates=False)
+    if leak_res.rc != 0 or not leak_res.stdout.strip():
+        return {"changed": False, "msg": "could not read leakage value",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "no leakage data returned"}}
 
-    # Parse the result: "OID = INTEGER: <value>"
-    value = None
-    for line in res_leak.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if " = " in line:
-            parts = line.split(" = ", 1)
-            value_str = parts[1].strip()
-            # Expect "INTEGER: <n>" or just "<n>"
-            if value_str.startswith("INTEGER: "):
-                value_str = value_str[len("INTEGER: "):]
-            if value_str.isdigit():
-                value = int(value_str)
-                break
-
-    if value == None:
-        return {
-            "changed": False,
-            "msg": "failed to parse leakage value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # State logic: 0 = OK, >0 = CRIT (alarm or disconnected)
-    if value > 0:
+    raw = leak_res.stdout.strip()
+    digits = raw.lstrip("-")
+    if not digits.isdigit():
+        return {"changed": False, "msg": "invalid leakage value: " + raw,
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": ""}}
+    leakage = int(raw)
+    if leakage > 0:
         state = "CRIT"
         summary = "Alarm or disconnected"
     else:
         state = "OK"
         summary = "Connected"
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
-    }
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {"leakage": leakage},
+                     "details": summary}}

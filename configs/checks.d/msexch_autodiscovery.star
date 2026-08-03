@@ -1,102 +1,77 @@
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(["wmic", "path", "Win32_PerfRawData_MicrosoftExchangeAutodiscovery", "get", "RequestsPersec", "/value"], mutates=False)
-        # Check if we got data (exit code 0 means WMI query succeeded)
-        if res.rc == 0 and res.stdout.strip():
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {},
-                            "metrics": ["requests_per_sec"]
-                        }
-                    ]
-                }
-            }
-        # Alternative approach: try the default Exchange WMI class
-        res = ctx.run(["wmic", "path", "Win32_PerfRawData_MicrosoftExchangeAutodiscovery_Autodiscovery", "get", "RequestsPersec", "/value"], mutates=False)
-        if res.rc == 0 and res.stdout.strip():
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {},
-                            "metrics": ["requests_per_sec"]
-                        }
-                    ]
-                }
-            }
-        # Check for any Exchange Autodiscovery WMI class
-        res = ctx.run(["wmic", "path", "Win32_PerfRawData", "get", "name", "/value"], mutates=False)
-        if res.rc == 0 and "Autodiscovery" in res.stdout:
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {},
-                            "metrics": ["requests_per_sec"]
-                        }
-                    ]
-                }
-            }
-        return {
-            "changed": False,
-            "msg": "discovered 0 items",
-            "data": {"discovery": []}
-        }
+        # Probe for WMI capability - this is a Windows WMI check
+        # On a Linux host, WMI is not available, so this check does not apply
+        res = ctx.run(["wmic", "os", "get", "Caption"], mutates=False)
+        if res.rc == 127:
+            # wmic not installed - not a Windows host with WMI
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        if res.rc != 0:
+            # WMI present but error - treat as not applicable
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        # wmic works - this is a Windows host, but Exchange Autodiscovery
+        # WMI class is very specific; check for it
+        exch = ctx.run(["wmic", "process", "where", "name='w3wp.exe'", "get", "processid"],
+                       mutates=False)
+        if exch.rc != 0 or not exch.stdout.strip():
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        # Exchange Autodiscovery - single service check with item ""
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": ["requests_per_sec"]}
+                ]}}
     
-    # Check mode
-    # Try different possible WMI class names for Exchange Autodiscovery
-    wmi_classes = [
-        "Win32_PerfRawData_MicrosoftExchangeAutodiscovery",
-        "Win32_PerfRawData_MicrosoftExchangeAutodiscovery_Autodiscovery"
-    ]
+    # Check mode - query the WMI table for Exchange Autodiscovery RequestsPersec
+    item = params.get("item", "")
+    res = ctx.run(["wmic", "path", "Win32_PerfRawData_MSExchangeAutodiscover_Server",
+                   "get", "Name,RequestsPersec"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "WMI not available (wmic not installed)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "WMI query failed or Exchange Autodiscovery not found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    requests_per_sec = None
+    lines = res.stdout.splitlines()
+    if len(lines) < 2:
+        return {"changed": False, "msg": "no Exchange Autodiscovery data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    for wmi_class in wmi_classes:
-        res = ctx.run(["wmic", "path", wmi_class, "get", "RequestsPersec", "/value"], mutates=False)
-        if res.rc == 0 and res.stdout.strip():
-            # Parse the value from "RequestsPersec=<number>"
-            for line in res.stdout.splitlines():
-                line = line.strip()
-                if line.startswith("RequestsPersec="):
-                    val_str = line.split("=", 1)[1].strip()
-                    if val_str.isdigit():
-                        requests_per_sec = int(val_str)
-                        break
-        if requests_per_sec != None:
-            break
+    # Look for _Total row
+    total_value = None
+    for line in lines[1:]:
+        parts = line.split()
+        if len(parts) >= 2:
+            name = parts[0]
+            value_str = parts[1]
+            if name in ["_Total", "__Total__", "_Global"]:
+                total_value = value_str
+                break
     
-    # If WMI query failed or no data, return UNKNOWN
-    if requests_per_sec == None:
-        return {
-            "changed": False,
-            "msg": "Exchange Autodiscovery data not available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    if total_value == None:
+        return {"changed": False, "msg": "no total instance found in Exchange Autodiscovery",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    # Return the metric value
-    return {
-        "changed": False,
-        "msg": "Requests/sec: %d" % requests_per_sec,
-        "data": {
-            "state": "OK",
-            "metrics": {"requests_per_sec": requests_per_sec},
-            "details": ""
-        }
-    }
+    # Parse the value
+    if not total_value.isdigit():
+        return {"changed": False, "msg": "invalid RequestsPersec value: %s" % total_value,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    rate = int(total_value)
+    
+    # No thresholds defined in the check
+    warn = params.get("warn", 0)
+    crit = params.get("crit", 0)
+    
+    state = "OK"
+    if crit > 0 and rate >= crit:
+        state = "CRIT"
+    elif warn > 0 and rate >= warn:
+        state = "WARN"
+    
+    return {"changed": False,
+            "msg": "Exchange Autodiscovery Requests/sec: %d" % rate,
+            "data": {"state": state, "metrics": {"requests_per_sec": rate}, "details": ""}}

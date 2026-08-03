@@ -1,240 +1,189 @@
-# ===== translated check: cmk.cmctc_lcp_position =====
-# Sensor type: position (no levels, returns raw percentage position value)
-# SNMP OIDs: base .1.3.6.1.4.1.2606.4.2.{tree}, oids: 5.2.1.1-8, 7.2.1.2
+# ===== checkmk.cmctc_lcp_position → read-only Starlark check module =====
+# Position sensor check for Rittal CMCTC LCP. SNMP-based.
 
-_MAP_STATUS = {
-    "1": ["not available", 3],
-    "2": ["lost", 2],
-    "3": ["changed", 1],
-    "4": ["ok", 0],
-    "5": ["off", 2],
-    "6": ["on", 0],
-    "7": ["warning", 1],
-    "8": ["too low", 2],
-    "9": ["too high", 2],
-    "10": ["error", 2],
+SENSOR_TYPE = "position"
+
+_MAP_SENSOR_STATE = {
+    "1": (3, "not available"),
+    "2": (2, "lost"),
+    "3": (1, "changed"),
+    "4": (0, "ok"),
+    "5": (2, "off"),
+    "6": (0, "on"),
+    "7": (1, "warning"),
+    "8": (2, "too low"),
+    "9": (2, "too high"),
+    "10": (2, "error"),
 }
 
-def _round(x):
-    # Starlark has no round() - implement simple rounding
-    if x >= 0:
-        return int(x + 0.5) if (x - int(x)) >= 0.5 else int(x)
-    else:
-        return int(x - 0.5) if (x - int(x)) <= -0.5 else int(x)
+_MAP_UNIT = {
+    "position": "°C",
+}
 
-def _build_section(snmp_data):
-    """Build section dict from parsed SNMP data"""
-    # cmctc_lcp sensors map ( typeid -> (item_prefix, type_) )
-    sensors_map = {
-        "32": [None, "position"],
-    }
-    section = {}
-    for tree, block in zip(["3", "4", "5", "6"], snmp_data):
-        for entry in block:
-            # Expected layout: [index, typeid, status, reading, high, low, warn, description]
-            if len(entry) < 8:
-                continue
-            idx, typeid, status, reading, high, low, warn, desc = entry
-            if typeid not in sensors_map:
-                continue
-            prefix, stype = sensors_map[typeid]
-            item = prefix + " - " + tree + "." + idx if prefix else tree + "." + idx
-            section[item] = {
-                "status": status,
-                "reading": float(reading),
-                "high": float(high),
-                "low": float(low),
-                "warn": float(warn),
-                "description": desc,
-                "type_": stype,
-            }
-    return section
+_BASE_OID = ".1.3.6.1.4.1.2606.4.2"
+_TREES = ["3", "4", "5", "6"]
 
-def _discover(section):
-    out = []
-    for item, sensor in section.items():
-        if sensor["type_"] == "position":
-            out.append({"item": item, "params": {}, "metrics": ["position"]})
-    return out
+_COL_INDEX = "5.2.1.1"
+_COL_TYPEID = "5.2.1.2"
+_COL_STATUS = "5.2.1.4"
+_COL_READING = "5.2.1.5"
+_COL_HIGH = "5.2.1.6"
+_COL_LOW = "5.2.1.7"
+_COL_WARN = "5.2.1.8"
+_COL_DESCRIPTION = "7.2.1.2"
 
-def _check(item, params, section):
-    # Checkmk default: no params (no user-defined thresholds for position)
-    if item not in section:
-        return {
-            "changed": False,
-            "msg": "item not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+_CMCTC_LCP_SENSORS = {
+    "32": (None, "position"),
+}
+
+STATE_MAP = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+
+
+def _to_float(v):
+    f = float(v)
+    return f
+
+
+def _to_int(v):
+    return int(float(v))
+
+
+def _snmp_walk(ctx, params, oid):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid], mutates=False)
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        rows.append((line[:sp], line[sp + 1:].strip()))
+    return rows
+
+
+def _probe_cmctc(ctx, params):
+    sensors = {}
+    for tree in _TREES:
+        base = _BASE_OID + "." + tree
+        cols = {
+            "index": _COL_INDEX,
+            "typeid": _COL_TYPEID,
+            "status": _COL_STATUS,
+            "reading": _COL_READING,
+            "high": _COL_HIGH,
+            "low": _COL_LOW,
+            "warn": _COL_WARN,
+            "description": _COL_DESCRIPTION,
         }
-    sensor = section[item]
-    status_str = str(sensor["status"])
-    desc_text = sensor["description"]
-    reading = _round(sensor["reading"])
-    status_info, status_code = [0, 0]
-    if status_str in _MAP_STATUS:
-        status_info = _MAP_STATUS[status_str][0]
-        status_code = _MAP_STATUS[status_str][1]
-    else:
-        status_info = "UNKNOWN"
-        status_code = 3
+        col_values = {}
+        for key in cols:
+            col_values[key] = {}
+        for key, col_oid in cols.items():
+            full_oid = base + "." + col_oid
+            for oid_str, value in _snmp_walk(ctx, params, full_oid):
+                idx = oid_str[len(full_oid) + 1:]
+                col_values[key][idx] = value
 
-    # Build infotext with description
-    infotext = ""
-    if desc_text:
-        infotext = "[" + desc_text + "] "
+        for idx, typeid in col_values["typeid"].items():
+            spec = _CMCTC_LCP_SENSORS.get(typeid)
+            if spec == None:
+                continue
+            prefix, type_key = spec
+            if type_key != SENSOR_TYPE:
+                continue
+            if prefix:
+                item = prefix + " - " + tree + "." + idx
+            else:
+                item = tree + "." + idx
 
-    # Primary result: state and reading
-    summary = infotext + str(reading)
+            reading_val = col_values["reading"].get(idx, "0")
+            reading = _to_float(reading_val) if reading_val != "" else 0.0
+            high_val = col_values["high"].get(idx, "0")
+            high = _to_float(high_val) if high_val != "" else 0.0
+            low_val = col_values["low"].get(idx, "0")
+            low = _to_float(low_val) if low_val != "" else 0.0
+            warn_val = col_values["warn"].get(idx, "0")
+            warn = _to_float(warn_val) if warn_val != "" else 0.0
 
-    # Secondary result: extra info for status and levels
-    extra_info = ""
-    extra_state = 0
-    if status_code != 0:
-        extra_state = status_code
-        extra_info = status_info
+            sensors[item] = {
+                "status": col_values["status"].get(idx, ""),
+                "reading": reading,
+                "high": high,
+                "low": low,
+                "warn": warn,
+                "description": col_values["description"].get(idx, ""),
+                "type_": type_key,
+            }
+    return sensors
 
-    state = "CRIT" if extra_state == 2 else ("WARN" if extra_state == 1 else "OK")
-    return {
-        "changed": False,
-        "msg": summary + (" (" + extra_info + ")" if extra_info else ""),
-        "data": {
-            "state": state,
-            "metrics": {"position": reading},
-            "details": extra_info,
-        },
-    }
+
+def _detect_cmctc(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if res.rc == 127:
+        return False
+    if res.rc != 0:
+        return False
+    val = res.stdout.strip()
+    if ".1.3.6.1.4.1.2606.4" in val:
+        return True
+    return False
+
 
 def main(ctx, params):
+    if not _detect_cmctc(ctx, params):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no Rittal CMCTC device found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "no Rittal CMCTC device found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     if params.get("_discover"):
-        # Gather data via snmpwalk
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2606.4.2"
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "snmpwalk failed",
-                "data": {"discovery": []}
-            }
-        # Parse into per-tree blocks (4 trees: 3,4,5,6)
-        lines = res.stdout.splitlines()
-        trees = ["3", "4", "5", "6"]
-        tree_blocks = {"3": [], "4": [], "5": [], "6": []}
-        current_tree = None
-        for line in lines:
-            if "=" not in line:
-                continue
-            oid_part, val_part = line.rstrip().rsplit("=", 1)
-            # Extract tree from OID prefix
-            oid_tokens = oid_part.strip().split(".")
-            if len(oid_tokens) < 1:
-                continue
-            base_oid = ".".join(oid_tokens[:-1])
-            tree = None
-            for t in trees:
-                if base_oid.startswith(".1.3.6.1.4.1.2606.4.2." + t):
-                    tree = t
-                    break
-            if not tree:
-                continue
-            # Parse value line (TYPE: value, ...)
-            parts = val_part.strip().split()
-            if len(parts) < 2:
-                continue
-            val = parts[1].strip()
-            # Extract index from OID
-            index = oid_tokens[-1]
-            tree_blocks[tree].append([index, val])
+        sensors = _probe_cmctc(ctx, params)
+        discovery = []
+        for item, sensor in sensors.items():
+            discovery.append({"item": item, "params": {}, "metrics": [SENSOR_TYPE]})
+        return {"changed": False, "msg": "discovered %d position sensors" % len(discovery), "data": {"discovery": discovery}}
 
-        # Group into full rows (8 columns) per tree
-        # Each row is: index, typeid, status, reading, high, low, warn, description
-        # snmpwalk gives interleaved OIDs; we need to group by index
-        # Map OID suffix to list of (oid_idx, value)
-        oid_map = {}
-        for tree in trees:
-            for entry in tree_blocks[tree]:
-                idx, val = entry
-                key = tree + "." + idx
-                oid_map.setdefault(key, []).append(val)
-
-        # Reconstruct rows: for each key, get 8 values in order
-        snmp_data = []
-        for tree in trees:
-            block = []
-            for key, values in sorted(oid_map.items()):
-                if not key.startswith(tree + "."):
-                    continue
-                # We need 8 values per entry
-                if len(values) == 8:
-                    block.append(values)
-            if block:
-                snmp_data.append(block)
-
-        section = _build_section(snmp_data)
-        discovery = _discover(section)
-        return {
-            "changed": False,
-            "msg": "discovered " + str(len(discovery)) + " items",
-            "data": {"discovery": discovery},
-        }
-
-    # Check mode
     item = params.get("item", "")
-    # Gather data same as discovery (no caching in Starlark)
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2606.4.2"
-    ], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "snmpwalk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    lines = res.stdout.splitlines()
-    tree_blocks = {"3": [], "4": [], "5": [], "6": []}
-    for line in lines:
-        if "=" not in line:
-            continue
-        oid_part, val_part = line.rstrip().rsplit("=", 1)
-        oid_tokens = oid_part.strip().split(".")
-        if len(oid_tokens) < 1:
-            continue
-        base_oid = ".".join(oid_tokens[:-1])
-        tree = None
-        for t in ["3", "4", "5", "6"]:
-            if base_oid.startswith(".1.3.6.1.4.1.2606.4.2." + t):
-                tree = t
-                break
-        if not tree:
-            continue
-        parts = val_part.strip().split()
-        if len(parts) < 2:
-            continue
-        val = parts[1].strip()
-        index = oid_tokens[-1]
-        tree_blocks[tree].append([index, val])
+    sensors = _probe_cmctc(ctx, params)
+    sensor = sensors.get(item)
+    if sensor == None:
+        return {"changed": False, "msg": "no such position sensor: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Group into rows (same logic as discovery)
-    oid_map = {}
-    for tree in ["3", "4", "5", "6"]:
-        for entry in tree_blocks[tree]:
-            idx, val = entry
-            key = tree + "." + idx
-            oid_map.setdefault(key, []).append(val)
+    st_info = _MAP_SENSOR_STATE.get(sensor["status"], (3, "unknown"))
+    state_num = st_info[0]
+    unit = _MAP_UNIT.get(sensor["type_"], "")
 
-    snmp_data = []
-    for tree in ["3", "4", "5", "6"]:
-        block = []
-        for key, values in sorted(oid_map.items()):
-            if not key.startswith(tree + "."):
-                continue
-            if len(values) == 8:
-                block.append(values)
-        if block:
-            snmp_data.append(block)
+    infotext = ""
+    if sensor["description"]:
+        infotext = "[" + sensor["description"] + "] "
+    infotext += "%d%s" % (_to_int(sensor["reading"]), unit)
 
-    section = _build_section(snmp_data)
-    return _check(item, params, section)
+    levels = params.get("levels", None)
+    extra_state = 0
+    extra_info = ""
+    metrics = {"position": sensor["reading"]}
+
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+        metrics = {"position": {"value": sensor["reading"], "levels": {"warn": warn, "crit": crit}}}
+        if sensor["reading"] >= crit:
+            extra_state = 2
+        elif sensor["reading"] >= warn:
+            extra_state = 1
+        if extra_state > 0:
+            extra_info = " (warn/crit at %d/%d%s)" % (_to_int(warn), _to_int(crit), unit)
+    else:
+        if sensor["warn"] != 0.0:
+            if sensor["reading"] >= sensor["warn"] or sensor["reading"] <= sensor["low"]:
+                extra_state = 2
+            extra_info = " (device crit at %d/%d%s)" % (_to_int(sensor["low"]), _to_int(sensor["warn"]), unit)
+
+    final_state = max(state_num, extra_state)
+    state_str = STATE_MAP.get(final_state, "UNKNOWN")
+
+    msg = infotext + extra_info
+    return {"changed": False, "msg": msg, "data": {"state": state_str, "metrics": metrics, "details": ""}}

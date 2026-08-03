@@ -1,105 +1,43 @@
-# Module-level constants
-CPU_UTIL_OID = ".1.3.6.1.4.1.15497.1.1.1.2"
-
 def main(ctx, params):
-    # Discovery mode: yield one service with empty item and default params
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {"util": (70.0, 80.0)},
-                        "metrics": ["util"]
-                    }
-                ]
-            }
-        }
-
-    # Check mode: fetch CPU utilization via SNMP
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        CPU_UTIL_OID
-    ], mutates=False)
+    community = params.get("community", "public")
+    oid = ".1.3.6.1.4.1.15497.1.1.1.2"
 
-    # Parse OID response: "<oid> = INTEGER: <value>"
-    stdout = res.stdout.strip()
-    if not stdout:
-        return {
-            "changed": False,
-            "msg": "no SNMP data received",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    # Probe for the real thing: SNMPv2-MIB::snmpUseNumericAddresses check is
+    # not available; instead detect the Cisco SMA device via the enterprise OID.
+    detect = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.15497.1.1.1"],
+        mutates=False,
+    )
+    if detect.rc == 127:
+        return {"changed": False, "msg": "discovery: not installed",
+                "data": {"discovery": []}}
+    if detect.rc != 0:
+        return {"changed": False, "msg": "discovery: device not present",
+                "data": {"discovery": []}}
 
-    # Extract value: split once on '=' then on ':' or ' '
-    parts = stdout.split("=")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "malformed SNMP response: " + stdout,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    if params.get("_discover"):
+        return {"changed": False, "msg": "discovered CPU utilization",
+                "data": {"discovery": [
+                    {"item": "", "params": {"util": (70.0, 80.0)}, "metrics": ["cpu_utilization"]}
+                ]}}
 
-    value_part = parts[1].strip()
-    # Handle common SNMP value formats: INTEGER: <num>, Gauge32: <num>, etc.
-    for prefix in ["INTEGER: ", "Gauge32: ", "Counter32: ", " "]:
-        if value_part.startswith(prefix):
-            value_part = value_part[len(prefix):].strip()
-            break
+    item = params.get("item", "")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return {"changed": False, "msg": "no snmpget installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "could not read CPU utilization",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Check if numeric
-    util_str = value_part.split()[0]  # Take first token in case of trailing text
-    if not util_str.replace(".", "", 1).isdigit():
-        return {
-            "changed": False,
-            "msg": "non-numeric CPU value: " + util_str,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    util = float(util_str)
-
-    # Extract thresholds from params with defaults
-    util_params = params.get("util", (70.0, 80.0))
-    warn = util_params[0] if len(util_params) > 0 else 70.0
-    crit = util_params[1] if len(util_params) > 1 else 80.0
-
-    # Determine state
-    if util >= crit:
-        state = "CRIT"
-    elif util >= warn:
-        state = "WARN"
-    else:
-        state = "OK"
-
-    # Build message
-    msg = "CPU utilization: %f%%" % util
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"util": util},
-            "details": ""
-        }
-    }
+    util = float(res.stdout.strip())
+    levels = params.get("util", (70.0, 80.0))
+    warn = levels[0]
+    crit = levels[1]
+    state = "CRIT" if util >= crit else ("WARN" if util >= warn else "OK")
+    return {"changed": False, "msg": "CPU utilization: %f%%" % util,
+            "data": {"state": state, "metrics": {"cpu_utilization": util}, "details": ""}}

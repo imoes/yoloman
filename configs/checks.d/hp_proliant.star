@@ -1,4 +1,13 @@
-# Mapping for status codes
+def _snmp_get(ctx, params, oid_suffix):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                   "1.3.6.1.4.1." + oid_suffix], mutates=False)
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
 _MAP_STATES = {
     "1": ("UNKNOWN", "unknown"),
     "2": ("OK", "OK"),
@@ -6,47 +15,40 @@ _MAP_STATES = {
     "4": ("CRIT", "failed"),
 }
 
+
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: yield a single service for the host
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
+        sysOid = _snmp_get(ctx, params, "2.1.1.2.0")
+        if sysOid == None or sysOid == "":
+            return {"changed": False, "msg": "not an HP ProLiant",
+                    "data": {"discovery": [], "host_labels": {}}}
+        is_hp = ("8072.3.2.10" in sysOid) or ("232.9.4.10" in sysOid)
+        if not is_hp and not ("311.1.1.3.1.2" in sysOid):
+            return {"changed": False, "msg": "not an HP ProLiant",
+                    "data": {"discovery": [], "host_labels": {}}}
+        status = _snmp_get(ctx, params, "232.11.1.3.0")
+        if status == None or status == "":
+            return {"changed": False, "msg": "HP ProLiant MIB missing",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}],
+                         "host_labels": {"cmk/hp_proliant": "yes"}}}
 
-    # Check mode: fetch data via SNMP (simulated via ctx.run for Checkmk-style agent output)
-    # For Checkmk-style checks, we assume ctx.run returns SNMP-style output as per agent section
-    res = ctx.run(["snmpget", "-Ovq", "-v2c", "-c", "public", "localhost", ".1.3.6.1.4.1.232.11.1.3.0", ".1.3.6.1.4.1.232.11.2.14.1.1.5.0", ".1.3.6.1.4.1.232.2.2.2.1.0"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    lines = res.stdout.splitlines()
-    if len(lines) < 3:
-        return {
-            "changed": False,
-            "msg": "incomplete SNMP data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Extract values in order: status, firmware, serial
-    status_raw = lines[0].strip() if lines[0].strip() else "1"
-    firmware = lines[1].strip() if lines[1].strip() else "unknown"
-    serial = lines[2].strip() if lines[2].strip() else "unknown"
-
-    # Map status
-    state, state_readable = _MAP_STATES.get(status_raw, ("UNKNOWN", "unhandled[" + status_raw + "]"))
-
-    return {
-        "changed": False,
-        "msg": "Status: %s, Firmware: %s, S/N: %s" % (state_readable, firmware, serial),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
-    }
+    status = _snmp_get(ctx, params, "232.11.1.3.0")
+    firmware = _snmp_get(ctx, params, "232.11.2.14.1.1.5.0")
+    serial = _snmp_get(ctx, params, "232.2.2.2.1.0")
+    if status == None or status == "":
+        return {"changed": False, "msg": "no HP ProLiant status available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    entry = _MAP_STATES.get(status)
+    if entry == None:
+        state = "UNKNOWN"
+        readable = "unhandled[" + str(status) + "]"
+    else:
+        state = entry[0]
+        readable = entry[1]
+    fw = firmware if firmware != None else ""
+    sn = serial if serial != None else ""
+    summary = "Status: " + readable + ", Firmware: " + fw + ", S/N: " + sn
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {}, "details": ""}}

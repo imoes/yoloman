@@ -1,66 +1,124 @@
-# ===== constants (top level, required by Starlark) =====
+# Checkmk check: cephosdbluefs_slow
+# Translated to a read-only Starlark check module for the yolo-man agent.
+#
+# This check monitors the Ceph BlueFS "slow" device (the slow/main device)
+# of a single OSD. It reproduces the discovery + core threshold logic of
+# the Checkmk `cephosdbluefs_slow` plugin.
+#
+# Data source (not Checkmk): on a host that runs Ceph OSDs, the BlueFS
+# stats are exposed by `ceph daemon osd.<id> bluefs`. We use `ceph`
+# itself as the probe for "Ceph is on this host". If `ceph` is absent
+# (rc==127) or returns no OSDs, discovery returns an empty list and
+# check mode reports UNKNOWN.
+
 MIB = 1024.0 * 1024.0
 
-# ===== helper functions =====
-def _parse_bluefs(json_str):
-    if not json_str or json_str.strip() == "":
-        return {}
-    # Guard before json.decode: only proceed if we have non-empty input
-    # json.decode will fail() internally on invalid JSON, but that's acceptable
-    # because the agent output should always be well-formed if present
-    if not json_str or len(json_str.strip()) == 0:
-        return {}
-    data = json.decode(json_str)
-    if type(data) != "dict":
-        return {}
-    result = {}
-    for osdid, raw_inner in data.items():
-        if type(raw_inner) != "dict":
-            continue
-        bluefs = raw_inner.get("bluefs")
-        if bluefs == None or type(bluefs) != "dict":
-            continue
-        db_total_mb = float(bluefs.get("db_total_bytes", "0")) / MIB
-        db_used_mb = float(bluefs.get("db_used_bytes", "0")) / MIB
-        wal_total_mb = float(bluefs.get("wal_total_bytes", "0")) / MIB
-        wal_used_mb = float(bluefs.get("wal_used_bytes", "0")) / MIB
-        slow_total_mb = float(bluefs.get("slow_total_bytes", "0")) / MIB
-        slow_used_mb = float(bluefs.get("slow_used_bytes", "0")) / MIB
-        result[osdid] = {
-            "db_total_mb": db_total_mb,
-            "db_used_mb": db_used_mb,
-            "db_avail_mb": db_total_mb - db_used_mb,
-            "wal_total_mb": wal_total_mb,
-            "wal_used_mb": wal_used_mb,
-            "wal_avail_mb": wal_total_mb - wal_used_mb,
-            "slow_total_mb": slow_total_mb,
-            "slow_used_mb": slow_used_mb,
-            "slow_avail_mb": slow_total_mb - slow_used_mb,
-        }
-    return result
 
-def _check_filesystem_single(value_store, item, total_mb, avail_mb, *unused_args, **params):
-    # Reproduce df.df_check_filesystem_single behavior for the critical params:
-    # - levels_upper: warn, crit thresholds for used_percent
-    # - levels_lower: warn, crit thresholds for avail_percent (if present)
-    # We implement the core logic: determine used_percent, compare to warn/crit
+def _ceph_present(ctx):
+    res = ctx.run(["ceph", "--version"], mutates=False)
+    return res.rc == 0
 
-    used_mb = total_mb - avail_mb
+
+def _list_osds(ctx):
+    res = ctx.run(["ceph", "osd", "ls"], mutates=False)
+    if res.rc != 0:
+        return []
+    out = []
+    for line in res.stdout.split("\n"):
+        s = line.strip()
+        if s == "" or (s.lstrip("-").isdigit() == False):
+            continue
+        out.append(int(s))
+    return out
+
+
+def _bluefs_for_osd(ctx, osdid):
+    res = ctx.run(["ceph", "daemon", "osd." + str(osdid), "bluefs"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return None
+    return json.decode(res.stdout)
+
+
+def _pick_slow_osd(ctx, osds):
+    for oid in osds:
+        data = _bluefs_for_osd(ctx, oid)
+        if data == None:
+            continue
+        slow = data.get("slow")
+        if slow == None:
+            continue
+        total = float(slow.get("total_bytes", 0)) / MIB
+        if total > 0:
+            return oid
+    return None
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        if not _ceph_present(ctx):
+            return {"changed": False,
+                    "msg": "ceph not installed on this host",
+                    "data": {"discovery": []}}
+        osds = _list_osds(ctx)
+        out = []
+        for osdid in osds:
+            data = _bluefs_for_osd(ctx, osdid)
+            if data == None:
+                continue
+            slow = data.get("slow")
+            if slow == None:
+                continue
+            total = float(slow.get("total_bytes", 0)) / MIB
+            if total > 0:
+                out.append({"item": str(osdid),
+                            "params": {"warn": 80, "crit": 90},
+                            "metrics": ["used_percent"]})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
+
+    item = params.get("item", "")
+    if not _ceph_present(ctx):
+        return {"changed": False,
+                "msg": "ceph not installed on this host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    osdid = None
+    if item != "" and (item.lstrip("-").isdigit()):
+        osdid = int(item)
+    else:
+        osds = _list_osds(ctx)
+        osdid = _pick_slow_osd(ctx, osds)
+
+    if osdid == None:
+        return {"changed": False,
+                "msg": "no ceph slow bluefs device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    data = _bluefs_for_osd(ctx, osdid)
+    if data == None:
+        return {"changed": False,
+                "msg": "could not read bluefs stats for osd.%d" % osdid,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    slow = data.get("slow")
+    if slow == None:
+        return {"changed": False,
+                "msg": "osd.%d has no slow bluefs device" % osdid,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    total_mb = float(slow.get("total_bytes", 0)) / MIB
+    used_mb = float(slow.get("used_bytes", 0)) / MIB
     if total_mb <= 0:
-        return {"state": "UNKNOWN", "msg": "total size is zero", "metrics": {}}
+        return {"changed": False,
+                "msg": "osd.%s slow device has no capacity" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    avail_mb = total_mb - used_mb
     used_percent = (used_mb / total_mb) * 100.0
-    avail_percent = 100.0 - used_percent
 
-    warn = params.get("warn", None)
-    crit = params.get("crit", None)
-    # Checkmk default FILESYSTEM_DEFAULT_PARAMS uses levels_upper for warn/crit as percentages
-    # If warn/crit are None or not set, default thresholds are 80/90 (from Checkmk standard)
-    if warn == None:
-        warn = 80.0
-    if crit == None:
-        crit = 90.0
-
-    # Determine state based on used_percent (upper thresholds)
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
     if used_percent >= crit:
         state = "CRIT"
     elif used_percent >= warn:
@@ -68,99 +126,14 @@ def _check_filesystem_single(value_store, item, total_mb, avail_mb, *unused_args
     else:
         state = "OK"
 
-    # Format message like Checkmk: "Used: X.XX% (Y.YY MB of Z.ZZ MB), ...", but keep it simple
-    msg = "Size: %f MB, Used: %f%%" % (total_mb, used_percent)
-
-    # Build metrics: match df-style names
-    metrics = {
-        "used": used_mb,
-        "avail": avail_mb,
-        "size": total_mb,
-        "used_percent": used_percent,
-        "avail_percent": avail_percent,
+    return {
+        "changed": False,
+        "msg": "osd.%s slow %d MB total, %d MB used (%f%%), %d MB free" % (
+            item, total_mb, used_mb, used_percent, avail_mb),
+        "data": {
+            "state": state,
+            "metrics": {"used_percent": used_percent},
+            "details": "total=%dMB used=%dMB avail=%dMB" % (
+                total_mb, used_mb, avail_mb),
+        },
     }
-
-    return {"state": state, "msg": msg, "metrics": metrics}
-
-def main(ctx, params):
-    if params.get("_discover"):
-        # Fetch the ceph osd bluefs data via agent section: read the raw JSON file
-        # Agent section name is 'cephosdbluefs'; on-host it comes from agent output
-        # The Checkmk agent section is populated by the ceph command:
-        #   ceph --admin-daemon /run/ceph/$pid.asok bluefs info
-        # We'll use the standard way to get bluefs info: run the command as root
-        # Since we can't assume ceph is installed or accessible, fallback to agent file if present
-        # The Checkmk agent plugin fetches bluefs info via ceph socket; we replicate that.
-        # For compatibility, we try the ceph command; if it fails, return empty (no items).
-        res = ctx.run(["ceph", "--admin-daemon", "/run/ceph/ceph-osd.*.asok", "bluefs", "info"], mutates=False)
-        if res.rc != 0:
-            # Fallback: if ceph fails, assume no OSDs present -> return empty discovery
-            return {"changed": False, "msg": "discovered 0 OSDs", "data": {"discovery": []}}
-        # Guard before json.decode: only proceed if we have non-empty stdout
-        if not res.stdout or len(res.stdout.strip()) == 0:
-            return {"changed": False, "msg": "discovered 0 OSDs", "data": {"discovery": []}}
-        data = json.decode(res.stdout)
-        if type(data) != "dict":
-            return {"changed": False, "msg": "discovered 0 OSDs", "data": {"discovery": []}}
-        out = []
-        for osdid, raw_inner in data.items():
-            if type(raw_inner) != "dict":
-                continue
-            bluefs = raw_inner.get("bluefs")
-            if bluefs == None or type(bluefs) != "dict":
-                continue
-            slow_total_mb = float(bluefs.get("slow_total_bytes", "0")) / MIB
-            if slow_total_mb <= 0:
-                continue
-            # Suggest thresholds using Checkmk defaults (FILESYSTEM_DEFAULT_PARAMS)
-            out.append({
-                "item": osdid,
-                "params": {"warn": 80.0, "crit": 90.0},  # default levels_upper
-                "metrics": ["used_percent", "used", "avail", "size", "avail_percent"]
-            })
-        return {"changed": False, "msg": "discovered %d OSDs" % len(out), "data": {"discovery": out}}
-
-    # Check mode
-    item = params.get("item", "")
-    res = ctx.run(["ceph", "--admin-daemon", "/run/ceph/ceph-osd.%s.asok" % item, "bluefs", "info"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "osd %s not found or bluefs data unavailable" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    # Guard before json.decode: only proceed if we have non-empty stdout
-    if not res.stdout or len(res.stdout.strip()) == 0:
-        return {"changed": False, "msg": "osd %s not found or bluefs data unavailable" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    data = json.decode(res.stdout)
-    if type(data) != "dict":
-        return {"changed": False, "msg": "osd %s not found or bluefs data unavailable" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    raw_inner = data.get(item)
-    if type(raw_inner) != "dict":
-        return {"changed": False, "msg": "osd %s not found or bluefs data unavailable" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    bluefs = raw_inner.get("bluefs")
-    if bluefs == None or type(bluefs) != "dict":
-        return {"changed": False, "msg": "osd %s not found or bluefs data unavailable" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    slow_total_mb = float(bluefs.get("slow_total_bytes", "0")) / MIB
-    slow_used_mb = float(bluefs.get("slow_used_bytes", "0")) / MIB
-    slow_avail_mb = slow_total_mb - slow_used_mb
-
-    if slow_total_mb <= 0:
-        return {"changed": False, "msg": "osd %s: slow device size is zero" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Use the same df.df_check_filesystem_single logic as the original
-    result = _check_filesystem_single(
-        {},  # value_store (not used in Starlark here since we don't store historical data)
-        item,
-        slow_total_mb,
-        slow_avail_mb,
-        0,  # *unused_args
-        **params
-    )
-
-    state = result["state"]
-    msg = "Ceph OSD %s Slow: %s" % (item, result["msg"])
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": result["metrics"], "details": ""}}

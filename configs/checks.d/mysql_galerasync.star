@@ -1,90 +1,105 @@
-# Starlark module for Checkmk mysql_galerasync check (read-only)
-# Translates the Galera sync status check from the Checkmk MySQL plugin
+# Checkmk check: mysql_galerasync (MySQL Galera Sync %s)
+# Translated to a read-only Starlark check module for the yolo-man agent.
 
 def main(ctx, params):
-    # DISCOVERY MODE: enumerate all MySQL instances with Galera wsrep_provider
-    # and wsrep_local_state_comment present
     if params.get("_discover"):
-        # Run mysql command to fetch global status variables
-        res = ctx.run(["mysql", "-N", "-e", "SHOW STATUS LIKE 'wsrep_%'"], mutates=False)
-        if res.rc != 0:
-            # Agent not available or MySQL not running — no items discovered
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        
-        # Parse SHOW STATUS output: Variable_name<TAB>Value
-        data = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split("\t", 1)
-            if len(parts) == 2:
-                varname, value = parts
-                data[varname] = value
-        
-        # Check for Galera presence: wsrep_provider must be set (not "none") and
-        # wsrep_local_state_comment must exist
-        has_provider = data.get("wsrep_provider") not in ("", "none", None)
-        has_state = data.get("wsrep_local_state_comment") != None
-        
-        # Discover one service per MySQL instance (we have a single MySQL instance)
-        # In Checkmk, per-item parsing wraps each [[mysql]] section — here we treat
-        # the global status as one instance named "mysql"
-        if has_provider and has_state:
-            return {
-                "changed": False,
-                "msg": "discovered 1 Galera instance",
-                "data": {"discovery": [{"item": "mysql", "params": {}, "metrics": []}]},
-            }
-        return {
-            "changed": False,
-            "msg": "discovered 0 Galera instances",
-            "data": {"discovery": []},
-        }
-    
-    # CHECK MODE: inspect one item (always "mysql" in this case)
-    item = params.get("item", "")
-    if item != "mysql":
-        # Unexpected item — return UNKNOWN
-        return {
-            "changed": False,
-            "msg": "no such item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    res = ctx.run(["mysql", "-N", "-e", "SHOW STATUS LIKE 'wsrep_%'"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to retrieve Galera status",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    # Parse SHOW STATUS output
+        return _discover(ctx, params)
+    return _check(ctx, params)
+
+
+def _mysql_running(ctx):
+    res = ctx.run(["mysqladmin", "--version"], mutates=False)
+    return res.rc == 0
+
+
+def _mysql_vars(ctx):
+    if not _mysql_running(ctx):
+        return None
+    query = "SELECT GROUP_CONCAT(CONCAT(variable_name,'=',IFNULL(variable_value,''))) FROM (SELECT variable_name, variable_value FROM performance_schema.global_status WHERE variable_name LIKE 'wsrep_%' ORDER BY variable_name) s;"
+    cmd = ["mysql", "--batch", "--skip-column-names", "--raw", "-e", query]
+    res = ctx.run(cmd, mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return None
     data = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split("\t", 1)
-        if len(parts) == 2:
-            varname, value = parts
-            data[varname] = value
-    
-    # Check required keys: wsrep_provider and wsrep_local_state_comment
-    wsrep_local_state_comment = data.get("wsrep_local_state_comment")
-    
-    if wsrep_local_state_comment == None:
-        return {
-            "changed": False,
-            "msg": "Galera sync status not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    # State logic: Synced -> OK, else CRIT
-    state = "OK" if wsrep_local_state_comment == "Synced" else "CRIT"
-    
+    for token in res.stdout.splitlines():
+        token = token.strip()
+        if token == "":
+            continue
+        if "=" in token:
+            k, v = token.split("=", 1)
+            data[k.strip()] = v.strip()
+    return data
+
+
+def _galera_active(data):
+    if data == None:
+        return False
+    provider = data.get("wsrep_provider", "")
+    if provider == None:
+        return False
+    if provider == "none":
+        return False
+    if provider == "":
+        return False
+    return True
+
+
+def _discover(ctx, params):
+    if not _mysql_running(ctx):
+        return {"changed": False, "msg": "mysql not installed",
+                "data": {"discovery": []}}
+
+    data = _mysql_vars(ctx)
+    if not _galera_active(data):
+        return {"changed": False, "msg": "no Galera provider active",
+                "data": {"discovery": []}}
+
+    if "wsrep_local_state_comment" not in data:
+        return {"changed": False, "msg": "wsrep_local_state_comment missing",
+                "data": {"discovery": []}}
+
+    instance = "mysql"
     return {
         "changed": False,
-        "msg": "WSREP local state comment: " + wsrep_local_state_comment,
+        "msg": "discovered MySQL Galera sync status",
+        "data": {
+            "discovery": [
+                {
+                    "item": instance,
+                    "params": {},
+                    "metrics": [],
+                }
+            ]
+        },
+    }
+
+
+def _check(ctx, params):
+    if not _mysql_running(ctx):
+        return {"changed": False, "msg": "mysql not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    data = _mysql_vars(ctx)
+    if not _galera_active(data):
+        return {"changed": False, "msg": "no Galera provider active",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    comment = data.get("wsrep_local_state_comment")
+    if comment == None:
+        return {"changed": False, "msg": "wsrep_local_state_comment missing",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if comment == "Synced":
+        state = "OK"
+    else:
+        state = "CRIT"
+
+    return {
+        "changed": False,
+        "msg": "WSREP local state comment: %s" % comment,
         "data": {
             "state": state,
             "metrics": {},
-            "details": "",
+            "details": "wsrep_local_state_comment=%s" % comment,
         },
     }

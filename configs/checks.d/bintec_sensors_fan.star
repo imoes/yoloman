@@ -1,153 +1,111 @@
-# Module-level constants
-FAN_SENSOR_TYPE = "2"
+# ===== translated Starlark check module: bintec_sensors_fan =====
+# SNMP-based fan sensor check for Bintec devices.
+# Reads fan sensor RPM values from the SNMP table at .1.3.6.1.4.1.272.4.17.7.1.1.1
+# and grades them against lower threshold levels (warn, crit).
+# Discovery item = sensor_descr (the display name from OID column 3).
+# Other column OIDs are re-queried by the numeric table index.
+
+def _snmp_get(ctx, params, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), oid],
+        mutates=False)
+    if res.rc != 0:
+        return None
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"'):
+        val = val[1:-1]
+    return val
+
+def _snmp_walk(ctx, params, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+         "-Oqn", params.get("host", "localhost"), oid],
+        mutates=False)
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        rows.append((line[:sp], line[sp + 1:]))
+    return rows
+
+def _walk_column(ctx, params, base, col):
+    oid = base + "." + col
+    rows = _snmp_walk(ctx, params, oid)
+    out = []
+    for line_oid, val in rows:
+        idx = line_oid[len(oid) + 1:]
+        out.append((idx, val))
+    return out
+
+def _fetch_sensors(ctx, params):
+    base = ".1.3.6.1.4.1.272.4.17.7.1.1.1"
+    cols = {"descr": "3", "type": "4", "value": "5"}
+    descr_rows = _walk_column(ctx, params, base, cols["descr"])
+    type_rows = _walk_column(ctx, params, base, cols["type"])
+    value_rows = _walk_column(ctx, params, base, cols["value"])
+    by_idx = {}
+    for idx, val in descr_rows:
+        by_idx[idx] = {"descr": val, "type": None, "value": None}
+    for idx, val in type_rows:
+        if idx in by_idx:
+            by_idx[idx]["type"] = val
+    for idx, val in value_rows:
+        if idx in by_idx:
+            by_idx[idx]["value"] = val
+    return by_idx
 
 def main(ctx, params):
-    # Discovery mode
+    base = ".1.3.6.1.4.1.272.4.17.7.1.1.1"
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    sys_val = _snmp_get(ctx, params, sys_oid)
+    if sys_val == None:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not installed",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "bintec device not reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if not sys_val.startswith(".1.3.6.1.4.1.272.4"):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not a bintec device",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "not a bintec device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.272.4.17.7.1.1.1"
-        ], mutates=False)
-        
-        # Parse snmpwalk output: "<OID> = <TYPE>: <value>"
-        lines = res.stdout.splitlines() if res.stdout else []
-        section = []
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            if not line:
-                i += 1
-                continue
-            
-            # Each entry has 5 fields: .1.3.6.1.4.1.272.4.17.7.1.1.1.2 = STRING: "value"
-            # We need to group 5 consecutive lines for one sensor
-            entry_values = []
-            for j in range(5):
-                if i + j >= len(lines):
-                    break
-                entry_line = lines[i + j].strip()
-                # Extract value part after ": "
-                colon_pos = entry_line.rfind(": ")
-                if colon_pos == -1:
-                    continue
-                value_part = entry_line[colon_pos + 2:].strip()
-                # Remove quotes if present
-                if value_part.startswith('"') and value_part.endswith('"'):
-                    value_part = value_part[1:-1]
-                entry_values.append(value_part)
-            
-            if len(entry_values) == 5:
-                section.append(entry_values)
-                i += 5
-            else:
-                i += 1
-        
-        # Discover fans (sensor_type == "2")
-        out = []
-        for entry in section:
-            if len(entry) < 5:
-                continue
-            sensor_type = entry[2] if len(entry) > 2 else ""
-            sensor_descr = entry[1] if len(entry) > 1 else ""
-            if sensor_type == FAN_SENSOR_TYPE and sensor_descr:
-                out.append({
-                    "item": sensor_descr,
-                    "params": {"lower": (2000, 1000)},
-                    "metrics": ["rpm"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # Check mode
+        by_idx = _fetch_sensors(ctx, params)
+        disc = []
+        for idx in sorted(by_idx.keys()):
+            s = by_idx[idx]
+            if s["type"] == "2" and s["descr"] != None and s["value"] != None:
+                disc.append({"item": s["descr"],
+                             "params": {"lower": (2000, 1000)},
+                             "metrics": ["rpm"]})
+        return {"changed": False, "msg": "discovered %d fan sensors" % len(disc),
+                "data": {"discovery": disc}}
+
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.272.4.17.7.1.1.1"
-    ], mutates=False)
-    
-    lines = res.stdout.splitlines() if res.stdout else []
-    section = []
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if not line:
-            i += 1
-            continue
-        
-        entry_values = []
-        for j in range(5):
-            if i + j >= len(lines):
-                break
-            entry_line = lines[i + j].strip()
-            colon_pos = entry_line.rfind(": ")
-            if colon_pos == -1:
-                continue
-            value_part = entry_line[colon_pos + 2:].strip()
-            if value_part.startswith('"') and value_part.endswith('"'):
-                value_part = value_part[1:-1]
-            entry_values.append(value_part)
-        
-        if len(entry_values) == 5:
-            section.append(entry_values)
-            i += 5
-        else:
-            i += 1
-    
-    # Find the requested fan
-    for entry in section:
-        if len(entry) < 5:
-            continue
-        sensor_descr = entry[1] if len(entry) > 1 else ""
-        sensor_value = entry[3] if len(entry) > 3 else ""
-        
-        if sensor_descr == item:
-            # Parse rpm value - guard before conversion
-            if not sensor_value or not sensor_value.isdigit():
-                rpm = 0
-            else:
-                rpm = int(sensor_value)
-            
-            # Get thresholds from params
-            lower_warn, lower_crit = params.get("lower", (2000, 1000))
-            
-            # Determine state: lower levels -> WARN if <= warn, CRIT if <= crit
-            if rpm <= lower_crit:
-                state = "CRIT"
-            elif rpm <= lower_warn:
-                state = "WARN"
-            else:
-                state = "OK"
-            
-            msg = "%s at %d RPM" % (item, rpm)
-            return {
-                "changed": False,
-                "msg": msg,
-                "data": {
-                    "state": state,
-                    "metrics": {"rpm": rpm},
-                    "details": ""
-                }
-            }
-    
-    # Sensor not found
-    return {
-        "changed": False,
-        "msg": "Sensor " + item + " not found in SNMP data",
-        "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": ""
-        }
-    }
+    by_idx = _fetch_sensors(ctx, params)
+    sensor = None
+    for idx in by_idx:
+        s = by_idx[idx]
+        if s["descr"] == item and s["type"] == "2":
+            sensor = s
+            break
+    if sensor == None or sensor["value"] == None:
+        return {"changed": False, "msg": "fan sensor not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    rpm = int(sensor["value"])
+    lower = params.get("lower", (2000, 1000))
+    warn = lower[0]
+    crit = lower[1]
+    if rpm <= crit:
+        state = "CRIT"
+    elif rpm <= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+    return {"changed": False, "msg": "%s fan at %d rpm" % (item, rpm),
+            "data": {"state": state, "metrics": {"rpm": rpm}, "details": ""}}

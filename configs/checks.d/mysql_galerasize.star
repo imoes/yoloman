@@ -1,76 +1,95 @@
 def main(ctx, params):
     if params.get("_discover"):
-        # Run mysql command to get status variables
-        res = ctx.run(["mysql", "-N", "-e", "SHOW GLOBAL STATUS; SHOW GLOBAL VARIABLES LIKE 'wsrep_%'; SHOW VARIABLES LIKE 'version';"], mutates=False)
+        res = ctx.run(["mysql", "--version"], mutates=False)
         if res.rc != 0:
-            # MySQL not available - return empty discovery
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        
-        # Parse output into sections by instance
-        sections = {}
-        current_section = "mysql"
-        for line in res.stdout.splitlines():
-            if line.startswith("[[") and line.endswith("]]"):
-                current_section = line.strip("[ ]")
-                continue
-            parts = line.split("\t", 1)
-            if len(parts) == 2:
-                key, value = parts
-                if key.startswith("wsrep_"):
-                    # Only collect Galera-related metrics for Galera check
-                    sections.setdefault(current_section, {})[key] = value
-                elif key == "version":
-                    sections.setdefault(current_section, {})[key] = value
-        
-        # Discovery: for each instance with wsrep_provider set (not "none") and wsrep_cluster_size present
-        out = []
-        for instance, data in sections.items():
-            wsrep_provider = data.get("wsrep_provider")
-            has_provider = wsrep_provider != None and wsrep_provider != "none"
-            if has_provider and "wsrep_cluster_size" in data:
-                out.append({
-                    "item": instance,
-                    "params": {"invsize": data["wsrep_cluster_size"]},
-                    "metrics": ["wsrep_cluster_size"]
-                })
-        
-        return {"changed": False, "msg": "discovered %d items" % len(out),
-                "data": {"discovery": out}}
-    
-    # Check mode for single item
+            return {"changed": False, "msg": "mysql not found", "data": {"discovery": []}}
+        host = params.get("host", "localhost")
+        user = params.get("user", "")
+        pw = params.get("password", "")
+        socket = params.get("socket", "")
+        connect_args = []
+        if user != "":
+            connect_args = connect_args + ["-u", user]
+            if pw != "":
+                connect_args = connect_args + ["-p" + pw]
+        if socket != "":
+            connect_args = connect_args + ["-S", socket]
+        else:
+            connect_args = connect_args + ["-h", host]
+        out = _query_mysql(ctx, connect_args, "SHOW GLOBAL STATUS")
+        if out.rc != 0:
+            return {"changed": False, "msg": "cannot query SHOW GLOBAL STATUS", "data": {"discovery": []}}
+        wsrep_provider = _extract_var(out.stdout, "wsrep_provider")
+        if wsrep_provider == None or wsrep_provider == "none":
+            return {"changed": False, "msg": "no wsrep provider", "data": {"discovery": []}}
+        vars_out = _query_mysql(ctx, connect_args, "SHOW GLOBAL VARIABLES")
+        if vars_out.rc != 0:
+            return {"changed": False, "msg": "cannot query SHOW GLOBAL VARIABLES", "data": {"discovery": []}}
+        cluster_size = _extract_var(vars_out.stdout, "wsrep_cluster_size")
+        if cluster_size == None:
+            return {"changed": False, "msg": "no wsrep_cluster_size", "data": {"discovery": []}}
+        size = int(cluster_size) if _is_int(cluster_size) else 0
+        discovery = [
+            {"item": "mysql", "params": {"invsize": size}, "metrics": []}
+        ]
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    
-    # Run mysql command to get status variables
-    res = ctx.run(["mysql", "-N", "-e", "SHOW GLOBAL STATUS; SHOW GLOBAL VARIABLES LIKE 'wsrep_%';"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "MySQL query failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": "Cannot connect to MySQL"}}
-    
-    # Parse output into section
-    section = {}
-    for line in res.stdout.splitlines():
-        parts = line.split("\t", 1)
-        if len(parts) == 2:
-            key, value = parts
-            if key.startswith("wsrep_"):
-                section[key] = value
-    
-    # Check if item exists
-    wsrep_cluster_size = section.get("wsrep_cluster_size")
-    if wsrep_cluster_size == None:
-        return {"changed": False, "msg": "Galera cluster size information missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": "wsrep_cluster_size not found"}}
-    
-    # Get expected size from discovery
-    expected_size = params.get("invsize", wsrep_cluster_size)
-    
-    # Compare
+    host = params.get("host", "localhost")
+    user = params.get("user", "")
+    pw = params.get("password", "")
+    socket = params.get("socket", "")
+    connect_args = []
+    if user != "":
+        connect_args = connect_args + ["-u", user]
+        if pw != "":
+            connect_args = connect_args + ["-p" + pw]
+    if socket != "":
+        connect_args = connect_args + ["-S", socket]
+    else:
+        connect_args = connect_args + ["-h", host]
+    out = _query_mysql(ctx, connect_args, "SHOW GLOBAL STATUS")
+    if out.rc != 0:
+        return {"changed": False, "msg": "no mysql instance found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    wsrep_provider = _extract_var(out.stdout, "wsrep_provider")
+    if wsrep_provider == None or wsrep_provider == "none":
+        return {"changed": False, "msg": "no wsrep provider", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vars_out = _query_mysql(ctx, connect_args, "SHOW GLOBAL VARIABLES")
+    if vars_out.rc != 0:
+        return {"changed": False, "msg": "cannot query wsrep_cluster_size", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    cluster_size = _extract_var(vars_out.stdout, "wsrep_cluster_size")
+    if cluster_size == None:
+        return {"changed": False, "msg": "wsrep_cluster_size missing", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    size = int(cluster_size) if _is_int(cluster_size) else 0
+    invsize = params.get("invsize", size)
     state = "OK"
-    infotext = "WSREP cluster size: %s" % wsrep_cluster_size
-    
-    if wsrep_cluster_size != expected_size:
+    if size != invsize:
         state = "CRIT"
-        infotext += " (at discovery: %s)" % expected_size
-    
-    return {"changed": False, "msg": infotext,
-            "data": {"state": state, "metrics": {"wsrep_cluster_size": int(wsrep_cluster_size)}, "details": ""}}
+    detail = "WSREP cluster size: %d" % size
+    if size != invsize:
+        detail = detail + " (at discovery: %d)" % invsize
+    return {"changed": False, "msg": detail, "data": {"state": state, "metrics": {"cluster_size": size}, "details": detail}}
+
+
+def _query_mysql(ctx, connect_args, query):
+    return ctx.run(["mysql"] + connect_args + ["-N", "-B", "-e", query], mutates=False)
+
+
+def _extract_var(stdout, name):
+    for line in stdout.splitlines():
+        cols = line.split("\t")
+        if len(cols) >= 2:
+            if cols[0] == name:
+                return cols[1]
+    return None
+
+
+def _is_int(s):
+    if s == None:
+        return False
+    if len(s) == 0:
+        return False
+    for c in s:
+        if c not in "0123456789":
+            return False
+    return True

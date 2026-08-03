@@ -1,111 +1,89 @@
+# Checkmk check: enterasys_lsnat -> LSNAT Bindings (read-only SNMP translation)
+# Translated for the yolo-man Starlark runtime. Never mutates the system.
+
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", "-t", "5", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None, res
+    return res.stdout.strip(), res
+
+def _sys_object_id(ctx, host, community):
+    # .1.3.6.1.2.1.1.2.0 is sysObjectID.0
+    val, res = _snmp_get(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if val == None:
+        return None, res
+    # -Oqv on an OID-typed value prints the dotted OID string, e.g. ".1.3.6.1.4.1.5624.2.1.1"
+    return val, res
+
 def main(ctx, params):
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {"current_bindings": None},
-                        "metrics": ["current_bindings"]
-                    }
-                ]
-            }
-        }
-
-    # Read SNMP data
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.5624.1.2.74.1.1.5.0"
-    ], mutates=False)
+    community = params.get("community", "public")
 
-    if res.rc != 0 or res.stdout == None or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    if params.get("_discover"):
+        # Probe for the real thing: sysObjectID must be Enterasys, and the
+        # binding OID must exist. Absence of the product -> empty discovery.
+        sysid, _ = _sys_object_id(ctx, host, community)
+        if sysid == None:
+            return {"changed": False, "msg": "device not reachable or not Enterasys",
+                    "data": {"discovery": []}}
+        if not sysid.startswith(".1.3.6.1.4.1.5624.2.1"):
+            return {"changed": False, "msg": "sysObjectID is not Enterasys",
+                    "data": {"discovery": []}}
+        # Verify the LSNAT binding object exists.
+        binding, bres = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.5624.1.2.74.1.1.5.0")
+        if binding == None:
+            return {"changed": False, "msg": "no LSNAT bindings object",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered LSNAT Bindings",
+                "data": {"discovery": [
+                    {"item": "", "params": {"current_bindings": None},
+                     "metrics": ["current_bindings"]},
+                ]}}
 
-    # Parse single OID value: format "OID = INTEGER: <value>"
-    lines = res.stdout.splitlines()
-    if len(lines) < 1:
-        return {
-            "changed": False,
-            "msg": "no data returned",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    item = params.get("item", "")
+    # Single-service check: item must be "".
+    if item != "":
+        return {"changed": False, "msg": "no such item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    line = lines[0].strip()
-    # Extract value after ": " or "="
-    value_str = ""
-    if line.find(": ") != -1:
-        value_str = line.split(": ")[-1]
-    elif line.find("=") != -1:
-        value_str = line.split("=")[-1].strip()
-    else:
-        return {
-            "changed": False,
-            "msg": "cannot parse value from output",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    # Re-establish identity for check mode too (absence -> UNKNOWN, not OK).
+    sysid, _ = _sys_object_id(ctx, host, community)
+    if sysid == None or not sysid.startswith(".1.3.6.1.4.1.5624.2.1"):
+        return {"changed": False, "msg": "not an Enterasys device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Safely convert to integer (mimicking _saveint) - no try/except
-    bindings = 0
-    if value_str.isdigit() or (value_str.startswith("-") and value_str[1:].isdigit()):
-        bindings = int(value_str)
+    val, res = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.5624.1.2.74.1.1.5.0")
+    if val == None:
+        return {"changed": False, "msg": "LSNAT bindings OID not available: " + (res.stderr or ""),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Apply thresholds
+    # -Oqv prints the bare integer for INTEGER-typed OIDs.
+    v = val.strip()
+    n = int(v) if v.lstrip("-").isdigit() else 0
+    detail = v
+
     raw_levels = params.get("current_bindings")
     warn = None
     crit = None
-    if raw_levels != None:
-        if type(raw_levels) == "list" and len(raw_levels) >= 2:
-            warn = int(raw_levels[0])
-            crit = int(raw_levels[1])
-        elif type(raw_levels) == "list" and len(raw_levels) == 1:
-            warn = int(raw_levels[0])
-            crit = warn
-        else:
-            warn = int(raw_levels)
-            crit = warn
+    t = type(raw_levels)
+    if t == "list" or t == "tuple":
+        if len(raw_levels) >= 1:
+            warn = raw_levels[0]
+        if len(raw_levels) >= 2:
+            crit = raw_levels[1]
+    elif t == "dict":
+        warn = raw_levels.get("warn")
+        crit = raw_levels.get("crit")
 
-    # Determine state
     state = "OK"
-    if warn != None and crit != None:
-        if bindings >= crit:
-            state = "CRIT"
-        elif bindings >= warn:
-            state = "WARN"
-    elif warn != None and crit == None:
-        if bindings >= warn:
-            state = "WARN"
+    if warn != None and crit != None and n >= crit:
+        state = "CRIT"
+    elif warn != None and n >= warn:
+        state = "WARN"
 
-    msg = "Current bindings: %d" % bindings
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"current_bindings": bindings},
-            "details": ""
-        }
-    }
+    msg = "Current bindings: %s" % detail
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"current_bindings": n}, "details": msg}}

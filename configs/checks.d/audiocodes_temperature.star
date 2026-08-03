@@ -1,106 +1,131 @@
+def _is_float(s):
+    if not s:
+        return False
+    body = s
+    neg = False
+    if body.startswith("-") or body.startswith("+"):
+        neg = True
+        body = body[1:]
+    if body == "":
+        return False
+    has_dot = False
+    digit = False
+    for ch in body:
+        if ch >= "0" and ch <= "9":
+            digit = True
+        elif ch == "." and not has_dot:
+            has_dot = True
+        else:
+            return False
+    return digit
+
+
+def _detect_audiocodes(ctx, host, community):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv",
+         host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    out = res.stdout.strip().lower()
+    return out.find("audiocodes") != -1 or out.find("audio-codes") != -1
+
+
 def main(ctx, params):
-    # Discoverable check: read temperature sensors via SNMP
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-
-    # Discovery mode: enumerate all temperature sensors
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.5003.9.10.10.4.21.1.11"
-        ], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []}
-            }
-
-        # Parse snmpwalk output: "OID = INTEGER: value"
-        sensors = []
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = INTEGER: ")
-            if len(parts) == 2:
-                # The OID end is the sensor index; use it as the item
-                oid_end = parts[0].strip().rsplit(".", 1)[-1]
-                sensors.append({
-                    "item": oid_end,
-                    "params": {},
-                    "metrics": ["temp"]
-                })
-        msg = "discovered %d sensors" % len(sensors)
-        return {"changed": False, "msg": msg, "data": {"discovery": sensors}}
-
-    # Check mode: verify one specific sensor
+    community = params.get("community", "public")
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "item is required",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
 
-    # Get temperature value for the specific sensor
-    oid = ".1.3.6.1.4.1.5003.9.10.10.4.21.1.11." + item
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, oid
-    ], mutates=False)
+    if not _detect_audiocodes(ctx, host, community):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no audiocodes device found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no audiocodes device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    base = ".1.3.6.1.4.1.5003.9.10.10.4.21.1"
+    names_base = ".1.3.6.1.4.1.5003.9.10.10.4.21"
 
-    # Parse snmpget output: "OID = INTEGER: value"
-    line = res.stdout.strip()
-    parts = line.split(" = INTEGER: ")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "malformed SNMP response",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    names_walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn",
+         host, names_base + ".1"],
+        mutates=False,
+    )
+    module_names = {}
+    if names_walk.rc == 0:
+        for line in names_walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            idx = oid[len(names_base) + 2:]
+            module_names[idx] = parts[1].strip().strip('"')
 
-    value_str = parts[1].strip()
-    if not value_str or (value_str.startswith("-") and not value_str[1:].isdigit()) or (not value_str.startswith("-") and not value_str.isdigit()):
-        return {
-            "changed": False,
-            "msg": "invalid temperature value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    temp = int(value_str)
+    temp_walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn",
+         host, base + ".11"],
+        mutates=False,
+    )
 
-    # Handle special case: -1 means temperature is not available
-    if temp == -1:
-        return {
-            "changed": False,
-            "msg": "Temperature is not available",
-            "data": {"state": "OK", "metrics": {"temp": -1}, "details": ""}
-        }
+    temps = {}
+    if temp_walk.rc == 0:
+        for line in temp_walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            idx = oid[len(base) + 2:]
+            val = parts[1].strip().strip('"')
+            if _is_float(val):
+                temps[idx] = float(val)
 
-    # Apply temperature thresholds
-    warn = params.get("levels", (80.0, 90.0))  # (warn, crit) defaults
-    warn_val = warn[0] if isinstance(warn, (list, tuple)) else warn
-    crit_val = warn[1] if isinstance(warn, (list, tuple)) else warn
+    data_by_idx = {}
+    for idx in temps:
+        if idx in module_names:
+            nm = module_names[idx]
+            data_by_idx[nm] = temps[idx]
 
-    if temp >= crit_val:
-        state = "CRIT"
-    elif temp >= warn_val:
-        state = "WARN"
-    else:
-        state = "OK"
+    if params.get("_discover"):
+        discovery = []
+        for nm, _t in data_by_idx.items():
+            discovery.append({
+                "item": nm,
+                "params": {},
+                "metrics": ["temperature"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d temperature sensors" % len(discovery),
+                "data": {"discovery": discovery}}
 
-    # Format human-readable message
-    msg = "Temperature: %f C" % temp
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"temp": float(temp)},
-            "details": ""
-        }
-    }
+    found_temp = None
+    for idx, nm in module_names.items():
+        if nm == item and idx in temps:
+            found_temp = temps[idx]
+            break
+
+    if found_temp == None:
+        return {"changed": False,
+                "msg": "no temperature sensor for item %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    warn = params.get("warn", 70.0)
+    crit = params.get("crit", 80.0)
+    reading = found_temp
+
+    if reading == -1:
+        return {"changed": False,
+                "msg": "Temperature is not available",
+                "data": {"state": "OK", "metrics": {"temperature": 0},
+                         "details": ""}}
+
+    st = "OK"
+    if reading >= crit:
+        st = "CRIT"
+    elif reading >= warn:
+        st = "WARN"
+
+    return {"changed": False,
+            "msg": "Temperature %s: %f C" % (item, reading),
+            "data": {"state": st, "metrics": {"temperature": reading},
+                     "details": ""}}

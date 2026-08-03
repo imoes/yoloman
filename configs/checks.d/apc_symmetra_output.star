@@ -1,181 +1,150 @@
-# ===== module-level constants =====
-# OID base for apc_symmetra_output section
-_BASE_OID = ".1.3.6.1.4.1.318.1.1.1.4.2"
-_OID_VOLTAGE = _BASE_OID + ".1.0"
-_OID_CURRENT = _BASE_OID + ".4.0"
-_OID_OUTPUT_LOAD = _BASE_OID + ".3.0"
+# apc_symmetra_output.star — read-only translation of Checkmk's apc_symmetra_output check
+# Monitors APC Symmetra output phase voltage/current/load via SNMP.
 
-# Default thresholds from Checkmk plugin
-_DEFAULT_PARAMS = {"voltage": (220, 220)}
+def _to_float(s):
+    out = s.strip()
+    if len(out) == 0:
+        return None
+    neg = False
+    i = 0
+    if out[0] == "-":
+        neg = True
+        i = 1
+    digits = False
+    has_dot = False
+    for j in range(i, len(out)):
+        c = out[j]
+        if c >= "0" and c <= "9":
+            digits = True
+        elif c == "." and not has_dot:
+            has_dot = True
+        else:
+            return None
+    if not digits:
+        return None
+    val = float(out)
+    if neg:
+        val = -val
+    return val
 
-
-def _snmp_parse_line(line):
-    """Parse an snmpwalk line like '.1.3.6.1.4.1.318.1.1.1.4.2.1.0 = INTEGER: 231'."""
-    # Split on '=' and strip spaces
-    parts = line.split("=", 1)
-    if len(parts) != 2:
-        return None, None
-    oid_part = parts[0].strip()
-    value_part = parts[1].strip()
-    # Extract value: expect "INTEGER: 231", " Gauge32: 231", or just "231"
-    if ":" in value_part:
-        value_str = value_part.split(":", 1)[1].strip()
-    else:
-        value_str = value_part
-    # Handle trailing units like '%'
-    value_str = value_str.rstrip("%").strip()
-    return oid_part, value_str
-
-
-def _snmp_get_host_facts(ctx):
-    """Return host facts needed for detection."""
-    return ctx.facts()
-
-
-def _is_apc_device(ctx):
-    """Check if host is an APC device via sysObjectID."""
-    # sysObjectID OID
-    sysobjectid_oid = ".1.3.6.1.2.1.1.2.0"
-    res = ctx.run(["snmpwalk", "-v2c", "-c", ctx.get("community", "public"),
-                   "-On", ctx.get("host", "localhost"), sysobjectid_oid], mutates=False)
-    if res.rc != 0:
-        return False
-    for line in res.stdout.splitlines():
-        oid, value = _snmp_parse_line(line)
-        if oid == sysobjectid_oid and value != None:
-            # APC devices start with .1.3.6.1.4.1.318
-            return value.startswith(".1.3.6.1.4.1.318")
-    return False
-
+def _level_state(value, params_tuple):
+    if params_tuple == None:
+        return "OK"
+    warn = params_tuple[0]
+    crit = params_tuple[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
 
 def main(ctx, params):
-    # Extract parameters with Checkmk defaults
-    item = params.get("item", "")
-    voltage_levels = params.get("voltage", _DEFAULT_PARAMS["voltage"])
-    warn_voltage, crit_voltage = voltage_levels[0], voltage_levels[1]
-
-    # Discovery mode: enumerate items
     if params.get("_discover"):
-        if not _is_apc_device(ctx):
-            return {"changed": False, "msg": "not an APC device",
-                    "data": {"discovery": []}}
+        sys_oid = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sys_oid.rc != 0 or sys_oid.rc == 127:
+            return {"changed": False, "msg": "APC Symmetra not detected (no SNMP)",
+                    "data": {"discovery": [], "host_labels": {}}}
+        sys_val = sys_oid.stdout.strip()
+        if not sys_val.startswith(".1.3.6.1.4.1.318"):
+            return {"changed": False, "msg": "APC Symmetra not detected",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-        # Fetch all three OIDs in one snmpwalk
-        res = ctx.run(["snmpwalk", "-v2c", "-c", ctx.get("community", "public"),
-                       "-On", ctx.get("host", "localhost"), _BASE_OID], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed",
-                    "data": {"discovery": []}}
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"), ".1.3.6.1.4.1.318.1.1.1.4.2"],
+            mutates=False,
+        )
+        if walk.rc != 0:
+            return {"changed": False, "msg": "APC Symmetra output not found",
+                    "data": {"discovery": [], "host_labels": {"cmk/os_family": "linux"}}}
 
-        # Parse values
-        voltage = None
-        current = None
-        output_load = None
-        for line in res.stdout.splitlines():
-            oid, value_str = _snmp_parse_line(line)
-            if oid == None:
+        indices = {}
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
                 continue
-            if oid == _OID_VOLTAGE:
-                if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                    voltage = float(value_str)
-            elif oid == _OID_CURRENT:
-                if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                    current = float(value_str)
-            elif oid == _OID_OUTPUT_LOAD:
-                if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                    output_load = float(value_str)
+            oid = line[:sp]
+            suffix = oid[len(".1.3.6.1.4.1.318.1.1.1.4.2") + 1:]
+            dot = suffix.find(".")
+            idx = suffix if dot < 0 else suffix[:dot]
+            if idx == "":
+                continue
+            indices[idx] = suffix
 
-        # If at least one metric was parsed, item "Output" exists
-        if voltage != None or current != None or output_load != None:
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "Output",
-                            "params": {"voltage": (220, 220)},
-                            "metrics": ["voltage", "current", "output_load"]
-                        }
-                    ]
-                },
-            }
-        else:
-            return {"changed": False, "msg": "no data found",
-                    "data": {"discovery": []}}
+        discovery = []
+        for idx in sorted(indices.keys()):
+            discovery.append({
+                "item": "Output",
+                "params": {"voltage": (220, 220)},
+                "metrics": ["voltage", "current", "power"],
+            })
 
-    # Check mode: examine one item (only "Output" supported per spec)
-    if item != "Output":
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return {"changed": False,
+                "msg": "discovered %d output phases" % len(discovery),
+                "data": {"discovery": discovery,
+                         "host_labels": {"cmk/os_family": "linux"}}}
 
-    # Fetch OIDs for the item
-    res = ctx.run(["snmpwalk", "-v2c", "-c", ctx.get("community", "public"),
-                   "-On", ctx.get("host", "localhost"), _BASE_OID], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    item = params.get("item", "")
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
 
-    # Parse values
-    voltage = None
-    current = None
-    output_load = None
-    for line in res.stdout.splitlines():
-        oid, value_str = _snmp_parse_line(line)
-        if oid == None:
-            continue
-        if oid == _OID_VOLTAGE:
-            if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                voltage = float(value_str)
-        elif oid == _OID_CURRENT:
-            if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                current = float(value_str)
-        elif oid == _OID_OUTPUT_LOAD:
-            if value_str != "" and value_str.replace(".", "").replace("-", "").isdigit():
-                output_load = float(value_str)
+    v = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                 ".1.3.6.1.4.1.318.1.1.1.4.2.1.0"], mutates=False)
+    c = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                 ".1.3.6.1.4.1.318.1.1.1.4.2.4.0"], mutates=False)
+    l = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                 ".1.3.6.1.4.1.318.1.1.1.4.2.3.0"], mutates=False)
 
-    # If no data, return UNKNOWN
-    if voltage == None and current == None and output_load == None:
-        return {
-            "changed": False,
-            "msg": "no SNMP data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    voltage = _to_float(v.stdout) if v.rc == 0 else None
+    current = _to_float(c.stdout) if c.rc == 0 else None
+    power = _to_float(l.stdout) if l.rc == 0 else None
 
-    # State determination (voltage thresholds as per Checkmk's elphase.check_elphase pattern)
-    state = "OK"
-    details = []
+    if voltage == None:
+        return {"changed": False,
+                "msg": "no output voltage reading available for %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     metrics = {}
+    states = []
 
-    # Voltage: upper thresholds (WARN if >= warn, CRIT if >= crit)
     if voltage != None:
-        if voltage >= crit_voltage:
-            state = "CRIT"
-        elif voltage >= warn_voltage:
-            if state != "CRIT":
-                state = "WARN"
         metrics["voltage"] = voltage
-        details.append("Voltage: %f V" % voltage)
+        vl = params.get("voltage", (220, 220))
+        s = _level_state(voltage, vl)
+        states.append(("voltage", voltage, s, vl))
 
-    # Current and output_load: only record if available
     if current != None:
         metrics["current"] = current
-        details.append("Current: %f A" % current)
-    if output_load != None:
-        metrics["output_load"] = output_load
-        details.append("Output load: %f %%" % output_load)
+        cl = params.get("current")
+        s = _level_state(current, cl)
+        states.append(("current", current, s, cl))
 
-    # Format message
-    msg = ", ".join(details) if details else "Phase Output"
+    if power != None:
+        metrics["power"] = power
+        pl = params.get("output_load")
+        s = _level_state(power, pl)
+        states.append(("output_load", power, s, pl))
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": ""}
-    }
+    worst = "OK"
+    for (_, _, s, _) in states:
+        if s == "CRIT":
+            worst = "CRIT"
+        elif s == "WARN" and worst != "CRIT":
+            worst = "WARN"
+
+    parts = []
+    if voltage != None:
+        parts.append("V=%f" % voltage)
+    if current != None:
+        parts.append("A=%f" % current)
+    if power != None:
+        parts.append("W=%f" % power)
+    summary = ", ".join(parts) if parts else "no readings"
+
+    return {"changed": False,
+            "msg": "Phase %s %s: %s" % (item, worst, summary),
+            "data": {"state": worst, "metrics": metrics, "details": summary}}

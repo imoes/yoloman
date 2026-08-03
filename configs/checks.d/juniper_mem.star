@@ -1,116 +1,167 @@
-JUNIPER_BASE_OID = ".1.3.6.1.4.1.2636.3.1.13.1"
-JUNIPER_DESCR_OID = JUNIPER_BASE_OID + ".5.9"
-JUNIPER_BUFFER_OID = JUNIPER_BASE_OID + ".11.9"
-JUNIPER_SYSOID = ".1.3.6.1.2.1.1.2.0"
-JUNIPER_SYSOID_PREFIX = ".1.3.6.1.4.1.2636.1.1.1"
+# juniper_mem.star — translated Checkmk juniper_mem check (read-only)
 
-def _extract_number(s):
-    # Extract first numeric value from string (no try/except allowed)
-    stripped = s.strip()
-    tokens = stripped.split()
-    for token in tokens:
-        clean = token.rstrip(" %")
-        # Check if numeric (integer or float)
-        has_dot = clean.find(".") >= 0
-        if clean.replace(".", "").isdigit() and (not has_dot or clean.count(".") == 1):
-            # Only convert if it's a valid number
-            return float(clean)
+# SNMP base OID and column OIDs for the juniper_mem section.
+_OID_BASE = ".1.3.6.1.4.1.2636.3.1.13.1"
+_OID_DESCR = _OID_BASE + ".5.9"
+_OID_BUFFER = _OID_BASE + ".11.9"
+_JUNIPER_SYSID_PREFIX = ".1.3.6.1.4.1.2636.1.1.1"
+
+def _is_juniper(ctx, host, community):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    val = res.stdout.strip()
+    if not val:
+        return False
+    return _is_oid_prefix(val, _JUNIPER_SYSID_PREFIX)
+
+def _is_oid_prefix(oid, prefix):
+    if not oid:
+        return False
+    p = oid.split(".")
+    x = prefix.split(".")
+    if len(p) < len(x):
+        return False
+    for i in range(len(x)):
+        if p[i] != x[i]:
+            return False
+    return True
+
+def _walk_descr(ctx, host, community):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, _OID_DESCR],
+        mutates=False,
+    )
+    out = {}
+    if res.rc != 0:
+        return out
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        idx = oid[len(_OID_DESCR) + 1:]
+        if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+            val = val[1:-1]
+        out[idx] = val
+    return out
+
+def _to_float(raw):
+    raw = raw.strip()
+    if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
+        raw = raw[1:-1]
+    if raw.isdigit():
+        return float(raw)
+    neg = raw.startswith("-")
+    body = raw[1:] if neg else raw
+    if body.isdigit():
+        return -float(body) if neg else float(body)
+    if raw.find(".") != -1:
+        sign = raw[0]
+        rest = raw[1:] if sign in "+-" else raw
+        if rest.replace(".", "", 1).isdigit():
+            return float(raw)
     return None
 
+def _get_buffer(ctx, host, community, idx):
+    oid = _OID_BUFFER + "." + idx
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return _to_float(res.stdout)
+
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), JUNIPER_BUFFER_OID
-        ], mutates=False)
-        items = []
-        for line in res.stdout.splitlines():
-            if "=" not in line:
-                continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, val_part = parts
-            # OID format: .1.3.6.1.4.1.2636.3.1.13.1.11.9.<index>.0.0
-            oid_tokens = oid_part.strip().split(".")
-            if len(oid_tokens) < 9:
-                continue
-            idx = oid_tokens[-3]
-            if idx.isdigit():
-                # Validate routing engine exists by checking descr OID
-                descr_oid = "%s.%s.0.0" % (JUNIPER_DESCR_OID, idx)
-                descr_res = ctx.run([
-                    "snmpget", "-v2c", "-c", params.get("community", "public"),
-                    "-On", params.get("host", "localhost"), descr_oid
-                ], mutates=False)
-                if descr_res.rc == 0 and "=" in descr_res.stdout:
-                    items.append({
-                        "item": idx,
-                        "params": {"levels": (80.0, 90.0)},
-                        "metrics": ["mem_used_percent"]
-                    })
+        if not _is_juniper(ctx, host, community):
+            return {
+                "changed": False,
+                "msg": "host is not a Juniper device",
+                "data": {"discovery": []},
+            }
+        descr_map = _walk_descr(ctx, host, community)
+        out = []
+        for idx in sorted(descr_map.keys(), key=lambda x: _idx_sort_key(x)):
+            item = descr_map[idx]
+            out.append({
+                "item": item,
+                "params": {"levels": (80.0, 90.0)},
+                "metrics": ["mem_used_percent"],
+            })
         return {
             "changed": False,
-            "msg": "discovered %d routing engines" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d memory items" % len(out),
+            "data": {"discovery": out},
         }
 
-    # Check mode
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    buffer_oid = "%s.%s.0.0" % (JUNIPER_BUFFER_OID, item)
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), buffer_oid
-    ], mutates=False)
-
-    if res.rc != 0 or "=" not in res.stdout:
-        return {
-            "changed": False,
-            "msg": "routing engine %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Parse value: "OID = INTEGER: <value>" or "OID = gauge32: <value>"
-    line = res.stdout.strip()
-    val_part = line.split(" = ", 1)[-1] if " = " in line else ""
-    val_str = val_part.split(": ", 1)[-1] if ": " in val_part else val_part
-
-    val = _extract_number(val_str)
-    if val == None:
-        return {
-            "changed": False,
-            "msg": "could not parse memory value from routing engine %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Handle levels parameter
-    warn_val = 80.0
-    crit_val = 90.0
-    levels = params.get("levels")
-    if levels != None and type(levels) == "list" and len(levels) == 2:
-        warn_val = float(levels[0])
-        crit_val = float(levels[1])
-
-    if val >= crit_val:
-        state = "CRIT"
-    elif val >= warn_val:
-        state = "WARN"
+    warn = params.get("warn", 80.0)
+    crit = params.get("crit", 90.0)
+    levels = params.get("levels", (warn, crit))
+    if type(levels) == "tuple" and len(levels) >= 2:
+        lw = levels[0]
+        lc = levels[1]
     else:
-        state = "OK"
+        lw = warn
+        lc = crit
+    lw = float(lw)
+    lc = float(lc)
+
+    descr_map = _walk_descr(ctx, host, community)
+    found_idx = None
+    for idx in descr_map:
+        if descr_map[idx] == item:
+            found_idx = idx
+            break
+
+    if found_idx == None:
+        return {
+            "changed": False,
+            "msg": "no such memory item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    pct = _get_buffer(ctx, host, community, found_idx)
+    if pct == None:
+        return {
+            "changed": False,
+            "msg": "could not read memory value for %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    state = "OK"
+    if pct >= lc:
+        state = "CRIT"
+    elif pct >= lw:
+        state = "WARN"
 
     return {
         "changed": False,
-        "msg": "Used: %f%%" % val,
+        "msg": "Memory %s: %f%% used" % (item, pct),
         "data": {
             "state": state,
-            "metrics": {"mem_used_percent": val},
-            "details": ""
-        }
+            "metrics": {"mem_used_percent": pct},
+            "details": "Routing Engine buffer utilization: %f%% (warn %f%%, crit %f%%)" % (pct, lw, lc),
+        },
     }
+
+def _idx_sort_key(idx):
+    parts = []
+    for seg in idx.split("."):
+        if seg.isdigit():
+            parts.append((0, int(seg)))
+        else:
+            parts.append((1, seg))
+    return str(parts)

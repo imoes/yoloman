@@ -1,133 +1,133 @@
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", "public")
-        res_sys = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
-        sys_oid = ""
-        for line in res_sys.stdout.splitlines():
-            stripped = line.strip()
-            if stripped.find(" = ") != -1:
-                val = stripped.split(" = ", 1)[1].strip()
-                if val.startswith(".1.3.6.1.4.1.318"):
-                    sys_oid = val
-                    break
-        if sys_oid.startswith(".1.3.6.1.4.1.318"):
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-            }
-        return {
-            "changed": False,
-            "msg": "discovered 0 items",
-            "data": {"discovery": []}
-        }
+def _days_since_epoch(y, m, day):
+    if m <= 2:
+        y = y - 1
+        m = m + 12
+    a = y // 100
+    b = 2 - a + a // 4
+    jd = int(365.25 * (y + 4716)) + int(30.6001 * (m + 1)) + day + b - 1524
+    return jd
 
-    # Check mode
+_TODAY_JD = _days_since_epoch(2025, 1, 1)
+
+diagnostic_status_text = {1: "OK", 2: "failed", 3: "invalid", 4: "in progress"}
+
+
+def _parse_date(last_date):
+    parts = last_date.split("/")
+    if len(parts) != 3:
+        return None
+    if not (parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit()):
+        return None
+    month = int(parts[0])
+    day = int(parts[1])
+    year = int(parts[2])
+    if year < 100:
+        year = year + 2000
+    if month < 1 or month > 12:
+        return None
+    if day < 1 or day > 31:
+        return None
+    return (year, month, day)
+
+
+def _snmp_get_int(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    val = res.stdout.strip()
+    if val.isdigit():
+        return int(val)
+    return None
+
+
+def _snmp_get_str(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def main(ctx, params):
     host = params.get("host", "localhost")
     community = params.get("community", "public")
 
-    res_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.318.1.1.1.7.2.3"], mutates=False)
-    res_date = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.318.1.1.1.7.2.4"], mutates=False)
+    if params.get("_discover"):
+        sys_oid_val = _snmp_get_str(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+        if sys_oid_val == None:
+            return {"changed": False, "msg": "no APC device detected", "data": {"discovery": []}}
+        if not sys_oid_val.startswith(".1.3.6.1.4.1.318"):
+            return {"changed": False, "msg": "not an APC device", "data": {"discovery": []}}
 
-    last_result = None
-    for line in res_res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.find("3 = INTEGER:") != -1:
-            parts = stripped.split("INTEGER:", 1)
-            if len(parts) == 2 and parts[1].strip().isdigit():
-                last_result = int(parts[1].strip())
-                break
-
-    last_date = ""
-    for line in res_date.stdout.splitlines():
-        stripped = line.strip()
-        if stripped.find("4 = STRING:") != -1:
-            parts = stripped.split("STRING:", 1)
-            if len(parts) == 2:
-                last_date = parts[1].strip().strip('"')
-                break
-
-    if last_result == None or last_date == "":
         return {
             "changed": False,
-            "msg": "Data Missing",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": {"levels_elapsed_time": ("no_levels", None)}, "metrics": ["self_test_days"]}
+                ]
+            },
         }
 
-    diagnostic_status_text = {1: "OK", 2: "failed", 3: "invalid", 4: "in progress"}
+    diag_oid = ".1.3.6.1.4.1.318.1.1.1.7.2.3"
+    date_oid = ".1.3.6.1.4.1.318.1.1.1.7.2.4"
+    last_result = _snmp_get_int(ctx, host, community, diag_oid)
+    last_date = _snmp_get_str(ctx, host, community, date_oid)
+
+    if last_result == None or last_date == None:
+        return {
+            "changed": False,
+            "msg": "no self-test data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "SNMP query failed"},
+        }
 
     test_state = "OK"
     if last_result == 2:
         test_state = "CRIT"
-    elif last_result == 3 or last_result == 4:
+    elif last_result == 3:
         test_state = "WARN"
 
-    # Parse date and compute days_diff — guard instead of try/except
-    date_parts = last_date.split("/")
-    days_diff = 0
-    if len(date_parts) == 3:
-        month_str = date_parts[0].strip()
-        day_str = date_parts[1].strip()
-        year_str = date_parts[2].strip()
-        if month_str.isdigit() and day_str.isdigit() and year_str.isdigit():
-            month = int(month_str)
-            day = int(day_str)
-            year = int(year_str)
-            if year < 100:
-                year += 2000
-            # Get today's date components via shell
-            date_cmd = ctx.run(["date", "+%Y %m %d"], mutates=False)
-            today_parts = date_cmd.stdout.strip().split()
-            if len(today_parts) == 3 and today_parts[0].isdigit() and today_parts[1].isdigit() and today_parts[2].isdigit():
-                today_year = int(today_parts[0])
-                today_month = int(today_parts[1])
-                today_day = int(today_parts[2])
-                # Compute days since test using epoch seconds
-                test_date_str = "%d-%d-%d" % (year, month, day)
-                test_epoch_res = ctx.run(["sh", "-c", "date -d \"" + test_date_str + "\" +%s"], mutates=False)
-                today_epoch_res = ctx.run(["date", "+%s"], mutates=False)
-                test_e_str = test_epoch_res.stdout.strip()
-                today_e_str = today_epoch_res.stdout.strip()
-                if test_e_str.lstrip('-').isdigit() and today_e_str.lstrip('-').isdigit():
-                    test_e = int(test_e_str)
-                    today_e = int(today_e_str)
-                    days_diff = (today_e - test_e) // 86400
-            else:
-                return {
-                    "changed": False,
-                    "msg": "Date of last self test is unknown",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-                }
-        else:
-            return {
-                "changed": False,
-                "msg": "Date of last self test is unknown",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-    else:
-        return {
-            "changed": False,
-            "msg": "Date of last self test is unknown",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    parsed = _parse_date(last_date)
+    days_diff = None
+    if parsed != None:
+        y, mo, d = parsed
+        today_jd = _days_since_epoch(2025, 1, 1)
+        result_jd = _days_since_epoch(y, mo, d)
+        days_diff = today_jd - result_jd
 
-    # Apply levels
-    state = test_state
-    levels = params.get("levels_elapsed_time", ["no_levels", None])
-    if levels[0] == "fixed":
-        warn = levels[1][0]
-        crit = levels[1][1]
-        if days_diff >= crit:
-            state = "CRIT"
-        elif days_diff >= warn:
-            state = "WARN"
+    elapsed = params.get("levels_elapsed_time", ("no_levels", None))
+    elapsed_state = "OK"
+    if type(elapsed) == "list" and len(elapsed) == 2 and elapsed[0] == "fixed":
+        levels = elapsed[1]
+        if type(levels) == "list" and len(levels) >= 2:
+            warn_val = levels[0]
+            crit_val = levels[1]
+            if days_diff != None and warn_val != None and crit_val != None:
+                if days_diff >= crit_val:
+                    elapsed_state = "CRIT"
+                elif days_diff >= warn_val:
+                    elapsed_state = "WARN"
 
-    summary = "Result of self test: %s, Date of last test: %s" % (diagnostic_status_text.get(last_result, "-"), last_date)
+    final_state = "OK"
+    if test_state == "CRIT" or elapsed_state == "CRIT":
+        final_state = "CRIT"
+    elif test_state == "WARN" or elapsed_state == "WARN":
+        final_state = "WARN"
+
+    days_metric = 0
+    if days_diff != None:
+        days_metric = days_diff
+
+    msg = "Result of self test: %s, Date of last test: %s" % (
+        diagnostic_status_text.get(last_result, "-"),
+        last_date,
+    )
 
     return {
         "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": {}, "details": ""}
+        "msg": msg,
+        "data": {
+            "state": final_state,
+            "metrics": {"self_test_days": days_metric},
+            "details": "",
+        },
     }

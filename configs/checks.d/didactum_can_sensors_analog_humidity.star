@@ -1,240 +1,295 @@
-# ===== Starlark translation: checkmk.didactum_can_sensors_analog_humidity =====
+# ===== checkmk.didactum_can_sensors_analog_humidity =====
+# Translated from Checkmk check plugin to a read-only Starlark check module.
+# The source is an SNMP check (SimpleSNMPSection over .1.3.6.1.4.1.46501.6.2.1).
+# It parses a table of CAN analog sensors, each with type/name/status/value/levels.
 
-# Mapping from SNMP status strings to Checkmk states
+# State name -> numeric Checkmk state (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
 _STATE_MAP = {
-    "alarm": "CRIT",
-    "high alarm": "CRIT",
-    "low alarm": "CRIT",
-    "warning": "WARN",
-    "high warning": "WARN",
-    "low warning": "WARN",
-    "normal": "OK",
-    "not connected": "UNKNOWN",
-    "on": "OK",
-    "off": "UNKNOWN",
+    "alarm": 2,
+    "high alarm": 2,
+    "low alarm": 2,
+    "warning": 1,
+    "high warning": 1,
+    "low warning": 1,
+    "normal": 0,
+    "not connected": 3,
+    "on": 0,
+    "off": 3,
 }
 
-def _is_valid_number(s):
-    """Check if string represents a valid number (int or float)."""
-    if s == "":
-        return False
-    # Handle negative numbers
-    stripped = s
-    if s.startswith("-"):
-        stripped = s[1:]
-    # Must have at most one dot
-    if stripped.count(".") > 1:
-        return False
-    # All remaining characters must be digits or exactly one dot
-    for c in stripped:
-        if c != "." and c not in "0123456789":
-            return False
-    return True
+# SNMP walk base OIDs as column index -> (column name, oid-suffix)
+# Tree columns 4..13 (per SNMPTree oids=["4","5","6","7","10","11","12","13"]):
+#  4: type   5: name   6: status   7: value
+# 10: crit_lower 11: warn_lower 12: warn 13: crit
+COL_TYPE = "4"
+COL_NAME = "5"
+COL_STATUS = "6"
+COL_VALUE = "7"
+COL_CRIT_LOWER = "10"
+COL_WARN_LOWER = "11"
+COL_WARN = "12"
+COL_CRIT = "13"
 
-def _parse_section(ctx):
-    """Gather and parse the analog sensor data via SNMP."""
-    # Base OID for the Didactum CAN sensors analog section
-    base_oid = ".1.3.6.1.4.1.46501.6.2.1"
-    # We'll use snmpwalk on base_oid.4 and then parse each line
-    community = ctx.facts().get("snmp_community", "public")
-    host = ctx.facts().get("snmp_host", "localhost")
-    
-    # Walk the full tree
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        fail("SNMP walk failed: " + res.stderr)
-    
-    lines = res.stdout.splitlines()
-    
-    # Build maps: sensor_id -> value for each OID type
-    name_map = {}
-    state_map = {}
-    value_map = {}
-    crit_lower_map = {}
-    warn_lower_map = {}
-    warn_map = {}
-    crit_map = {}
-    
-    for line in lines:
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        # Split OID and value
-        parts = line.split("=", 1)
+ALL_COLUMNS = [
+    COL_TYPE, COL_NAME, COL_STATUS, COL_VALUE,
+    COL_CRIT_LOWER, COL_WARN_LOWER, COL_WARN, COL_CRIT,
+]
+
+
+def _probe_product_exists(ctx, host, community):
+    """Confirm a Didactum CAN device is actually present before discovering services."""
+    sysOID = ".1.3.6.1.2.1.1.1.0"
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, sysOID],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return False
+    if res.rc != 0 or res.stdout == "":
+        return False
+    return "didactum" in res.stdout.lower()
+
+
+def _walk_column(ctx, host, community, base, col):
+    """Walk one SNMP column, return {index: value} mapping (index = oid suffix after column)."""
+    oid = base + "." + col
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    out = {}
+    if res.rc != 0 or res.stdout == "":
+        return out
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) != 2:
             continue
-        oid_str = parts[0].strip()
-        value_str = parts[1].strip()
-        
-        # Strip quotes from value
-        if value_str.startswith('"') and value_str.endswith('"'):
-            value_str = value_str[1:-1]
-        
-        # Extract suffix: base_oid.X.suffix
-        if oid_str.startswith(base_oid + "."):
-            suffix = oid_str[len(base_oid) + 1:]  # after 'base_oid.'
-            idx = suffix.find(".")
-            if idx == -1:
-                continue
-            oid_type = suffix[:idx]
-            sensor_id = suffix[idx+1:]
-            
-            if oid_type == "4":
-                name_map[sensor_id] = value_str
-            elif oid_type == "5":
-                state_map[sensor_id] = value_str
-            elif oid_type == "6":
-                value_map[sensor_id] = value_str
-            elif oid_type == "10":
-                crit_lower_map[sensor_id] = value_str
-            elif oid_type == "11":
-                warn_lower_map[sensor_id] = value_str
-            elif oid_type == "12":
-                warn_map[sensor_id] = value_str
-            elif oid_type == "13":
-                crit_map[sensor_id] = value_str
-    
-    # Build section dict: section[type][name] = sensor_data
-    section = {}
-    for sensor_id in name_map:
-        name = name_map[sensor_id]
-        if sensor_id not in state_map or sensor_id not in value_map:
+        full_oid = parts[0]
+        value = parts[1]
+        # index is the suffix after the column oid
+        prefix = oid + "."
+        if not full_oid.startswith(prefix):
             continue
-        
-        status = state_map[sensor_id]
-        value_str = value_map[sensor_id]
-        
-        # Determine state
-        state = _STATE_MAP.get(status, "UNKNOWN")
-        
-        # Parse value
-        value = None
-        if _is_valid_number(value_str):
-            value = float(value_str)
-        
-        sensor_data = {
-            "state": state,
-            "state_readable": status,
-            "value": value,
-        }
-        
-        # Add levels if available
-        levels_upper = None
-        levels_lower = None
-        
-        if sensor_id in warn_map and sensor_id in crit_map:
-            if _is_valid_number(warn_map[sensor_id]) and _is_valid_number(crit_map[sensor_id]):
-                levels_upper = [float(warn_map[sensor_id]), float(crit_map[sensor_id])]
-                sensor_data["levels"] = levels_upper
-        
-        if sensor_id in warn_lower_map and sensor_id in crit_lower_map:
-            if _is_valid_number(warn_lower_map[sensor_id]) and _is_valid_number(crit_lower_map[sensor_id]):
-                levels_lower = [float(warn_lower_map[sensor_id]), float(crit_lower_map[sensor_id])]
-                sensor_data["levels_lower"] = levels_lower
-        
-        # Insert into section under "humidity"
-        section.setdefault("humidity", {})[name] = sensor_data
-    
-    return section
+        idx = full_oid[len(prefix):]
+        if idx == "":
+            continue
+        out[idx] = _strip_snmp_value(value)
+    return out
 
-def _check_humidity(value, params):
-    """Implement humidity check logic: warn/crit thresholds for upper and lower bounds."""
+
+def _strip_snmp_value(value):
+    """Remove the trailing TYPE: tag that -Oqn may include, and quotes."""
+    # -Oqn already strips the type tag; but guard against leading/trailing quotes
+    v = value
+    if v.startswith('"') and v.endswith('"') and len(v) >= 2:
+        v = v[1:-1]
+    return v
+
+
+def _build_section(ctx, host, community, base):
+    """Walk all columns and assemble the parsed section dict.
+
+    Returns: {type: {name: {state, state_readable, value, levels, levels_lower}}}
+    """
+    col_values = {}
+    for col in ALL_COLUMNS:
+        col_values[col] = _walk_column(ctx, host, community, base, col)
+
+    # Collect the union of indices that have a name (COL_NAME) value.
+    indices = list(col_values[COL_NAME].keys())
+
+    parsed = {}
+    # Order types by their first-seen index ordering for stability
+    for idx in indices:
+        ty = col_values[COL_TYPE].get(idx, "")
+        name = col_values[COL_NAME].get(idx, idx)
+        status = col_values[COL_STATUS].get(idx, "")
+        value_str = col_values[COL_VALUE].get(idx, "")
+        crit_lower_str = col_values[COL_CRIT_LOWER].get(idx, "")
+        warn_lower_str = col_values[COL_WARN_LOWER].get(idx, "")
+        warn_str = col_values[COL_WARN].get(idx, "")
+        crit_str = col_values[COL_CRIT].get(idx, "")
+
+        if status in _STATE_MAP:
+            state = _STATE_MAP[status]
+            state_readable = status
+        else:
+            state = 3
+            state_readable = "unknown[%s]" % status
+
+        sensor = {
+            "state": state,
+            "state_readable": state_readable,
+        }
+
+        # value: int if isdigit, else float, else string
+        if value_str != "":
+            if value_str.lstrip("-").isdigit():
+                sensor["value"] = int(value_str)
+            else:
+                is_float = False
+                try_val = value_str.lstrip("-")
+                parts = try_val.split(".", 1)
+                if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                    is_float = True
+                if is_float:
+                    sensor["value"] = float(value_str)
+                else:
+                    sensor["value"] = value_str
+
+        # levels: (warn, crit) upper; levels_lower: (warn_lower, crit_lower)
+        # Only set if all four are present (line == 8 equivalent)
+        if (crit_lower_str != "" and warn_lower_str != ""
+                and warn_str != "" and crit_str != ""):
+            crit_lower = float(crit_lower_str)
+            warn_lower = float(warn_lower_str)
+            warn = float(warn_str)
+            crit = float(crit_str)
+            sensor["levels"] = (warn, crit)
+            sensor["levels_lower"] = (warn_lower, crit_lower)
+
+        parsed.setdefault(ty, {}).setdefault(name, sensor)
+
+    return parsed
+
+
+def _grade_humidity(value, warn, crit):
+    """Grade a humidity value against upper warn/crit thresholds.
+
+    warn/crit may be None (not configured). Higher is worse.
+    """
     state = "OK"
-    details = []
-    
-    # Upper levels: levels -> [warn, crit]
-    levels_upper = params.get("levels", None)
-    if levels_upper != None and len(levels_upper) >= 2:
-        upper_warn = float(levels_upper[0])
-        upper_crit = float(levels_upper[1])
-        if value >= upper_crit:
-            state = "CRIT"
-            details.append(">= %f%% (crit)" % upper_crit)
-        elif value >= upper_warn:
-            if state != "CRIT":
-                state = "WARN"
-            details.append(">= %f%% (warn)" % upper_warn)
-    
-    # Lower levels: levels_lower -> [warn, crit]
-    levels_lower = params.get("levels_lower", None)
-    if levels_lower != None and len(levels_lower) >= 2:
-        lower_warn = float(levels_lower[0])
-        lower_crit = float(levels_lower[1])
-        if value <= lower_crit:
-            state = "CRIT"
-            details.append("<= %f%% (crit)" % lower_crit)
-        elif value <= lower_warn:
-            if state != "CRIT":
-                state = "WARN"
-            details.append("<= %f%% (warn)" % lower_warn)
-    
-    return state, ", ".join(details) if details else "OK"
+    if crit != None and value >= crit:
+        state = "CRIT"
+    elif warn != None and value >= warn:
+        state = "WARN"
+    return state
+
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.46501.6.2.1"
+    item = params.get("item", "")
+    check_type = params.get("check_type", "humidity")
+
     if params.get("_discover"):
-        section = _parse_section(ctx)
-        # Discovery: yield one item per humidity sensor, skipping 'off'/'not connected'
-        items = []
-        for name, data in section.get("humidity", {}).items():
-            if data.get("state_readable", "") not in ("off", "not connected"):
-                # Suggest default params — Checkmk default for humidity is no thresholds
-                items.append({
-                    "item": name,
+        if not _probe_product_exists(ctx, host, community):
+            return {"changed": False, "msg": "no Didactum device found",
+                    "data": {"discovery": []}}
+        section = _build_section(ctx, host, community, base)
+        discovery = []
+        sensors = section.get(check_type, {})
+        for sensor_name, attrs in sensors.items():
+            state_readable = attrs.get("state_readable", "")
+            if state_readable not in ("off", "not connected"):
+                discovery.append({
+                    "item": sensor_name,
                     "params": {},
                     "metrics": ["humidity"],
                 })
         return {
             "changed": False,
-            "msg": "discovered %d humidity sensors" % len(items),
-            "data": {"discovery": items},
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode: get item from params
-    item = params.get("item", "")
-    section = _parse_section(ctx)
-    
-    # Look up item in humidity section
-    sensor = section.get("humidity", {}).get(item)
-    
-    # If not found, return UNKNOWN
-    if sensor == None:
+
+    # CHECK MODE -----------------------------------------------------
+    if not _probe_product_exists(ctx, host, community):
         return {
             "changed": False,
-            "msg": "sensor '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "no Didactum device found at %s" % host,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    value = sensor.get("value")
-    if value == None:
+
+    section = _build_section(ctx, host, community, base)
+    sensors = section.get(check_type, {})
+    data = sensors.get(item)
+    if data == None:
         return {
             "changed": False,
-            "msg": "sensor '%s' has no valid value" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "no such sensor: %s" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    # Check type and convert
-    if type(value) != "int" and type(value) != "float":
+
+    value = data.get("value")
+    state_readable = data.get("state_readable", "")
+    if state_readable in ("off", "not connected"):
         return {
             "changed": False,
-            "msg": "sensor '%s' has invalid value" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "sensor %s not connected" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    value = float(value)
-    
-    # Determine base state from sensor status
-    state = sensor.get("state", "UNKNOWN")
-    
-    # Apply thresholds if present (Checkmk default is no thresholds)
-    # Use params to override thresholds
-    state, details = _check_humidity(value, params)
-    
+
+    # Thresholds: params default to Checkmk humidity ruleset defaults.
+    # The original check_default_parameters={} means no default levels.
+    # Use common humidity defaults when not provided by the operator.
+    warn = params.get("levels")
+    if warn == None:
+        warn = params.get("warn")
+    crit = params.get("crit")
+    if warn == None and params.get("levels") == None:
+        # Checkmk humidity default levels: warn 55%, crit 60% (not connected handled separately)
+        warn = 55
+        crit = 60
+    if crit == None:
+        crit = params.get("crit", 60)
+    if warn == None:
+        warn = params.get("warn", 55)
+
+    # The sensor's own dev_levels override params when available, mirroring
+    # check_humidity which accepts dev_levels from the device.
+    dev_levels = data.get("levels")
+    if dev_levels != None:
+        warn = dev_levels[0]
+        crit = dev_levels[1]
+    dev_levels_lower = data.get("levels_lower")
+
+    # Determine the effective value for grading.
+    if type(value) == "int" or type(value) == "float":
+        v = value
+        state = _grade_humidity(v, warn, crit)
+        # If the device reports a non-OK state itself (e.g. alarm), honor it.
+        dev_state = data.get("state", 3)
+        if dev_state == 2:
+            state = "CRIT"
+        elif dev_state == 1:
+            if state == "OK":
+                state = "WARN"
+        metrics = {"humidity": v}
+        details = "Status: %s" % state_readable
+        msg = "Humidity CAN %s: %s%% (%s)" % (item, v, state_readable)
+    else:
+        # value is a string (unexpected); report UNKNOWN
+        msg = "sensor %s returned non-numeric value: %s" % (item, value)
+        return {
+            "changed": False,
+            "msg": msg,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
     return {
         "changed": False,
-        "msg": "Humidity: %f %%" % value,
+        "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"humidity": value},
+            "metrics": metrics,
             "details": details,
         },
     }

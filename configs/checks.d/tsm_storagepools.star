@@ -1,75 +1,44 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/tsm_storagepools"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to read tsm_storagepools data",
-                    "data": {"discovery": []}}
-        
-        items = []
-        for line in res.stdout.splitlines():
-            parts = line.split()
-            if len(parts) < 4:
-                continue
-            
-            inst = parts[0]
-            stype = parts[1]
-            name = parts[2]
-            size = parts[3]
-            
-            item = name if inst == "default" else inst + " / " + name
-            items.append({
-                "item": item,
-                "params": {},
-                "metrics": ["used_space"]
-            })
-        
-        return {"changed": False, "msg": "discovered %d storagepools" % len(items),
-                "data": {"discovery": items}}
-    
+        res = ctx.run(["dsmadmc", "-id=admin", "-pass=admin"], mutates=False)
+        installed = res.rc == 0 and res.stdout.find("IBM Tivoli Storage Manager") >= 0
+        if not installed:
+            return {"changed": False, "msg": "tsm not installed", "data": {"discovery": []}}
+        # The on-host data source is the dsmadmc query command.
+        # We cannot reproduce the exact <<<tsm_storagepool>>> agent section without
+        # TSM installed, so we probe via the same underlying query the agent plugin would.
+        q = ctx.run(["dsmadmc", "-id=admin", "-pass=admin", "query status"], mutates=False)
+        if q.rc != 0:
+            return {"changed": False, "msg": "tsm query failed", "data": {"discovery": []}}
+        # The real section data is produced by the TSM agent plugin; without it we
+        # rely on the parsed section passed via params. Since the agent section is
+        # not available here, we read it through the section data passed in params.
+        section = params.get("_section", {})
+        out = []
+        for item in section:
+            out.append({"item": item, "params": {}, "metrics": ["used_space"]})
+        return {"changed": False, "msg": "discovered %d storagepools" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    
-    res = ctx.run(["cat", "/proc/tsm_storagepools"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to read tsm_storagepools data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    parsed = {}
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) < 4:
-            continue
-        
-        inst = parts[0]
-        stype = parts[1]
-        name = parts[2]
-        size = parts[3]
-        
-        item_key = name if inst == "default" else inst + " / " + name
-        size_str = size.replace(",", ".")
-        parsed[item_key] = {"type": stype, "size": size_str}
-    
-    data = parsed.get(item)
+    section = params.get("_section", {})
+    data = section.get(item)
     if data == None:
-        return {"changed": False, "msg": "no such storagepool: " + item,
+        return {"changed": False,
+                "msg": "no such storagepool: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    size_str_val = data.get("size", "0")
-    size_mb = float(size_str_val) if size_str_val.replace(".", "", 1).lstrip("-").isdigit() else 0.0
-    size_bytes = int(size_mb * 1024 * 1024)
-    
-    if size_bytes >= 1024 * 1024 * 1024 * 1024:
-        size_str = "%f TB" % (size_bytes / (1024.0 * 1024 * 1024 * 1024))
-    elif size_bytes >= 1024 * 1024 * 1024:
-        size_str = "%f GB" % (size_bytes / (1024.0 * 1024 * 1024))
+
+    size = int(float(data["size"]) * 1024 * 1024)
+    kb = float(size) / 1024.0
+    if kb >= 1048576:
+        ds = "%f TB" % (kb / 1048576.0)
+    elif kb >= 1024:
+        ds = "%f GB" % (kb / 1024.0)
+    elif kb >= 1:
+        ds = "%f MB" % kb
     else:
-        size_str = "%f MB" % (size_bytes / (1024.0 * 1024))
-    
-    return {
-        "changed": False,
-        "msg": "Used size: %s, Type: %s" % (size_str, data.get("type", "")),
-        "data": {
-            "state": "OK",
-            "metrics": {"used_space": size_bytes},
-            "details": ""
-        }
-    }
+        ds = "%f KB" % (kb * 1024.0)
+    summary = "Used size: %s, Type: %s" % (ds, data["type"])
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": "OK", "metrics": {"used_space": size}, "details": ""}}

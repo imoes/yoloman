@@ -1,125 +1,159 @@
-# Module-level constants (metric labels and boundaries)
-UTILIZATION_METRIC = "channel_utilization"
-ACTIVE_TUNNELS_METRIC = "active_sessions"
+# Parameters the check accepts (your params dict; use the Checkmk defaults):
+#   host: target PanOS host (default localhost)
+#   community: SNMP community (default public)
+#   utilization: levels dict, e.g. {"levels": (warn, crit)}
+#   active_tunnels: levels dict, e.g. {"levels": (warn, crit)}
+
+def _snmp_walk_indexed(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return None
+    out = []
+    for line in res.stdout.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid_part = line[:sp]
+        value_part = line[sp + 1:]
+        idx = oid_part[len(oid) + 1:] if oid_part.startswith(oid + ".") else ""
+        out.append((idx, value_part))
+    return out
+
+def _snmp_get(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"'):
+        val = val[1:-1]
+    return val
+
+def _levels_tuple(params):
+    lv = params.get("levels")
+    if type(lv) == "list" and len(lv) >= 2:
+        return (float(lv[0]), float(lv[1]))
+    return None
+
+def _grade_upper(value, params, upper_bound):
+    lv = _levels_tuple(params)
+    if lv == None:
+        return "OK"
+    w = lv[0]
+    c = lv[1]
+    if value >= c:
+        return "CRIT"
+    if value >= w:
+        return "WARN"
+    if upper_bound != None and value > upper_bound:
+        return "CRIT"
+    return "OK"
+
+def _grade_lower(value, params, lower_bound):
+    lv = _levels_tuple(params)
+    if lv == None:
+        return "OK"
+    w = lv[0]
+    c = lv[1]
+    if value <= c:
+        return "CRIT"
+    if value <= w:
+        return "WARN"
+    if lower_bound != None and value < lower_bound:
+        return "CRIT"
+    return "OK"
 
 def main(ctx, params):
-    # SNMP section detection and fetch (single-service check, no items)
-    # Detect: startswith(sysDescr, "Palo Alto") and exists OIDs .1.3.6.1.4.1.25461.2.1.2.5.1.*
-    sysdesc = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                       "-On", params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0"],
-                      mutates=False)
-    if sysdesc.rc != 0 or not sysdesc.stdout:
-        return {"changed": False, "msg": "could not read sysDescr",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    sysdesc_str = sysdesc.stdout.strip().split(" = ", 1)[-1] if " = " in sysdesc.stdout else ""
-    if not sysdesc_str.startswith("Palo Alto"):
-        # Not applicable - return empty discovery or UNKNOWN state
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "not a Palo Alto device",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Check existence of base OID branch by attempting snmpwalk of first OID
-    util_check = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                          "-On", params.get("host", "localhost"),
-                          ".1.3.6.1.4.1.25461.2.1.2.5.1"],
-                         mutates=False)
-    if util_check.rc != 0 or not util_check.stdout:
-        return {"changed": False, "msg": "globalprotect_utilization data unavailable",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Fetch the three OIDs: 1=utilization, 2=max_tunnels, 3=active_tunnels
-    util_pct = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                        "-On", params.get("host", "localhost"),
-                        ".1.3.6.1.4.1.25461.2.1.2.5.1.1"],
-                       mutates=False)
-    max_tunn = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                        "-On", params.get("host", "localhost"),
-                        ".1.3.6.1.4.1.25461.2.1.2.5.1.2"],
-                       mutates=False)
-    active_tun = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                          "-On", params.get("host", "localhost"),
-                          ".1.3.6.1.4.1.25461.2.1.2.5.1.3"],
-                         mutates=False)
-
-    if util_pct.rc != 0 or max_tunn.rc != 0 or active_tun.rc != 0:
-        return {"changed": False, "msg": "failed to fetch globalprotect_utilization OIDs",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    def extract_value(out):
-        if " = " in out:
-            val = out.strip().split(" = ", 1)[-1]
-            if val.startswith("INTEGER: "):
-                val = val.replace("INTEGER: ", "")
-            if val.isdigit() or (val.lstrip("-").isdigit() and val.lstrip("-") != ""):
-                return int(val)
-        return None
-
-    utilization = extract_value(util_pct.stdout)
-    max_tunnels = extract_value(max_tunn.stdout)
-    active_tunnels = extract_value(active_tun.stdout)
-
-    # Validate parsed values
-    if utilization == None or max_tunnels == None or active_tunnels == None:
-        return {"changed": False, "msg": "malformed globalprotect_utilization data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
     if params.get("_discover"):
-        return {"changed": False, "msg": "discovered 1 item",
-                "data": {"discovery": [
-                    {"item": "", "params": {}, "metrics": ["channel_utilization", "active_sessions"]}
-                ]}}
+        sys_descr = _snmp_get(ctx, "public", "localhost", ".1.3.6.1.2.1.1.1.0")
+        if sys_descr == None:
+            return {"changed": False, "msg": "discovery: no SNMP sysDescr", "data": {"discovery": []}}
 
-    # Normal check mode: evaluate levels (checkmk uses predictive or fixed upper levels)
-    # Default thresholds are not provided (params empty), so use no levels unless specified.
-    levels_util = params.get("utilization")
-    levels_active = params.get("active_tunnels")
+        is_palo_alto = False
+        palo_marker = "Palo Alto"
+        if sys_descr.startswith(palo_marker):
+            is_palo_alto = True
 
-    # Accumulator dict for state (Starlark has no nonlocal)
-    state_acc = {"value": "OK"}
+        table_rows = _snmp_walk_indexed(ctx, "public", "localhost", ".1.3.6.1.4.1.25461.2.1.2.5.1")
+        table_exists = table_rows != None and len(table_rows) > 0
 
-    # Helper: evaluate levels and update state_acc
-    def eval_levels(value, levels, label):
-        # Support predictive (dict) and fixed (int/float) formats
-        warn = None
-        crit = None
+        if not (is_palo_alto and table_exists):
+            return {"changed": False, "msg": "discovery: GlobalProtect not detected", "data": {"discovery": []}}
 
-        if type(levels) == "dict":
-            # For simplicity, assume fixed tuple under 'levels' key if present
-            warn = levels.get("levels")[0] if levels.get("levels") else None
-            crit = levels.get("levels")[1] if levels.get("levels") else None
-        else:
-            # Fixed number: upper bound only
-            warn = levels
-            crit = levels
+        return {
+            "changed": False,
+            "msg": "discovered 1 GlobalProtect service",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {
+                            "utilization": {"levels": (80.0, 90.0)},
+                            "active_tunnels": {"levels": (80.0, 90.0)},
+                        },
+                        "metrics": ["channel_utilization", "active_sessions"],
+                    }
+                ]
+            },
+        }
 
-        # Evaluate: WARN if value >= warn, CRIT if value >= crit
-        if crit != None and value >= crit:
-            state_acc["value"] = "CRIT"
-        elif warn != None and value >= warn and state_acc["value"] == "OK":
-            state_acc["value"] = "WARN"
-        return "%s: %d" % (label, value)
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.25461.2.1.2.5.1"
 
-    # Utilization (0-100)
-    util_msg = eval_levels(utilization, levels_util, "Utilization")
+    utilization = _snmp_get(ctx, community, host, base + ".1")
+    max_tunnels = _snmp_get(ctx, community, host, base + ".2")
+    active_tunnels = _snmp_get(ctx, community, host, base + ".3")
 
-    # Active tunnels (0..max_tunnels)
-    active_msg = eval_levels(active_tunnels, levels_active, "Active sessions")
+    if utilization == None or max_tunnels == None or active_tunnels == None:
+        return {
+            "changed": False,
+            "msg": "no GlobalProtect utilization data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Always report max sessions in summary
-    summary = "%s, Max sessions: %d" % (active_msg if active_msg else "Active sessions: %d" % active_tunnels, max_tunnels)
-    if util_msg:
-        summary = util_msg + ", " + summary
+    util_val = 0.0
+    max_val = 0
+    active_val = 0.0
+    if utilization.lstrip("-").isdigit():
+        util_val = float(int(utilization))
+    if max_tunnels.lstrip("-").isdigit():
+        max_val = int(max_tunnels)
+    if active_tunnels.lstrip("-").isdigit():
+        active_val = float(int(active_tunnels))
 
-    # Map Checkmk states to our strings
-    state = state_acc["value"]
-    if state == "OK":
-        summary = "Utilization: %d%%, Active sessions: %d, Max sessions: %d" % (utilization, active_tunnels, max_tunnels)
-        state = "OK"
+    metrics = {
+        "channel_utilization": util_val,
+        "active_sessions": active_val,
+    }
 
-    # Build metrics dict (perfdata)
-    metrics = {"channel_utilization": utilization, "active_sessions": active_tunnels}
+    u_state = _grade_upper(util_val, params.get("utilization", {}), 100.0)
+    a_state = _grade_upper(active_val, params.get("active_tunnels", {}), float(max_val))
 
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+    worst = "OK"
+    order = ["OK", "WARN", "CRIT", "UNKNOWN"]
+    if order.index(u_state) > order.index(worst):
+        worst = u_state
+    if order.index(a_state) > order.index(worst):
+        worst = a_state
+
+    details = "Utilization: %d%%, Active sessions: %d, Max sessions: %d" % (
+        int(util_val), int(active_val), max_val)
+
+    return {
+        "changed": False,
+        "msg": details,
+        "data": {
+            "state": worst,
+            "metrics": metrics,
+            "details": details,
+        },
+    }

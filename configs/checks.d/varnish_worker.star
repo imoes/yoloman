@@ -1,174 +1,165 @@
+# Checkmk check "varnish_worker" -> read-only Starlark check module for yolo-man.
+# Reproduces the Checkmk varnish_worker check logic on a host without Checkmk.
+
+WORKER_KEYS = [
+    "n_wrk_lqueue",
+    "n_wrk_create",
+    "n_wrk_drop",
+    "n_wrk",
+    "n_wrk_failed",
+    "n_wrk_queued",
+    "n_wrk_max",
+]
+
+
+def _is_varnish_installed(ctx):
+    res = ctx.run(["varnishd", "-V"], mutates=False)
+    if res.rc == 127:
+        return False
+    return True
+
+
+def _read_varnishstat_json(ctx):
+    res = ctx.run(
+        ["varnishstat", "-j", "-1", "-n", "default"],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return None
+    return json.decode(res.stdout)
+
+
+def _extract_counter(data, name):
+    if isinstance(data, dict) and isinstance(data.get(name), dict):
+        entry = data[name]
+        v = entry.get("value")
+        if v == None:
+            return None
+        if isinstance(v, int):
+            return v
+        if isinstance(v, str) and v.isdigit():
+            return int(v)
+        return None
+    return None
+
+
+def _fmt_name(k):
+    perf = "varnish_%s_rate" % k
+    if perf.startswith("varnish_n_wrk"):
+        perf = perf.replace("n_wrk", "worker")
+    elif perf.startswith("varnish_n_"):
+        perf = perf.replace("n_", "objects_")
+    return perf
+
+
+def _section_exists(section, keys):
+    for k in keys:
+        if k not in section:
+            return False
+    return True
+
+
+def _build_section(ctx):
+    data = _read_varnishstat_json(ctx)
+    if data == None:
+        return None
+    section = {}
+    for k in WORKER_KEYS:
+        val = _extract_counter(data, k)
+        if val != None:
+            section[k] = {
+                "value": val,
+                "descr": " ".join(k.replace("_", " ").split()),
+                "perf_var_name": _fmt_name(k),
+                "params_var_name": k,
+            }
+    return section
+
+
+def _grade_value(val, warn, crit):
+    if crit != None and val >= crit:
+        return "CRIT"
+    if warn != None and val >= warn:
+        return "WARN"
+    return "OK"
+
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["varnishstat", "-1"], mutates=False)
-        if not res.stdout:
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []}
-            }
-        lines = res.stdout.splitlines()
-        section = {}
-        for line in lines:
-            parts = line.strip().split()
-            if len(parts) < 5:
-                continue
-            key = parts[4]
-            if not key:
-                continue
-            value = int(parts[0]) if parts[0].lstrip("-").isdigit() else None
-            # Build hierarchy path
-            path = key.split(".")
-            target = section
-            for segment in path[:-1]:
-                if segment not in target:
-                    target[segment] = {}
-                target = target[segment]
-            # Extract description from remaining parts
-            if len(parts) > 5:
-                if parts[3].lower() in key:
-                    descr = " ".join(parts[5:])
-                else:
-                    descr = " ".join(parts[4:])
-            else:
-                descr = ""
-            # Normalize perf_var_name
-            perf_var_name = "varnish_%s_rate" % path[-1]
-            if perf_var_name.startswith("varnish_n_wrk"):
-                perf_var_name = perf_var_name.replace("n_wrk", "worker")
-            elif perf_var_name.startswith("varnish_n_"):
-                perf_var_name = perf_var_name.replace("n_", "objects_")
-            target[path[-1]] = {
-                "value": value,
-                "descr": descr.replace("/", " "),
-                "perf_var_name": perf_var_name,
-                "params_var_name": path[-1].split("_", 1)[-1],
-            }
-        if "n_wrk_failed" in section and "n_wrk_queued" in section:
-            return {
-                "changed": False,
-                "msg": "discovered 1 items",
-                "data": {"discovery": [
+        if not _is_varnish_installed(ctx):
+            return {"changed": False, "msg": "Varnish not installed",
+                    "data": {"discovery": []}}
+
+        section = _build_section(ctx)
+        if section == None or not _section_exists(section, ["n_wrk_failed", "n_wrk_queued"]):
+            return {"changed": False, "msg": "no Varnish worker data",
+                    "data": {"discovery": []}}
+
+        metrics = []
+        for k in WORKER_KEYS:
+            if k in section:
+                metrics.append(_fmt_name(k))
+
+        return {
+            "changed": False,
+            "msg": "discovered 1 Varnish worker service",
+            "data": {
+                "discovery": [
                     {
                         "item": "",
                         "params": {},
-                        "metrics": [
-                            "n_wrk_lqueue_rate",
-                            "n_wrk_create_rate",
-                            "n_wrk_drop_rate",
-                            "n_wrk_rate",
-                            "n_wrk_failed_rate",
-                            "n_wrk_queued_rate",
-                            "n_wrk_max_rate"
-                        ]
+                        "metrics": metrics,
                     }
-                ]}
-            }
+                ]
+            },
+        }
+
+    # --- check mode ---
+    item = params.get("item", "")
+
+    if not _is_varnish_installed(ctx):
         return {
             "changed": False,
-            "msg": "discovered 0 items",
-            "data": {"discovery": []}
+            "msg": "Varnish is not installed on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Check mode (single service)
-    res = ctx.run(["varnishstat", "-1"], mutates=False)
-    if not res.stdout:
+    section = _build_section(ctx)
+    if section == None:
         return {
             "changed": False,
-            "msg": "Varnish worker data not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    lines = res.stdout.splitlines()
-    section = {}
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) < 5:
-            continue
-        key = parts[4]
-        if not key:
-            continue
-        value = int(parts[0]) if parts[0].lstrip("-").isdigit() else None
-        path = key.split(".")
-        target = section
-        for segment in path[:-1]:
-            if segment not in target:
-                target[segment] = {}
-            target = target[segment]
-        if len(parts) > 5:
-            if parts[3].lower() in key:
-                descr = " ".join(parts[5:])
-            else:
-                descr = " ".join(parts[4:])
-        else:
-            descr = ""
-        perf_var_name = "varnish_%s_rate" % path[-1]
-        if perf_var_name.startswith("varnish_n_wrk"):
-            perf_var_name = perf_var_name.replace("n_wrk", "worker")
-        elif perf_var_name.startswith("varnish_n_"):
-            perf_var_name = perf_var_name.replace("n_", "objects_")
-        target[path[-1]] = {
-            "value": value,
-            "descr": descr.replace("/", " "),
-            "perf_var_name": perf_var_name,
-            "params_var_name": path[-1].split("_", 1)[-1],
+            "msg": "could not read varnishstat output",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Required keys for worker section
-    required_keys = [
-        "n_wrk_lqueue",
-        "n_wrk_create",
-        "n_wrk_drop",
-        "n_wrk",
-        "n_wrk_failed",
-        "n_wrk_queued",
-        "n_wrk_max"
-    ]
-    for key in required_keys:
-        if key not in section:
-            return {
-                "changed": False,
-                "msg": "Varnish worker data not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
+    if not _section_exists(section, ["n_wrk_failed", "n_wrk_queued"]):
+        return {
+            "changed": False,
+            "msg": "Varnish worker counters not available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Compute metrics from current values (single time sample)
     metrics = {}
-    summary_parts = []
+    details = []
+    worst = "OK"
+    order = ["OK", "WARN", "CRIT", "UNKNOWN"]
 
-    # Map raw keys to rate metric names for output
-    key_to_rate = {
-        "n_wrk_lqueue": "n_wrk_lqueue_rate",
-        "n_wrk_create": "n_wrk_create_rate",
-        "n_wrk_drop": "n_wrk_drop_rate",
-        "n_wrk": "n_wrk_rate",
-        "n_wrk_failed": "n_wrk_failed_rate",
-        "n_wrk_queued": "n_wrk_queued_rate",
-        "n_wrk_max": "n_wrk_max_rate"
-    }
+    for k in WORKER_KEYS:
+        if k not in section:
+            continue
+        val = section[k]["value"]
+        perf = _fmt_name(k)
+        metrics[perf] = val
+        details.append("%s: %d" % (section[k]["descr"], val))
 
-    for key in required_keys:
-        if section[key].get("value") != None:
-            value = section[key]["value"]
-            metrics[key_to_rate[key]] = value
-
-    # Build message from key metrics
-    if section.get("n_wrk") and section["n_wrk"].get("value") != None:
-        summary_parts.append("Active workers: %d" % section["n_wrk"]["value"])
-    if section.get("n_wrk_failed") and section["n_wrk_failed"].get("value") != None:
-        summary_parts.append("Failed: %d" % section["n_wrk_failed"]["value"])
-    if section.get("n_wrk_drop") and section["n_wrk_drop"].get("value") != None:
-        summary_parts.append("Dropped: %d" % section["n_wrk_drop"]["value"])
-    if section.get("n_wrk_queued") and section["n_wrk_queued"].get("value") != None:
-        summary_parts.append("Queued: %d" % section["n_wrk_queued"]["value"])
-
-    msg = "Varnish Worker: " + ", ".join(summary_parts) if summary_parts else "Varnish Worker: data present"
+    summary = "; ".join(details) if details else "no worker counters"
 
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Varnish Worker: " + summary,
         "data": {
-            "state": "OK",
+            "state": worst,
             "metrics": metrics,
-            "details": ""
-        }
+            "details": details,
+        },
     }

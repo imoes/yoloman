@@ -1,198 +1,73 @@
+# checkmk.nvidia_smi_gpu_util — GPU utilization %s
+# READ-ONLY Starlark check module translating Checkmk's nvidia_smi_gpu_util.
+# Source: nvidia-smi -q -d UTILIZATION -x (XML), no shell pipes, no Checkmk binaries.
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["nvidia-smi", "-q", "-x"], mutates=False)
+        # Discovery: run nvidia-smi to enumerate GPUs with gpu_util present.
+        res = ctx.run([
+            "nvidia-smi", "--query-gpu=index", "--format=csv,noheader",
+        ], mutates=False)
+        if res.rc == 127:
+            # Not installed -> not applicable here. Do NOT substitute /proc.
+            return {"changed": False, "msg": "nvidia-smi not installed",
+                    "data": {"discovery": []}}
         if res.rc != 0:
-            return {"changed": False, "msg": "nvidia-smi command failed",
+            return {"changed": False, "msg": "nvidia-smi not installed",
                     "data": {"discovery": []}}
-        if not res.stdout.strip():
-            return {"changed": False, "msg": "nvidia-smi returned empty output",
-                    "data": {"discovery": []}}
-        
-        gpus = _extract_gpus_from_xml(res.stdout)
-        discovery_items = []
-        for gpu_id, gpu_data in gpus.items():
-            if gpu_data.get("gpu_util") != None:
-                discovery_items.append({
-                    "item": gpu_id,
-                    "params": {"levels": None},
-                    "metrics": ["gpu_utilization"]
-                })
-        
-        return {"changed": False, "msg": "discovered %d GPUs" % len(discovery_items),
-                "data": {"discovery": discovery_items}}
-    
-    # Check mode: process one item
+        out = []
+        for line in res.stdout.splitlines():
+            idx = line.strip()
+            if idx == "" or not idx.isdigit():
+                continue
+            out.append({"item": idx, "params": {"levels": None},
+                        "metrics": ["gpu_utilization"]})
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    res = ctx.run(["nvidia-smi", "-q", "-x"], mutates=False)
+    # Read per-GPU utilization percentage directly from nvidia-smi.
+    res = ctx.run([
+        "nvidia-smi", "--query-gpu=" + item + ":index,utilization.gpu",
+        "--format=csv,noheader,nounits",
+    ], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "nvidia-smi not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     if res.rc != 0:
-        return {"changed": False, "msg": "nvidia-smi command failed",
+        return {"changed": False, "msg": "nvidia-smi not installed",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout.strip():
-        return {"changed": False, "msg": "nvidia-smi returned empty output",
+    lines = res.stdout.splitlines()
+    if not lines:
+        return {"changed": False, "msg": "no data for gpu " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    gpus = _extract_gpus_from_xml(res.stdout)
-    
-    gpu_data = gpus.get(item)
-    if gpu_data == None:
-        return {"changed": False, "msg": "no such GPU: " + item,
+    parts = lines[0].strip().split(",")
+    if len(parts) < 2:
+        return {"changed": False, "msg": "no data for gpu " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    gpu_util = gpu_data.get("gpu_util")
-    if gpu_util == None:
-        return {"changed": False, "msg": "GPU utilization data not available for " + item,
+    util_str = parts[1].strip()
+    # util may be "N/A" if GPU is in an unusable state.
+    if util_str == "N/A":
+        return {"changed": False, "msg": "gpu %s unavailable" % item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Apply threshold logic (upper levels only)
+    if not util_str.isdigit():
+        return {"changed": False, "msg": "gpu %s unusable" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    util = int(util_str)
+
     levels = params.get("levels")
-    warn = None
-    crit = None
+    warn = 0
+    crit = 0
     if levels != None:
         warn = levels[0]
         crit = levels[1]
-    
+
     state = "OK"
-    if crit != None and gpu_util >= crit:
+    if crit != 0 and util >= crit:
         state = "CRIT"
-    elif warn != None and gpu_util >= warn:
+    elif warn != 0 and util >= warn:
         state = "WARN"
-    
-    return {
-        "changed": False,
-        "msg": "Utilization: %f%%" % gpu_util,
-        "data": {
-            "state": state,
-            "metrics": {"gpu_utilization": gpu_util},
-            "details": "",
-        },
-    }
 
-
-def _extract_gpus_from_xml(xml_text):
-    result = {}
-    
-    gpu_sections = _split_xml_section(xml_text, "<gpu>", "</gpu>")
-    for gpu_section in gpu_sections:
-        gpu_id = _extract_single_tag(gpu_section, "id")
-        if not gpu_id:
-            continue
-        
-        util_section = _extract_subsection(gpu_section, "utilization")
-        gpu_util = _extract_single_float(util_section, "gpu_util", "%")
-        
-        result[gpu_id] = {
-            "gpu_util": gpu_util
-        }
-    
-    return result
-
-
-def _split_xml_section(text, start_tag, end_tag):
-    sections = []
-    start_idx = 0
-    while True:
-        start_pos = text.find(start_tag, start_idx)
-        if start_pos == -1:
-            break
-        end_pos = text.find(end_tag, start_pos)
-        if end_pos == -1:
-            break
-        sections.append(text[start_pos:end_pos + len(end_tag)])
-        start_idx = end_pos + len(end_tag)
-    return sections
-
-
-def _extract_single_tag(xml_text, tag):
-    start_tag = "<" + tag + ">"
-    end_tag = "</" + tag + ">"
-    start_pos = xml_text.find(start_tag)
-    if start_pos == -1:
-        return None
-    end_pos = xml_text.find(end_tag, start_pos)
-    if end_pos == -1:
-        return None
-    content_start = start_pos + len(start_tag)
-    content_end = end_pos
-    return xml_text[content_start:content_end].strip()
-
-
-def _extract_subsection(xml_text, tag):
-    start_tag = "<" + tag + ">"
-    end_tag = "</" + tag + ">"
-    start_pos = xml_text.find(start_tag)
-    if start_pos == -1:
-        return ""
-    end_pos = xml_text.find(end_tag, start_pos)
-    if end_pos == -1:
-        return ""
-    content_start = start_pos + len(start_tag)
-    return xml_text[content_start:end_pos]
-
-
-def _extract_single_float(xml_text, tag, unit):
-    content = _extract_single_tag(xml_text, tag)
-    if not content:
-        return None
-    
-    content = content.strip()
-    if not content.endswith(unit):
-        return None
-    
-    value_str = content[:-len(unit)].strip()
-    if value_str == "":
-        return None
-    
-    # Validate that value_str looks like a number
-    # Remove whitespace
-    clean_value = ""
-    for c in value_str:
-        if c in "0123456789.-":
-            clean_value = clean_value + c
-    
-    # Must have at least one digit
-    has_digit = False
-    for c in clean_value:
-        if c in "0123456789":
-            has_digit = True
-            break
-    
-    if not has_digit:
-        return None
-    
-    # Handle negative numbers
-    negative = False
-    if clean_value.startswith("-"):
-        negative = True
-        clean_value = clean_value[1:]
-    
-    # Split on dot
-    parts = clean_value.split(".")
-    integer_part = parts[0]
-    fractional_part = ""
-    if len(parts) > 1:
-        fractional_part = parts[1]
-    
-    # Check integer part is digits or empty
-    if integer_part == "":
-        integer_part = "0"
-    for c in integer_part:
-        if c not in "0123456789":
-            return None
-    
-    # Check fractional part is digits (if exists)
-    for c in fractional_part:
-        if c not in "0123456789":
-            return None
-    
-    # Build the float representation using string conversion
-    if fractional_part == "":
-        value_str_clean = integer_part + ".0"
-    else:
-        value_str_clean = integer_part + "." + fractional_part
-    
-    if negative:
-        value_str_clean = "-" + value_str_clean
-    
-    # Parse the float string using Starlark's float() builtin
-    # Since we've validated the format, this should always work
-    return float(value_str_clean)
+    return {"changed": False, "msg": "Gpu %s Util: %d" % (item, util),
+            "data": {"state": state, "metrics": {"gpu_utilization": util},
+                     "details": ""}}

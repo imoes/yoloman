@@ -1,266 +1,340 @@
-# ===== module: huawei_wlc_aps_status.star =====
-# Translated from Checkmk plugin: checkmk.huawei_wlc_aps_status
-# Read-only Starlark check (discovery + check); no mutations.
+# Huawei WLC AP Status — read-only Starlark check module
 
-def _map_radio_state(value):
-    # 1 -> up/OK, 2 -> down/CRIT
-    if value == "1":
-        return {"state": "OK", "label": "up"}
-    elif value == "2":
-        return {"state": "CRIT", "label": "down"}
-    else:
-        return {"state": "UNKNOWN", "label": "not available"}
+_AP_STATE_MAP = {
+    "1": ("Idle", "CRIT"),
+    "2": ("Auto find", "WARN"),
+    "3": ("Type not match", "CRIT"),
+    "4": ("Fault", "CRIT"),
+    "5": ("Config", "CRIT"),
+    "6": ("Config failed", "CRIT"),
+    "7": ("Download", "WARN"),
+    "8": ("Normal", "OK"),
+    "9": ("Committing", "CRIT"),
+    "10": ("Commit failed", "CRIT"),
+    "11": ("Standy", "WARN"),
+    "12": ("Version mismatch", "CRIT"),
+    "13": ("Name conflicted", "CRIT"),
+    "14": ("Invalid", "CRIT"),
+    "15": ("Country code mismatch", "CRIT"),
+}
 
-def _map_ap_state(value):
-    # All AP states mapped per Checkmk source
-    if value == "1":  return {"state": "CRIT", "label": "Idle"}
-    elif value == "2": return {"state": "WARN", "label": "Auto find"}
-    elif value == "3": return {"state": "CRIT", "label": "Type not match"}
-    elif value == "4": return {"state": "CRIT", "label": "Fault"}
-    elif value == "5": return {"state": "CRIT", "label": "Config"}
-    elif value == "6": return {"state": "CRIT", "label": "Config failed"}
-    elif value == "7": return {"state": "WARN", "label": "Download"}
-    elif value == "8": return {"state": "OK", "label": "Normal"}
-    elif value == "9": return {"state": "CRIT", "label": "Committing"}
-    elif value == "10": return {"state": "CRIT", "label": "Commit failed"}
-    elif value == "11": return {"state": "WARN", "label": "Standy"}
-    elif value == "12": return {"state": "CRIT", "label": "Version mismatch"}
-    elif value == "13": return {"state": "CRIT", "label": "Name conflicted"}
-    elif value == "14": return {"state": "CRIT", "label": "Invalid"}
-    elif value == "15": return {"state": "CRIT", "label": "Country code mismatch"}
-    else: return {"state": "UNKNOWN", "label": "not available"}
+_RADIO_STATE_MAP = {
+    "1": ("up", "OK"),
+    "2": ("down", "CRIT"),
+}
+
+_BASE_AP_INFO1 = ".1.3.6.1.4.1.2011.6.139.13.3.3.1"
+_BASE_AP_INFO2 = ".1.3.6.1.4.1.2011.6.139.16.1.2.1"
+_WLC_SYSOID_PREFIX = ".1.3.6.1.4.1.2011.2.240.17"
+
+
+def _to_float(s):
+    if s == None:
+        return None
+    if s == "":
+        return None
+    stripped = s.strip()
+    if stripped == "":
+        return None
+    neg = stripped.startswith("-") or stripped.startswith("+")
+    body = stripped[1:] if neg else stripped
+    if body == "":
+        return None
+    if not body.replace(".", "", 1).isdigit():
+        return None
+    return float(stripped)
+
+
+def _to_int(s):
+    if s == None:
+        return None
+    if s == "":
+        return None
+    stripped = s.strip()
+    if stripped == "":
+        return None
+    neg = stripped.startswith("-") or stripped.startswith("+")
+    body = stripped[1:] if neg else stripped
+    if not body.isdigit():
+        return None
+    return int(stripped)
+
+
+def _snmpget(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _snmpwalk(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return None
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) < 2:
+            continue
+        rows.append((sp[0], sp[1].strip()))
+    return rows
+
+
+def _is_wlc_host(ctx, host, community):
+    sysoid = _snmpget(ctx, community, host, ".1.3.6.1.2.1.1.2.0")
+    if sysoid == None:
+        return False
+    if not sysoid.startswith(_WLC_SYSOID_PREFIX):
+        return False
+    return True
+
+
+def _build_section(ctx, community, host):
+    aps_info1 = {}
+    cols1 = ["6", "40", "41", "43", "44"]
+    for col in cols1:
+        oid = _BASE_AP_INFO1 + "." + col
+        rows = _snmpwalk(ctx, community, host, oid)
+        if rows == None:
+            return None
+        for full_oid, value in rows:
+            idx = full_oid[len(oid) + 1:]
+            aps_info1.setdefault(idx, {})[col] = value
+
+    aps_info2 = {}
+    cols2 = ["3", "6", "25", "40"]
+    for col in cols2:
+        oid = _BASE_AP_INFO2 + "." + col
+        rows = _snmpwalk(ctx, community, host, oid)
+        if rows == None:
+            return None
+        for full_oid, value in rows:
+            idx = full_oid[len(oid) + 1:]
+            aps_info2.setdefault(idx, {})[col] = value
+
+    parsed = {}
+    idxs = sorted(aps_info1.keys())
+    for idx in idxs:
+        r1 = aps_info1[idx]
+        status = r1.get("6")
+        if status == None or status not in _AP_STATE_MAP:
+            continue
+        ap_label, ap_state = _AP_STATE_MAP[status]
+        mem_raw = r1.get("40")
+        cpu_raw = r1.get("41")
+        temp_raw = r1.get("43")
+        con_raw = r1.get("44")
+        if mem_raw == None or cpu_raw == None or temp_raw == None or con_raw == None:
+            continue
+        mem = _to_float(mem_raw)
+        cpu = _to_float(cpu_raw)
+        if mem == None or cpu == None:
+            continue
+        if temp_raw == "255":
+            temp = "invalid"
+        else:
+            tf = _to_float(temp_raw)
+            if tf == None:
+                temp = "invalid"
+            else:
+                temp = tf
+
+        pairs = {}
+        order = sorted(aps_info2.keys())
+        for k in range(0, len(order) - 1, 2):
+            a = order[k]
+            b = order[k + 1]
+            ra = aps_info2[a]
+            rb = aps_info2[b]
+            aid_a = ra.get("3")
+            if aid_a != None:
+                pairs[aid_a] = (ra, rb)
+            else:
+                pairs["AP-" + idx] = (ra, rb)
+
+        if len(pairs) > 0:
+            match = list(pairs.values())[0]
+        else:
+            pos = idxs.index(idx)
+            if 2 * pos + 1 < len(order):
+                match = (aps_info2[order[2 * pos]], aps_info2[order[2 * pos + 1]])
+            else:
+                match = None
+
+        def _radio_block(rinfo):
+            if rinfo == None:
+                return {
+                    "radio_cmk_state": "UNKNOWN",
+                    "radio_readable_state": "not available",
+                    "ch_usage": 0.0,
+                    "users_online": 0,
+                }
+            rstate = rinfo.get("6")
+            rl, rs = _RADIO_STATE_MAP.get(rstate, ("not available", "UNKNOWN"))
+            ch_f = _to_float(rinfo.get("25"))
+            users_i = _to_int(rinfo.get("40"))
+            return {
+                "radio_cmk_state": rs,
+                "radio_readable_state": rl,
+                "ch_usage": ch_f if ch_f != None else 0.0,
+                "users_online": users_i if users_i != None else 0,
+            }
+
+        if match != None:
+            radio2_block = _radio_block(match[0])
+            radio5_block = _radio_block(match[1])
+        else:
+            radio2_block = _radio_block(None)
+            radio5_block = _radio_block(None)
+
+        parsed["AP-" + idx] = {
+            "cmk_status": ap_state,
+            "state_readable": ap_label,
+            "mem_used_percent": mem,
+            "cpu_percent": cpu,
+            "temp": temp,
+            "con_users": con_raw,
+            "24ghz": radio2_block,
+            "5ghz": radio5_block,
+        }
+
+    return parsed
+
 
 def main(ctx, params):
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid_aps_info1 = ".1.3.6.1.4.1.2011.6.139.13.3.3.1"
-    base_oid_aps_info2 = ".1.3.6.1.4.1.2011.6.139.16.1.2.1"
-    
-    # OID list per section
-    # Section 1: status(6), mem(40), cpu(41), temp(43), con_users(44)
-    # Section 2: ap_id(3), radio_state_2GHz(6), ch_usage_2GHz(25), users_online_2GHz(40)
-    #            then ap_id(3), radio_state_5GHz(6), ch_usage_5GHz(25), users_online_5GHz(40)
-    oid_list_1 = ["6", "40", "41", "43", "44"]
-    oid_list_2 = ["3", "6", "25", "40"]
-    
-    # Build full OIDs
-    oids1 = [base_oid_aps_info1 + "." + oid for oid in oid_list_1]
-    oids2 = [base_oid_aps_info2 + "." + oid for oid in oid_list_2]
-    
-    # Fetch section 1
-    res1 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host] + oids1, mutates=False)
-    if res1.rc != 0:
-        return {"changed": False, "msg": "snmpwalk failed: " + res1.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Fetch section 2
-    res2 = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host] + oids2, mutates=False)
-    if res2.rc != 0:
-        return {"changed": False, "msg": "snmpwalk failed: " + res2.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse section 1: AP-level info (index order)
-    # Each line: <OID> = <TYPE>: <value>
-    lines1 = res1.stdout.splitlines()
-    section1 = {}
-    for line in lines1:
-        if not line.strip():
-            continue
-        if line.find(" = ") == -1:
-            continue
-        oid_part, val_part = line.strip().split(" = ", 1)
-        if val_part.find(": ") == -1:
-            continue
-        value = val_part.split(": ", 1)[1].strip().strip('"')
-        # Extract index from OID
-        base_len = len(base_oid_aps_info1)
-        if len(oid_part) <= base_len:
-            continue
-        suffix = oid_part[base_len+1:]
-        # OIDs: 6,40,41,43,44
-        # suffix pattern: index.oid_index, e.g. "1.6"
-        if suffix.find(".") == -1:
-            continue
-        ap_idx_str, oid_idx_str = suffix.split(".", 1)
-        # ap_idx_str is the AP index (integer)
-        if not ap_idx_str.isdigit():
-            continue
-        ap_idx = int(ap_idx_str)
-        # Only keep first occurrence per AP index (we process 5 OIDs per AP)
-        if ap_idx not in section1:
-            section1[ap_idx] = {"status": None, "mem": None, "cpu": None, "temp": None, "con_users": None}
-        # Map oid index to field
-        if oid_idx_str == "6":    section1[ap_idx]["status"] = value
-        elif oid_idx_str == "40": section1[ap_idx]["mem"] = value
-        elif oid_idx_str == "41": section1[ap_idx]["cpu"] = value
-        elif oid_idx_str == "43": section1[ap_idx]["temp"] = value
-        elif oid_idx_str == "44": section1[ap_idx]["con_users"] = value
-    
-    # Parse section 2: AP and radio info (2 rows per AP: 2.4GHz then 5GHz)
-    lines2 = res2.stdout.splitlines()
-    section2 = {}
-    for line in lines2:
-        if not line.strip():
-            continue
-        if line.find(" = ") == -1:
-            continue
-        oid_part, val_part = line.strip().split(" = ", 1)
-        if val_part.find(": ") == -1:
-            continue
-        value = val_part.split(": ", 1)[1].strip().strip('"')
-        # Extract index from OID
-        base_len = len(base_oid_aps_info2)
-        if len(oid_part) <= base_len:
-            continue
-        suffix = oid_part[base_len+1:]
-        # suffix: ap_idx.radio_oid_idx
-        # Example: "1.3", "1.6", "1.25", "1.40", then "2.3", ...
-        if suffix.find(".") == -1:
-            continue
-        ap_idx_str, radio_oid_idx_str = suffix.split(".", 1)
-        if not ap_idx_str.isdigit():
-            continue
-        ap_idx = int(ap_idx_str)
-        if not ap_idx in section2:
-            section2[ap_idx] = []
-        section2[ap_idx].append({"radio_oid_idx": radio_oid_idx_str, "value": value})
-    
-    # Build merged AP info: per AP index, extract AP id from radio_oid_idx==3, and 2.4/5GHz info
-    aps = {}
-    for ap_idx in section1:
-        if ap_idx not in section2:
-            continue
-        # Get AP id from section2: radio_oid_idx==3
-        ap_id = ""
-        for item in section2[ap_idx]:
-            if item["radio_oid_idx"] == "3":
-                ap_id = item["value"]
-                break
-        if not ap_id:
-            continue
-        
-        # Get 2.4GHz and 5GHz rows from section2[ap_idx]
-        # Actually: row order is [3,6,25,40], repeated per AP
-        # So indices: 0:3 (ap_id), 1:6 (radio_state_2GHz), 2:25 (ch_usage_2GHz), 3:40 (users_online_2GHz)
-        # Next 4: ap_id, radio_state_5GHz, ch_usage_5GHz, users_online_5GHz
-        rows = section2[ap_idx]
-        if len(rows) < 8:
-            continue
-        
-        # Extract per-band info
-        # 2.4GHz row
-        radio_state_2GHz = ""
-        ch_usage_2GHz = ""
-        users_online_2GHz = ""
-        for row in rows:
-            if row["radio_oid_idx"] == "6":       radio_state_2GHz = row["value"]
-            elif row["radio_oid_idx"] == "25":    ch_usage_2GHz = row["value"]
-            elif row["radio_oid_idx"] == "40":    users_online_2GHz = row["value"]
-        
-        # 5GHz row: skip next ap_id row (index 4)
-        radio_state_5GHz = ""
-        ch_usage_5GHz = ""
-        users_online_5GHz = ""
-        # Next 4 rows after first ap_id (row0) are [6,25,40], then next ap_id (row4), then [6,25,40]
-        # So rows 4-7 correspond to 5GHz
-        for i in range(4, 8):
-            if i >= len(rows):
-                continue
-            if rows[i]["radio_oid_idx"] == "6":       radio_state_5GHz = rows[i]["value"]
-            elif rows[i]["radio_oid_idx"] == "25":    ch_usage_5GHz = rows[i]["value"]
-            elif rows[i]["radio_oid_idx"] == "40":    users_online_5GHz = rows[i]["value"]
-        
-        # Build AP entry
-        ap_data = section1[ap_idx]
-        temp_val = ap_data["temp"]
-        if temp_val == "255":
-            temp_val = "invalid"
-        else:
-            # Guard instead of try/except
-            if temp_val.isdigit() or (temp_val.startswith("-") and temp_val[1:].isdigit()):
-                temp_val = float(temp_val)
-            else:
-                temp_val = "invalid"
-        
-        aps[ap_id] = {
-            "cmk_status": _map_ap_state(ap_data["status"])["state"],
-            "state_readable": _map_ap_state(ap_data["status"])["label"],
-            "mem_used_percent": float(ap_data["mem"]) if ap_data["mem"] != None and ap_data["mem"].isdigit() else 0.0,
-            "cpu_percent": float(ap_data["cpu"]) if ap_data["cpu"] != None and ap_data["cpu"].isdigit() else 0.0,
-            "temp": temp_val,
-            "con_users": ap_data["con_users"],
-            "24ghz": {
-                "radio_cmk_state": _map_radio_state(radio_state_2GHz)["state"],
-                "radio_readable_state": _map_radio_state(radio_state_2GHz)["label"],
-                "ch_usage": float(ch_usage_2GHz) if ch_usage_2GHz.isdigit() else 0.0,
-                "users_online": int(users_online_2GHz) if users_online_2GHz.isdigit() else 0,
-            },
-            "5ghz": {
-                "radio_cmk_state": _map_radio_state(radio_state_5GHz)["state"],
-                "radio_readable_state": _map_radio_state(radio_state_5GHz)["label"],
-                "ch_usage": float(ch_usage_5GHz) if ch_usage_5GHz.isdigit() else 0.0,
-                "users_online": int(users_online_5GHz) if users_online_5GHz.isdigit() else 0,
-            },
+    community = params.get("community", "public")
+
+    if not _is_wlc_host(ctx, host, community):
+        return {
+            "changed": False,
+            "msg": "not a Huawei WLC (no AP syOID)",
+            "data": {"discovery": [], "host_labels": {}},
         }
-    
-    # ========== DISCOVERY MODE ==========
+
     if params.get("_discover"):
-        items = []
-        for item_name in aps:
-            items.append({"item": item_name,
-                          "params": {"levels": [80.0, 90.0]},
-                          "metrics": ["24ghz_clients", "5ghz_clients", "channel_utilization_24ghz", "channel_utilization_5ghz"]})
-        return {"changed": False, "msg": "discovered %d APs" % len(items),
-                "data": {"discovery": items}}
-    
-    # ========== CHECK MODE ==========
+        section = _build_section(ctx, community, host)
+        if section == None:
+            return {
+                "changed": False,
+                "msg": "could not build huawei_wlc_aps section",
+                "data": {"discovery": [], "host_labels": {}},
+            }
+        discovery = []
+        for name in section:
+            discovery.append({
+                "item": name,
+                "params": {"levels": (80.0, 90.0)},
+                "metrics": [
+                    "24ghz_clients",
+                    "5ghz_clients",
+                    "channel_utilization_24ghz",
+                    "channel_utilization_5ghz",
+                ],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d APs" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {"cmk/os_family": "linux"}},
+        }
+
     item = params.get("item", "")
-    data = aps.get(item)
+    levels = params.get("levels", (80.0, 90.0))
+    warn = levels[0] if len(levels) > 0 else 80.0
+    crit = levels[1] if len(levels) > 1 else 90.0
+
+    section = _build_section(ctx, community, host)
+    if section == None or not section:
+        return {
+            "changed": False,
+            "msg": "no Huawei WLC AP data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    data = section.get(item)
     if data == None:
-        return {"changed": False, "msg": "AP not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Core status
+        return {
+            "changed": False,
+            "msg": "AP not found: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     state = data["cmk_status"]
-    msg = data["state_readable"]
-    
-    # Connected users
-    con_users = data["con_users"]
-    if con_users:
-        msg += ", Connected users: " + con_users
-    
-    # Build metrics and per-band info
+    details_parts = [data["state_readable"]]
+
     metrics = {}
-    band_info = []
-    
-    for radio, metric_name, band_label in [
-        (data["24ghz"], "24ghz", "2.4GHz"),
-        (data["5ghz"], "5ghz", "5GHz"),
-    ]:
-        users = radio["users_online"]
-        metrics[metric_name + "_clients"] = users
-        band_info.append("Users online [%s]: %d" % (band_label, users))
-        
-        radio_state = radio["radio_readable_state"]
-        msg += ", Radio state [%s]: %s" % (band_label, radio_state)
-        
-        ch_usage = radio["ch_usage"]
-        metrics["channel_utilization_" + metric_name] = ch_usage
-        band_info.append("Channel usage [%s]: %d%%" % (band_label, ch_usage))
-    
-    # Thresholds for channel usage (upper levels)
-    levels = params.get("levels", [80.0, 90.0])
-    warn = levels[0]
-    crit = levels[1]
-    
-    # Determine worst state across bands
-    worst_state = state
-    for radio in [data["24ghz"], data["5ghz"]]:
-        ch = radio["ch_usage"]
+    for radio, band in (("24ghz", "2,4GHz"), ("5ghz", "5GHz")):
+        rinfo = data[radio]
+        ch = rinfo["ch_usage"]
+        clients = rinfo["users_online"]
+        band_key = "24ghz" if band == "2,4GHz" else "5ghz"
+        metrics[band_key + "_clients"] = clients
+        metrics["channel_utilization_" + band_key] = ch
+
         if ch >= crit:
-            worst_state = "CRIT"
-        elif ch >= warn and worst_state != "CRIT":
-            worst_state = "WARN"
-    
-    return {"changed": False, "msg": msg,
-            "data": {"state": worst_state, "metrics": metrics, "details": "; ".join(band_info)}}
+            if state == "OK":
+                state = "CRIT"
+            elif state == "WARN":
+                state = "CRIT"
+        elif ch >= warn:
+            if state == "OK":
+                state = "WARN"
+
+        details_parts.append(
+            "Channel usage [%s]: %s%%, Users online [%s]: %d (radio: %s)" % (
+                band, str(ch), band, clients, rinfo["radio_readable_state"],
+            )
+        )
+
+    for radio, band in (("24ghz", "2,4GHz"), ("5ghz", "5GHz")):
+        rstate = data[radio]["radio_cmk_state"]
+        if rstate == "CRIT" and state != "CRIT":
+            state = "CRIT"
+        elif rstate == "WARN" and state == "OK":
+            state = "WARN"
+        elif rstate == "UNKNOWN" and state == "OK":
+            state = "UNKNOWN"
+
+    cpu = data["cpu_percent"]
+    mem = data["mem_used_percent"]
+    metrics["cpu_percent"] = cpu
+    metrics["mem_used_percent"] = mem
+    if cpu >= crit:
+        if state == "OK":
+            state = "CRIT"
+        elif state == "WARN":
+            state = "CRIT"
+    elif cpu >= warn:
+        if state == "OK":
+            state = "WARN"
+    if mem >= crit:
+        if state == "OK":
+            state = "CRIT"
+        elif state == "WARN":
+            state = "CRIT"
+    elif mem >= warn:
+        if state == "OK":
+            state = "WARN"
+
+    details_parts.append("Connected users: %s" % data["con_users"])
+    details_parts.append("CPU: %s%%, Memory: %s%%" % (str(cpu), str(mem)))
+
+    return {
+        "changed": False,
+        "msg": "AP %s Status: %s" % (item, data["state_readable"]),
+        "data": {
+            "state": state,
+            "metrics": metrics,
+            "details": "; ".join(details_parts),
+        },
+    }

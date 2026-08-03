@@ -1,144 +1,154 @@
-def _parse_date(date_val):
-    """Parse MongoDB $date field (ms integer or ISO-8601 string) to epoch seconds."""
-    if date_val == None:
-        return 0.0
-    if type(date_val) == "int":
-        return date_val / 1000.0
-    s = str(date_val).strip()
-    if 'T' not in s:
-        return 0.0
-    date_part, time_part = s.split('T', 1)
-    time_part = time_part.rstrip('Z')
-    ymd = date_part.split('-')
-    if len(ymd) < 3:
-        return 0.0
-    year = int(ymd[0])
-    month = int(ymd[1])
-    day = int(ymd[2])
-    hms_parts = time_part.split(':')
-    if len(hms_parts) < 2:
-        return 0.0
-    hour = int(hms_parts[0])
-    minute = int(hms_parts[1])
-    sec_str = hms_parts[2] if len(hms_parts) > 2 else "0"
-    if '.' in sec_str:
-        sec_int = int(sec_str.split('.')[0])
-        frac_str = sec_str.split('.')[1]
-        frac = float("0." + frac_str)
-    else:
-        sec_int = int(sec_str)
-        frac = 0.0
-    second = sec_int + frac
-    def is_leap(y):
-        return (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0)
-    days = 0
-    for y in range(1970, year):
-        days += 366 if is_leap(y) else 365
-    month_days = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-    if is_leap(year):
-        month_days[2] = 29
-    for m in range(1, month):
-        days += month_days[m]
-    days += day - 1
-    return days * 86400 + hour * 3600 + minute * 60 + second
+def parse_date(date):
+    if type(date) == "string":
+        n = len(date)
+        y = 0
+        mo = 0
+        d = 0
+        h = 0
+        mi = 0
+        s = 0
+        frac = 0
+        if n >= 10 and date[4] == "-" and date[7] == "-":
+            y = int(date[0:4])
+            mo = int(date[5:7])
+            d = int(date[8:10])
+            if n >= 19 and (date[10] == "T" or date[10] == " "):
+                h = int(date[11:13])
+                mi = int(date[14:16])
+                s = int(date[17:19])
+                if n > 19 and (date[19] == "." or date[19] == ","):
+                    frac_str = date[20:]
+                    end = 0
+                    for i in range(len(frac_str)):
+                        c = frac_str[i]
+                        if c in ("Z", "+", "-", " "):
+                            end = i
+                            break
+                        end = i + 1
+                    if end > 0:
+                        frac = int(frac_str[0:end].ljust(3, "0")[0:3]) / 1000.0 if end >= 3 else float("0." + frac_str[0:end])
+        import_days = _days_from_civil(y, mo, d)
+        ts = (import_days + (h * 3600 + mi * 60 + s) - 718766 * 86400) + frac
+        return float(ts)
+    return date / 1000.0
 
+def _days_from_civil(year, month, day):
+    y = year
+    m = month
+    dd = day
+    if y < 0:
+        y = y - 1
+    era = y // 400
+    yoe = y - era * 400
+    moffset = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+    doy = moffset[m - 1] + dd - 1
+    if m <= 2 and ((yoe % 4 == 0 and yoe % 100 != 0) or yoe % 400 == 0):
+        doy = doy + 1
+    doe = yoe * 365 + yoe // 4 - yoe // 100 + doy
+    return (era * 146097) + doe - 718766
 
 def _get_primary(members):
     primary = {}
     secondaries = []
-    for m in members:
-        state = m.get("state", -1)
-        if state == 1:
-            primary = m
-        elif state != 7:
-            secondaries.append(m)
+    for member in members:
+        st = member.get("state", -1)
+        if st == 1:
+            primary = member
+            continue
+        if st == 7:
+            continue
+        secondaries.append(member)
     return primary, secondaries
 
+def _round(x):
+    return int(x + 0.5)
 
 def main(ctx, params):
-    res = ctx.run(["cat", "/var/lib/mongodb-agent/agent-data/mongodb_replica_set.json"], mutates=False)
-    if not res.stdout or res.rc != 0:
-        return {"changed": False, "msg": "no data (agent section not present)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout:
-        return {"changed": False, "msg": "invalid JSON data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    section = json.decode(res.stdout)
-
     if params.get("_discover"):
-        if section and section.get("members"):
-            return {"changed": False, "msg": "discovered MongoDB replication lag service",
-                    "data": {"discovery": [{"item": "", "params": {}, "metrics": ["replication_lag"]}]}}
-        else:
-            return {"changed": False, "msg": "no replica set members found",
-                    "data": {"discovery": []}}
+        res = ctx.run(["mongosh", "--quiet", "--eval", "printjson(db.adminCommand({replSetGetStatus: 1, details: false}))"], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "mongosh not installed", "data": {"discovery": []}}
+        if res.rc != 0 or not res.stdout or res.stdout.strip() == "" or res.stdout.strip() == "null":
+            return {"changed": False, "msg": "no replica set found", "data": {"discovery": []}}
+        data = json.decode(res.stdout)
+        if not data or not data.get("members"):
+            return {"changed": False, "msg": "no replica set members", "data": {"discovery": []}}
+        levels = (10, 60, 3600)
+        return {"changed": False, "msg": "discovered 1 replica set", "data": {"discovery": [{"item": "", "params": {"levels_mongdb_replication_lag": levels}, "metrics": ["replication_lag"]}]}}
 
-    members = section.get("members", [])
-    num_members = len(members)
-    if num_members <= 1:
-        return {"changed": False, "msg": "Number of members is %d" % num_members,
-                "data": {"state": "WARN", "metrics": {}, "details": ""}}
+    item = params.get("item", "")
+    res = ctx.run(["mongosh", "--quiet", "--eval", "printjson(db.adminCommand({replSetGetStatus: 1, details: false}))"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "mongosh not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0 or not res.stdout or res.stdout.strip() == "" or res.stdout.strip() == "null":
+        return {"changed": False, "msg": "no replica set accessible", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = json.decode(res.stdout)
+    if not data or not data.get("members"):
+        return {"changed": False, "msg": "no replica set members", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    members = data.get("members", [])
+    n_members = len(members)
+    if n_members <= 1:
+        return {"changed": False, "msg": "Number of members is %d" % n_members, "data": {"state": "WARN", "metrics": {}, "details": ""}}
 
     primary, secondaries = _get_primary(members)
-    if not primary and not secondaries:
-        return {"changed": False, "msg": "no valid members found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
     start_ts = 0.0
-    primary_name = "unknown"
+    name = "unknown"
     if primary:
-        start_ts = _parse_date(primary.get("optimeDate", {}).get("$date", 0))
-        primary_name = primary.get("name", "primary")
+        start_ts = parse_date(primary.get("optimeDate", {}).get("$date", 0))
+        name = "primary (%s)" % primary.get("name", "unknown")
     else:
-        for m in secondaries:
-            ts = _parse_date(m.get("optimeDate", {}).get("$date", 0))
-            if ts > start_ts:
-                start_ts = ts
-                primary_name = "freshest member (%s, no primary available)" % m.get("name", "unknown")
-
-    if start_ts == 0.0:
-        return {"changed": False, "msg": "could not determine replication timestamp",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        best_idx = -1
+        for index in range(len(secondaries)):
+            timestamp = parse_date(secondaries[index].get("optimeDate", {}).get("$date", 0))
+            if timestamp > start_ts:
+                start_ts = timestamp
+                name = "freshest member (%s, no primary available at the moment)" % secondaries[index].get("name", "unknown")
+                best_idx = index
+        if best_idx != -1:
+            secondaries = secondaries[:best_idx] + secondaries[best_idx + 1:]
 
     levels = params.get("levels_mongdb_replication_lag", (10, 60, 3600))
+    lag_threshold = levels[0]
+    warn_level = levels[1]
+    crit_level = levels[2]
 
     worst_state = "OK"
-    msg_parts = []
+    details_lines = []
     metrics = {}
 
     for member in secondaries:
         member_name = member.get("name", "unknown")
-        member_optime_ts = _parse_date(member.get("optimeDate", {}).get("$date", 0))
-        if member_optime_ts == 0.0:
-            msg_parts.append("%s: no replication info yet, State: %s" % (member_name, member.get("state", 0)))
-            if worst_state == "OK":
-                worst_state = "OK"
-            continue
+        optime = member.get("optime", {})
+        ts = optime.get("ts", {})
+        timestamp_val = ts.get("$timestamp", {}).get("t", None)
 
-        lag_sec = start_ts - member_optime_ts
-        if lag_sec < 0:
-            lag_sec = 0.0
+        if timestamp_val:
+            member_optime_date = parse_date(member.get("optimeDate", {}).get("$date", 0))
+            replication_lag_sec = start_ts - member_optime_date
 
-        if lag_sec >= levels[2]:
-            state = "CRIT"
-        elif lag_sec >= levels[1]:
-            state = "WARN"
-        elif lag_sec >= levels[0]:
-            state = "WARN"
+            if replication_lag_sec > lag_threshold:
+                check_levels = (warn_level, crit_level)
+                state = "OK"
+                if replication_lag_sec >= check_levels[1]:
+                    state = "CRIT"
+                elif replication_lag_sec >= check_levels[0]:
+                    state = "WARN"
+                if state == "CRIT" and worst_state != "CRIT":
+                    worst_state = state
+                elif state == "WARN" and worst_state == "OK":
+                    worst_state = state
+                metrics["replication_lag_" + member_name] = int(replication_lag_sec)
+                hours = _round((replication_lag_sec / 36) / 100.0)
+                details_lines.append("member (%s) is %ds (%sh) behind %s" % (member_name, _round(replication_lag_sec), hours, name))
+            else:
+                metrics["replication_lag_" + member_name] = 0
+                details_lines.append("%s: lag within normal range" % member_name)
+            metrics["replication_lag"] = int(replication_lag_sec)
         else:
-            state = "OK"
+            details_lines.append("%s: no replication info yet, State: %s" % (member_name, member.get("state", 0)))
 
-        if state == "CRIT":
-            worst_state = "CRIT"
-        elif state == "WARN" and worst_state != "CRIT":
-            worst_state = "WARN"
-
-        metrics[member_name.replace(".", "_")] = lag_sec
-        msg_parts.append("member %s lag: %ds" % (member_name, int(lag_sec)))
-
-    final_msg = "Replication lag: " + "; ".join(msg_parts) if msg_parts else "No secondaries"
-    return {
-        "changed": False,
-        "msg": final_msg,
-        "data": {"state": worst_state, "metrics": metrics, "details": ""},
-    }
+    summary = "checked %d secondaries against %s" % (len(secondaries), name)
+    details = "\n".join(details_lines) if details_lines else ""
+    return {"changed": False, "msg": summary, "data": {"state": worst_state, "metrics": metrics, "details": details}}

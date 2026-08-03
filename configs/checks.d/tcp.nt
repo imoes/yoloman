@@ -1,87 +1,40 @@
 name: tcp
 fqcn: checkmk.tcp
 collection: checkmk
-short_description: TCP port connectivity check
-description: Tests whether a TCP port is reachable, measures connection time, and optionally validates response content by sending a string and matching expected patterns. When TLS is enabled, also checks certificate validity and grades expiry against configurable day thresholds.
+short_description:
+description: Checkmk active check 'tcp', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
-        type: string
-        description: Service display name
-        required: true
-    host:
-        type: string
-        description: Hostname or IP address to connect to (use host primary IP or a custom DNS name)
-        required: true
     port:
         type: number
-        description: TCP port number to check (1-65535)
-        required: true
-    timeout_s:
-        type: number
-        description: Seconds before connection attempt times out
-        default: 10
-    ssl:
-        type: bool
-        description: Use TLS/SSL for the connection
-        default: false
-    send_string:
+        default: 80
+        description: port (from the check's parameters).
+    host:
         type: string
-        description: String to send to the server immediately after connecting
-    escape_send_string:
-        type: bool
-        description: Expand \n, \r, \t escape sequences in send_string before sending
-        default: false
+        default: localhost
+        description: host (from the check's parameters).
+    warn:
+        type: number
+        default: 1.0
+        description: warn (from the check's parameters).
+    crit:
+        type: number
+        default: 2.0
+        description: crit (from the check's parameters).
+    timeout:
+        type: string
+        description: timeout (from the check's parameters).
     expect:
         type: list
-        description: Strings to look for in the server response; by default any one match is sufficient
-    expect_all:
-        type: bool
-        description: Require every string in the expect list to appear in the response
-        default: false
-    jail:
-        type: bool
-        description: Hide the raw server response from check output (useful when response is verbose or sensitive)
-        default: false
-    mismatch_state:
+        description: expect (from the check's parameters).
+    send_string:
         type: string
-        description: State to report when expected strings are not found in the response
-        default: warn
-        enum:
-            - ok
-            - warn
-            - crit
-    refuse_state:
-        type: string
-        description: State to report when the connection is actively refused
-        default: crit
-        enum:
-            - ok
-            - warn
-            - crit
-    response_time_warn_s:
-        type: number
-        description: Warn if TCP connect time exceeds this threshold in seconds (e.g. 0.1)
-    response_time_crit_s:
-        type: number
-        description: Critical if TCP connect time exceeds this threshold in seconds (e.g. 0.2)
-    cert_days_warn:
-        type: number
-        description: Warn if the TLS certificate expires within this many days (requires ssl: true)
-    cert_days_crit:
-        type: number
-        description: Critical if the TLS certificate expires within this many days (requires ssl: true)
-    delay:
-        type: number
-        description: Seconds to wait after sending before polling for a response
-        default: 0
-    maxbytes:
-        type: number
-        description: Maximum bytes to read from the server response before closing
+        description: send_string (from the check's parameters).
     quit_string:
         type: string
-        description: String to send to the server before closing the connection
+        description: quit_string (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

@@ -1,180 +1,232 @@
+def _linkstate_name(st):
+    names = {"0": "unknown", "1": "down", "2": "up", "3": "hd", "4": "fd"}
+    return names.get(st, st)
+
+def _carpstate_name(st):
+    names = {"0": "init", "1": "backup", "2": "master"}
+    return names.get(st, st)
+
+def _probe_genua(ctx, host, community):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                   ".1.3.6.1.2.1.1.1.0"], mutates=False)
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        if res.stdout == "" and res.stderr == "":
+            return None
+        # Check if 127 or timeout means not present
+        if res.rc == 127:
+            return None
+    sys_descr = res.stdout.strip()
+    if "genuscreen" in sys_descr or "genubox" in sys_descr or "genucrypt" in sys_descr:
+        return sys_descr
+    return None
+
+def _fetch_table(ctx, host, community, base_oid, col_oid):
+    column_oid = base_oid + "." + col_oid if not col_oid.startswith(".") else base_oid + col_oid
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On", host,
+                   column_oid], mutates=False)
+    if res.rc == 127:
+        return {}
+    if res.rc != 0:
+        return {}
+    result = {}
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid_full = parts[0]
+        value = parts[1]
+        # oid_full is like "<column_oid>.<index>"
+        # strip the column_oid prefix to get index
+        if oid_full.startswith(column_oid):
+            index = oid_full[len(column_oid) + 1:]
+            result[index] = value
+    return result
+
+def _get_carp_interfaces(ctx, host, community):
+    bases = [".1.3.6.1.4.1.3137.2.1.2.1", ".1.3.6.1.4.1.3717.2.1.2.1"]
+    
+    # Collect all indices across both bases
+    all_data = {}  # index -> {"ifName":..., "ifLinkState":..., "ifCarpState":...}
+    found_data = False
+    
+    for base in bases:
+        names = _fetch_table(ctx, host, community, base, "2")
+        link_states = _fetch_table(ctx, host, community, base, "4")
+        carp_states = _fetch_table(ctx, host, community, base, "7")
+        
+        for index in names:
+            found_data = True
+            if index not in all_data:
+                all_data[index] = {}
+            all_data[index]["ifName"] = names[index]
+            if index in link_states:
+                all_data[index]["ifLinkState"] = link_states[index]
+            if index in carp_states:
+                all_data[index]["ifCarpState"] = carp_states[index]
+        
+        # Also check indices from other tables
+        for index in link_states:
+            found_data = True
+            if index not in all_data:
+                all_data[index] = {}
+            all_data[index]["ifLinkState"] = link_states[index]
+        
+        for index in carp_states:
+            found_data = True
+            if index not in all_data:
+                all_data[index] = {}
+            all_data[index]["ifCarpState"] = carp_states[index]
+    
+    if not found_data:
+        return []
+    
+    interfaces = []
+    for index, data in all_data.items():
+        ifName = data.get("ifName", "")
+        ifLinkState = data.get("ifLinkState", "0")
+        ifCarpState = data.get("ifCarpState", "0")
+        interfaces.append((ifName, ifLinkState, ifCarpState))
+    
+    return interfaces
+
 def main(ctx, params):
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    discover = params.get("_discover")
-
-    # Constants defined at module top level (redundant, but required)
-    CARP_STATE_NAMES = {
-        "0": "init",
-        "1": "backup",
-        "2": "master",
-    }
-
-    LINK_STATE_NAMES = {
-        "0": "unknown",
-        "1": "down",
-        "2": "up",
-        "3": "hd",
-        "4": "fd",
-    }
-
-    # OID base for GENUA carp section (both enterprise IDs supported)
-    OID_BASE_1 = ".1.3.6.1.4.1.3137.2.1.2.1"
-    OID_BASE_2 = ".1.3.6.1.4.1.3717.2.1.2.1"
-
-    # SNMP OIDs to fetch: ifName (.2), ifLinkState (.4), ifCarpState (.7)
-    OID_IFNAME = "2"
-    OID_LINKSTATE = "4"
-    OID_CARPSTATE = "7"
-
-    # Discovery mode: enumerate carp interfaces
-    if discover:
-        section = _parse_section(ctx, community, host)
-        inventory = []
-        for ifName, _ifLinkState, ifCarpState in section[0] if section else []:
-            # Check carp state validity
+    community = params.get("community", "public")
+    
+    # Discovery mode
+    if params.get("_discover"):
+        # First verify GENUA device
+        sys_descr = _probe_genua(ctx, host, community)
+        if sys_descr == None:
+            return {"changed": False, "msg": "no genua device found", 
+                    "data": {"discovery": []}}
+        
+        interfaces = _get_carp_interfaces(ctx, host, community)
+        discovery = []
+        seen = {}
+        for ifName, ifLinkState, ifCarpState in interfaces:
             if ifCarpState in ["0", "1", "2"]:
-                inventory.append({
-                    "item": ifName,
-                    "params": {},
-                    "metrics": []
-                })
+                if ifName not in seen:
+                    seen[ifName] = True
+                    discovery.append({
+                        "item": ifName,
+                        "params": {},
+                        "metrics": []
+                    })
+        
         return {
             "changed": False,
-            "msg": "discovered %d carp interfaces" % len(inventory),
-            "data": {"discovery": inventory}
+            "msg": "discovered %d carp interfaces" % len(discovery),
+            "data": {"discovery": discovery}
         }
-
-    # Check mode: analyze one carp interface
+    
+    # Check mode
     item = params.get("item", "")
-    section = _parse_section(ctx, community, host)
-    # Filter empty sections
-    section = [s for s in section if s]
-
-    if not section or not section[0]:
+    
+    # Verify GENUA device
+    sys_descr = _probe_genua(ctx, host, community)
+    if sys_descr == None:
         return {
             "changed": False,
-            "msg": "Invalid Output from Agent",
+            "msg": "no genua device found",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
         }
-
-    # State variables
-    state = 0  # OK
-    nodes = len(section)
+    
+    interfaces = _get_carp_interfaces(ctx, host, community)
+    
+    # Collect all nodes (each SNMP base is a "node")
+    bases = [".1.3.6.1.4.1.3137.2.1.2.1", ".1.3.6.1.4.1.3717.2.1.2.1"]
+    
+    nodes = 0
     masters = 0
     output = ""
-    prefix = "Cluster test: " if nodes > 1 else "Node test: "
-
-    # Loop over nodes (typically 1 unless cluster)
-    for line in section:
-        # Loop over interfaces on node
-        for ifName, ifLinkState, ifCarpState in line:
-            ifLinkStateStr = LINK_STATE_NAMES.get(str(ifLinkState), str(ifLinkState))
-            ifCarpStateStr = CARP_STATE_NAMES.get(str(ifCarpState), str(ifCarpState))
-
-            # Check if this is the inventoried interface
-            if ifName == item:
-                # Master check
-                if ifCarpState == "2":
-                    masters += 1
-                    if masters == 1:
-                        if nodes > 1:
-                            output = "one "
-                        output = output + "node in carp state %s with IfLinkState %s" % (ifCarpStateStr, ifLinkStateStr)
-                        # Determine state based on link state
-                        if ifLinkState == "2":
-                            state = 0  # OK
-                        elif ifLinkState == "1":
-                            state = 2  # CRIT
-                        elif ifLinkState in ["0", "3"]:
-                            state = 1  # WARN
-                        else:
-                            state = 3  # UNKNOWN
+    state = 0
+    
+    # We need to walk per-base to count nodes
+    # Re-fetch per base to understand node structure
+    per_base = []
+    for base_idx, base in enumerate(bases):
+        names = _fetch_table(ctx, host, community, base, "2")
+        link_states = _fetch_table(ctx, host, community, base, "4")
+        carp_states = _fetch_table(ctx, host, community, base, "7")
+        
+        if names or link_states or carp_states:
+            nodes += 1
+            node_interfaces = []
+            for index in names:
+                node_interfaces.append((names[index], link_states.get(index, "0"), carp_states.get(index, "0")))
+            per_base.append(node_interfaces)
+    
+    if nodes == 0:
+        return {
+            "changed": False,
+            "msg": "no carp interfaces found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        }
+    
+    if nodes > 1:
+        prefix = "Cluster test: "
+    else:
+        prefix = "Node test: "
+    
+    # Check if item exists in any node
+    item_found = False
+    
+    for node_interfaces in per_base:
+        for ifName, ifLinkState, ifCarpState in node_interfaces:
+            if ifName == item and ifCarpState == "2":
+                item_found = True
+                masters += 1
+                ifLinkStateStr = _linkstate_name(ifLinkState)
+                ifCarpStateStr = _carpstate_name(ifCarpState)
+                
+                if masters == 1:
+                    if nodes > 1:
+                        output = "one "
+                    output += "node in carp state %s with IfLinkState %s" % (ifCarpStateStr, ifLinkStateStr)
+                    if ifLinkState == "2":
+                        state = 0
+                    elif ifLinkState == "1":
+                        state = 2
+                    elif ifLinkState in ["0", "3"]:
+                        state = 1
                     else:
-                        state = 2  # CRIT (multiple masters)
-                        output = "%d nodes in carp state %s on cluster with %d nodes" % (masters, ifCarpStateStr, nodes)
-                    # Non-master (only interesting if single-node)
-                elif nodes == 1:
-                    output = "node in carp state %s with IfLinkState %s" % (ifCarpStateStr, ifLinkStateStr)
-                    # carp backup
-                    if ifCarpState == "1" and ifLinkState == "1":
-                        state = 0  # OK
-                    else:
-                        state = 1  # WARN
-
+                        state = 3
+                else:
+                    state = 2
+                    output = "%d nodes in carp state %s on cluster with %d nodes" % (masters, ifCarpStateStr, nodes)
+            elif ifName == item and nodes == 1:
+                item_found = True
+                ifLinkStateStr = _linkstate_name(ifLinkState)
+                ifCarpStateStr = _carpstate_name(ifCarpState)
+                output = "node in carp state %s with IfLinkState %s" % (ifCarpStateStr, ifLinkStateStr)
+                if ifCarpState == "1" and ifLinkState == "1":
+                    state = 0
+                else:
+                    state = 1
+    
     # No masters found in cluster
     if nodes > 1 and masters == 0:
-        state = 2  # CRIT
+        state = 2
         output = "No master found on cluster with %d nodes" % nodes
-
-    output = prefix + output
-
-    # Map numeric state to Checkmk state names
+    
+    if not item_found:
+        return {
+            "changed": False,
+            "msg": "no such carp interface: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        }
+    
     state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    final_state = state_map.get(state, "UNKNOWN")
-
+    state_name = state_map.get(state, "UNKNOWN")
+    
+    output = prefix + output
+    
     return {
         "changed": False,
         "msg": output,
-        "data": {"state": final_state, "metrics": {}, "details": ""}
+        "data": {"state": state_name, "metrics": {}, "details": ""
     }
-
-
-def _parse_section(ctx, community, host):
-    """Parse SNMP output into list of [ (ifName, ifLinkState, ifCarpState), ... ]."""
-    # Constants
-    OID_BASE_1 = ".1.3.6.1.4.1.3137.2.1.2.1"
-    OID_BASE_2 = ".1.3.6.1.4.1.3717.2.1.2.1"
-    OID_IFNAME = "2"
-    OID_LINKSTATE = "4"
-    OID_CARPSTATE = "7"
-
-    all_data = []
-    for base in [OID_BASE_1, OID_BASE_2]:
-        # Get all OIDs
-        names = _snmpwalk(ctx, community, host, base, OID_IFNAME)
-        linkstates = _snmpwalk(ctx, community, host, base, OID_LINKSTATE)
-        carpstates = _snmpwalk(ctx, community, host, base, OID_CARPSTATE)
-
-        # Build map from OID suffix to value
-        name_map = {}
-        for oid, val in names:
-            suffix = oid.rsplit(".", 1)[-1] if "." in oid else oid
-            name_map[suffix] = val.strip('"')
-
-        linkstate_map = {}
-        for oid, val in linkstates:
-            suffix = oid.rsplit(".", 1)[-1] if "." in oid else oid
-            linkstate_map[suffix] = val.strip()
-
-        carpstate_map = {}
-        for oid, val in carpstates:
-            suffix = oid.rsplit(".", 1)[-1] if "." in oid else oid
-            carpstate_map[suffix] = val.strip()
-
-        # Join by suffix
-        suffixes = set(name_map.keys()) & set(linkstate_map.keys()) & set(carpstate_map.keys())
-        for suffix in suffixes:
-            all_data.append((name_map.get(suffix, ""), linkstate_map.get(suffix, ""), carpstate_map.get(suffix, "")))
-
-    # Return as list of lists (to mimic section)
-    return [all_data] if all_data else []
-
-
-def _snmpwalk(ctx, community, host, base_oid, sub_oid):
-    """Perform snmpwalk on base_oid + '.' + sub_oid, return list of OID-value pairs."""
-    full_oid = base_oid + "." + sub_oid
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, full_oid], mutates=False)
-    if res.rc != 0:
-        return []
-    lines = res.stdout.splitlines()
-    out = []
-    for line in lines:
-        if "=" in line:
-            parts = line.strip().split("=", 1)
-            if len(parts) == 2:
-                oid_part = parts[0].strip()
-                value_part = parts[1].strip()
-                # Extract last component of OID for indexing
-                out.append((oid_part, value_part))
-    return out
+}

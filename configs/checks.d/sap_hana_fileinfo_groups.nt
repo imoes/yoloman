@@ -1,31 +1,28 @@
 name: sap_hana_fileinfo_groups
 fqcn: checkmk.sap_hana_fileinfo_groups
 collection: checkmk
-category: Database
-short_description: SAP HANA file group age, size and count
-description: Monitor a group of SAP HANA files matching glob patterns — file count, total size and the age of the oldest match — read-only on-host Starlark check.
+short_description: File group %s
+description: Checkmk check 'sap_hana_fileinfo_groups' (service: File group %s), translated to a read-only on-host Starlark check module.
 options:
-    service_name:
+    paths:
+        type: list
+        description: paths (from the check's parameters).
+    group_patterns:
+        type: list
+        description: group_patterns (from the check's parameters).
+    maxcount:
         type: string
-        required: true
-        description: Name of the resulting service (e.g. "HANA backup set").
-    patterns:
+        description: maxcount (from the check's parameters).
+    mincount:
         type: string
-        required: true
-        description: One or more shell globs, space-separated (e.g. "/hana/shared/*/backup/*.bak"). Files matching any pattern form the group.
-    min_count:
+        description: mincount (from the check's parameters).
+    negative_age_tolerance:
         type: number
-        description: WARN when fewer than this many files match (CRIT when none match).
-    max_count:
-        type: number
-        description: WARN when more than this many files match.
-    max_age:
-        type: number
-        description: WARN when the oldest matching file is older than this many seconds.
-    max_age_crit:
-        type: number
-        description: CRIT when the oldest matching file is older than this many seconds.
+        default: 0
+        description: negative_age_tolerance (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
+execution: local
+prompt_version: c21f0f5a7229

@@ -1,82 +1,69 @@
-# Starlark module for Checkmk check: checkmk.msexch_owa
-# Read-only check module - gathers Exchange OWA WMI metrics
-
 def main(ctx, params):
-    # Discovery mode: enumerate items from WMI table
     if params.get("_discover"):
-        res = ctx.run(["wmic", "path", "Win32_PerfRawData_MicrosoftExchangeOWA_MicrosoftExchangeOWA", "get", "RequestsPersec,CurrentUniqueUsers,Name", "/format:csv"], mutates=False)
-        out = []
-        lines = res.stdout.splitlines()
-        if len(lines) < 2:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": out}}
-        header = lines[0].lower().split(",")
-        if not "name" in header or not "requestspersec" in header or not "currentuniqueusers" in header:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": out}}
-        name_idx = header.index("name")
-        requests_idx = header.index("requestspersec")
-        users_idx = header.index("currentuniqueusers")
-        for line in lines[1:]:
-            fields = line.split(",")
-            if len(fields) < max(name_idx, requests_idx, users_idx) + 1:
-                continue
-            name = fields[name_idx].strip()
-            if name == "" or name == "_Total":
-                out.append({"item": "", "params": {},
-                            "metrics": ["requests_per_sec", "current_users"]})
-                break
-        return {"changed": False, "msg": "discovered %d item(s)" % len(out),
-                "data": {"discovery": out}}
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
-    # Check mode: verify one item (item is always "" for this check)
-    res = ctx.run(["wmic", "path", "Win32_PerfRawData_MicrosoftExchangeOWA_MicrosoftExchangeOWA",
-                   "get", "RequestsPersec,CurrentUniqueUsers,Name", "/format:csv"], mutates=False)
-    lines = res.stdout.splitlines()
-    if len(lines) < 2:
-        return {"changed": False, "msg": "Exchange OWA data not available",
+
+def _exchange_owa_exists(ctx):
+    res = ctx.run(["powershell", "-NoProfile", "-Command",
+                   "Get-OwaVirtualDirectory -ErrorAction SilentlyContinue"],
+                  mutates=False)
+    return res.rc == 0
+
+
+def _get_wmi_table(ctx, wmi_class, prop):
+    cmd = "Import-Module NetAdapter; $o = Get-WmiObject -Class '" + wmi_class + "' -ErrorAction SilentlyContinue; if ($o) { $o | Select-Object -ExpandProperty '" + prop + "' }"
+    res = ctx.run(["powershell", "-NoProfile", "-Command", cmd],
+                  mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        return None
+    return res.stdout.strip()
+
+
+def _get_owa_values(ctx):
+    if not _exchange_owa_exists(ctx):
+        return None
+    requests = _get_wmi_table(ctx, "Win32_PerfRawData_MSExchangeOWA_OWA", "RequestsPersec")
+    users = _get_wmi_table(ctx, "Win32_PerfRawData_MSExchangeOWA_OWA", "CurrentUniqueUsers")
+    return {"RequestsPersec": requests, "CurrentUniqueUsers": users}
+
+
+def _parse_int(val):
+    if val == None:
+        return None
+    if val.isdigit():
+        return int(val)
+    return None
+
+
+def _discover(ctx, params):
+    if not _exchange_owa_exists(ctx):
+        return {"changed": False, "msg": "no Exchange OWA found",
+                "data": {"discovery": []}}
+    return {"changed": False, "msg": "discovered Exchange OWA service",
+            "data": {"discovery": [
+                {"item": "", "params": {}, "metrics": ["requests_per_sec", "current_users"]}
+            ]}}
+
+
+def _check(ctx, params):
+    data = _get_owa_values(ctx)
+    if data == None:
+        return {"changed": False, "msg": "no Exchange OWA found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    header = lines[0].lower().split(",")
-    if not "name" in header or not "requestspersec" in header or not "currentuniqueusers" in header:
-        return {"changed": False, "msg": "Exchange OWA data not available",
+    metrics = {}
+    details_parts = []
+    rp = _parse_int(data.get("RequestsPersec"))
+    if rp != None:
+        metrics["requests_per_sec"] = rp
+        details_parts.append("Requests/sec: %d" % rp)
+    cu = _parse_int(data.get("CurrentUniqueUsers"))
+    if cu != None:
+        metrics["current_users"] = cu
+        details_parts.append("Unique users: %d" % cu)
+    if len(metrics) == 0:
+        return {"changed": False, "msg": "no OWA values retrieved",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    requests_idx = header.index("requestspersec")
-    users_idx = header.index("currentuniqueusers")
-    name_idx = header.index("name")
-
-    requests = 0
-    users = 0
-    found_total = False
-    for line in lines[1:]:
-        fields = line.split(",")
-        if len(fields) < max(requests_idx, users_idx, name_idx) + 1:
-            continue
-        name = fields[name_idx].strip()
-        if name == "" or name == "_Total":
-            if fields[requests_idx].isdigit():
-                requests = int(fields[requests_idx])
-            if fields[users_idx].isdigit():
-                users = int(fields[users_idx])
-            found_total = True
-            break
-
-    if not found_total:
-        return {"changed": False, "msg": "Exchange OWA data not available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    metrics = {
-        "requests_per_sec": requests,
-        "current_users": users,
-    }
-
-    return {
-        "changed": False,
-        "msg": "Requests/sec: %d, Unique users: %d" % (requests, users),
-        "data": {
-            "state": "OK",
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    msg = ", ".join(details_parts)
+    return {"changed": False, "msg": msg,
+            "data": {"state": "OK", "metrics": metrics, "details": msg}}

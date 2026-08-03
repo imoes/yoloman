@@ -1,388 +1,398 @@
+# Brocade SFP check - translated from checkmk.brocade_sfp
+# This check gathers SFP metrics (temperature, voltage, current, rx/tx power)
+# from Brocade Fibre Channel switches via SNMP.
+
+# SNMP OID bases from the original plugin
+SFP_PORT_INFO_BASE = ".1.3.6.1.4.1.1588.2.1.1.1.6.2.1"
+SFP_ISL_BASE    = ".1.3.6.1.4.1.1588.2.1.1.1.2.9.1"
+SFP_VALUES_BASE = ".1.3.6.1.4.1.1588.2.1.1.1.28.1.1"
+
+# swFCPort table columns (from first SNMPTree)
+COL_PORT_INDEX     = "1"
+COL_PHY_STATE      = "3"
+COL_OP_STATUS      = "4"
+COL_ADM_STATUS     = "5"
+COL_PORT_NAME      = "36"
+
+# swNbMyPort column (from second SNMPTree - for ISL detection)
+COL_ISL_PORT       = "2"
+
+# swSfpStatEntry columns (from third SNMPTree)
+COL_TEMP           = "1"
+COL_VOLTAGE        = "2"
+COL_CURRENT        = "3"
+COL_RX_POWER       = "4"
+COL_TX_POWER       = "5"
+
+# Defaults from DISCOVERY_DEFAULT_PARAMETERS
+DEFAULT_ADMSTATES = [1, 3, 4]
+DEFAULT_PHYSTATES = [3, 4, 5, 6, 7, 8, 9, 10]
+DEFAULT_OPSTATES  = [1, 2, 3, 4]
+
+
+def _safe_int(s):
+    """Convert string to int, returning 0 if not a valid integer."""
+    if s == None:
+        return 0
+    stripped = s.lstrip("-")
+    if not stripped.isdigit():
+        return 0
+    return int(s)
+
+
+def _safe_float(s):
+    """Convert string to float, returning 0.0 if not parseable."""
+    if s == None:
+        return 0.0
+    parts = s.lstrip("-").split(".")
+    if len(parts) > 2:
+        return 0.0
+    for p in parts:
+        if p == "":
+            continue
+        if not p.isdigit():
+            return 0.0
+    return float(s)
+
+
+def _fetch_sfp_data(ctx, host, community, version):
+    """Fetch all SFP data from the three SNMP tables needed.
+    Returns (port_infos, isl_list, raw_values) or (None, None, None) on failure.
+    """
+    # Table 1: swFCPortInfo (port index, phy state, op status, adm status, port name)
+    res1 = ctx.run([
+        "snmpwalk", "-" + version, "-c", community,
+        "-Oqn", host, SFP_PORT_INFO_BASE,
+    ], mutates=False)
+    if res1.rc != 0 or not res1.stdout:
+        return None, None, None
+
+    port_infos = {}
+    for line in res1.stdout.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) < 2:
+            continue
+        oid_full = parts[0]
+        val = parts[1]
+        remainder = oid_full[len(SFP_PORT_INFO_BASE) + 1:]
+        dot_idx = remainder.find(".")
+        if dot_idx < 0:
+            continue
+        col = remainder[:dot_idx]
+        idx_str = remainder[dot_idx + 1:]
+        idx = _safe_int(idx_str)
+        if idx_str == "" or not (idx_str.isdigit() or (len(idx_str) > 0 and idx_str[0] == "-" and idx_str[1:].isdigit())):
+            continue
+
+        if idx not in port_infos:
+            port_infos[idx] = {}
+        if col == COL_PHY_STATE:
+            port_infos[idx]["phystate"] = _safe_int(val)
+        elif col == COL_OP_STATUS:
+            port_infos[idx]["opstate"] = _safe_int(val)
+        elif col == COL_ADM_STATUS:
+            port_infos[idx]["admstate"] = _safe_int(val)
+        elif col == COL_PORT_NAME:
+            port_infos[idx]["portname"] = val
+
+    for idx in list(port_infos.keys()):
+        info = port_infos[idx]
+        info.setdefault("phystate", 0)
+        info.setdefault("opstate", 0)
+        info.setdefault("admstate", 0)
+        info.setdefault("portname", "")
+
+    # Table 2: swNbMyPort (ISL ports)
+    res2 = ctx.run([
+        "snmpwalk", "-" + version, "-c", community,
+        "-Oqn", host, SFP_ISL_BASE,
+    ], mutates=False)
+    isl_list = []
+    if res2.rc == 0 and res2.stdout:
+        for line in res2.stdout.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            isl_list.append(_safe_int(parts[1]))
+
+    # Table 3: swSfpStatEntry (temp, voltage, current, rx_power, tx_power)
+    res3 = ctx.run([
+        "snmpwalk", "-" + version, "-c", community,
+        "-Oqn", host, SFP_VALUES_BASE,
+    ], mutates=False)
+    raw_values = {}
+    if res3.rc == 0 and res3.stdout:
+        for line in res3.stdout.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            oid_full = parts[0]
+            val = parts[1]
+            remainder = oid_full[len(SFP_VALUES_BASE) + 1:]
+            dot_idx = remainder.find(".")
+            if dot_idx < 0:
+                continue
+            col = remainder[:dot_idx]
+            idx_str = remainder[dot_idx + 1:]
+            idx = _safe_int(idx_str)
+            if idx_str == "" or not (idx_str.isdigit() or (len(idx_str) > 0 and idx_str[0] == "-" and idx_str[1:].isdigit())):
+                continue
+            if idx not in raw_values:
+                raw_values[idx] = {}
+            if col == COL_TEMP:
+                raw_values[idx]["temp"] = _safe_int(val) if val != "NA" else None
+            elif col == COL_VOLTAGE:
+                raw_values[idx]["voltage"] = _safe_float(val) / 1000.0 if val != "NA" else None
+            elif col == COL_CURRENT:
+                raw_values[idx]["current"] = _safe_float(val) / 1000.0 if val != "NA" else None
+            elif col == COL_RX_POWER:
+                raw_values[idx]["rx_power"] = _safe_float(val) if val != "NA" else None
+            elif col == COL_TX_POWER:
+                raw_values[idx]["tx_power"] = _safe_float(val) if val != "NA" else None
+
+    return port_infos, isl_list, raw_values
+
+
+def _build_section(port_infos, isl_list, raw_values):
+    """Build the parsed section: dict of port_index -> {info, values}."""
+    section = {}
+    for idx in port_infos:
+        info = port_infos[idx]
+        vals = raw_values.get(idx)
+        if vals == None:
+            continue
+        # Skip if temp is NA (values[0] != "NA" filter in original)
+        if vals.get("temp") == None:
+            continue
+        section[idx] = {
+            "info": {
+                "index": idx,
+                "port_name": info.get("portname", ""),
+                "phystate": info.get("phystate", 0),
+                "opstate": info.get("opstate", 0),
+                "admstate": info.get("admstate", 0),
+                "is_isl": idx in isl_list,
+            },
+            "values": {
+                "temp": vals.get("temp", 0),
+                "voltage": vals.get("voltage", 0.0),
+                "current": vals.get("current", 0.0),
+                "rx_power": vals.get("rx_power", 0.0),
+                "tx_power": vals.get("tx_power", 0.0),
+            },
+        }
+    return section
+
+
+def _port_should_be_inventoried(info, settings):
+    """Reproduce brocade_fcport_inventory_this_port."""
+    if info["admstate"] not in settings.get("admstates", DEFAULT_ADMSTATES):
+        return False
+    if info["phystate"] not in settings.get("phystates", DEFAULT_PHYSTATES):
+        return False
+    return info["opstate"] in settings.get("opstates", DEFAULT_OPSTATES)
+
+
+def _get_item_name(number_of_ports, index, portname, is_isl, settings):
+    """Reproduce brocade_fcport_getitem."""
+    n_digits = len(str(number_of_ports))
+    itemname = ("%0" + str(n_digits) + "d") % (index - 1)
+    if is_isl and settings.get("show_isl", True):
+        itemname += " ISL"
+    if portname.strip() and settings.get("use_portname", True):
+        itemname += " " + portname.strip()
+    return itemname
+
+
+def _grade_with_levels(value, levels_lower, levels_upper):
+    """Grade a value against lower and upper warning/critical thresholds.
+    levels_lower = (warn_lower, crit_lower) -- for lower-is-worse
+    levels_upper = (warn_upper, crit_upper) -- for upper-is-worse
+    Returns (state, msg).
+    """
+    state = "OK"
+    msg_parts = []
+    if levels_lower != None:
+        warn_lower, crit_lower = levels_lower
+        if value <= crit_lower:
+            state = "CRIT"
+            msg_parts.append("(crit below %f)" % crit_lower)
+        elif value <= warn_lower:
+            if state == "OK":
+                state = "WARN"
+            msg_parts.append("(warn below %f)" % warn_lower)
+    if levels_upper != None:
+        warn_upper, crit_upper = levels_upper
+        if value >= crit_upper:
+            state = "CRIT"
+            msg_parts.append("(crit above %f)" % crit_upper)
+        elif value >= warn_upper:
+            if state == "OK":
+                state = "WARN"
+            msg_parts.append("(warn above %f)" % warn_upper)
+    return state, " ".join(msg_parts)
+
+
+def _parse_level_pair(levels_param):
+    """Parse levels from params.
+    For rx/tx/current/voltage: params get (crit_lower, warn_lower, warn_upper, crit_upper)
+    We return levels_lower=(warn_lower, crit_lower) and levels_upper=(warn_upper, crit_upper)
+    """
+    if levels_param == None:
+        return None, None
+    if type(levels_param) == "list" and len(levels_param) == 4:
+        crit_lower = levels_param[0]
+        warn_lower = levels_param[1]
+        warn_upper = levels_param[2]
+        crit_upper = levels_param[3]
+        return (warn_lower, crit_lower), (warn_upper, crit_upper)
+    return None, None
+
+
+def _grade_temperature(temp_val, warn, crit):
+    """Simple upper-level temperature grading (standard Checkmk behavior)."""
+    state = "OK"
+    if crit != None and temp_val >= crit:
+        state = "CRIT"
+    elif warn != None and temp_val >= warn:
+        state = "WARN"
+    return state
+
+
 def main(ctx, params):
-    # ===== Constants (SNMP OIDs) =====
-    SNMP_BASE_PHY = ".1.3.6.1.4.1.1588.2.1.1.1.6.2.1"
-    SNMP_BASE_ISL = ".1.3.6.1.4.1.1588.2.1.1.1.2.9.1"
-    SNMP_BASE_SFP = ".1.3.6.1.4.1.1588.2.1.1.1.28.1.1"
+    is_discover = params.get("_discover", False)
 
-    # Discovery mode
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "v2c")
+    item = params.get("item", "")
 
-        # Fetch port info: index, phystate, opstate, admstate, port_name
-        res_info = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            SNMP_BASE_PHY
-        ], mutates=False)
-        if res_info.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP info walk failed: " + res_info.stderr,
-                "data": {"discovery": []}
-            }
+    # Probe for SNMP availability first
+    probe = ctx.run([
+        "snmpwalk", "-" + version, "-c", community,
+        "-Oqn", host, SFP_PORT_INFO_BASE,
+    ], mutates=False)
+    if probe.rc == 127:
+        # snmpwalk not installed
+        if is_discover:
+            return {"changed": False, "msg": "snmpwalk not installed",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False, "msg": "snmpwalk not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "snmpwalk not installed"}}
+    if probe.rc != 0:
+        if is_discover:
+            return {"changed": False, "msg": "no Brocade SFP data (SNMP unavailable)",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no Brocade SFP data (SNMP unavailable)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "SNMP query failed: " + (probe.stderr or "")}}
 
-        # Fetch ISL list: swNbMyPort
-        res_isl = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            SNMP_BASE_ISL
-        ], mutates=False)
-        if res_isl.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP isl walk failed: " + res_isl.stderr,
-                "data": {"discovery": []}
-            }
+    # Fetch all data
+    port_infos, isl_list, raw_values = _fetch_sfp_data(ctx, host, community, version)
+    if port_infos == None:
+        if is_discover:
+            return {"changed": False, "msg": "no Brocade SFP data",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no Brocade SFP data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "SNMP tables empty"}}
 
-        # Fetch SFP metrics: temp, voltage, current, rx_power, tx_power, portIndex
-        res_sfp = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            SNMP_BASE_SFP
-        ], mutates=False)
-        if res_sfp.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP sfp walk failed: " + res_sfp.stderr,
-                "data": {"discovery": []}
-            }
+    section = _build_section(port_infos, isl_list, raw_values)
 
-        # Parse port info
-        isl_ports = {}
-        for line in res_isl.stdout.splitlines():
-            stripped = line.strip()
-            if stripped == "":
-                continue
-            parts = stripped.split()
-            if len(parts) < 3:
-                continue
-            # Format: .1.3.6.1.4.1.1588.2.1.1.1.2.9.1.2.1 = INTEGER: 1
-            oid_parts = parts[0].split(".")
-            if len(oid_parts) < 13:
-                continue
-            port_idx_str = oid_parts[-1]
-            if port_idx_str.isdigit():
-                port_idx = int(port_idx_str)
-                value = parts[2]
-                if value.isdigit():
-                    isl_ports[port_idx] = True
-
-        # Parse port info table: index, phystate, opstate, admstate, port_name
-        port_infos = {}
-        for line in res_info.stdout.splitlines():
-            stripped = line.strip()
-            if stripped == "":
-                continue
-            parts = stripped.split()
-            if len(parts) < 3:
-                continue
-            # Format: .1.3.6.1.4.1.1588.2.1.1.1.6.2.1.X.Y = TYPE: value
-            oid_parts = stripped.split()[0].split(".")
-            if len(oid_parts) < 14:
-                continue
-            port_index_str = oid_parts[-1]
-            if not port_index_str.isdigit():
-                continue
-            port_index = int(port_index_str)
-            if port_index not in port_infos:
-                port_infos[port_index] = {
-                    "index": port_index,
-                    "phystate": None,
-                    "opstate": None,
-                    "admstate": None,
-                    "port_name": "",
-                }
-            oid_num_str = oid_parts[-2]
-            if not oid_num_str.isdigit():
-                continue
-            oid_num = int(oid_num_str)
-            value = parts[2]
-            if oid_num == 1:
-                port_infos[port_index]["phystate"] = int(value)
-            elif oid_num == 2:
-                port_infos[port_index]["opstate"] = int(value)
-            elif oid_num == 3:
-                port_infos[port_index]["admstate"] = int(value)
-            elif oid_num == 35:  # 36th OID = index 35 (0-based)
-                port_infos[port_index]["port_name"] = value.strip('"')
-
-        # Parse SFP metrics table: temp, voltage, current, rx_power, tx_power, portIndex
-        sfp_metrics = {}
-        for line in res_sfp.stdout.splitlines():
-            stripped = line.strip()
-            if stripped == "":
-                continue
-            parts = stripped.split()
-            if len(parts) < 3:
-                continue
-            oid_parts = stripped.split()[0].split(".")
-            if len(oid_parts) < 14:
-                continue
-            port_index_str = oid_parts[-1]
-            if not port_index_str.isdigit():
-                continue
-            port_index = int(port_index_str)
-            if port_index not in sfp_metrics:
-                sfp_metrics[port_index] = {
-                    "index": port_index,
-                    "temp": None,
-                    "voltage": None,
-                    "current": None,
-                    "rx_power": None,
-                    "tx_power": None,
-                }
-            oid_num_str = oid_parts[-2]
-            if not oid_num_str.isdigit():
-                continue
-            oid_num = int(oid_num_str)
-            value = parts[2]
-            if oid_num == 0 and value != "NA":
-                sfp_metrics[port_index]["temp"] = int(value)
-            elif oid_num == 1 and value != "NA":
-                sfp_metrics[port_index]["voltage"] = float(value) / 1000.0
-            elif oid_num == 2 and value != "NA":
-                sfp_metrics[port_index]["current"] = float(value) / 1000.0
-            elif oid_num == 3 and value != "NA":
-                sfp_metrics[port_index]["rx_power"] = float(value)
-            elif oid_num == 4 and value != "NA":
-                sfp_metrics[port_index]["tx_power"] = float(value)
-
-        # Filter and build discovery list
+    if is_discover:
+        number_of_ports = len(section)
         settings = {
-            "admstates": [1, 3, 4],
-            "phystates": [3, 4, 5, 6, 7, 8, 9, 10],
-            "opstates": [1, 2, 3, 4],
+            "admstates": DEFAULT_ADMSTATES,
+            "phystates": DEFAULT_PHYSTATES,
+            "opstates": DEFAULT_OPSTATES,
             "use_portname": True,
             "show_isl": True,
         }
-
-        discovered = []
-        for port_index, info in port_infos.items():
-            # Skip if no SFP data available for this port
-            if sfp_metrics.get(port_index) == None or sfp_metrics[port_index].get("temp") == None:
+        entries = []
+        for port_index in sorted(section.keys()):
+            port = section[port_index]
+            info = port["info"]
+            if not _port_should_be_inventoried(info, settings):
                 continue
+            item_name = _get_item_name(
+                number_of_ports, port_index,
+                info["port_name"], info["is_isl"], settings,
+            )
+            entries.append({"item": item_name, "params": {}, "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d SFP ports" % len(entries),
+                "data": {"discovery": entries}}
 
-            # Check port inventory conditions
-            adm = info.get("admstate")
-            phy = info.get("phystate")
-            op = info.get("opstate")
-            if adm == None or adm not in settings["admstates"]:
-                continue
-            if phy == None or phy not in settings["phystates"]:
-                continue
-            if op == None or op not in settings["opstates"]:
-                continue
+    # Check mode
+    # Parse the port index from the item
+    first_part = item.split(maxsplit=1)[0] if item else ""
+    display_idx = _safe_int(first_part) if first_part != "" else 0
+    if first_part == "":
+        return {"changed": False, "msg": "cannot parse item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "invalid item"}}
 
-            # Build item name (same logic as brocade_fcport_getitem)
-            number_of_ports = len(port_infos)
-            if number_of_ports == 0:
-                number_of_ports = 1
-            itemname = ("%0" + str(len(str(number_of_ports))) + "d") % (port_index - 1)
+    port_index = display_idx + 1  # Convert display index back to SNMP index
 
-            is_isl = (port_index in isl_ports)
-            if is_isl and settings["show_isl"]:
-                itemname += " ISL"
+    port = section.get(port_index)
+    if port == None:
+        return {"changed": False, "msg": "no SFP data for port " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "port not found in section"}}
 
-            portname = info.get("port_name", "").strip()
-            if portname and settings["use_portname"]:
-                itemname += " " + portname
+    values = port["values"]
 
-            # Default parameters per Checkmk plugin
-            default_params = {
-                "levels": (30.0, 35.0, 35.0, 40.0),
-                "rx_power": (-10.0, -5.0, -25.0, -20.0),
-                "tx_power": (-10.0, -5.0, -25.0, -20.0),
-                "current": (0.0, 0.0, 0.2, 0.25),
-                "voltage": (3.0, 3.2, 3.3, 3.6),
-            }
+    # Gather threshold params
+    temp_levels = params.get("temperature_levels")
+    temp_warn = temp_levels.get("warn") if temp_levels != None else None
+    temp_crit = temp_levels.get("crit") if temp_levels != None else None
 
-            discovered.append({
-                "item": itemname,
-                "params": default_params,
-                "metrics": ["temp", "rx_power", "tx_power", "current", "voltage"]
-            })
+    rx_levels = params.get("rx_power_levels")
+    tx_levels = params.get("tx_power_levels")
+    current_levels = params.get("current_levels")
+    voltage_levels = params.get("voltage_levels")
 
-        return {
-            "changed": False,
-            "msg": "discovered %d SFP ports" % len(discovered),
-            "data": {"discovery": discovered}
-        }
+    rx_lower, rx_upper = _parse_level_pair(rx_levels)
+    tx_lower, tx_upper = _parse_level_pair(tx_levels)
+    cur_lower, cur_upper = _parse_level_pair(current_levels)
+    volt_lower, volt_upper = _parse_level_pair(voltage_levels)
 
-    # Check mode (normal path)
-    item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "missing item parameter",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Grade temperature (upper levels)
+    temp_val = values["temp"]
+    temp_state = _grade_temperature(temp_val, temp_warn, temp_crit)
 
-    # Extract port index from item name (e.g., "00", "01 ISL", "02 port_name")
-    parts = item.split()
-    if len(parts) < 1 or not parts[0].isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid item format: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    port_index = int(parts[0]) + 1
+    # Grade rx power
+    rx_state, rx_msg = _grade_with_levels(values["rx_power"], rx_lower, rx_upper)
+    # Grade tx power
+    tx_state, tx_msg = _grade_with_levels(values["tx_power"], tx_lower, tx_upper)
+    # Grade current
+    cur_state, cur_msg = _grade_with_levels(values["current"], cur_lower, cur_upper)
+    # Grade voltage
+    volt_state, volt_msg = _grade_with_levels(values["voltage"], volt_lower, volt_upper)
 
-    # Gather data via SNMP
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
+    # Overall state: worst of all
+    state_priority = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    states = [temp_state, rx_state, tx_state, cur_state, volt_state]
+    overall_state = "OK"
+    for s in states:
+        if state_priority.get(s, 0) > state_priority.get(overall_state, 0):
+            overall_state = s
 
-    # Fetch SFP data for specific port index
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host,
-        SNMP_BASE_SFP + "." + str(1) + "." + str(port_index),  # temp
-        SNMP_BASE_SFP + "." + str(2) + "." + str(port_index),  # voltage
-        SNMP_BASE_SFP + "." + str(3) + "." + str(port_index),  # current
-        SNMP_BASE_SFP + "." + str(4) + "." + str(port_index),  # rx_power
-        SNMP_BASE_SFP + "." + str(5) + "." + str(port_index),  # tx_power
-    ], mutates=False)
-
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Parse snmpget output
-    values = {
-        "temp": None,
-        "voltage": None,
-        "current": None,
-        "rx_power": None,
-        "tx_power": None,
-    }
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if stripped == "":
-            continue
-        parts = stripped.split()
-        if len(parts) < 3:
-            continue
-        # Format: OID = TYPE: value
-        oid_parts = stripped.split()[0].split(".")
-        if len(oid_parts) < 15:
-            continue
-        oid_num_str = oid_parts[-2]
-        if not oid_num_str.isdigit():
-            continue
-        oid_num = int(oid_num_str)
-        value = parts[2]
-        if value == "NA":
-            continue
-        if oid_num == 0:
-            values["temp"] = int(value)
-        elif oid_num == 1:
-            values["voltage"] = float(value) / 1000.0
-        elif oid_num == 2:
-            values["current"] = float(value) / 1000.0
-        elif oid_num == 3:
-            values["rx_power"] = float(value)
-        elif oid_num == 4:
-            values["tx_power"] = float(value)
-
-    # If no valid data found
-    if values["temp"] == None:
-        return {
-            "changed": False,
-            "msg": "no data for port " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Apply thresholds (Checkmk style: levels = (warn_lower, crit_lower, warn_upper, crit_upper))
-    levels = params.get("levels", (30.0, 35.0, 35.0, 40.0))
-    warn_lower_temp = levels[0]
-    crit_lower_temp = levels[1]
-    warn_upper_temp = levels[2]
-    crit_upper_temp = levels[3]
-    temp = values["temp"]
-
-    # Temperature verdict
-    state = "OK"
-    if temp <= crit_lower_temp:
-        state = "CRIT"
-    elif temp <= warn_lower_temp:
-        state = "WARN"
-    elif temp >= crit_upper_temp:
-        state = "CRIT"
-    elif temp >= warn_upper_temp:
-        state = "WARN"
-
-    # Metrics
+    # Build metrics
     metrics = {
-        "temp": temp,
+        "temperature": temp_val,
+        "input_signal_power_dbm": values["rx_power"],
+        "output_signal_power_dbm": values["tx_power"],
+        "current": values["current"],
+        "voltage": values["voltage"],
     }
 
-    # Power levels (rx_power, tx_power)
-    rx_levels = params.get("rx_power", (-10.0, -5.0, -25.0, -20.0))
-    tx_levels = params.get("tx_power", (-10.0, -5.0, -25.0, -20.0))
-    current_levels = params.get("current", (0.0, 0.0, 0.2, 0.25))
-    voltage_levels = params.get("voltage", (3.0, 3.2, 3.3, 3.6))
+    # Build details
+    parts = []
+    parts.append("Temp: %d C" % temp_val)
+    parts.append("Rx: %f dBm%s" % (values["rx_power"], (" " + rx_msg) if rx_msg else ""))
+    parts.append("Tx: %f dBm%s" % (values["tx_power"], (" " + tx_msg) if tx_msg else ""))
+    parts.append("Current: %f A%s" % (values["current"], (" " + cur_msg) if cur_msg else ""))
+    parts.append("Voltage: %f V%s" % (values["voltage"], (" " + volt_msg) if volt_msg else ""))
+    details = ", ".join(parts)
 
-    def check_levels(value, levels):
-        if value == None:
-            return "UNKNOWN", {}
-        warn_lower, crit_lower, warn_upper, crit_upper = levels
-        st = "OK"
-        m = {}
-        if value <= crit_lower:
-            st = "CRIT"
-        elif value <= warn_lower:
-            st = "WARN"
-        elif value >= crit_upper:
-            st = "CRIT"
-        elif value >= warn_upper:
-            st = "WARN"
-        return st, m
+    msg = "%s: %s" % (item, details)
 
-    # Check each metric and update overall state if needed
-    rx_st, _ = check_levels(values["rx_power"], rx_levels)
-    tx_st, _ = check_levels(values["tx_power"], tx_levels)
-    curr_st, _ = check_levels(values["current"], current_levels)
-    volt_st, _ = check_levels(values["voltage"], voltage_levels)
-
-    # Aggregate worst state
-    for st in [rx_st, tx_st, curr_st, volt_st]:
-        if st == "CRIT":
-            state = "CRIT"
-            break
-        elif st == "WARN" and state != "CRIT":
-            state = "WARN"
-
-    # Build metrics dict
-    if values["rx_power"] != None:
-        metrics["input_signal_power_dbm"] = values["rx_power"]
-    if values["tx_power"] != None:
-        metrics["output_signal_power_dbm"] = values["tx_power"]
-    if values["current"] != None:
-        metrics["current"] = values["current"]
-    if values["voltage"] != None:
-        metrics["voltage"] = values["voltage"]
-
-    # Details message
-    details_parts = []
-    if values["temp"] != None:
-        details_parts.append("Temperature: %f C" % values["temp"])
-    if values["rx_power"] != None:
-        details_parts.append("Rx: %f dBm" % values["rx_power"])
-    if values["tx_power"] != None:
-        details_parts.append("Tx: %f dBm" % values["tx_power"])
-    if values["current"] != None:
-        details_parts.append("Current: %f A" % values["current"])
-    if values["voltage"] != None:
-        details_parts.append("Voltage: %f V" % values["voltage"])
-
-    details_str = ", ".join(details_parts)
-    msg = item + ": " + details_str
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    return {"changed": False, "msg": msg,
+            "data": {"state": overall_state, "metrics": metrics, "details": details}}

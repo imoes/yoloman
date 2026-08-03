@@ -1,110 +1,85 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {},
-                        "metrics": []
-                    }
-                ]
-            }
-        }
+# ===== checkmk.cisco_ucs_mem_total =====
+# Translated to a read-only Starlark check module.
+# Source: cmk/plugins/cisco/agent_based/cisco_ucs_mem_total.py
+# SNMP check: reads cucsComputeRackUnitAvailableMemory
+#   OID base = .1.3.6.1.4.1.9.9.719.1.9.35.1
+#   column  .9 = available memory (scalar-ish single value)
+# Detection: sysObjectID contains one of the Cisco UCS enterprise OIDs.
 
-    # Normal check mode (single-service check with empty item)
-    # Cisco UCS memory total is retrieved via SNMP from:
-    # .1.3.6.1.4.1.9.9.719.1.9.35.1.9 cucsComputeRackUnitAvailableMemory
-    res = ctx.run([
-        "snmpget", "-On", "-v2c", "-c", "public", "localhost",
-        "1.3.6.1.4.1.9.9.719.1.9.35.1.9"
-    ], mutates=False)
-
-    # Check if SNMP command succeeded
+def _detect_ucs(ctx, community):
+    # Probe the real thing: read sysObjectID (.1.3.6.1.2.1.1.2.0) and check
+    # it contains a known Cisco UCS enterprise number.
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", ctx.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+        return False
+    oid = res.stdout
+    if not oid:
+        return False
+    for needle in _UCS_SYSOID_NEEDLES:
+        if needle in oid:
+            return True
+    return False
 
-    # Parse SNMP output: should contain the memory value in MB
-    # Expected format: SNMPv2-SMI::enterprises.9.9.719.1.9.35.1.9 = INTEGER: 123456 MB
-    out = res.stdout.strip()
-    
-    # Extract the value after the last space or '=' sign
-    # Common format: OID = INTEGER: VALUE
-    if "=" in out:
-        value_part = out.split("=", 1)[1].strip()
-    else:
-        return {
-            "changed": False,
-            "msg": "Unexpected SNMP output format",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Extract the integer value (might be followed by " MB" or other text)
-    parts = value_part.split()
-    if len(parts) == 0:
-        return {
-            "changed": False,
-            "msg": "No value in SNMP output",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Try to extract numeric value
-    raw_value = ""
-    for part in parts:
-        if part.isdigit():
-            raw_value = part
-            break
-    
-    if raw_value == "":
-        # Alternative: try to find integer at beginning of value part
-        idx = value_part.find(":")
-        if idx >= 0:
-            value_str = value_part[idx+1:].strip()
-            # Remove non-digit suffixes like " MB"
-            for i, ch in enumerate(value_str):
-                if not ch.isdigit():
-                    value_str = value_str[:i]
-                    break
-            raw_value = value_str
-    
-    if raw_value == "" or not raw_value.isdigit():
-        return {
-            "changed": False,
-            "msg": "Could not parse memory value from SNMP output",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    total_memory = int(raw_value)
-    
-    # Return OK state with total memory summary
-    return {
-        "changed": False,
-        "msg": "Total Memory: %d MB" % total_memory,
-        "data": {
-            "state": "OK",
-            "metrics": {},
-            "details": ""
-        }
-    }
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_oid = "1.3.6.1.4.1.9.9.719.1.9.35.1"
+    col_oid = "1.3.6.1.4.1.9.9.719.1.9.35.1.9"
+
+    if params.get("_discover"):
+        # Discovery: a single-service check (item ""). Only yield the service
+        # when the monitored device is genuinely a Cisco UCS.
+        if not _detect_ucs(ctx, community):
+            return {"changed": False, "msg": "not a Cisco UCS device",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {},
+                     "metrics": ["memory_total"]},
+                ]}}
+
+    # Check mode: read the scalar value with -Oqv (bare value only).
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, col_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "unable to query memory total via SNMP: " + res.stderr.strip(),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    val = res.stdout.strip()
+    if not val:
+        return {"changed": False,
+                "msg": "no memory total value returned via SNMP",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # snmpget -Oqv yields the bare value (e.g. "4096").
+    digits = val
+    if not digits.isdigit():
+        return {"changed": False,
+                "msg": "unexpected memory total value: " + val,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    total_memory = int(digits)
+    return {"changed": False,
+            "msg": "Total Memory: %d MB" % total_memory,
+            "data": {"state": "OK",
+                     "metrics": {"memory_total": total_memory},
+                     "details": ""}}
+
+_UCS_SYSOID_NEEDLES = [
+    "1.3.6.1.4.1.9.1.1682",
+    "1.3.6.1.4.1.9.1.1683",
+    "1.3.6.1.4.1.9.1.1684",
+    "1.3.6.1.4.1.9.1.1685",
+    "1.3.6.1.4.1.9.1.2178",
+    "1.3.6.1.4.1.9.1.2179",
+    "1.3.6.1.4.1.9.1.2424",
+    "1.3.6.1.4.1.9.1.2492",
+    "1.3.6.1.4.1.9.1.2493",
+    "1.3.6.1.4.1.9.1.3100",
+]

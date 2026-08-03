@@ -1,79 +1,69 @@
-TRD_CANDIDATES = ["/opt/libelle/bin/trd", "/opt/libelle/trd"]
+def _to_mb(size):
+    size = size.replace(" ", "")
+    if size.endswith("MB"):
+        return int(float(size[:-2]))
+    if size.endswith("GB"):
+        return int(float(size[:-2])) * 1024
+    if size.endswith("TB"):
+        return int(float(size[:-2])) * 1024 * 1024
+    if size.endswith("PB"):
+        return int(float(size[:-2])) * 1024 * 1024 * 1024
+    if size.endswith("EB"):
+        return int(float(size[:-2])) * 1024 * 1024 * 1024 * 1024
+    return int(float(size))
 
-def _extract_status(s):
-    tokens = s.strip().split()
-    if len(tokens) == 0:
-        return ""
-    if len(tokens) >= 2 and tokens[0].isdigit():
-        return tokens[-1]
-    return tokens[0]
-
-def _parse_trd_output(stdout):
+def _parse_info(raw):
     parsed = {}
-    for line in stdout.splitlines():
-        if ":" not in line:
-            continue
+    for line in raw.splitlines():
         parts = line.split(":")
-        k = parts[0]
-        k_s = k.strip()
-        if len(parts) > 3 and (k_s.startswith("trdrecover") or k_s.startswith("trdarchiver")):
-            parsed["process"] = k.rstrip()
-            parsed["process_status"] = _extract_status(parts[3])
-        elif k_s.startswith("Status") and len(parts) > 1:
-            parsed["libelle_status"] = parts[1].strip()
+        key = parts[0].strip() if len(parts) > 0 else ""
+        val = parts[1].strip() if len(parts) > 1 else ""
+        if key.startswith("Host"):
+            parsed["host"] = val
+        elif key.startswith("Start-Time"):
+            parsed["start_time"] = val
+        elif key == "Release":
+            parsed["release"] = val
+        elif key.startswith("Status"):
+            parsed["libelle_status"] = val
+        elif key.startswith("trdrecover") or key.startswith("trdarchiver"):
+            parsed["process"] = key.split()[0]
+            parsed["process_status"] = parts[2].strip() if len(parts) > 2 else ""
+        elif key.startswith("Archive-Dir total"):
+            parsed["arch_total_mb"] = _to_mb(val)
+        elif key.startswith("Archive-Dir free"):
+            parsed["arch_free_mb"] = _to_mb(val)
     return parsed
 
+def _read_shadow_data(ctx):
+    res = ctx.run(["cat", "/proc/libelle_business_shadow"], mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return None
+    return res.stdout
+
 def main(ctx, params):
-    trd_bin = None
-    for p in TRD_CANDIDATES:
-        if ctx.file_exists(p):
-            trd_bin = p
-            break
-
-    if trd_bin == None:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "Libelle TRD binary not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    res = ctx.run([trd_bin, "info"], mutates=False, ok_codes=[0, 1, 2])
-    if not res.stdout:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "trd info returned no output (rc=%d)" % res.rc,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
-        }
-
-    parsed = _parse_trd_output(res.stdout)
-
     if params.get("_discover"):
-        if "process" in parsed:
-            return {
-                "changed": False,
-                "msg": "discovered 1 items",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-            }
-        return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        data = _read_shadow_data(ctx)
+        if data == None:
+            return {"changed": False, "msg": "Libelle Business Shadow not installed",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 0 items",
+                "data": {"discovery": []}}
 
-    if "process" not in parsed:
-        return {
-            "changed": False,
-            "msg": "No Active Process found!",
-            "data": {"state": "CRIT", "metrics": {}, "details": ""},
-        }
+    item = params.get("item", "")
+    data = _read_shadow_data(ctx)
+    if data == None:
+        return {"changed": False, "msg": "Libelle Business Shadow not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    proc = parsed["process"]
-    status = parsed.get("process_status", "")
-    state = "OK" if status == "RUN" else "CRIT"
-    msg = "Active Process is: %s, Status: %s" % (proc, status)
+    parsed = _parse_info(data)
+    message = "Libelle Business Shadow"
+    if "host" in parsed:
+        message += ", Host: %s" % parsed["host"]
+    if "release" in parsed:
+        message += ", Release: %s" % parsed["release"]
+    if "start_time" in parsed:
+        message += ", Start Time: %s" % parsed["start_time"]
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    return {"changed": False, "msg": message,
+            "data": {"state": "OK", "metrics": {}, "details": ""}}

@@ -1,416 +1,316 @@
-# Starlark check module for hitachi_hnas_volume_virtual
-# Translated from Checkmk plugin: checkmk.hitachi_hnas_volume_virtual
-# READ-ONLY: gathers SNMP data on virtual volumes, reports filesystem usage and status
+# Translated Checkmk check mk.hitachi_hnas_volume_virtual -> read-only Starlark
 
-# Helper: simple OID prefix check
-def _oid_startswith(oid, prefix):
-    return oid.startswith(prefix + ".") or oid == prefix
+# OIDs (from BLUEARC-SERVER-MIB / TITAN-MIB)
+VOL_BASE = ".1.3.6.1.4.1.11096.6.1.1.1.3.5.2.1"
+VIRT_BASE = ".1.3.6.1.4.1.11096.6.2.1.2.1.2.1"
+QUOTA_BASE = ".1.3.6.1.4.1.11096.6.2.1.2.1.7.1"
 
-# Helper: compute quota OID reference
-def _quota_oid_end(phys_volume_id, virtual_volume_oid_end):
-    parts = virtual_volume_oid_end.split(".")
-    if len(parts) > 1:
-        return phys_volume_id + "." + ".".join(parts[1:]) + ".0"
-    return phys_volume_id + ".0"
+VOL_OID_STATUS = VOL_BASE + ".4"
+VOL_OID_NAME = VOL_BASE + ".3"
+VOL_OID_CAPACITY = VOL_BASE + ".5"
+VOL_OID_FREE = VOL_BASE + ".6"
+VOL_OID_EVS = VOL_BASE + ".7"
+VIRT_OID_VID = VIRT_BASE + ".1"
+VIRT_OID_NAME = VIRT_BASE + ".2"
+QUOTA_OID_TYPE = QUOTA_BASE + ".3"
+QUOTA_OID_USAGE = QUOTA_BASE + ".4"
+QUOTA_OID_LIMIT = QUOTA_BASE + ".6"
 
-# Helper: convert bytes to MB (as float)
-def _bytes_to_mb(val_str):
-    if val_str == "" or val_str == None:
-        return None
-    # Guard instead of try/except
-    if not val_str.isdigit() and val_str.replace(".", "", 1).isdigit():
-        return float(val_str) / 1048576.0
-    if val_str.isdigit():
-        return float(val_str) / 1048576.0
-    return None
+STATUS_MAP = {
+    "1": "unformatted",
+    "2": "mounted",
+    "3": "formatted",
+    "4": "needsChecking",
+}
 
-def _snmpwalk(ctx, community, host, base_oid):
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host, base_oid
-    ], mutates=False)
+STATE_MAP = {
+    "mounted": "OK",
+    "unformatted": "WARN",
+    "formatted": "WARN",
+    "needsChecking": "CRIT",
+}
+
+# FILESYSTEM_DEFAULT_PARAMS defaults from cmk.plugins.lib.df
+DEFAULT_WARN_PCT = 90
+DEFAULT_CRIT_PCT = 95
+# These mirror FILESYSTEM_DEFAULT_PARAMS usage levels used by df_check_filesystem_list
+DEFAULT_PARAMS = {
+    "levels": {
+        "used_pct": (DEFAULT_WARN_PCT, DEFAULT_CRIT_PCT),
+    },
+}
+
+
+def _snmpget(ctx, community, host, oid):
+    res = ctx.run(
+        [
+            "snmpget", "-v2c", "-c", community, "-Oqv",
+            host, oid,
+        ],
+        mutates=False,
+    )
     if res.rc != 0:
-        fail("SNMP walk failed for " + base_oid + ": " + res.stderr)
-    return res.stdout
+        return None
+    val = res.stdout.strip()
+    # strip possible type prefix just in case
+    if val == "":
+        return None
+    return val
 
-def _parse_snmpwalk_output(output):
-    lines = output.splitlines()
-    result = []
-    for line in lines:
-        line = line.strip()
-        if line == "":
+
+def _snmpwalk(ctx, community, host, oid):
+    res = ctx.run(
+        [
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, oid,
+        ],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
             continue
-        if "=" not in line:
+        out.append((line[:sp], line[sp + 1:].strip()))
+    return out
+
+
+def _parse_int(s):
+    if s == None or s == "":
+        return None
+    if not s.lstrip("-").isdigit():
+        return None
+    return int(s)
+
+
+def _to_mb(bytes_str):
+    b = _parse_int(bytes_str)
+    if b == None:
+        return None
+    return float(b) / 1048576.0
+
+
+def _walk_table(ctx, community, host, entries, col_oid):
+    """Correlate a column walk with index -> value mapping."""
+    rows = _snmpwalk(ctx, community, host, col_oid)
+    out = {}
+    for oid, val in rows:
+        if not oid.startswith(col_oid + "."):
             continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
+        idx = oid[len(col_oid) + 1:]
+        out[idx] = val
+    return out
+
+
+def _gather_volumes(ctx, community, host):
+    """Walk the volume table. Returns dict volume_name -> (status, size_mb, avail_mb, evs)."""
+    sys_idx = _walk_table(ctx, community, host, {}, VOL_BASE + ".1")
+    label = _walk_table(ctx, community, host, {}, VOL_OID_NAME)
+    status = _walk_table(ctx, community, host, {}, VOL_OID_STATUS)
+    cap = _walk_table(ctx, community, host, {}, VOL_OID_CAPACITY)
+    free = _walk_table(ctx, community, host, {}, VOL_OID_FREE)
+    evs = _walk_table(ctx, community, host, {}, VOL_OID_EVS)
+
+    parsed = {}
+    for idx in sys_idx:
+        volume_id = sys_idx[idx]
+        if volume_id == "":
             continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        if ":" in value_part:
-            value_type, value = value_part.split(":", 1)
-            value = value.strip().strip('"')
+        lbl = label.get(idx, "")
+        status_id = status.get(idx, "")
+        st = STATUS_MAP.get(status_id, "unidentified")
+        size_mb = _to_mb(cap.get(idx))
+        avail_mb = _to_mb(free.get(idx))
+        evs_val = evs.get(idx, "")
+        name = "%s %s" % (volume_id, lbl)
+        parsed[name] = (st, size_mb, avail_mb, evs_val)
+    return parsed
+
+
+def _gather_virtual_volumes(ctx, community, host, map_label):
+    """Walk virtual volume + quota tables. Returns dict vv_name -> (size_mb, avail_mb)."""
+    # virtual volumes: span id col (1) is the index/phys volume id, name (2)
+    span = _walk_table(ctx, community, host, {}, VIRT_OID_VID)
+    vv_name = _walk_table(ctx, community, host, {}, VIRT_OID_NAME)
+
+    def quota_oid_end(phys_id, oid_end):
+        parts = oid_end.split(".")[1:] + ["0"]
+        return ".".join([phys_id] + parts)
+
+    parsed = {}
+    map_quota_oid = {}
+    for idx in span:
+        phys_id = span[idx]
+        vv_label = vv_name.get(idx, "")
+        phys_label = map_label.get(phys_id, "")
+        name = "%s on %s" % (vv_label, phys_label)
+        parsed[name] = (None, None)
+        ref = quota_oid_end(phys_id, idx)
+        map_quota_oid[ref] = name
+
+    # quota rows: type(3), usage(4), limit(6), OID end provides index
+    qtype = _walk_table(ctx, community, host, {}, QUOTA_OID_TYPE)
+    qusage = _walk_table(ctx, community, host, {}, QUOTA_OID_USAGE)
+    qlimit = _walk_table(ctx, community, host, {}, QUOTA_OID_LIMIT)
+
+    for oid, tval in qtype.items():
+        if tval != "3":
+            continue
+        usage = qusage.get(oid)
+        limit = qlimit.get(oid)
+        if usage != None and limit != None:
+            vol = map_quota_oid.get(oid, "")
+            if vol == "":
+                continue
+            size_mb = _to_mb(limit)
+            u = _to_mb(usage)
+            if size_mb == None or u == None:
+                continue
+            parsed[vol] = (size_mb, size_mb - u)
         else:
-            value = value_part.strip()
-        result.append((oid_part, value))
-    return result
+            vol = map_quota_oid.get(oid, "")
+            if vol != "":
+                parsed[vol] = (None, None)
+    return parsed
+
+
+def _gather(ctx, community, host):
+    sys_idx = _walk_table(ctx, community, host, {}, VOL_BASE + ".1")
+    if sys_idx == {}:
+        return None
+    # also need the volume sysdrive index table (col 1) to map indices
+    vol_sys = _walk_table(ctx, community, host, {}, VOL_BASE + ".1")
+    if vol_sys == {}:
+        return None
+    vol_label = _walk_table(ctx, community, host, {}, VOL_OID_NAME)
+    vol_status = _walk_table(ctx, community, host, {}, VOL_OID_STATUS)
+    vol_cap = _walk_table(ctx, community, host, {}, VOL_OID_CAPACITY)
+    vol_free = _walk_table(ctx, community, host, {}, VOL_OID_FREE)
+    vol_evs = _walk_table(ctx, community, host, {}, VOL_OID_EVS)
+
+    map_label = {}
+    volumes = {}
+    for idx in vol_sys:
+        vid = vol_sys[idx]
+        if vid == "":
+            continue
+        map_label[vid] = vol_label.get(idx, "")
+        st = STATUS_MAP.get(vol_status.get(idx, ""), "unidentified")
+        volumes["%s %s" % (vid, vol_label.get(idx, ""))] = (
+            st,
+            _to_mb(vol_cap.get(idx)),
+            _to_mb(vol_free.get(idx)),
+            vol_evs.get(idx, ""),
+        )
+
+    if volumes == {}:
+        return None
+
+    virt = _gather_virtual_volumes(ctx, community, host, map_label)
+    return {"volumes": volumes, "virtual_volumes": virt}
+
+
+def _df_state(used_pct, warn, crit):
+    if used_pct == None:
+        return "UNKNOWN"
+    if used_pct >= crit:
+        return "CRIT"
+    if used_pct >= warn:
+        return "WARN"
+    return "OK"
+
+
+def _df_details(size_mb, avail_mb, used_pct):
+    size_str = "%f MB" % size_mb if size_mb != None else "unknown"
+    avail_str = "%f MB" % avail_mb if avail_mb != None else "unknown"
+    pct_str = "%f%%" % used_pct if used_pct != None else "unknown"
+    return "Size: %s, Avail: %s, Used: %s" % (size_str, avail_str, pct_str)
+
 
 def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
     if params.get("_discover"):
-        # Discovery mode: collect all virtual volumes and their quotas
-        
-        # Build map_label: phys_id -> (label, evs)
-        base_phys = ".1.3.6.1.4.1.11096.6.1.1.1.3.5.2.1"
-        phys_oid_idx = base_phys + ".1"
-        res_idx = _snmpwalk(ctx, community, host, phys_oid_idx)
-        idx_lines = _parse_snmpwalk_output(res_idx)
-        phys_indices = []
-        for oid, val in idx_lines:
-            if val.isdigit():
-                phys_indices.append(val)
+        # discovery: probe for the real device - snmpwalk on volume sys index
+        community = params.get("community", "public")
+        host = params.get("host", "localhost")
+        sys_walk = _walk_table(ctx, community, host, {}, VOL_BASE + ".1")
+        if sys_walk == {}:
+            return {"changed": False, "msg": "no Hitachi HNAS volumes found",
+                    "data": {"discovery": []}}
+        data = _gather(ctx, community, host)
+        if data == None:
+            return {"changed": False, "msg": "no Hitachi HNAS volumes found",
+                    "data": {"discovery": []}}
 
-        map_label = {}
-        for idx in phys_indices:
-            oid_label = base_phys + ".3." + idx
-            oid_evs = base_phys + ".7." + idx
-            res_label = _snmpwalk(ctx, community, host, oid_label)
-            res_evs = _snmpwalk(ctx, community, host, oid_evs)
+        out = []
+        for vname in data["volumes"]:
+            out.append({"item": vname, "params": dict(DEFAULT_PARAMS),
+                        "metrics": ["used_pct", "size_mb", "avail_mb"]})
+        for vname in data["virtual_volumes"]:
+            out.append({"item": vname, "params": dict(DEFAULT_PARAMS),
+                        "metrics": ["used_pct", "size_mb", "avail_mb"]})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
 
-            label = ""
-            evs = ""
-
-            if res_label.strip() != "":
-                parts = res_label.strip().split("=", 1)
-                if len(parts) == 2:
-                    val = parts[1].strip()
-                    if ":" in val:
-                        val = val.split(":", 1)[1].strip().strip('"')
-                    label = val
-
-            if res_evs.strip() != "":
-                parts = res_evs.strip().split("=", 1)
-                if len(parts) == 2:
-                    val = parts[1].strip()
-                    if ":" in val:
-                        val = val.split(":", 1)[1].strip().strip('"')
-                    evs = val
-
-            if idx != "" and label != "":
-                map_label[idx] = (label, evs)
-
-        # Virtual volumes
-        base_virt = ".1.3.6.1.4.1.11096.6.2.1.2.1.2.1"
-        res_virt = _snmpwalk(ctx, community, host, base_virt)
-        virt_data = _parse_snmpwalk_output(res_virt)
-        virtual_volumes = {}  # item_name -> (span_id, name_val, leaf_idx)
-        for oid, value in virt_data:
-            if _oid_startswith(oid, base_virt):
-                suffix = oid[len(base_virt):]
-                if suffix != "" and suffix[0] == ".":
-                    suffix = suffix[1:]
-                if suffix == "":
-                    parts = oid.split(".")
-                    if len(parts) > 0:
-                        leaf = parts[-1]
-                        oid_name = base_virt + ".2." + leaf
-                        oid_span = base_virt + ".1." + leaf
-                        res_name = _snmpwalk(ctx, community, host, oid_name)
-                        res_span = _snmpwalk(ctx, community, host, oid_span)
-                        name_val = ""
-                        span_val = ""
-
-                        if res_name.strip() != "":
-                            parts_name = res_name.strip().split("=", 1)
-                            if len(parts_name) == 2:
-                                val = parts_name[1].strip()
-                                if ":" in val:
-                                    val = val.split(":", 1)[1].strip().strip('"')
-                                name_val = val
-
-                        if res_span.strip() != "":
-                            parts_span = res_span.strip().split("=", 1)
-                            if len(parts_span) == 2:
-                                val = parts_span[1].strip()
-                                if ":" in val:
-                                    val = val.split(":", 1)[1].strip().strip('"')
-                                span_val = val
-
-                        if name_val != "" and span_val != "":
-                            phys_label = map_label.get(span_val, ("unknown", ""))[0]
-                            item_name = name_val + " on " + phys_label
-                            virtual_volumes[item_name] = (span_val, name_val, leaf)
-
-        # Quotas
-        base_quota = ".1.3.6.1.4.1.11096.6.2.1.2.1.7.1"
-        volume_quota_type = "3"
-        res_quota_type = _snmpwalk(ctx, community, host, base_quota + ".3")
-        quota_type_data = _parse_snmpwalk_output(res_quota_type)
-        quota_indices = []
-        for oid, val in quota_type_data:
-            if val == volume_quota_type:
-                suffix = oid[len(base_quota + ".3"):]
-                if suffix != "" and suffix[0] == ".":
-                    suffix = suffix[1:]
-                if suffix != "":
-                    quota_indices.append(suffix)
-
-        quota_map = {}  # ref_oid_end -> (size_mb, avail_mb)
-        for idx in quota_indices:
-            oid_usage = base_quota + ".4." + idx
-            oid_limit = base_quota + ".6." + idx
-            res_usage = _snmpwalk(ctx, community, host, oid_usage)
-            res_limit = _snmpwalk(ctx, community, host, oid_limit)
-
-            usage_val = ""
-            limit_val = ""
-
-            if res_usage.strip() != "":
-                parts = res_usage.strip().split("=", 1)
-                if len(parts) == 2:
-                    val = parts[1].strip()
-                    if ":" in val:
-                        val = val.split(":", 1)[1].strip().strip('"')
-                    usage_val = val
-
-            if res_limit.strip() != "":
-                parts = res_limit.strip().split("=", 1)
-                if len(parts) == 2:
-                    val = parts[1].strip()
-                    if ":" in val:
-                        val = val.split(":", 1)[1].strip().strip('"')
-                    limit_val = val
-
-            parts_idx = idx.split(".")
-            if len(parts_idx) == 1:
-                ref_oid_end = idx + ".0"
-            else:
-                ref_oid_end = parts_idx[0] + "." + ".".join(parts_idx[1:]) + ".0"
-
-            if usage_val != "" and limit_val != "":
-                size_mb = _bytes_to_mb(limit_val)
-                avail_mb = size_mb - _bytes_to_mb(usage_val)
-                quota_map[ref_oid_end] = (size_mb, avail_mb)
-
-        # Map virtual volume to quota
-        virtual_volumes_quota = {}
-        for item_name, (span_id, name_val, leaf_idx) in virtual_volumes.items():
-            parts_leaf = leaf_idx.split(".")
-            if len(parts_leaf) == 1:
-                ref_oid_end = leaf_idx + ".0"
-            else:
-                ref_oid_end = span_id + "." + ".".join(parts_leaf[1:]) + ".0"
-            virtual_volumes_quota[item_name] = quota_map.get(ref_oid_end, (None, None))
-
-        # Build discovery list
-        discovery_list = []
-        for item_name in virtual_volumes_quota:
-            discovery_list.append({
-                "item": item_name,
-                "params": {"groups": []},
-                "metrics": ["used_percent"]
-            })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d virtual volumes" % len(discovery_list),
-            "data": {"discovery": discovery_list},
-        }
-
-    # Check mode — one item
     item = params.get("item", "")
     community = params.get("community", "public")
     host = params.get("host", "localhost")
+    data = _gather(ctx, community, host)
+    if data == None:
+        return {"changed": False, "msg": "no Hitachi HNAS volumes found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Fetch virtual volumes and quotas as in discovery
-    base_phys = ".1.3.6.1.4.1.11096.6.1.1.1.3.5.2.1"
-    phys_oid_idx = base_phys + ".1"
-    res_idx = _snmpwalk(ctx, community, host, phys_oid_idx)
-    idx_lines = _parse_snmpwalk_output(res_idx)
-    phys_indices = []
-    for oid, val in idx_lines:
-        if val.isdigit():
-            phys_indices.append(val)
+    is_virtual = item in data["virtual_volumes"]
+    if not is_virtual and item not in data["volumes"]:
+        return {"changed": False, "msg": "no such volume: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    map_label = {}
-    for idx in phys_indices:
-        oid_label = base_phys + ".3." + idx
-        oid_evs = base_phys + ".7." + idx
-        res_label = _snmpwalk(ctx, community, host, oid_label)
-        res_evs = _snmpwalk(ctx, community, host, oid_evs)
+    levels = params.get("levels", {})
+    used_levels = levels.get("used_pct", (DEFAULT_WARN_PCT, DEFAULT_CRIT_PCT))
+    warn = used_levels[0] if used_levels != None else DEFAULT_WARN_PCT
+    crit = used_levels[1] if used_levels != None else DEFAULT_CRIT_PCT
 
-        label = ""
-        evs = ""
+    metrics = {}
+    if is_virtual:
+        size_mb, avail_mb = data["virtual_volumes"][item]
+        if size_mb == None or avail_mb == None:
+            msg = "%s: no quota size information" % item
+            return {"changed": False, "msg": msg,
+                    "data": {"state": "OK", "metrics": metrics, "details": ""}}
+        used_mb = size_mb - avail_mb
+        used_pct = (used_mb / size_mb) * 100.0 if size_mb > 0 else None
+        metrics = {"size_mb": size_mb, "avail_mb": avail_mb, "used_pct": used_pct}
+        details = _df_details(size_mb, avail_mb, used_pct)
+        state = _df_state(used_pct, warn, crit)
+        return {"changed": False,
+                "msg": "%s %s" % (item, details),
+                "data": {"state": state, "metrics": metrics, "details": details}}
 
-        if res_label.strip() != "":
-            parts = res_label.strip().split("=", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if ":" in val:
-                    val = val.split(":", 1)[1].strip().strip('"')
-                label = val
+    status, size_mb, avail_mb, evs = data["volumes"][item]
+    if status == "unidentified":
+        return {"changed": False,
+                "msg": "%s: Volume reports unidentified status" % item,
+                "data": {"state": "CRIT", "metrics": {},
+                         "details": "assigned to EVS %s" % evs}}
 
-        if res_evs.strip() != "":
-            parts = res_evs.strip().split("=", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if ":" in val:
-                    val = val.split(":", 1)[1].strip().strip('"')
-                evs = val
+    used_mb = size_mb - avail_mb if (size_mb != None and avail_mb != None) else None
+    used_pct = (used_mb / size_mb) * 100.0 if (used_mb != None and size_mb != None and size_mb > 0) else None
+    metrics = {"size_mb": size_mb, "avail_mb": avail_mb, "used_pct": used_pct}
+    details = _df_details(size_mb, avail_mb, used_pct)
 
-        if idx != "" and label != "":
-            map_label[idx] = (label, evs)
-
-    base_virt = ".1.3.6.1.4.1.11096.6.2.1.2.1.2.1"
-    res_virt = _snmpwalk(ctx, community, host, base_virt)
-    virt_data = _parse_snmpwalk_output(res_virt)
-    virtual_volumes = {}  # item_name -> (span_id, name_val, leaf_idx)
-    for oid, value in virt_data:
-        if _oid_startswith(oid, base_virt):
-            suffix = oid[len(base_virt):]
-            if suffix != "" and suffix[0] == ".":
-                suffix = suffix[1:]
-            if suffix == "":
-                parts = oid.split(".")
-                if len(parts) > 0:
-                    leaf = parts[-1]
-                    oid_name = base_virt + ".2." + leaf
-                    oid_span = base_virt + ".1." + leaf
-                    res_name = _snmpwalk(ctx, community, host, oid_name)
-                    res_span = _snmpwalk(ctx, community, host, oid_span)
-                    name_val = ""
-                    span_val = ""
-
-                    if res_name.strip() != "":
-                        parts_name = res_name.strip().split("=", 1)
-                        if len(parts_name) == 2:
-                            val = parts_name[1].strip()
-                            if ":" in val:
-                                val = val.split(":", 1)[1].strip().strip('"')
-                            name_val = val
-
-                    if res_span.strip() != "":
-                        parts_span = res_span.strip().split("=", 1)
-                        if len(parts_span) == 2:
-                            val = parts_span[1].strip()
-                            if ":" in val:
-                                val = val.split(":", 1)[1].strip().strip('"')
-                            span_val = val
-
-                    if name_val != "" and span_val != "":
-                        phys_label = map_label.get(span_val, ("unknown", ""))[0]
-                        item_name = name_val + " on " + phys_label
-                        virtual_volumes[item_name] = (span_val, name_val, leaf)
-
-    base_quota = ".1.3.6.1.4.1.11096.6.2.1.2.1.7.1"
-    volume_quota_type = "3"
-    res_quota_type = _snmpwalk(ctx, community, host, base_quota + ".3")
-    quota_type_data = _parse_snmpwalk_output(res_quota_type)
-    quota_indices = []
-    for oid, val in quota_type_data:
-        if val == volume_quota_type:
-            suffix = oid[len(base_quota + ".3"):]
-            if suffix != "" and suffix[0] == ".":
-                suffix = suffix[1:]
-            if suffix != "":
-                quota_indices.append(suffix)
-
-    quota_map = {}  # ref_oid_end -> (size_mb, avail_mb)
-    for idx in quota_indices:
-        oid_usage = base_quota + ".4." + idx
-        oid_limit = base_quota + ".6." + idx
-        res_usage = _snmpwalk(ctx, community, host, oid_usage)
-        res_limit = _snmpwalk(ctx, community, host, oid_limit)
-
-        usage_val = ""
-        limit_val = ""
-
-        if res_usage.strip() != "":
-            parts = res_usage.strip().split("=", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if ":" in val:
-                    val = val.split(":", 1)[1].strip().strip('"')
-                usage_val = val
-
-        if res_limit.strip() != "":
-            parts = res_limit.strip().split("=", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if ":" in val:
-                    val = val.split(":", 1)[1].strip().strip('"')
-                limit_val = val
-
-        parts_idx = idx.split(".")
-        if len(parts_idx) == 1:
-            ref_oid_end = idx + ".0"
-        else:
-            ref_oid_end = parts_idx[0] + "." + ".".join(parts_idx[1:]) + ".0"
-
-        if usage_val != "" and limit_val != "":
-            size_mb = _bytes_to_mb(limit_val)
-            avail_mb = size_mb - _bytes_to_mb(usage_val)
-            quota_map[ref_oid_end] = (size_mb, avail_mb)
-
-    virtual_volumes_quota = {}
-    for item_name, (span_id, name_val, leaf_idx) in virtual_volumes.items():
-        parts_leaf = leaf_idx.split(".")
-        if len(parts_leaf) == 1:
-            ref_oid_end = leaf_idx + ".0"
-        else:
-            ref_oid_end = span_id + "." + ".".join(parts_leaf[1:]) + ".0"
-        virtual_volumes_quota[item_name] = quota_map.get(ref_oid_end, (None, None))
-
-    if item not in virtual_volumes_quota:
-        return {
-            "changed": False,
-            "msg": "virtual volume not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    size_mb, avail_mb = virtual_volumes_quota[item]
-
-    if size_mb == None or avail_mb == None:
-        return {
-            "changed": False,
-            "msg": "no quota defined",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
-
-    used_mb = size_mb - avail_mb
-    used_percent = (used_mb / size_mb * 100.0) if size_mb > 0 else 0.0
-
-    warn = params.get("levels", (80.0, 90.0))
-    if isinstance(warn, tuple):
-        warn_percent = warn[0]
-        crit_percent = warn[1]
-    else:
-        warn_percent = 80.0
-        crit_percent = 90.0
-
-    state = "OK"
-    summary = "Size: %f MB, Used: %f MB (%f%%)" % (size_mb, used_mb, used_percent)
-
-    if used_percent >= crit_percent:
+    df_state = _df_state(used_pct, warn, crit)
+    status_state = STATE_MAP.get(status, "OK")
+    # status_state takes precedence as WARN/CRIT per STATE_MAP
+    if status_state == "CRIT":
         state = "CRIT"
-        summary = "CRIT - " + summary + ", exceeds critical threshold"
-    elif used_percent >= warn_percent:
-        state = "WARN"
-        summary = "WARN - " + summary + ", exceeds warning threshold"
+    elif status_state == "WARN":
+        state = "WARN" if (df_state == "OK" or df_state == "UNKNOWN") else df_state
     else:
-        summary = "OK - " + summary
+        state = df_state
 
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {
-                "used_mb": used_mb,
-                "size_mb": size_mb,
-                "used_percent": used_percent
-            },
-            "details": ""
-        }
-    }
+    msg = "%s: Status: %s, %s" % (item, status, details)
+    summary = "%s: Status: %s" % (item, status)
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": details}}

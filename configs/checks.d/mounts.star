@@ -1,132 +1,185 @@
-def main(ctx, params):
-    # Helper to split mount options, handling backslash-escaped space (040)
-    def parse_mount_line(line):
+# Checkmk check: checkmk.mounts
+# Translated to read-only Starlark for the yolo-man agent.
+#
+# Discovery reads /proc/self/mounts (the same source the Checkmk agent
+# ``mounts`` plugin parses) and enumerates one Service per real mount point.
+# The check mode path grades the live mount options against the expected
+# options carried over from discovery parameters (defaulting to "[]").
+#
+# Read-only: every probe uses ``mutates=False``; ``changed`` is always False.
+
+# Options that the Checkmk check explicitly ignores when diffing options.
+# They are stable enough to treat as irrelevant rather than "exceeding".
+_IGNORE_PREFIXES = [
+    "commit=",
+    "localalloc=",
+    "subvol=",
+    "subvolid=",
+]
+
+
+def _should_ignore_option(option):
+    for prefix in _IGNORE_PREFIXES:
+        if option.startswith(prefix):
+            return True
+    return False
+
+
+def _read_mounts(ctx):
+    # /proc/self/mounts is exactly what the Checkmk agent-based mounts
+    # section reads. Each line: dev mountpoint fstype opts dump fsck.
+    # Mountpoints use octal escapes (e.g. "\040" = space).
+    res = ctx.run(["cat", "/proc/self/mounts"], mutates=False)
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
         parts = line.split()
-        if len(parts) < 6:
-            return None
-        dev, mountpoint, fs_type, options, _, _ = parts[:6]
-        # Restore escaped space: \040 -> space then trim "(deleted)"
-        mountpoint_clean = mountpoint.replace("\\040 ", " ").replace("\\040(deleted)", "")
+        # A well-formed /proc/self/mounts line has 6 fields. Be lenient:
+        # if we can't parse it, skip it rather than crash.
+        if len(parts) < 4:
+            continue
+        dev = parts[0]
+        mountpoint_raw = parts[1]
+        fs_type = parts[2]
+        options = parts[3]
+        rows.append([dev, mountpoint_raw, fs_type, options])
+    return rows
+
+
+def _decode_mountpoint(mountpoint_raw):
+    # Decode octal escapes like \040 (space), \011 (tab), \012 (newline).
+    # Starlark has no regex; do a manual scan.
+    out = ""
+    i = 0
+    n = len(mountpoint_raw)
+    while i < n:
+        ch = mountpoint_raw[i]
+        if ch == "\\" and i + 3 <= n:
+            oct3 = mountpoint_raw[i + 1:i + 4]
+            if oct3.isdigit():
+                out = out + chr(int(oct3, 8))
+                i = i + 4
+                continue
+        out = out + ch
+        i = i + 1
+    return out
+
+
+def _parse_mounts(ctx):
+    rows = _read_mounts(ctx)
+    devices = set()
+    section = {}
+    for dev, mountpoint_raw, fs_type, options in rows:
+        if dev in devices:
+            continue
+        devices.add(dev)
+        mountpoint = _decode_mountpoint(mountpoint_raw)
+        mountname = mountpoint.replace("\\040(deleted)", "")
+        # The deleted marker in /proc is literal "\040(deleted)" text on the
+        # escaped mountpoint; detect via suffix on the decoded point.
         is_stale = mountpoint.endswith("\\040(deleted)")
-        opts = sorted(options.split(","))
-        return {
-            "device": dev,
-            "mountpoint": mountpoint_clean,
-            "original_mountpoint": mountpoint,
+        opts_sorted = sorted(options.split(","))
+        section[mountname] = {
+            "mountpoint": mountname,
+            "options": opts_sorted,
             "fs_type": fs_type,
-            "options": opts,
             "is_stale": is_stale,
         }
+    return section
 
-    # Helper: decide if option should be ignored
-    def _should_ignore_option(opt):
-        prefixes = ["commit=", "localalloc=", "subvol=", "subvolid="]
-        for p in prefixes:
-            if opt.startswith(p):
-                return True
-        return False
 
-    # Discovery mode
+def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/mounts"], mutates=False)
-        mounts = []
-        seen_devices = set()
-        for line in res.stdout.splitlines():
-            parsed = parse_mount_line(line)
-            if parsed == None:
+        section = _parse_mounts(ctx)
+        discovery = []
+        for m in section.values():
+            if m["fs_type"] == "tmpfs":
                 continue
-            dev = parsed["device"]
-            if dev in seen_devices:
+            if m["mountpoint"] in ["/etc/resolv.conf", "/etc/hostname", "/etc/hosts"]:
                 continue
-            seen_devices.add(dev)
-
-            # Skip tmpfs and special paths
-            if parsed["fs_type"] == "tmpfs":
-                continue
-            mp = parsed["mountpoint"]
-            if mp in ["/etc/resolv.conf", "/etc/hostname", "/etc/hosts"]:
-                continue
-
-            mounts.append({
-                "item": mp,
-                "params": {"expected_mount_options": []},
+            discovery.append({
+                "item": m["mountpoint"],
+                "params": {"expected_mount_options": m["options"]},
                 "metrics": [],
             })
         return {
             "changed": False,
-            "msg": "discovered %d mounts" % len(mounts),
-            "data": {"discovery": mounts},
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    # Check mode
+    # Check mode for a single item.
     item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/mounts"], mutates=False)
-    section = {}
-    seen_devices = set()
-    for line in res.stdout.splitlines():
-        parsed = parse_mount_line(line)
-        if parsed == None:
-            continue
-        dev = parsed["device"]
-        if dev in seen_devices:
-            continue
-        seen_devices.add(dev)
-
-        mp = parsed["mountpoint"]
-        if parsed["fs_type"] != "tmpfs" and mp not in ["/etc/resolv.conf", "/etc/hostname", "/etc/hosts"]:
-            section[mp] = parsed
-
-    if section.get(item) == None:
+    section = _parse_mounts(ctx)
+    mount = section.get(item, None)
+    if mount == None:
         return {
             "changed": False,
-            "msg": "mount not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "Mount point %s not found" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-
-    mount = section.get(item)
-    expected = params.get("expected_mount_options", [])
 
     if mount["is_stale"]:
         return {
             "changed": False,
             "msg": "Mount point detected as stale",
-            "data": {"state": "WARN", "metrics": {}, "details": ""},
+            "data": {
+                "state": "WARN",
+                "metrics": {},
+                "details": "",
+            },
         }
 
-    exceeding = []
-    missing = []
+    targetopts = params.get("expected_mount_options", [])
+    if targetopts == None:
+        targetopts = []
 
-    # Compute exceeding: options present but not expected (and not ignored)
-    for opt in mount["options"]:
-        if not _should_ignore_option(opt) and opt not in expected:
-            exceeding.append(opt)
-
-    # Compute missing: expected but not present (and not ignored)
-    for opt in expected:
-        if not _should_ignore_option(opt) and opt not in mount["options"]:
-            missing.append(opt)
+    exceeding = [
+        opt for opt in mount["options"]
+        if opt not in targetopts and not _should_ignore_option(opt)
+    ]
+    missing = [
+        opt for opt in targetopts
+        if opt not in mount["options"] and not _should_ignore_option(opt)
+    ]
 
     if not missing and not exceeding:
         return {
             "changed": False,
             "msg": "Mount options exactly as expected",
-            "data": {"state": "OK", "metrics": {}, "details": ""},
+            "data": {
+                "state": "OK",
+                "metrics": {},
+                "details": "Mount options exactly as expected",
+            },
         }
 
-    summary_parts = []
-    state = "WARN"
-
+    summaries = []
+    state = "OK"
     if missing:
-        summary_parts.append("Missing: " + ",".join(missing))
+        summaries.append("Missing: %s" % ",".join(missing))
+        state = "WARN"
     if exceeding:
-        summary_parts.append("Exceeding: " + ",".join(exceeding))
-
+        summaries.append("Exceeding: %s" % ",".join(exceeding))
+        state = "WARN"
     if "ro" in exceeding:
+        summaries.append(
+            "Filesystem has switched to read-only and is probably corrupted"
+        )
         state = "CRIT"
-        summary_parts.append("Filesystem has switched to read-only and is probably corrupted")
 
+    msg = "; ".join(summaries)
     return {
         "changed": False,
-        "msg": "; ".join(summary_parts),
-        "data": {"state": state, "metrics": {}, "details": ""},
+        "msg": msg,
+        "data": {
+            "state": state,
+            "metrics": {},
+            "details": msg,
+        },
     }

@@ -1,213 +1,174 @@
-# SNMP base OID for digital sensors (humidity data)
-DIGITAL_SENSORS_BASE = ".1.3.6.1.4.1.20916.1.13.1.2.1"
-
-# Sensor type mapping (from detect_sensor_type)
-SENSOR_TYPE_HUMIDITY = 6
+# ===== Starlark module: ra3s_sensors_humidity.star =====
+# Translated Checkmk SNMP check: ra3s_sensors_humidity
+# Monitors humidity on RoomAlert RA3S digital sensors (Temp/Humidity type)
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+
+    # Probe for the real thing: the RA3S device via sysObjectID + sysDescr
+    # DETECT_RA3S = all_of(contains(".1.3.6.1.2.1.1.2.0", "1.3.6.1.4.1.20916"),
+    #                       contains(".1.3.6.1.2.1.1.1.0", "3S"))
+    sys_obj = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sys_obj.rc == 127:
+        return {
+            "changed": False,
+            "msg": "snmpget not installed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    if sys_obj.rc != 0:
+        return {
+            "changed": False,
+            "msg": "SNMP probe failed: %s" % sys_obj.stderr.strip(),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sys_obj_val = sys_obj.stdout.strip()
+    if sys_obj_val.find("1.3.6.1.4.1.20916") == -1:
+        return {
+            "changed": False,
+            "msg": "not a RoomAlert RA3S device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sys_descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if sys_descr.rc != 0 or sys_descr.stdout.find("3S") == -1:
+        return {
+            "changed": False,
+            "msg": "not a RoomAlert RA3S device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Fetch the digital sensors table: .1.3.6.1.4.1.20916.1.13.1.2.1
+    base_oid = ".1.3.6.1.4.1.20916.1.13.1.2.1"
+    oids = ["1", "2", "3", "4", "5", "6"]
+
     if params.get("_discover"):
-        # Discovery mode: check for digital sensors that are of TEMP_HUMIDITY type
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Walk digital sensors section (OIDs 1-6 per sensor)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, DIGITAL_SENSORS_BASE
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []}
-            }
-        
-        # Parse the SNMP output to group by sensor index
-        # OID format: .1.3.6.1.4.1.20916.1.13.1.2.1.<sensor_index>.<oid_index>
-        sensor_data = {}
-        for line in res.stdout.splitlines():
-            if not line.strip():
+        # Discovery: walk each OID and determine sensor type
+        # Sensor type is determined by counting how many of the 6 values are digit strings
+        sensor_types = {}
+        for oid in oids:
+            full_oid = base_oid + "." + oid
+            res = ctx.run(
+                ["snmpwalk", "-v2c", "-c", community, "-Oqv", host, full_oid],
+                mutates=False,
+            )
+            if res.rc != 0 or len(res.stdout.strip()) == 0:
                 continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_full, value_str = parts
-            # Extract sensor index and OID index
-            oid_parts = oid_full.strip().split(".")
-            if len(oid_parts) < 11:
-                continue
-            
-            # Get sensor index and OID index without try/except
-            sensor_idx_str = oid_parts[-2]
-            oid_idx_str = oid_parts[-1]
-            if not sensor_idx_str.isdigit() or not oid_idx_str.isdigit():
-                continue
-            sensor_idx = int(sensor_idx_str)
-            oid_idx = int(oid_idx_str)
-            
-            if sensor_idx not in sensor_data:
-                sensor_data[sensor_idx] = {}
-            sensor_data[sensor_idx][oid_idx] = value_str.strip()
-        
-        # Detect sensor types and find TEMP_HUMIDITY sensors
+            for line in res.stdout.strip().split("\n"):
+                parts = line.split(" ", 1)
+                if len(parts) < 2:
+                    continue
+                index = parts[0]
+                value = parts[1]
+                if sensor_types.get(index) == None:
+                    sensor_types[index] = {}
+                sensor_types[index][oid] = value
+
         discovery = []
-        for sensor_idx, data in sensor_data.items():
-            # Collect raw values for detection
-            raw_values = []
-            for idx in range(1, 7):
-                if idx in data:
-                    value = data[idx].split(": ", 1)[-1] if ": " in data[idx] else data[idx]
-                    raw_values.append(value)
-                else:
-                    raw_values.append("")
-            
-            # Count numeric values for sensor type detection
-            count = 0
-            for v in raw_values:
-                if v.replace('.', '').replace('-', '').isdigit():
-                    count += 1
-            
-            if count == SENSOR_TYPE_HUMIDITY:
-                # This is a TEMP_HUMIDITY sensor
+        for sensor_index in sorted(sensor_types.keys()):
+            raw_data = []
+            for oid in oids:
+                val = sensor_types[sensor_index].get(oid, "")
+                raw_data.append(val)
+            sensor_type = _detect_sensor_type(raw_data)
+            if sensor_type == "temp/humidity":
                 discovery.append({
                     "item": "Sensor",
-                    "params": {
-                        "levels": (70.0, 80.0)
-                    },
-                    "metrics": ["humidity"]
+                    "params": {"levels": (70.0, 80.0)},
+                    "metrics": ["humidity"],
                 })
-        
+
         return {
             "changed": False,
             "msg": "discovered %d humidity sensors" % len(discovery),
-            "data": {"discovery": discovery}
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode: one specific item
-    item = params.get("item", "")
-    if item != "Sensor":
+
+    # Check mode: fetch all 6 OIDs for the Sensor item
+    # Use snmpget with the full column OIDs to get all values
+    values = {}
+    for oid in oids:
+        full_oid = base_oid + "." + oid
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, full_oid],
+            mutates=False,
+        )
+        if res.rc != 0:
+            continue
+        values[oid] = res.stdout.strip()
+
+    if len(values) == 0:
         return {
             "changed": False,
-            "msg": "no such item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no digital sensor data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Get digital sensor data
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, DIGITAL_SENSORS_BASE
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse sensor data for TEMP_HUMIDITY type
-    humidity = None
-    
-    # Build a single sensor entry
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_full, value_str = parts
-        oid_parts = oid_full.strip().split(".")
-        if len(oid_parts) < 11:
-            continue
-        
-        # Get sensor index and OID index without try/except
-        sensor_idx_str = oid_parts[-2]
-        oid_idx_str = oid_parts[-1]
-        if not sensor_idx_str.isdigit() or not oid_idx_str.isdigit():
-            continue
-        sensor_idx = int(sensor_idx_str)
-        oid_idx = int(oid_idx_str)
-        
-        if oid_idx == 3:  # humidity value (3rd OID, 1-based indexing)
-            val = value_str.split(": ", 1)[-1] if ": " in value_str else value_str
-            # Check if this looks like a humidity value
-            val_clean = val.replace('.', '').replace('-', '')
-            if val_clean.isdigit() or (val.count('.') == 1 and val_clean.isdigit()):
-                humidity = float(val) / 100.0
-    
-    # Verify it's actually a humidity sensor by checking sensor type via count logic
-    # (re-run parsing to detect sensor type properly)
-    sensor_data = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_full, value_str = parts
-        oid_parts = oid_full.strip().split(".")
-        if len(oid_parts) < 11:
-            continue
-        
-        # Get sensor index and OID index without try/except
-        sensor_idx_str = oid_parts[-2]
-        oid_idx_str = oid_parts[-1]
-        if not sensor_idx_str.isdigit() or not oid_idx_str.isdigit():
-            continue
-        sensor_idx = int(sensor_idx_str)
-        oid_idx = int(oid_idx_str)
-        
-        if sensor_idx not in sensor_data:
-            sensor_data[sensor_idx] = {}
-        sensor_data[sensor_idx][oid_idx] = value_str.strip()
-    
-    # Detect sensor type for first sensor
-    raw_values = []
-    for idx in range(1, 7):
-        if 1 in sensor_data and idx in sensor_data[1]:
-            value = sensor_data[1][idx].split(": ", 1)[-1] if ": " in sensor_data[1][idx] else sensor_data[1][idx]
-            raw_values.append(value)
-        else:
-            raw_values.append("")
-    
-    count = 0
-    for v in raw_values:
-        if v.replace('.', '').replace('-', '').isdigit():
-            count += 1
-    
-    # If it's not a humidity sensor, return UNKNOWN
-    if count != SENSOR_TYPE_HUMIDITY:
+
+    raw_data = []
+    for oid in oids:
+        raw_data.append(values.get(oid, ""))
+
+    sensor_type = _detect_sensor_type(raw_data)
+    if sensor_type != "temp/humidity":
         return {
             "changed": False,
             "msg": "sensor is not a humidity sensor",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
+
+    # Parse humidity: OID 3, divided by 100
+    humidity_raw = values.get("3", "")
+    humidity = None
+    if humidity_raw != "" and humidity_raw.isdigit():
+        humidity = float(humidity_raw) / 100.0
+
     if humidity == None:
         return {
             "changed": False,
-            "msg": "humidity value not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no humidity reading available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Get thresholds
+
     levels = params.get("levels", (70.0, 80.0))
-    warn = levels[0] if isinstance(levels, list) else levels
-    crit = levels[1] if isinstance(levels, list) else levels
-    
-    # Determine state
-    state = "CRIT" if humidity >= crit else ("WARN" if humidity >= warn else "OK")
-    
+    warn = levels[0] if len(levels) >= 1 else 70.0
+    crit = levels[1] if len(levels) >= 2 else 80.0
+
+    if humidity >= crit:
+        state = "CRIT"
+    elif humidity >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
     return {
         "changed": False,
-        "msg": "Humidity: %f %%" % humidity,
+        "msg": "Humidity %f%%" % humidity,
         "data": {
             "state": state,
             "metrics": {"humidity": humidity},
-            "details": ""
-        }
+            "details": "",
+        },
     }
+
+
+def _detect_sensor_type(raw_data):
+    count = 0
+    for value in raw_data:
+        if value != "" and value.isdigit():
+            count += 1
+    lookup = {
+        2: "temp",
+        3: "temp/active_power",
+        4: "temp/analog",
+        5: "temp/extreme",
+        6: "temp/humidity",
+    }
+    return lookup.get(count)

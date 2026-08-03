@@ -1,227 +1,137 @@
-DIGITS = "0123456789"
-BASE_OID = ".1.3.6.1.4.1.2606.7.4.2.2.1"
-COL_NAME_OID = BASE_OID + ".3"
-COL_VALUE_OID = BASE_OID + ".4"
-SETPT_FIELDS = ["SetPtHighWarning", "SetPtHighAlarm", "SetPtLowWarning", "SetPtLowAlarm"]
+# cmciii_temp: Temperature monitoring for Rittal LCP devices via SNMP.
+# Reads temperature sensors and grades them against warn/crit levels.
 
-def _strip_snmp_val(raw):
-    s = raw.strip()
-    for pfx in ["STRING: \"", "STRING: ", "INTEGER: ", "Gauge32: ", "Counter32: "]:
-        if s.startswith(pfx):
-            s = s[len(pfx):]
-            break
-    if s.endswith("\""):
-        s = s[:-1]
-    return s.strip()
+def _build_oid(base, suffix):
+    if not suffix:
+        return base
+    return base + "." + suffix
 
-def _walk_col(ctx, host, community, col_oid):
-    res = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, col_oid],
-        mutates=False, ok_codes=[0, 1]
-    )
-    data = {}
-    pfx = col_oid + "."
+def _split_idx(oid, base):
+    # index is the part of oid after base + "."
+    prefix = base + "."
+    if oid.startswith(prefix):
+        return oid[len(prefix):]
+    return ""
+
+def _parse_temp_rows(res):
+    # snmpwalk -Oqn output: "<OID> <value>" per line. Value may be quoted.
+    rows = {}
     for line in res.stdout.splitlines():
-        eq = line.find(" = ")
-        if eq < 0:
+        line = line.strip()
+        if not line:
             continue
-        full_oid = line[:eq].strip()
-        raw = line[eq+3:]
-        if not full_oid.startswith(pfx):
+        sp = line.find(" ")
+        if sp == -1:
             continue
-        suffix = full_oid[len(pfx):]
-        data[suffix] = _strip_snmp_val(raw)
-    return data
+        oid = line[:sp]
+        raw = line[sp + 1:].strip()
+        # strip the leading type/value formatting if present
+        if raw.startswith('"') and raw.endswith('"'):
+            raw = raw[1:-1]
+        rows[oid] = raw
+    return rows
 
-def _to_float(s):
-    s = s.strip()
-    if not s:
+def _get_scalar(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
         return None
-    neg = s.startswith("-")
-    body = s[1:] if neg else s
-    dot_count = 0
-    ok = True
-    for c in body:
-        if c == ".":
-            dot_count += 1
-            if dot_count > 1:
-                ok = False
-                break
-        elif c not in DIGITS:
-            ok = False
-            break
-    if not ok or not body:
-        return None
-    return float(s)
-
-def _parse_num(raw):
-    parts = raw.split()
-    token = parts[0] if parts else ""
-    clean = ""
-    for c in token:
-        if c in DIGITS or c == ".":
-            clean += c
-        elif c == "-" and not clean:
-            clean += c
-    return _to_float(clean)
-
-def _collect_sensors(ctx, host, community):
-    names = _walk_col(ctx, host, community, COL_NAME_OID)
-    vals = _walk_col(ctx, host, community, COL_VALUE_OID)
-
-    # group by "unit@name_prefix" -> {field: oid_suffix}
-    # e.g. "2@Air.Temperature" -> {"DescName": "2.6", "Value": "2.7", ...}
-    groups = {}
-    for suffix, name in names.items():
-        dot = suffix.find(".")
-        if dot < 0:
-            continue
-        unit = suffix[:dot]
-        name_parts = name.split(".")
-        if len(name_parts) < 2:
-            continue
-        field = name_parts[-1]
-        prefix = ".".join(name_parts[:-1])
-        if "Temperature" not in prefix:
-            continue
-        gkey = unit + "@" + prefix
-        if gkey not in groups:
-            groups[gkey] = {}
-        groups[gkey][field] = suffix
-
-    sensors = {}
-    for gkey, field_map in groups.items():
-        if "Value" not in field_map:
-            continue
-        at = gkey.find("@")
-        unit = gkey[:at]
-        prefix = gkey[at+1:]
-        loc_parts = prefix.split(".")
-        location = loc_parts[0] if loc_parts else prefix
-
-        sensor = {"_unit_": unit, "_location_": location, "_prefix_": prefix}
-        for field, sfx in field_map.items():
-            raw = vals.get(sfx, "")
-            if field == "Value" or field in SETPT_FIELDS:
-                num = _parse_num(raw)
-                if num != None:
-                    sensor[field] = num
-            else:
-                sensor[field] = raw
-
-        # key = OID suffix of the Value row (mirrors Checkmk's id_ convention)
-        sensors[field_map["Value"]] = sensor
-
-    return sensors
-
-def _device_levels(sensor, kw, kc):
-    w = sensor.get(kw)
-    c = sensor.get(kc)
-    if w != None and c != None:
-        return (w, c)
-    if w != None:
-        return (w, w)
-    if c != None:
-        return (c, c)
-    return None
-
-def _eval_state(value, upper, lower):
-    state = "OK"
-    if upper != None:
-        if value >= upper[1]:
-            state = "CRIT"
-        elif value >= upper[0]:
-            state = "WARN"
-    if lower != None:
-        if value <= lower[1]:
-            state = "CRIT"
-        elif value <= lower[0] and state != "CRIT":
-            state = "WARN"
-    return state
+    v = res.stdout.strip()
+    if v.startswith('"') and v.endswith('"'):
+        v = v[1:-1]
+    return v
 
 def main(ctx, params):
     host = params.get("host", "localhost")
     community = params.get("community", "public")
 
     if params.get("_discover"):
-        sensors = _collect_sensors(ctx, host, community)
-        disc = []
-        for item_id, sensor in sensors.items():
-            if "Value" not in sensor:
-                continue
-            disc.append({
-                "item": item_id,
-                "params": {
-                    "host": host,
-                    "community": community,
-                    "warn": 25.0,
-                    "crit": 30.0,
-                },
-                "metrics": ["temp"],
+        # Probe for the Rittal LCP device via sysDescr.
+        descr = _get_scalar(ctx, host, community, ".1.3.6.1.2.1.1.1.0")
+        if descr == None or not descr.startswith("Rittal LCP"):
+            return {"changed": False, "msg": "not a Rittal LCP device", "data": {"discovery": []}}
+
+        # Table 8.3.2 Temperature. We model the sensor table by walking the
+        # DescName column (0) and indexing other columns by the numeric index.
+        # Rittal temp table base OID: .1.3.6.1.4.1.2606.7.4.2.2.1.3.2
+        base = ".1.3.6.1.4.1.2606.7.4.2.2.1.3.2"
+        # column 2 = DescName (string), column 8 = Value (temperature, x10 int)
+        desc_rows = _parse_temp_rows(ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-OvQ", host, base + ".2"],
+            mutates=False,
+        ))
+        val_rows = _parse_temp_rows(ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-OvQ", host, base + ".8"],
+            mutates=False,
+        ))
+        # Only sensors that actually report a Value are discovered.
+        out = []
+        for oid, _v in val_rows.items():
+            idx = _split_idx(oid, base + ".8")
+            desc_oid = _build_oid(base + ".2", idx)
+            desc_name = desc_rows.get(desc_oid, "").strip()
+            # The item used by the check is the numeric id; we surface a
+            # readable item when a description is available.
+            item = desc_name if desc_name else idx
+            out.append({
+                "item": item,
+                "params": {"_item_key": idx, "warn": 60, "crit": 70},
+                "metrics": ["temperature"],
             })
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(disc),
-            "data": {"discovery": disc},
-        }
+        return {"changed": False, "msg": "discovered %d temperature sensors" % len(out), "data": {"discovery": out}}
 
+    # CHECK MODE
     item = params.get("item", "")
-    sensors = _collect_sensors(ctx, host, community)
-    sensor = sensors.get(item)
+    idx = params.get("_item_key", item)
+    warn = params.get("warn", 60)
+    crit = params.get("crit", 70)
 
-    if sensor == None:
+    base = ".1.3.6.1.4.1.2606.7.4.2.2.1.3.2"
+    # Value (temperature *10, integer)
+    val_oid = _build_oid(base + ".8", idx)
+    val_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, val_oid], mutates=False)
+    if val_res.rc != 0 or not val_res.stdout.strip():
         return {
             "changed": False,
-            "msg": "sensor not found: " + item,
+            "msg": "no temperature sensor found for item %s" % item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    value = sensor.get("Value")
-    if value == None:
+    raw_val = val_res.stdout.strip()
+    if raw_val.startswith('"') and raw_val.endswith('"'):
+        raw_val = raw_val[1:-1]
+    if not raw_val.lstrip("-").isdigit():
         return {
             "changed": False,
-            "msg": "no temperature reading for: " + item,
+            "msg": "unexpected value for item %s: %s" % (item, raw_val),
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
+    v = int(raw_val)
+    try_val = float(v) / 10.0
 
-    upper = _device_levels(sensor, "SetPtHighWarning", "SetPtHighAlarm")
-    lower = _device_levels(sensor, "SetPtLowWarning", "SetPtLowAlarm")
+    # Optional description for the summary line.
+    desc_oid = _build_oid(base + ".2", idx)
+    desc = _get_scalar(ctx, host, community, desc_oid)
+    if desc != None:
+        desc = desc.replace("Temperature", "").strip()
+    else:
+        desc = ""
 
-    if upper == None:
-        warn = params.get("warn", 25.0)
-        crit = params.get("crit", 30.0)
-        upper = (float(warn), float(crit))
-
-    state = _eval_state(value, upper, lower)
-
-    dev_status = sensor.get("Status", "")
-    status_lc = dev_status.lower()
-    if status_lc in ["alarm", "critical", "error"]:
+    if try_val >= crit:
         state = "CRIT"
-    elif status_lc in ["warning", "warn"] and state == "OK":
+    elif try_val >= warn:
         state = "WARN"
+    else:
+        state = "OK"
 
-    desc = sensor.get("DescName", "")
-    desc_clean = desc.replace("Temperature", "").strip()
-    summary = "%f C" % value
-    if desc_clean and desc_clean not in item:
-        summary = "[%s] %s" % (desc_clean, summary)
-    if dev_status and status_lc != "ok":
-        summary = summary + " (Device: %s)" % dev_status
-
-    detail_parts = []
-    if upper != None:
-        detail_parts.append("High warn/crit: %f/%f C" % (upper[0], upper[1]))
-    if lower != None:
-        detail_parts.append("Low warn/crit: %f/%f C" % (lower[0], lower[1]))
-    details = ", ".join(detail_parts)
-
+    summary = "%s %f C" % (desc + " " if desc else "", try_val)
     return {
         "changed": False,
-        "msg": summary,
+        "msg": summary.strip(),
         "data": {
             "state": state,
-            "metrics": {"temp": value},
-            "details": details,
+            "metrics": {"temperature": try_val},
+            "details": "",
         },
     }

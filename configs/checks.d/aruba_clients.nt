@@ -2,30 +2,25 @@ name: aruba_clients
 fqcn: checkmk.aruba_clients
 collection: checkmk
 short_description: WLAN Clients
-description:
-    > ## Overview
-    > Monitors the number of wireless clients connected to an Aruba WLAN controller via SNMP. This is critical for capacity planning and detecting outages or unauthorized access.
-    >
-    > ## What it monitors
-    > - Number of active wireless client connections to the Aruba controller.
-    >
-    > ## How it works
-    > Uses SNMPv2c to query the OID `.1.3.6.1.4.1.14823.2.2.1.1.3.2` (Aruba `arubaStaTotalCount`). On discovery (`_discover` flag), it walks the OID to verify availability. In normal mode, it performs an `snmpget` and parses the numeric result. Verdicts: `OK` on valid integer client count, `UNKNOWN` on SNMP failure, malformed output, or non-numeric value.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - `OK`: Valid client count retrieved successfully.  
-    > - `UNKNOWN`: SNMP command failed, output format invalid, or client count not a valid integer.  
-    > - `WARN`/`CRIT`: Not used by this check.
-    >
-    > ## Metrics
-    > - `connections` — Number of connected wireless clients (unit: count).
+description: Checkmk check 'aruba_clients' (service: WLAN Clients), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    warn:
+        type: string
+        description: warn (from the check's parameters).
+    crit:
+        type: string
+        description: crit (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Network
+execution: snmp
+prompt_version: c21f0f5a7229

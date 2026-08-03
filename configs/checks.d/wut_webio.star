@@ -1,237 +1,259 @@
-# Starlark check module for W&T WebIO device
-# Read-only: gathers SNMP data and reports device input states
+# W&T WebIO device check (SNMP based)
+# Translates Checkmk's wut_webio check to a read-only Starlark check module.
 
+_EA12x6_BASE = "1.3.6.1.4.1.5040.1.2.51"
+_EA2x2_BASE = "1.3.6.1.4.1.5040.1.2.52"
+_EA12x12_BASE = "1.3.6.1.4.1.5040.1.2.4"
 
-# SNMP base OIDs for each WebIO variant
-_EA12x12_BASE = ".1.3.6.1.4.1.5040.1.2.4"
-_EA12x6_BASE = ".1.3.6.1.4.1.5040.1.2.51"
-_EA2x2_BASE = ".1.3.6.1.4.1.5040.1.2.52"
-
-# OIDs to fetch (relative to base)
 _OIDS_TO_FETCH = [
-    "3.1.1.1.0",  # device description
-    "1.3.1.1",    # input port index
-    "3.2.1.1.1",  # input description
-    "1.3.1.4",    # input state
+    "3.1.1.1.0",
+    "1.3.1.1",
+    "3.2.1.1.1",
+    "1.3.1.4",
 ]
 
-# State translation mapping
-_STATE_TRANSLATION = {
-    "0": "Off",
-    "1": "On",
-    "": "Unknown",
-}
 
-# Default state evaluation
-_DEFAULT_STATE_EVALUATION = {
-    "Off": 2,     # CRIT
-    "On": 0,      # OK
-    "Unknown": 3, # UNKNOWN
-}
-
-# Parameter keys
-_STATE_EVAL_KEY = "evaluation_mode"
-_AS_DISCOVERED = "as_discovered"
-_STATES_DURING_DISC_KEY = "states_during_discovery"
-
-
-def _parse_snmp_output(stdout):
-    """Parse SNMP output lines into structured data."""
-    lines = stdout.splitlines() if stdout else []
-    inputs = []
-    
-    # Process each line - group by OID prefix
-    current_group = {}
-    last_oid_prefix = ""
-    
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
+def _fetch_snmp_tree(ctx, base, community, host):
+    # SNMPWalk with -Oqn gives clean numeric output, one line per row.
+    # We fetch the full subtree starting at base + first OID.
+    full_base = base + "." + _OIDS_TO_FETCH[0]
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, full_base],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    rows = {}
+    for line in res.stdout.splitlines():
+        # line format: "<oid> <value>"
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
             continue
-        
-        # Format: "OID = TYPE: value"
-        eq_pos = stripped.find("=")
-        if eq_pos == -1:
+        oid = parts[0]
+        value = parts[1]
+        # relative oid: strip base prefix
+        base_oid = base + "."
+        if not oid.startswith(base_oid):
             continue
-        
-        oid_part = stripped[:eq_pos].strip()
-        value_part = stripped[eq_pos + 1:].strip()
-        
-        # Extract value (after ": " in "TYPE: value")
-        colon_pos = value_part.find(": ")
-        if colon_pos != -1:
-            value = value_part[colon_pos + 2:].strip()
-        else:
-            value = value_part
-        
-        # Extract index from OID to identify field type
-        # Format: base.OID_INDEX
-        last_dot = oid_part.rfind(".")
-        if last_dot == -1:
+        rel = oid[len(base_oid):]
+        rows[rel] = value
+    return rows
+
+
+def _build_table(ctx, base, community, host):
+    # The OID layout (from _OIDS_TO_FETCH):
+    # 3.1.1.1.0      -> device description (scalar, one row)
+    # 1.3.1.1        -> input port index
+    # 3.2.1.1.1      -> user defined description of every input
+    # 1.3.1.4        -> state of the input
+    #
+    # These are columnar-ish. We interpret as a table where:
+    #   column "idx" is _OIDS_TO_FETCH[1] = "1.3.1.1"
+    #   column "port_name" is _OIDS_TO_FETCH[2] = "3.2.1.1.1"
+    #   column "state" is _OIDS_TO_FETCH[3] = "1.3.1.4"
+    # Index comes from the suffix after the column base.
+    idx_col = _OIDS_TO_FETCH[1]
+    name_col = _OIDS_TO_FETCH[2]
+    state_col = _OIDS_TO_FETCH[3]
+
+    # Fetch each column separately to correlate by index.
+    idx_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + idx_col],
+        mutates=False,
+    )
+    if idx_res.rc != 0:
+        return None
+
+    name_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + name_col],
+        mutates=False,
+    )
+    state_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + state_col],
+        mutates=False,
+    )
+
+    col_base = base + "."
+    idx_map = {}
+    for line in idx_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
             continue
-        oid_suffix = oid_part[last_dot + 1:]
-        
-        # Track groups by tracking consecutive entries with same base
-        if oid_suffix == "0":
-            # New record starting - save previous if exists
-            if current_group and len(current_group) >= 4:
-                inputs.append(current_group.copy())
-            current_group = {}
-        
-        # Store by OID suffix
-        current_group[oid_suffix] = value
-    
-    # Save final group
-    if current_group and len(current_group) >= 4:
-        inputs.append(current_group.copy())
-    
-    return inputs
+        oid = parts[0]
+        val = parts[1]
+        if not oid.startswith(col_base + idx_col + "."):
+            continue
+        index = oid[len(col_base + idx_col + "."):]
+        idx_map[index] = val
+
+    name_map = {}
+    if name_res.rc == 0:
+        for line in name_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            val = parts[1]
+            if not oid.startswith(col_base + name_col + "."):
+                continue
+            index = oid[len(col_base + name_col + "."):]
+            name_map[index] = val
+
+    state_map = {}
+    if state_res.rc == 0:
+        for line in state_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            val = parts[1]
+            if not oid.startswith(col_base + state_col + "."):
+                continue
+            index = oid[len(col_base + state_col + "."):]
+            state_map[index] = val
+
+    return idx_map, name_map, state_map
+
+
+def _probe_device_description(ctx, base, community, host):
+    # Scalar: base + "3.1.1.1.0"
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, base + ".3.1.1.1.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _translate_state(raw):
+    if raw == "0":
+        return "Off"
+    if raw == "1":
+        return "On"
+    if raw == "":
+        return "Unknown"
+    return "Unknown"
+
+
+def _get_state_value(state, evaluation_mode):
+    if evaluation_mode == "as_discovered":
+        # Determine the discovered state, then warn/crit logic:
+        # Off -> CRIT(2) if it's the discovered state, else OK(0)
+        # On -> OK(0)
+        # Unknown -> UNKNOWN(3)
+        off_val = 0 if state == "Off" else 2
+        on_val = 0 if state == "On" else 2
+        unknown_val = 0 if state == "Unknown" else 2
+        eval_map = {"Off": off_val, "On": on_val, "Unknown": unknown_val}
+    else:
+        eval_map = evaluation_mode
+    return eval_map.get(state, 3)
 
 
 def main(ctx, params):
-    # Discover mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        # Try all possible base OIDs to find active WebIO device
-        base_oids = [_EA12x6_BASE, _EA2x2_BASE, _EA12x12_BASE]
-        all_inputs = {}
-        
-        for base_oid in base_oids:
-            # Build full OID list for this section
-            full_oids = [base_oid + "." + oid for oid in _OIDS_TO_FETCH]
-            
-            # Fetch with snmpwalk (batch mode)
-            res = ctx.run([
-                "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"),
-                ",".join(full_oids)
-            ], mutates=False)
-            
-            if res.rc != 0 or not res.stdout:
+        found_any = False
+        found_base = None
+        idx_map = None
+        name_map = None
+        state_map = None
+        description = ""
+        for base in (_EA12x6_BASE, _EA2x2_BASE, _EA12x12_BASE):
+            data = _build_table(ctx, base, community, host)
+            if data == None:
                 continue
-            
-            parsed = _parse_snmp_output(res.stdout)
-            
-            # Process each input record
-            for record in parsed:
-                # Extract values
-                desc_val = record.get("0", "")
-                idx_val = record.get("1", "")
-                port_desc_val = record.get("2", "")
-                state_val = record.get("3", "")
-                
-                # Build key from description and port description
-                key = (desc_val + " " + port_desc_val).strip()
-                if not key:
-                    key = idx_val
-                
-                # Skip if empty
-                if not key:
-                    continue
-                
-                # Translate state
-                state = _STATE_TRANSLATION.get(state_val, "Unknown")
-                
-                all_inputs[key] = {
-                    "state": state,
-                    "idx": idx_val
-                }
-        
-        # Build discovery result
+            idx_map, name_map, state_map = data
+            if len(idx_map) > 0:
+                found_any = True
+                found_base = base
+                description = _probe_device_description(ctx, base, community, host)
+                break
+
+        if not found_any:
+            return {"changed": False, "msg": "no W&T WebIO device found",
+                    "data": {"discovery": []}}
+
         discovery = []
-        for item, data in all_inputs.items():
+        for index in idx_map:
+            port_name = name_map.get(index, "")
+            item = description + " " + port_name if description else port_name
+            raw_state = state_map.get(index, "")
+            state = _translate_state(raw_state)
             discovery.append({
                 "item": item,
                 "params": {
-                    _STATES_DURING_DISC_KEY: data["state"]
+                    "evaluation_mode": {
+                        "Off": 2,
+                        "On": 0,
+                        "Unknown": 3,
+                    },
+                    "states_during_discovery": state,
                 },
-                "metrics": []
+                "metrics": ["input_state"],
             })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d inputs" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-    
-    # Check mode (single item)
+        return {"changed": False,
+                "msg": "discovered %d inputs" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # Check mode
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Gather data (reusing same fetch logic)
-    base_oids = [_EA12x6_BASE, _EA2x2_BASE, _EA12x12_BASE]
-    all_inputs = {}
-    
-    for base_oid in base_oids:
-        full_oids = [base_oid + "." + oid for oid in _OIDS_TO_FETCH]
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ",".join(full_oids)
-        ], mutates=False)
-        
-        if res.rc != 0 or not res.stdout:
+    evaluation_mode = params.get("evaluation_mode", {
+        "Off": 2,
+        "On": 0,
+        "Unknown": 3,
+    })
+    as_discovered = params.get("evaluation_mode") == "as_discovered"
+    states_during_disc = params.get("states_during_discovery")
+
+    found_base = None
+    idx_map = None
+    name_map = None
+    state_map = None
+    description = ""
+    for base in (_EA12x6_BASE, _EA2x2_BASE, _EA12x12_BASE):
+        data = _build_table(ctx, base, community, host)
+        if data == None:
             continue
-        
-        parsed = _parse_snmp_output(res.stdout)
-        
-        # Build mapping of items to data
-        for record in parsed:
-            desc_val = record.get("0", "")
-            idx_val = record.get("1", "")
-            port_desc_val = record.get("2", "")
-            state_val = record.get("3", "")
-            
-            key = (desc_val + " " + port_desc_val).strip()
-            if not key:
-                key = idx_val
-            
-            if not key:
-                continue
-            
-            state = _STATE_TRANSLATION.get(state_val, "Unknown")
-            
-            all_inputs[key] = {
-                "state": state,
-                "idx": idx_val
-            }
-    
-    # If we can't find the item, return UNKNOWN
-    if item not in all_inputs:
-        return {
-            "changed": False,
-            "msg": "input not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    data = all_inputs[item]
-    current_state = data["state"]
-    
-    # Determine state evaluation
-    state_map = params.get(_STATE_EVAL_KEY, _DEFAULT_STATE_EVALUATION)
-    if state_map == _AS_DISCOVERED:
-        discovered_state = params.get(_STATES_DURING_DISC_KEY, "On")
-        state_map = {
-            "Off": 2 if discovered_state != "Off" else 0,
-            "On": 0 if discovered_state == "On" else 2,
-            "Unknown": 3
-        }
-    
-    # Map state to Checkmk state
-    state_value = state_map.get(current_state, 3)
-    state_names = {0: "OK", 2: "CRIT", 3: "UNKNOWN"}
-    state_str = state_names.get(state_value, "UNKNOWN")
-    
-    return {
-        "changed": False,
-        "msg": "Input (Index: " + data["idx"] + ") is in state: " + current_state,
-        "data": {
-            "state": state_str,
-            "metrics": {},
-            "details": ""
-        }
-    }
+        idx_map, name_map, state_map = data
+        if len(idx_map) > 0:
+            found_base = base
+            description = _probe_device_description(ctx, base, community, host)
+            break
+
+    if found_base == None:
+        return {"changed": False, "msg": "no W&T WebIO device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Find the matching item
+    matched_index = None
+    matched_state = None
+    for index in idx_map:
+        port_name = name_map.get(index, "")
+        candidate_item = description + " " + port_name if description else port_name
+        if candidate_item == item:
+            matched_index = index
+            raw_state = state_map.get(index, "")
+            matched_state = _translate_state(raw_state)
+            break
+
+    if matched_index == None:
+        return {"changed": False, "msg": "input not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if as_discovered:
+        state_val = _get_state_value(matched_state, "as_discovered")
+    else:
+        state_val = _get_state_value(matched_state, evaluation_mode)
+
+    state_str = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}.get(state_val, "UNKNOWN")
+
+    metric_map = {"On": 1, "Off": 0, "Unknown": 2}
+    metric_val = metric_map.get(matched_state, 2)
+
+    msg = "Input (Index: %s) is in state: %s" % (matched_index, matched_state)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state_str, "metrics": {"input_state": metric_val}, "details": ""}}

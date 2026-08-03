@@ -1,228 +1,225 @@
 def main(ctx, params):
-    # Discovery mode: enumerate temperature sensors
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On",
-            host,
-            ".1.3.6.1.4.1.19746.1.1.2.1.1.1"
-        ], mutates=False)
-        
-        base_oid = ".1.3.6.1.4.1.19746.1.1.2.1.1.1"
-        sensors = {}
-        
-        lines = res.stdout.splitlines()
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip()
-            
-            if not oid_part.startswith(base_oid + "."):
-                continue
-            
-            rest = oid_part[len(base_oid) + 1:]
-            if "." not in rest:
-                continue
-            field_str, idx_str = rest.split(".", 1)
-            
-            # Guard-based parsing instead of try/except
-            if not field_str.isdigit() or not idx_str.isdigit():
-                continue
-            
-            field = int(field_str)
-            idx = int(idx_str)
-            
-            if val_part.startswith("STRING: "):
-                val = val_part[8:].strip('"')
-            elif val_part.startswith("INTEGER: "):
-                val = val_part[9:]
-            else:
-                val = val_part
-            
-            if idx not in sensors:
-                sensors[idx] = {}
-            
-            if field == 1:
-                sensors[idx]["encid"] = val
-            elif field == 2:
-                sensors[idx]["index"] = val
-            elif field == 4:
-                sensors[idx]["descr"] = val
-            elif field == 5:
-                sensors[idx]["reading"] = val
-            elif field == 6:
-                sensors[idx]["status"] = val
-        
-        out = []
-        for idx, sens in sensors.items():
-            status = sens.get("status", "")
-            if status == "2":
-                continue
-            
-            encid = sens.get("encid", "")
-            index = sens.get("index", "")
-            descr = sens.get("descr", "")
-            
-            item = descr + " Enclosure " + encid if descr else encid + "-" + index
-            
-            out.append({
-                "item": item,
-                "params": {},
-                "metrics": ["temp"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # Check mode: evaluate one sensor item
-    item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
+    # SNMP OIDs for emc_datadomain_temps
+    base_oid = ".1.3.6.1.4.1.19746.1.1.2.1.1.1"
+    col_encid = base_oid + ".1"
+    col_index = base_oid + ".2"
+    col_descr = base_oid + ".4"
+    col_reading = base_oid + ".5"
+    col_status = base_oid + ".6"
+
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.19746.1.1.2.1.1.1"
-    ], mutates=False)
-    
-    base_oid = ".1.3.6.1.4.1.19746.1.1.2.1.1.1"
-    sensors = {}
-    
-    lines = res.stdout.splitlines()
-    for line in lines:
-        if not line.strip():
-            continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
+    version = params.get("version", "2c")
+
+    # Status table from the Checkmk source
+    status_table = {
+        "0": (2, "Failed"),
+        "1": (0, "OK"),
+        "2": (2, "Not found"),
+        "3": (1, "Overheat Warning"),
+        "4": (2, "Overheat Critical"),
+    }
+
+    def format_name(descr, encid, index, new_format):
+        if new_format:
+            return "%s Enclosure %s" % (descr, encid)
+        return "%s-%s" % (encid, index)
+
+    def snmp_walk(oid):
+        res = ctx.run(["snmpwalk", "-v" + version, "-c", community, "-Oqn",
+                        host, oid], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return []
+        rows = []
+        for line in res.stdout.splitlines():
+            space_idx = line.find(" ")
+            if space_idx < 0:
                 continue
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip()
-            
-            if not oid_part.startswith(base_oid + "."):
+            oid_part = line[:space_idx]
+            value = line[space_idx + 1:]
+            rows.append((oid_part, value))
+        return rows
+
+    def snmp_get(oid):
+        res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv",
+                        host, oid], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return ""
+        val = res.stdout.strip()
+        if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+            val = val[1:-1]
+        return val
+
+    # Verify this is an EMC Data Domain system
+    sys_descr = snmp_get(".1.3.6.1.2.1.1.1.0")
+    if not sys_descr.startswith("Data Domain OS"):
+        return {"changed": False, "msg": "not an EMC Data Domain system",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Discovery mode
+    if params.get("_discover"):
+        # Walk all columns and group by index
+        encid_rows = snmp_walk(col_encid)
+        index_rows = snmp_walk(col_index)
+        descr_rows = snmp_walk(col_descr)
+        reading_rows = snmp_walk(col_reading)
+        status_rows = snmp_walk(col_status)
+
+        def index_of(oid):
+            if oid.startswith(col_encid + "."):
+                return oid[len(col_encid) + 1:]
+            return None
+
+        # Build index -> values map
+        indices = {}
+        for oid, val in encid_rows:
+            idx = oid[len(col_encid) + 1:]
+            if idx not in indices:
+                indices[idx] = {}
+            indices[idx]["encid"] = val
+        for oid, val in index_rows:
+            idx = oid[len(col_index) + 1:]
+            if idx not in indices:
+                indices[idx] = {}
+            indices[idx]["index"] = val
+        for oid, val in descr_rows:
+            idx = oid[len(col_descr) + 1:]
+            if idx not in indices:
+                indices[idx] = {}
+            indices[idx]["descr"] = val
+        for oid, val in reading_rows:
+            idx = oid[len(col_reading) + 1:]
+            if idx not in indices:
+                indices[idx] = {}
+            indices[idx]["reading"] = val
+        for oid, val in status_rows:
+            idx = oid[len(col_status) + 1:]
+            if idx not in indices:
+                indices[idx] = {}
+            indices[idx]["status"] = val
+
+        discovery = []
+        for idx, vals in sorted(indices.items()):
+            status = vals.get("status", "2")
+            if status == "2":
                 continue
-            
-            rest = oid_part[len(base_oid) + 1:]
-            if "." not in rest:
-                continue
-            field_str, idx_str = rest.split(".", 1)
-            
-            # Guard-based parsing instead of try/except
-            if not field_str.isdigit() or not idx_str.isdigit():
-                continue
-            
-            field = int(field_str)
-            idx = int(idx_str)
-            
-            if val_part.startswith("STRING: "):
-                val = val_part[8:].strip('"')
-            elif val_part.startswith("INTEGER: "):
-                val = val_part[9:]
-            else:
-                val = val_part
-            
-            if idx not in sensors:
-                sensors[idx] = {}
-            
-            if field == 1:
-                sensors[idx]["encid"] = val
-            elif field == 2:
-                sensors[idx]["index"] = val
-            elif field == 4:
-                sensors[idx]["descr"] = val
-            elif field == 5:
-                sensors[idx]["reading"] = val
-            elif field == 6:
-                sensors[idx]["status"] = val
-    
-    matched = False
-    for idx, sens in sensors.items():
-        status = sens.get("status", "")
+            encid = vals.get("encid", "")
+            index = vals.get("index", "")
+            descr = vals.get("descr", "")
+            name = format_name(descr, encid, index, True)
+            discovery.append({
+                "item": name,
+                "params": {"levels": (60, 70)},
+                "metrics": ["temperature"],
+            })
+
+        return {"changed": False,
+                "msg": "discovered %d temperature sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # Check mode for a specific item
+    item = params.get("item", "")
+
+    # Re-walk to get current state (discovery and check both need live data)
+    encid_rows = snmp_walk(col_encid)
+    index_rows = snmp_walk(col_index)
+    descr_rows = snmp_walk(col_descr)
+    reading_rows = snmp_walk(col_reading)
+    status_rows = snmp_walk(col_status)
+
+    indices = {}
+    for oid, val in encid_rows:
+        idx = oid[len(col_encid) + 1:]
+        if idx not in indices:
+            indices[idx] = {}
+        indices[idx]["encid"] = val
+    for oid, val in index_rows:
+        idx = oid[len(col_index) + 1:]
+        if idx not in indices:
+            indices[idx] = {}
+        indices[idx]["index"] = val
+    for oid, val in descr_rows:
+        idx = oid[len(col_descr) + 1:]
+        if idx not in indices:
+            indices[idx] = {}
+        indices[idx]["descr"] = val
+    for oid, val in reading_rows:
+        idx = oid[len(col_reading) + 1:]
+        if idx not in indices:
+            indices[idx] = {}
+        indices[idx]["reading"] = val
+    for oid, val in status_rows:
+        idx = oid[len(col_status) + 1:]
+        if idx not in indices:
+            indices[idx] = {}
+        indices[idx]["status"] = val
+
+    # Determine if new format (description in item name)
+    use_new_format = "Enclosure" in item
+
+    found = False
+    for idx, vals in sorted(indices.items()):
+        status = vals.get("status", "2")
         if status == "2":
             continue
-        
-        encid = sens.get("encid", "")
-        index = sens.get("index", "")
-        descr = sens.get("descr", "")
-        
-        check_item = descr + " Enclosure " + encid if descr else encid + "-" + index
-        
-        if item == check_item:
-            matched = True
+        encid = vals.get("encid", "")
+        index = vals.get("index", "")
+        descr = vals.get("descr", "")
+        name = format_name(descr, encid, index, use_new_format)
+        if name == item:
+            found = True
+            reading_str = vals.get("reading", "")
+            if not reading_str or reading_str == "No Such Object":
+                return {"changed": False,
+                        "msg": "no reading for " + item,
+                        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+            # Parse reading - could be quoted string or numeric
+            reading_val = reading_str
+            if reading_val.startswith('"') and reading_val.endswith('"'):
+                reading_val = reading_val[1:-1]
+            try_val = float(reading_val)
             
-            status_val = status
-            dev_status = 0
-            state_name = "OK"
-            if status_val == "0":
-                dev_status = 2
-                state_name = "Failed"
-            elif status_val == "1":
-                dev_status = 0
-                state_name = "OK"
-            elif status_val == "3":
-                dev_status = 1
-                state_name = "Overheat Warning"
-            elif status_val == "4":
-                dev_status = 2
-                state_name = "Overheat Critical"
-            
-            reading_str = sens.get("reading", "0")
-            if not reading_str:
-                reading = 0.0
-            elif reading_str.isdigit():
-                reading = float(reading_str) / 10.0
-            else:
-                reading = 0.0
-            
-            warn = params.get("levels", (0, 0))
-            crit = params.get("levels_upper", (0, 0))
-            
-            warn_upper = 80
-            crit_upper = 90
-            if len(warn) > 1 and warn[1] != 0:
-                warn_upper = warn[1]
-            if len(crit) > 1 and crit[1] != 0:
-                crit_upper = crit[1]
-            
-            state = "OK"
-            if reading >= crit_upper:
-                state = "CRIT"
-            elif reading >= warn_upper:
-                state = "WARN"
-            
-            return {
-                "changed": False,
-                "msg": "Temperature: %s C, Status: %s" % (str(reading), state_name),
-                "data": {
-                    "state": state,
-                    "metrics": {"temp": reading},
-                    "details": state_name
-                }
-            }
-    
-    return {
-        "changed": False,
-        "msg": "temperature sensor not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-    }
+            warn_level = params.get("warn", 60)
+            crit_level = params.get("crit", 70)
+            levels = params.get("levels", None)
+            if levels != None and len(levels) >= 2:
+                warn_level = levels[0]
+                crit_level = levels[1]
+
+            dev_status, state_name = (0, "OK")
+            status_entry = status_table.get(status, (0, "Unknown"))
+            dev_status = status_entry[0]
+            dev_status_name = status_entry[1]
+
+            metric_state = "OK"
+            if try_val >= crit_level:
+                metric_state = "CRIT"
+            elif try_val >= warn_level:
+                metric_state = "WARN"
+
+            # Device status takes precedence: 2 = CRIT, 1 = WARN, 0 = OK
+            final_state = "OK"
+            if dev_status == 2:
+                final_state = "CRIT"
+            elif dev_status == 1:
+                final_state = "WARN"
+            elif dev_status == 0:
+                # Use metric-based state if device status is OK
+                final_state = metric_state
+
+            state_map = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+            metric_state_num = state_map.get(final_state, 3)
+
+            details = "Temperature reading: %s, Device status: %s" % (reading_str, dev_status_name)
+
+            return {"changed": False,
+                    "msg": "Enclosure %s temperature: %s C (%s)" % (encid, reading_str, dev_status_name),
+                    "data": {"state": final_state,
+                             "metrics": {"temperature": try_val},
+                             "details": details}}
+
+    if not found:
+        return {"changed": False,
+                "msg": "sensor not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

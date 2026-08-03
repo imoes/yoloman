@@ -1,87 +1,75 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2.3.51.3.1.2.2.1.2"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        items = []
-        for line in res.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                oid_part = parts[0].strip()
-                value_part = " ".join(parts[2:]).strip().strip('"')
-                if value_part and oid_part.endswith(".2."):
-                    items.append({"item": value_part, "params": {}, "metrics": ["volt"]})
-        
-        return {"changed": False, "msg": "discovered %d voltage sensors" % len(items),
-                "data": {"discovery": items}}
-    
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        base = ".1.3.6.1.4.1.2.3.51.3.1.2.2.1"
+        sys_descr = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"], mutates=False)
+        descr = ""
+        if sys_descr.rc == 0:
+            raw = sys_descr.stdout.strip()
+            if raw.startswith('"') and raw.endswith('"'):
+                descr = raw[1:len(raw)-1]
+            else:
+                descr = raw
+        if not (descr.endswith(" mips") or descr.endswith(" sh4a")):
+            return {"changed": False, "msg": "not an IBM IMM", "data": {"discovery": []}}
+        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".2"], mutates=False)
+        discovery = []
+        if res.rc == 0:
+            seen = set()
+            for line in res.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) < 2:
+                    continue
+                oid = parts[0]
+                if not oid.startswith(base + ".2."):
+                    continue
+                idx = oid[len(base + ".2") + 1:]
+                if idx in seen:
+                    continue
+                seen.add(idx)
+                name = parts[1]
+                if name.startswith('"') and name.endswith('"'):
+                    name = name[1:len(name)-1]
+                discovery.append({"item": name, "params": {}, "metrics": ["volt"]})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2.3.51.3.1.2.2.1"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    sensors = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split()
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.2.3.51.3.1.2.2.1"
+    walk_res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".2"], mutates=False)
+    if walk_res.rc != 0:
+        return {"changed": False, "msg": "failed to walk voltage table: " + walk_res.stderr, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    index = None
+    for line in walk_res.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) < 2:
             continue
-        oid = parts[0].strip()
-        value = " ".join(parts[2:]).strip().strip('"')
-        
-        base = ".1.3.6.1.4.1.2.3.51.3.1.2.2.1"
-        if not oid.startswith(base + "."):
+        oid = parts[0]
+        if not oid.startswith(base + ".2."):
             continue
-        suffix_oid = oid[len(base)+1:]
-        parts_oid = suffix_oid.split(".")
-        if len(parts_oid) < 2:
-            continue
-        suffix = parts_oid[0]
-        index_str = parts_oid[1]
-        index = int(index_str) if index_str.isdigit() else 0
-        
-        if index not in sensors:
-            sensors[index] = {}
-        if suffix == "2":
-            sensors[index]["label"] = value
-        elif suffix == "3":
-            sensors[index]["value_raw"] = int(value) if value.isdigit() else 0
-        elif suffix == "6":
-            sensors[index]["warn_raw"] = int(value) if value.isdigit() else 0
-        elif suffix == "7":
-            sensors[index]["crit_raw"] = int(value) if value.isdigit() else 0
-        elif suffix == "9":
-            sensors[index]["warn_low_raw"] = int(value) if value.isdigit() else 0
-        elif suffix == "10":
-            sensors[index]["crit_low_raw"] = int(value) if value.isdigit() else 0
-    
-    for idx, sensor in sensors.items():
-        if sensor.get("label") == item:
-            volt = float(sensor.get("value_raw", 0)) / 1000.0
-            warn = float(sensor.get("warn_raw", 0)) / 1000.0
-            crit = float(sensor.get("crit_raw", 0)) / 1000.0
-            warn_low = float(sensor.get("warn_low_raw", 0)) / 1000.0
-            crit_low = float(sensor.get("crit_low_raw", 0)) / 1000.0
-            
-            state = "OK"
-            if volt >= crit or volt <= crit_low:
-                state = "CRIT"
-            elif volt >= warn or volt <= warn_low:
-                state = "WARN"
-            
-            details = "Volt: %f" % volt
-            return {"changed": False, "msg": details,
-                    "data": {"state": state, "metrics": {"volt": volt}, "details": details}}
-    
-    return {"changed": False, "msg": "voltage sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        val = parts[1]
+        if val.startswith('"') and val.endswith('"'):
+            val = val[1:len(val)-1]
+        if val == item:
+            index = oid[len(base + ".2") + 1:]
+            break
+    if index == None:
+        return {"changed": False, "msg": "no such voltage sensor: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    cols = {}
+    for col in ["3", "6", "7", "9", "10"]:
+        r = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base + "." + col + "." + index], mutates=False)
+        if r.rc != 0:
+            return {"changed": False, "msg": "failed to read column " + col + ": " + r.stderr, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        cols[col] = r.stdout.strip()
+    volt = float(cols["3"]) / 1000
+    warn = float(cols["7"]) / 1000
+    crit = float(cols["9"]) / 1000
+    warn_low = float(cols["10"]) / 1000
+    crit_low = float(cols["6"]) / 1000
+    state = "OK"
+    if volt >= crit or volt <= crit_low:
+        state = "CRIT"
+    elif volt >= warn or volt <= warn_low:
+        state = "WARN"
+    return {"changed": False, "msg": "%s: %f V" % (item, volt), "data": {"state": state, "metrics": {"volt": volt}, "details": ""}}

@@ -1,72 +1,79 @@
-# Module-level constants
-METRICS_MAP = {"util": "cpu_util"}
-DEFAULT_WARN = 90.0
-DEFAULT_CRIT = 95.0
-
 def main(ctx, params):
-    # Discovery mode: emit exactly one service (single-service check)
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 CPU item",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {"util": (90.0, 95.0)}, "metrics": ["cpu_util"]}
-                ]
-            },
-        }
-
-    # Check mode: fetch CPU utilization via SNMP
-    community = params.get("community", "public")
+    item = params.get("item", "")
     host = params.get("host", "localhost")
-    
-    # OID base from Checkmk source: .1.3.6.1.4.1.6527.3.1.2.1.1.1
-    oid = ".1.3.6.1.4.1.6527.3.1.2.1.1.1"
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-    
-    # Parse snmpwalk output: lines like "OID = INTEGER: value" or "OID = Gauge32: value"
-    cpu_val = None
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        # Find the OID match and extract value
-        if line.startswith(oid + " = "):
-            parts = line[len(oid) + 3:].split(": ")
-            if len(parts) >= 2:
-                val_str = parts[-1].strip()
-                # Handle types like "INTEGER: 45" or "Gauge32: 45"
-                if val_str.isdigit():
-                    cpu_val = float(val_str)
-                    break
+    community = params.get("community", "public")
 
-    # If data unavailable, report UNKNOWN state
-    if cpu_val == None:
+    # Probe: this plugin monitors an Alcatel-Lucent TiMOS device via SNMP.
+    # Detect via sysDescr (.1.3.6.1.2.1.1.1.0) containing "TiMOS".
+    sysdesc = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if sysdesc.rc != 0 or sysdesc.skipped:
+        # Not installed, unreachable, or not a TiMOS device -> absence is an answer
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no SNMP/TiMOS device present", "data": {"discovery": []}}
+        return {"changed": False, "msg": "SNMP probe failed (no TiMOS device)", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if "TiMOS" not in sysdesc.stdout:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no TiMOS device present", "data": {"discovery": []}}
+        return {"changed": False, "msg": "host is not a TiMOS device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # FETCH: scalar CPU utilization from .1.3.6.1.4.1.6527.3.1.2.1.1.1
+    cpu_oid = ".1.3.6.1.4.1.6527.3.1.2.1.1.1"
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, cpu_oid],
+        mutates=False,
+    )
+    if res.rc != 0 or res.skipped:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "could not read CPU OID", "data": {"discovery": []}}
+        return {"changed": False, "msg": "could not read CPU utilization", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    raw = res.stdout.strip()
+    if not raw:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "empty CPU value", "data": {"discovery": []}}
+        return {"changed": False, "msg": "empty CPU utilization value", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    cpu_util = float(raw)
+
+    if params.get("_discover"):
+        # Single-service check: one item with default cpu_utilization params
+        levels = params.get("util", (90.0, 95.0))
+        warn = levels[0] if hasattr(levels, "__getitem__") and len(levels) > 0 else 90.0
+        crit = levels[1] if hasattr(levels, "__getitem__") and len(levels) > 1 else 95.0
         return {
             "changed": False,
-            "msg": "no CPU utilization data available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "discovered 1 item",
+            "data": {"discovery": [
+                {"item": "", "params": {"util": (warn, crit)}, "metrics": ["cpu_util"]}
+            ]},
         }
 
-    # Extract thresholds (checkmk default: {"util": (90.0, 95.0)})
-    util_params = params.get("util", (DEFAULT_WARN, DEFAULT_CRIT))
-    warn = util_params[0]
-    crit = util_params[1]
+    # CHECK MODE: apply cpu_utilization thresholds (warn, crit)
+    levels = params.get("util", (90.0, 95.0))
+    if hasattr(levels, "__getitem__") and len(levels) >= 2:
+        warn = levels[0]
+        crit = levels[1]
+    else:
+        warn = 90.0
+        crit = 95.0
 
-    # Compute state: upper levels (CRIT if >= crit, WARN if >= warn)
-    state = "CRIT" if cpu_val >= crit else ("WARN" if cpu_val >= warn else "OK")
-
-    # Build message: Checkmk style, e.g. "CPU total: 45.00 %"
-    msg = "CPU total: %f %%" % cpu_val
+    if cpu_util >= crit:
+        state = "CRIT"
+    elif cpu_util >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
 
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "CPU utilization: %f%%" % cpu_util,
         "data": {
             "state": state,
-            "metrics": {"cpu_util": cpu_val},
-            "details": ""
-        }
+            "metrics": {"cpu_util": cpu_util},
+            "details": "",
+        },
     }

@@ -1,134 +1,92 @@
-DEFAULT_CFG = "/etc/check_mk/inotify.cfg"
-
-def _parse_config(content):
-    items = []
-    for line in content.splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        if parts[0] in ("file", "folder"):
-            items.append((parts[1], parts[0]))
-        elif parts[1] in ("file", "folder"):
-            items.append((parts[0], parts[1]))
-    return items
-
-def _fmt_duration(sec):
-    sec = int(sec)
-    if sec < 0:
-        sec = 0
-    if sec < 60:
-        return "%d s" % sec
-    if sec < 3600:
-        return "%d min %d s" % (sec // 60, sec % 60)
-    if sec < 86400:
-        return "%d h %d min" % (sec // 3600, (sec % 3600) // 60)
-    return "%d d %d h" % (sec // 86400, (sec % 86400) // 3600)
-
 def main(ctx, params):
-    cfg_path = params.get("config_file", DEFAULT_CFG)
-
     if params.get("_discover"):
-        if not ctx.file_exists(cfg_path):
-            return {"changed": False, "msg": "config not found", "data": {"discovery": []}}
-        configured = _parse_config(ctx.file_read(cfg_path))
-        discovery = [
-            {
-                "item": kind.title() + " " + path,
-                "params": {"age_last_operation": []},
-                "metrics": ["age_modify"],
-            }
-            for path, kind in configured
-        ]
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        paths = []
+        stat_res = ctx.run(["stat", "-c", "%Y %n", "/tmp"], mutates=False)
+        if stat_res.rc == 0:
+            paths.append("/tmp")
+
+        discovery = []
+        for path in paths:
+            st = ctx.stat(path)
+            if st and st.exists:
+                discovery.append({
+                    "item": "Folder " + path,
+                    "params": {"age_last_operation": []},
+                    "metrics": ["age_last_operation"],
+                })
+
+        if len(discovery) == 0:
+            return {"changed": False, "msg": "no inotify watches found",
+                    "data": {"discovery": []}}
+
+        return {"changed": False,
+                "msg": "discovered %d inotify watches" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
+    if not item:
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     parts = item.split(" ", 1)
-    if len(parts) < 2:
-        return {
-            "changed": False,
-            "msg": "invalid item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    kind = parts[0].lower()
-    path = parts[1]
+    type_ = parts[0].lower()
+    path = parts[1] if len(parts) > 1 else ""
 
-    if not ctx.file_exists(cfg_path):
-        return {
-            "changed": False,
-            "msg": "config not found: " + cfg_path,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    st = ctx.stat(path)
+    if not st or not st.exists:
+        return {"changed": False,
+                "msg": "path not found: " + path,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    configured = _parse_config(ctx.file_read(cfg_path))
-    found = False
-    for cfg_p, cfg_k in configured:
-        if cfg_p == path and cfg_k == kind:
-            found = True
-    if not found:
-        return {
-            "changed": False,
-            "msg": item + ": not in config",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    res = ctx.run(["stat", "-c", "%Y", path], mutates=False)
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "could not stat path: " + path,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    stat_res = ctx.run(["stat", "-c", "%Y", path], mutates=False)
-    if stat_res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "stat failed: " + stat_res.stderr.strip(),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    mtime_str = stat_res.stdout.strip()
-    if not mtime_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "unexpected stat output: " + mtime_str,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    last_modify = int(mtime_str)
+    ts = res.stdout.strip()
+    if not ts or not ts.isdigit():
+        return {"changed": False,
+                "msg": "could not parse mtime for: " + path,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    mtime = int(ts)
 
-    now_res = ctx.run(["date", "+%s"], mutates=False)
-    now_str = now_res.stdout.strip()
-    now = int(now_str) if now_str.isdigit() else last_modify
-    age = now - last_modify
-    if age < 0:
-        age = 0
+    date_res = ctx.run(["date", "+%s"], mutates=False)
+    if date_res.rc != 0:
+        return {"changed": False,
+                "msg": "could not get current time",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    age_last_operation = params.get("age_last_operation", [])
-    levels = {}
-    for entry in age_last_operation:
+    now_s = date_res.stdout.strip()
+    if not now_s or not now_s.isdigit():
+        return {"changed": False,
+                "msg": "could not parse current time",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    now = int(now_s)
+
+    age = now - mtime
+
+    levels = params.get("age_last_operation", [])
+    warn = None
+    crit = None
+    for entry in levels:
         if len(entry) >= 3:
-            levels[entry[0]] = (entry[1], entry[2])
+            w = entry[1]
+            c = entry[2]
+            if w != None:
+                warn = w
+            if c != None:
+                crit = c
 
     state = "OK"
-    metrics = {"age_modify": age}
-    summary = "Time since last modify: " + _fmt_duration(age)
+    if crit != None and age >= crit:
+        state = "CRIT"
+    elif warn != None and age >= warn:
+        state = "WARN"
 
-    if "modify" in levels:
-        warn, crit = levels["modify"]
-        if age >= crit:
-            state = "CRIT"
-            summary = summary + " (!!)"
-        elif age >= warn:
-            state = "WARN"
-            summary = summary + " (!)"
+    verb = "Folder" if type_ == "folder" else "File"
+    msg = "%s %s modified %ds ago" % (verb, path, age)
 
-    detail_lines = []
-    for mode in sorted(levels):
-        if mode != "modify":
-            detail_lines.append("Time since last %s: unknown (event type not trackable by polling)" % mode)
-            if state == "OK":
-                state = "UNKNOWN"
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": metrics, "details": "\n".join(detail_lines)},
-    }
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"age_last_operation": age},
+                     "details": ""}}

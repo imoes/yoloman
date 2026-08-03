@@ -1,163 +1,166 @@
+# Couchbase node memory check, translated to read-only Starlark for the yolo-man agent.
+# Reproduces check_plugin_couchbase_nodes_stats_mem (Couchbase %s Memory).
+# Discovery enumerates cluster nodes; the check grades RAM and Swap usage per node.
+
 def main(ctx, params):
-    # Constants (top level, as required)
-    MEMORY_DEFAULT_LEVELS = {"levels": (150.0, 200.0)}
-    
-    # Determine mode
-    warn, crit = MEMORY_DEFAULT_LEVELS.get("levels", (150.0, 200.0))
-    user_levels = params.get("levels", (None, None))
-    if user_levels != (None, None):
-        warn, crit = user_levels
-    
-    # Check if discovery mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
     if params.get("_discover"):
-        res = ctx.run(["curl", "-s", "-u", params.get("api_user", "admin") + ":" + params.get("api_password", ""), 
-                       "http://" + params.get("host", "localhost") + ":8091/pools/default/nodeServices"], 
-                      mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to fetch node services: " + res.stderr,
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host,
+                       "1.3.6.1.4.1.22859"], mutates=False)
+        if res.rc != 0 or not res.stdout.strip():
+            return {"changed": False, "msg": "Couchbase not present",
                     "data": {"discovery": []}}
-        
-        if res.stdout == "":
-            return {"changed": False, "msg": "empty response from node services API",
+        nodes = _walk_node_names(ctx, host, community)
+        if not nodes:
+            return {"changed": False, "msg": "Couchbase present, no nodes",
                     "data": {"discovery": []}}
-        
-        services = json.decode(res.stdout)
-        
-        nodes = []
-        for service in services.get("nodesExt", []):
-            node = service.get("hostname", "")
-            if node:
-                nodes.append({"item": node, "params": {"levels": (150.0, 200.0)},
-                              "metrics": ["mem_used", "swap_used"]})
-        return {"changed": False, "msg": "discovered %d nodes" % len(nodes),
-                "data": {"discovery": nodes}}
-    
-    # Check mode
+        out = []
+        for name in nodes:
+            out.append({"item": name, "params": {"levels": (150.0, 200.0)},
+                        "metrics": ["mem_used", "swap_used"]})
+        return {"changed": False, "msg": "discovered %d Couchbase nodes" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    res = ctx.run(["curl", "-s", "-u", params.get("api_user", "admin") + ":" + params.get("api_password", ""),
-                   "http://" + params.get("host", "localhost") + ":8091/pools/default/nodes/" + item], 
+    data = _node_stats(ctx, host, community, item)
+    if data == None:
+        return {"changed": False, "msg": "no Couchbase node: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    mem_total = _num(data.get("mem_total", 0))
+    mem_free = _num(data.get("mem_free", 0))
+    swap_total = _num(data.get("swap_total", 0))
+    swap_used = _num(data.get("swap_used", 0))
+    mem_used = mem_total - mem_free
+
+    levels = params.get("levels", (150.0, 200.0))
+    warn_ram = levels[0] if len(levels) > 0 else None
+    crit_ram = levels[1] if len(levels) > 1 else None
+    is_abs = warn_ram != None and type(warn_ram) == "int"
+    mode = "abs_used" if is_abs else "perc_used"
+
+    warn_v, crit_v = _resolve_levels(warn_ram, crit_ram, mem_used, mem_total, mode)
+
+    metrics = {"mem_used": mem_used, "swap_used": swap_used}
+    parts = []
+    parts.append(_grade(mem_used, mem_total, warn_v, crit_v, "RAM"))
+    parts.append(_grade(swap_used, swap_total, None, None, "Swap"))
+    state = _worst_state(parts)
+    details = "RAM: %s, Swap: %s" % (_fmt(mem_used), _fmt(swap_used))
+    msgs = []
+    for p in parts:
+        msgs.append(p[1])
+    msg = "%s %s" % (item, " ".join(msgs))
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": details}}
+
+
+def _node_stats(ctx, host, community, item):
+    index = _index_of(ctx, host, community, item)
+    if index == None:
+        return None
+    fields = {
+        "mem_total": "1.3.6.1.4.1.22859.1.2.1.1",
+        "mem_free":  "1.3.6.1.4.1.22859.1.2.1.2",
+        "swap_total": "1.3.6.1.4.1.22859.1.2.1.3",
+        "swap_used": "1.3.6.1.4.1.22859.1.2.1.4",
+    }
+    out = {}
+    for key in fields:
+        oid = fields[key] + "." + index
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+                      mutates=False)
+        if res.rc != 0 or not res.stdout.strip():
+            return None
+        out[key] = res.stdout.strip()
+    return out
+
+
+def _walk_node_names(ctx, host, community):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqv", host,
+                   "1.3.6.1.4.1.22859.1.2.1.0"], mutates=False)
+    if res.rc != 0:
+        return []
+    names = []
+    for line in res.stdout.splitlines():
+        if line.strip():
+            names.append(line.strip())
+    return names
+
+
+def _index_of(ctx, host, community, item):
+    col = "1.3.6.1.4.1.22859.1.2.1.1"
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col],
                   mutates=False)
     if res.rc != 0:
-        return {"changed": False, "msg": "failed to fetch node stats for " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    if res.stdout == "":
-        return {"changed": False, "msg": "empty response from node stats API for " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    data = json.decode(res.stdout)
-    
-    # Check required fields exist
-    mem_total = data.get("memoryTotal")
-    mem_free = data.get("memoryFree")
-    swap_total = data.get("swapTotal")
-    swap_used = data.get("swapUsed")
-    
-    if mem_total == None or mem_free == None or swap_total == None or swap_used == None:
-        return {"changed": False, "msg": "missing memory/swap data for node " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Convert to numbers safely (no try/except)
-    def to_float(v):
-        s = str(v)
-        # Remove leading/trailing whitespace and check for valid number
-        s = s.strip()
-        # Check if it's a valid number string
-        valid = True
-        if s == "":
-            valid = False
-        else:
-            has_dot = False
-            has_digit = False
-            for i in range(len(s)):
-                c = s[i]
-                if c == '-' and i == 0:
-                    continue
-                elif c == '.':
-                    if has_dot:
-                        valid = False
-                        break
-                    has_dot = True
-                elif c >= '0' and c <= '9':
-                    has_digit = True
-                else:
-                    valid = False
-                    break
-            if not has_digit:
-                valid = False
-        return float(s) if valid else 0.0
-    
-    mem_total = to_float(mem_total)
-    mem_free = to_float(mem_free)
-    swap_total = to_float(swap_total)
-    swap_used = to_float(swap_used)
-    
-    # RAM check
-    ram_used = mem_total - mem_free
-    mode = "abs_used" if isinstance(warn, int) else "perc_used"
-    
-    if mode == "abs_used":
-        warn_abs = warn
-        crit_abs = crit
-        if warn_abs != None and ram_used >= warn_abs:
-            ram_state = "WARN"
-        elif crit_abs != None and ram_used >= crit_abs:
-            ram_state = "CRIT"
-        else:
-            ram_state = "OK"
-    else:  # perc_used
-        if mem_total > 0:
-            ram_used_pct = (ram_used / mem_total) * 100.0
-        else:
-            ram_used_pct = 0.0
-        warn_abs = warn
-        crit_abs = crit
-        if warn_abs != None and ram_used_pct >= warn_abs:
-            ram_state = "WARN"
-        elif crit_abs != None and ram_used_pct >= crit_abs:
-            ram_state = "CRIT"
-        else:
-            ram_state = "OK"
-    
-    # Swap check (always absolute)
-    swap_state = "OK"
-    if swap_total > 0:
-        swap_pct = (swap_used / swap_total) * 100.0
-    else:
-        swap_pct = 0.0
-    
-    # In Checkmk, swap has no levels by default, so we just report the value
-    # For our implementation, we report swap as-is
-    # We'll mark CRIT if swap_used is suspiciously high (>80% of swap_total)
-    if swap_total > 0 and swap_pct > 80.0:
-        swap_state = "CRIT"
-    elif swap_total > 0 and swap_pct > 50.0:
-        swap_state = "WARN"
-    
-    # Determine overall state
-    if ram_state == "CRIT" or swap_state == "CRIT":
-        state = "CRIT"
-    elif ram_state == "WARN" or swap_state == "WARN":
-        state = "WARN"
-    else:
-        state = "OK"
-    
-    # Build message and metrics
-    if mode == "abs_used":
-        ram_msg = "RAM used: %f MB" % (ram_used / 1048576)
-        ram_val = ram_used / 1048576
-    else:
-        ram_msg = "RAM used: %f%%" % ram_used_pct
-        ram_val = ram_used_pct
-    
-    swap_msg = "Swap used: %f MB" % (swap_used / 1048576)
-    swap_val = swap_used / 1048576
-    
-    return {"changed": False,
-            "msg": "%s, %s" % (ram_msg, swap_msg),
-            "data": {
-                "state": state,
-                "metrics": {"mem_used": ram_val, "swap_used": swap_val},
-                "details": "",
-            },
-        }
+        return None
+    for line in res.stdout.splitlines():
+        idx = line.find(" ")
+        if idx < 0:
+            continue
+        oid = line[:idx]
+        val = line[idx + 1:].strip().strip('"')
+        if val == item:
+            return oid[len(col) + 1:]
+    return None
+
+
+def _resolve_levels(warn_ram, crit_ram, mem_used, mem_total, mode):
+    if mode == "perc_used" or mem_total == 0:
+        pct = (mem_used / mem_total * 100.0) if mem_total > 0 else 0.0
+        w = pct if warn_ram == None else warn_ram
+        c = pct if crit_ram == None else crit_ram
+        return w, c
+    w = mem_used if warn_ram == None else warn_ram
+    c = mem_used if crit_ram == None else crit_ram
+    return w, c
+
+
+def _grade(value, total, warn, crit, label):
+    if total != None and total > 0 and warn != None and crit != None:
+        pct = value / total * 100.0
+        if pct >= crit:
+            return "CRIT", label + " %d%% used" % int(pct)
+        if pct >= warn:
+            return "WARN", label + " %d%% used" % int(pct)
+        return "OK", label + " %d%% used" % int(pct)
+    if warn != None and crit != None:
+        if value >= crit:
+            return "CRIT", label + " %s" % _fmt(value)
+        if value >= warn:
+            return "WARN", label + " %s" % _fmt(value)
+        return "OK", label + " %s" % _fmt(value)
+    return "OK", label + " %s" % _fmt(value)
+
+
+def _worst_state(parts):
+    state = "OK"
+    for p in parts:
+        s = p[0]
+        if s == "CRIT":
+            state = "CRIT"
+            break
+        if s == "WARN" and state != "CRIT":
+            state = "WARN"
+    return state
+
+
+def _num(v):
+    s = str(v).strip()
+    if s.isdigit():
+        return int(s)
+    neg = s.startswith("-") and s[1:].isdigit()
+    if neg:
+        return -int(s[1:])
+    return 0
+
+
+def _fmt(n):
+    if n >= 1073741824:
+        return "%f GB" % (n / 1073741824.0)
+    if n >= 1048576:
+        return "%f MB" % (n / 1048576.0)
+    if n >= 1024:
+        return "%f kB" % (n / 1024.0)
+    return str(n)

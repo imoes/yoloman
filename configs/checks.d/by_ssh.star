@@ -1,59 +1,146 @@
+# checkmk.by_ssh — translated read-only Starlark check module
+
+def _parse_ssh_token(args, i, n):
+    """Return (value, next_index) for the argument at index i, or (None, i+1)."""
+    if i + 1 < n:
+        return args[i + 1], i + 2
+    return None, i + 1
+
+def _parse_args(args):
+    """Split an ssh command line (list of tokens) into a settings dict."""
+    settings = {
+        "hostname": None,
+        "port": None,
+        "ip_version": None,
+        "timeout": None,
+        "logname": None,
+        "identity": None,
+        "accept_new_host_keys": False,
+        "command": None,
+    }
+    i = 0
+    n = len(args)
+    while i < n:
+        token = args[i]
+        if token == "-H":
+            val, i = _parse_ssh_token(args, i, n)
+            settings["hostname"] = val
+        elif token == "-p":
+            val, i = _parse_ssh_token(args, i, n)
+            settings["port"] = val
+        elif token == "-4":
+            settings["ip_version"] = "ipv4"
+            i += 1
+        elif token == "-6":
+            settings["ip_version"] = "ipv6"
+            i += 1
+        elif token == "-t":
+            val, i = _parse_ssh_token(args, i, n)
+            settings["timeout"] = val
+        elif token == "-l":
+            val, i = _parse_ssh_token(args, i, n)
+            settings["logname"] = val
+        elif token == "-i":
+            val, i = _parse_ssh_token(args, i, n)
+            settings["identity"] = val
+        elif token == "-C":
+            val, i = _parse_ssh_token(args, i, n)
+            settings["command"] = val
+        elif token == "-o":
+            val, i = _parse_ssh_token(args, i, n)
+            if val != None and "StrictHostKeyChecking=accept-new" in val:
+                settings["accept_new_host_keys"] = True
+        else:
+            i += 1
+    return settings
+
 def main(ctx, params):
     if params.get("_discover"):
-        return {"changed": False, "msg": "active check (assign with parameters)", "data": {"discovery": []}}
+        probe = ctx.run(["ssh", "-V"], mutates=False)
+        if probe.rc != 0:
+            return {"changed": False, "msg": "no items", "data": {"discovery": []}}
 
-    host = params.get("hostname") or ""
-    if not host:
-        return {"changed": False, "msg": "UNKNOWN", "data": {"state": "UNKNOWN", "metrics": {}, "details": "hostname is required"}}
+        command = params.get("command", "")
+        hostname = params.get("hostname", "")
+        port = params.get("port", None)
+        ip_version = params.get("ip_version", None)
+        timeout = params.get("timeout", None)
+        logname = params.get("logname", None)
+        identity = params.get("identity", None)
+        accept_new_host_keys = params.get("accept_new_host_keys", False)
 
-    command = params.get("command") or ""
-    if not command:
-        return {"changed": False, "msg": "UNKNOWN", "data": {"state": "UNKNOWN", "metrics": {}, "details": "command is required"}}
+        item = command
+        if hostname:
+            item = hostname + " " + command
+        entry = {
+            "item": item,
+            "params": {
+                "command": command,
+                "hostname": hostname,
+                "port": port,
+                "ip_version": ip_version,
+                "timeout": timeout,
+                "logname": logname,
+                "identity": identity,
+                "accept_new_host_keys": accept_new_host_keys,
+            },
+            "metrics": ["state"],
+        }
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [entry]}}
 
-    port = int(params.get("port") or 22)
-    timeout_s = int(params.get("timeout_s") or 10)
-    logname = params.get("logname") or ""
-    identity = params.get("identity") or ""
-    accept_new = params.get("accept_new_host_keys") or False
-    ip_version = params.get("ip_version") or ""
+    # CHECK MODE
+    probe = ctx.run(["ssh", "-V"], mutates=False)
+    if probe.rc != 0:
+        return {
+            "changed": False,
+            "msg": "ssh binary not found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "the ssh command is not installed"},
+        }
 
-    argv = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=%d" % timeout_s, "-p", "%d" % port]
+    command = params.get("command", "")
+    hostname = params.get("hostname", "")
+    port = params.get("port", None)
+    ip_version = params.get("ip_version", None)
+    timeout = params.get("timeout", None)
+    logname = params.get("logname", None)
+    identity = params.get("identity", None)
+    accept_new_host_keys = params.get("accept_new_host_keys", False)
 
-    if accept_new:
-        argv += ["-o", "StrictHostKeyChecking=accept-new"]
-
+    args = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"]
+    if hostname:
+        args += ["-H", hostname]
+    args += ["-C", command]
+    if port != None:
+        args += ["-p", str(port)]
     if ip_version == "ipv4":
-        argv.append("-4")
+        args.append("-4")
     elif ip_version == "ipv6":
-        argv.append("-6")
+        args.append("-6")
+    if accept_new_host_keys:
+        args += ["-o", "StrictHostKeyChecking=accept-new"]
+    if timeout != None:
+        args += ["-t", str(timeout)]
+    if logname != None:
+        args += ["-l", logname]
+    if identity != None:
+        args += ["-i", identity]
 
-    if logname:
-        argv += ["-l", logname]
-
-    if identity:
-        argv += ["-i", identity]
-
-    argv.append(host)
-    argv.append(command)
-
-    result = ctx.run(argv, ok_codes=[0, 1, 2, 3, 255])
-    rc = result.rc
-    stdout = (result.stdout or "").strip()
-    stderr = (result.stderr or "").strip()
-
-    if rc == 255:
-        details = stderr if stderr else "SSH connection failed (rc=255)"
-        return {"changed": False, "msg": "CRIT", "data": {"state": "CRIT", "metrics": {}, "details": details}}
-
-    if rc == 0:
+    res = ctx.run(["ssh"] + args, mutates=False)
+    if res.rc == 0:
         state = "OK"
-    elif rc == 1:
-        state = "WARN"
-    elif rc == 2:
+        msg = "ssh check succeeded"
+        metrics = {"state": 0}
+    elif res.rc == 1:
         state = "CRIT"
+        msg = "ssh check failed: " + (res.stderr or res.stdout)
+        metrics = {"state": 2}
     else:
         state = "UNKNOWN"
+        msg = "ssh check error: " + (res.stderr or res.stdout)
+        metrics = {"state": 3}
 
-    details = stdout if stdout else (stderr if stderr else "Exit code %d" % rc)
-
-    return {"changed": False, "msg": state, "data": {"state": state, "metrics": {"exit_code": rc}, "details": details}}
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {"state": state, "metrics": metrics, "details": res.stderr or res.stdout},
+    }

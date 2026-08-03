@@ -1,122 +1,153 @@
-# ===== Starlark check module: cmk.cmciii_lcp_fans =====
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
 
-# SNMP OIDs for CMCIII LCP fans section (base + offset)
-# Base: .1.3.6.1.4.1.2606.7.4.2.2.1.10.2
-# OIDs 34..57 -> offsets 33..56 (1-indexed)
-_FAN_BASE_OID = ".1.3.6.1.4.1.2606.7.4.2.2.1.10.2"
-_FAN_OID_OFFSETS = [33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56]
-
-def _snmp_walk(ctx, community, host):
-    """Walk the fan section and return parsed values as list of strings."""
-    values = []
-    for offset in _FAN_OID_OFFSETS:
-        oid = _FAN_BASE_OID + "." + str(offset)
-        res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-        # snmpget output: "<oid> = STRING: <value>" or "<oid> = INTEGER: <value>"
-        line = res.stdout.strip()
-        # Parse value after last colon+space
-        idx = line.rfind(": ")
-        if idx != -1:
-            value = line[idx+2:].strip('"')
-            values.append(value)
-        else:
-            values.append("")
-    return values
-
-def _parse_snmp_values(raw_values):
-    """Parse raw snmp values into section format expected by check."""
-    # The first value (index 0) is the global low warning limit (as string like "1200 RPM")
-    # Remaining are groups of 3: [name, value, status] per fan
-    # We need to reconstruct the StringTable: [ [raw0, raw1, raw2, ...] ]
-    return [raw_values]
+def _snmp_walk(ctx, host, community, oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid], mutates=False)
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        idx = line[:sp]
+        val = line[sp + 1:]
+        rows.append((idx, val))
+    return rows
 
 def main(ctx, params):
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    # Discovery mode
+
+    # Detect: sysDescr must start with "Rittal LCP"
+    sysdescr = _snmp_get(ctx, host, community, ".1.3.6.1.2.1.1.1.0")
+    if not sysdescr.startswith("Rittal LCP"):
+        return {"changed": False, "msg": "not a Rittal LCP device", "data": {"discovery": []}}
+
+    # Detect: .1.3.6.1.4.1.2606.7.4.2.2.1.3.2.6 must start with "Air.Temperature.DescName"
+    descname = _snmp_get(ctx, host, community, ".1.3.6.1.4.1.2606.7.4.2.2.1.3.2.6")
+    if not descname.startswith("Air.Temperature.DescName"):
+        return {"changed": False, "msg": "not a Rittal LCP device", "data": {"discovery": []}}
+
+    base = ".1.3.6.1.4.1.2606.7.4.2.2.1.10.2"
+    oids = [
+        "34", "35", "36", "37", "38", "39", "40", "41", "42", "43", "44", "45",
+        "46", "47", "48", "49", "50", "51", "52", "53", "54", "55", "56", "57",
+    ]
+
     if params.get("_discover"):
-        raw_values = _snmp_walk(ctx, community, host)
-        if not raw_values or len(raw_values) < 2:
-            return {"changed": False, "msg": "discovered 0 fans",
-                    "data": {"discovery": []}}
-        
-        # First element is the low warning limit, skip it for fan parsing
-        section_data = raw_values[1:]
-        # Group into chunks of 3: name, value, status
+        values = []
+        for oid in oids:
+            v = _snmp_get(ctx, host, community, base + "." + oid)
+            values.append(v)
+
+        if not values or not values[0]:
+            return {"changed": False, "msg": "no fan data", "data": {"discovery": []}}
+
+        # Reproduce: parts = [section[0][x+1:x+4] for x in range(0, len(section[0]), 4)]
         parts = []
-        for i in range(0, len(section_data), 3):
-            chunk = section_data[i:i+3]
-            if len(chunk) >= 3:
-                parts.append(chunk)
-        
-        inventory = []
-        for i, (name, value, status) in enumerate(parts):
-            if status != "off" and "FAN" in name.upper():
-                inventory.append({
-                    "item": str(i + 1),
-                    "params": {},  # No parameters needed beyond item
-                    "metrics": ["rpm"]
-                })
-        
-        return {"changed": False, "msg": "discovered %d fans" % len(inventory),
-                "data": {"discovery": inventory}}
-    
+        i = 0
+        while i < len(values):
+            chunk = values[i + 1 : i + 4]
+            if len(chunk) < 3:
+                break
+            parts.append(chunk)
+            i += 4
+
+        discovery = []
+        for idx, (name, value, status) in enumerate(parts):
+            if status != "off" and "FAN" in name:
+                item = str(idx + 1)
+                discovery.append({"item": item, "params": {}, "metrics": ["rpm"]})
+
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
     # Check mode
     item = params.get("item", "")
-    raw_values = _snmp_walk(ctx, community, host)
-    if not raw_values or len(raw_values) < 2:
-        return {"changed": False, "msg": "no data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse low warning limit from first value (index 0)
-    low_value_str = raw_values[0]
-    low_rpm_str = low_value_str.split(" ", 1)[0] if " " in low_value_str else low_value_str
-    lowlevel = int(low_rpm_str) if low_rpm_str.isdigit() else 0
-    
-    section_data = raw_values[1:]
+
+    values = []
+    for oid in oids:
+        v = _snmp_get(ctx, host, community, base + "." + oid)
+        values.append(v)
+
+    if not values or not values[0]:
+        return {
+            "changed": False,
+            "msg": "no fan data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "LCP fan data not available"},
+        }
+
+    # lowlevel = int(re.sub(" .*$", "", section[0][0]))
+    first_val = values[0]
+    sp = first_val.find(" ")
+    lowlevel_str = first_val if sp == -1 else first_val[:sp]
+    lowlevel = int(lowlevel_str) if lowlevel_str.lstrip("-").isdigit() else 0
+
+    # parts = [section[0][x+1:x+4] for x in range(0, len(section[0]), 4)]
     parts = []
-    for i in range(0, len(section_data), 3):
-        chunk = section_data[i:i+3]
-        if len(chunk) >= 3:
-            parts.append(chunk)
-    
-    # Find the requested item
+    i = 0
+    while i < len(values):
+        chunk = values[i + 1 : i + 4]
+        if len(chunk) < 3:
+            break
+        parts.append(chunk)
+        i += 4
+
     found = False
-    for i, (name, value, status) in enumerate(parts):
-        if str(i + 1) == item:
+    for idx, (name, value, status) in enumerate(parts):
+        if str(idx) == item:
             found = True
-            # Extract RPM value
-            if " " in value:
-                rpm_r, unit = value.split(" ", 1)
-            else:
-                rpm_r = value
+            # rpm_r, unit = value.split(" ", 1)
+            sp = value.find(" ")
+            if sp == -1:
+                rpm_str = value
                 unit = ""
-            rpm = int(rpm_r) if rpm_r.isdigit() else 0
-            
-            # Determine state
-            sym = ""
+            else:
+                rpm_str = value[:sp]
+                unit = value[sp + 1:]
+
+            rpm = int(rpm_str) if rpm_str.lstrip("-").isdigit() else 0
+
             if status == "OK" and rpm >= lowlevel:
                 state = "OK"
+                sym = ""
             elif status == "OK" and rpm < lowlevel:
                 state = "WARN"
                 sym = "(!)"
             else:
                 state = "CRIT"
                 sym = "(!!)"
-            
-            # Build summary
+
             info_text = "%s RPM: %d%s (limit %d%s)%s, Status %s" % (
-                name, rpm, unit, lowlevel, unit, sym, status
+                name, rpm, unit, lowlevel, unit, sym, status,
             )
-            
-            return {"changed": False, "msg": info_text,
-                    "data": {
-                        "state": state,
-                        "metrics": {"rpm": rpm},
-                        "details": ""
-                    }}
-    
+
+            return {
+                "changed": False,
+                "msg": info_text,
+                "data": {
+                    "state": state,
+                    "metrics": {"rpm": rpm},
+                    "details": "",
+                },
+            }
+
     if not found:
-        return {"changed": False, "msg": "fan item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {
+            "changed": False,
+            "msg": "item not found: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "no fan matching item %s" % item},
+        }
+
+    return {
+        "changed": False,
+        "msg": "unexpected state",
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+    }

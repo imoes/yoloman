@@ -1,4 +1,5 @@
-# Top-level constants
+# ===== Starlark module: hp_mcs_system (translated from Checkmk SNMP check) =====
+
 _STATUS_MAP = {
     0: ("CRIT", "Not available"),
     1: ("UNKNOWN", "Other"),
@@ -7,174 +8,185 @@ _STATUS_MAP = {
     4: ("CRIT", "Failed"),
 }
 
-def _parse_status(status_int):
-    """Return (state, readable) for status_int; fallback to UNKNOWN if not found."""
-    return _STATUS_MAP.get(status_int, ("UNKNOWN", "Unknown status %d" % status_int))
+_HEX_CHARS = "0123456789abcdefABCDEF"
+
+
+def _strip_type(value):
+    idx = value.find(": ")
+    if idx >= 0:
+        value = value[idx + 2:]
+    value = value.strip()
+    if len(value) >= 2 and value[0] == "\"" and value[-1] == "\"":
+        value = value[1:-1]
+    return value
+
+
+def _strip_all_quotes(value):
+    while len(value) >= 2 and value[0] == "\"" and value[-1] == "\"":
+        value = value[1:-1]
+    return value
+
+
+def _safe_hex_int(token):
+    if not token:
+        return None
+    clean = token
+    if clean.startswith("0x") or clean.startswith("0X"):
+        clean = clean[2:]
+    if len(clean) == 0:
+        return None
+    for c in clean:
+        if c not in _HEX_CHARS:
+            return None
+    return int(clean, 16)
+
+
+def _safe_dec_int(token):
+    if not token:
+        return None
+    clean = token.strip()
+    if clean.lstrip("-").isdigit():
+        return int(clean)
+    return None
+
 
 def main(ctx, params):
-    # Detect mode
-    if params.get("_discover"):
-        # SNMP discovery: fetch base OID .1.3.6.1.4.1.232 and decode system name
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.232.2.2.4.2"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed",
-                    "data": {"discovery": []}}
-        name = ""
-        for line in res.stdout.splitlines():
-            stripped = line.strip()
-            if stripped == "":
-                continue
-            parts = stripped.split(None, 1)
-            if len(parts) < 2:
-                continue
-            # parts[1] looks like "STRING: \"name\""
-            val_part = parts[1].strip()
-            if val_part.startswith("STRING:"):
-                # Extract quoted string
-                rest = val_part[7:].strip()
-                if rest.startswith('"') and rest.endswith('"'):
-                    name = rest[1:-1]
-                elif rest.startswith('"'):
-                    name = rest[1:]
-                else:
-                    name = rest
-                break
-        if name == "":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [
-                {"item": name, "params": {}, "metrics": []}
-            ]}
-        }
-
-    # Check mode: fetch required OIDs for this item
-    # OIDs: .1.3.6.1.4.1.232.2.2.4.2 (name), .1.3.6.1.4.1.232.11.2.10.1 (status bytes), .1.3.6.1.4.1.232.11.2.10.3 (serial)
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # --- Discovery path ---
+    if params.get("_discover"):
+        sys_descr = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sys_descr.rc != 0:
+            return {"changed": False, "msg": "no SNMP agent or not an HP MCS device",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        descr = _strip_type(sys_descr.stdout) if sys_descr.stdout else ""
+        if not descr.startswith(".1.3.6.1.4.1.232.167"):
+            return {"changed": False, "msg": "not an HP MCS device",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        name_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.232.2.2.4.2"],
+            mutates=False,
+        )
+        if name_res.rc != 0:
+            return {"changed": False, "msg": "could not fetch system name",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        name = _strip_type(name_res.stdout) if name_res.stdout else ""
+        name = name.strip()
+        if not name:
+            return {"changed": False, "msg": "no system name found",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        return {
+            "changed": False,
+            "msg": "discovered 1 HP MCS system",
+            "data": {
+                "discovery": [
+                    {
+                        "item": name,
+                        "params": {},
+                        "metrics": ["system_status"],
+                    }
+                ],
+                "host_labels": {"cmk/os_family": "hp_mcs"},
+            },
+        }
+
+    # --- Check path ---
     item = params.get("item", "")
+    if not item:
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Fetch name OID first to verify item matches
-    res_name = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.232.2.2.4.2"
-    ], mutates=False)
-    if res_name.rc != 0 or res_name.stdout.strip() == "":
-        return {
-            "changed": False,
-            "msg": "SNMP get failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    sys_descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sys_descr.rc != 0:
+        return {"changed": False, "msg": "SNMP agent not reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Extract name from snmpget output
-    name_from_snmp = ""
-    for line in res_name.stdout.splitlines():
-        stripped = line.strip()
-        if stripped == "":
+    descr = _strip_type(sys_descr.stdout) if sys_descr.stdout else ""
+    if not descr.startswith(".1.3.6.1.4.1.232.167"):
+        return {"changed": False, "msg": "not an HP MCS device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    name_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.232.2.2.4.2"],
+        mutates=False,
+    )
+    if name_res.rc != 0:
+        return {"changed": False, "msg": "could not fetch system name",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    fetched_name = _strip_type(name_res.stdout).strip()
+    if fetched_name != item:
+        return {"changed": False,
+                "msg": "item mismatch: expected '%s', found '%s'" % (item, fetched_name),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Status OID (11.2.10.1): OIDBytes yields a list of integers.
+    status_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", "-BIN", host, ".1.3.6.1.4.1.232.11.2.10.1"],
+        mutates=False,
+    )
+    if status_res.rc != 0:
+        return {"changed": False, "msg": "could not fetch system status",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    status_raw = status_res.stdout.strip()
+    if not status_raw:
+        return {"changed": False, "msg": "empty status response",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Parse the OIDBytes value: snmpget -BIN returns hex bytes like 07 03 ...
+    status_values = []
+    parts = status_raw.replace(":", " ").split()
+    for t in parts:
+        iv = _safe_hex_int(t)
+        if iv != None:
+            status_values.append(iv)
             continue
-        parts = stripped.split(None, 1)
-        if len(parts) < 2:
-            continue
-        val_part = parts[1].strip()
-        if val_part.startswith("STRING:"):
-            rest = val_part[7:].strip()
-            if rest.startswith('"') and rest.endswith('"'):
-                name_from_snmp = rest[1:-1]
-            else:
-                name_from_snmp = rest
-        break
+        iv = _safe_dec_int(t)
+        if iv != None:
+            status_values.append(iv)
 
-    # Verify item matches (item is the system name)
-    if name_from_snmp != item:
-        return {
-            "changed": False,
-            "msg": "item '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    if len(status_values) < 4:
+        return {"changed": False, "msg": "status value too short",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Now fetch status and serial OIDs in one go
-    # snmpget can fetch multiple OIDs
-    oids = [
-        ".1.3.6.1.4.1.232.11.2.10.1",  # systemStatus
-        ".1.3.6.1.4.1.232.11.2.10.3"   # serialNumber
-    ]
-    res_status_serial = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host
-    ] + oids, mutates=False)
+    # _idx1, status, _idx2, _dev_type = status_bytes
+    status_int = status_values[1]
 
-    if res_status_serial.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed for status/serial",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Serial OID (11.2.10.3).
+    serial_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.232.11.2.10.3"],
+        mutates=False,
+    )
+    if serial_res.rc != 0:
+        return {"changed": False, "msg": "could not fetch serial number",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse outputs: one line per OID in order
-    lines = [l.strip() for l in res_status_serial.stdout.splitlines() if l.strip() != ""]
-    if len(lines) < 2:
-        return {
-            "changed": False,
-            "msg": "SNMP output incomplete",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    serial = _strip_all_quotes(_strip_type(serial_res.stdout)).strip()
 
-    # Parse status (second OID)
-    status_val = None
-    status_line = lines[0]
-    if "INTEGER:" in status_line:
-        # snmpget output: OID = INTEGER: 2
-        parts = status_line.split("INTEGER:", 1)
-        if len(parts) == 2:
-            s = parts[1].strip()
-            if s.isdigit():
-                status_val = int(s)
-            else:
-                # try to remove trailing spaces/quotes
-                s_clean = s.strip().rstrip('"')
-                if s_clean.isdigit():
-                    status_val = int(s_clean)
-    if status_val == None:
-        return {
-            "changed": False,
-            "msg": "unable to parse status value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Map status to Checkmk state.
+    entry = _STATUS_MAP.get(status_int, ("UNKNOWN", "Unknown"))
+    state, state_readable = entry
 
-    # Parse serial (third OID)
-    serial_val = ""
-    serial_line = lines[1]
-    if "STRING:" in serial_line:
-        parts = serial_line.split("STRING:", 1)
-        if len(parts) == 2:
-            rest = parts[1].strip()
-            if rest.startswith('"') and rest.endswith('"'):
-                serial_val = rest[1:-1]
-            else:
-                serial_val = rest
-    if serial_val == "":
-        serial_val = "Unknown"
-
-    # Compute state
-    state, state_readable = _parse_status(status_val)
-    if state == "OK":
-        summary = "Serial: " + serial_val
-    else:
-        summary = "Status: " + state_readable + ", Serial: " + serial_val
+    details = "Status: %s, Serial: %s" % (state_readable, serial)
 
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "Serial: %s" % serial,
         "data": {
             "state": state,
-            "metrics": {},
-            "details": "",
-        }
+            "metrics": {"system_status": status_int},
+            "details": details,
+        },
     }

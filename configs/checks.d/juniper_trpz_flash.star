@@ -1,176 +1,145 @@
-# Module: juniper_trpz_flash.star
-# Read-only check module for flash usage on Juniper TRPZ devices via SNMP
+def _to_float(s):
+    if s == None:
+        return None
+    if type(s) == "string":
+        if s == "":
+            return None
+        neg = False
+        t = s
+        if t.startswith("-"):
+            neg = True
+            t = t[1:]
+        if not t:
+            return None
+        if "." in t:
+            parts = t.split(".")
+            if len(parts) != 2:
+                return None
+            intpart = parts[0]
+            fracpart = parts[1]
+            if intpart == "" and fracpart == "":
+                return None
+            if intpart == "" and fracpart == "":
+                return None
+            ok = True
+            if intpart:
+                if not _is_digits(intpart):
+                    ok = False
+            if not _is_digits(fracpart):
+                ok = False
+            if not ok:
+                return None
+            val = 0.0
+            if intpart:
+                val = _parse_int(intpart)
+            for i in range(len(fracpart)):
+                val = val + _digit_val(fracpart[i]) * _fp(10, i + 1)
+            return val if not neg else 0 - val
+        if not _is_digits(t):
+            return None
+        val = _parse_int(t)
+        return float(val) if not neg else 0 - float(val)
+    return None
+
+def _is_digits(s):
+    if s == "":
+        return False
+    for c in s:
+        if not _is_digit(c):
+            return False
+    return True
+
+def _is_digit(c):
+    return c in "0123456789"
+
+def _digit_val(c):
+    d = "0123456789".find(c)
+    if d < 0:
+        return 0
+    return d
+
+def _parse_int(s):
+    v = 0
+    for c in s:
+        v = v * 10 + _digit_val(c)
+    return v
+
+def _fp(base, exp):
+    r = 1.0
+    for _ in range(exp):
+        r = r / base
+    return r
+
+def _render_bytes(b):
+    b = float(b)
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    i = 0
+    while b >= 1024 and i < len(units) - 1:
+        b = b / 1024.0
+        i = i + 1
+    if i == 0:
+        return "%d B" % int(b)
+    return "%f %s" % (b, units[i])
+
+def _is_juniper_trpz(sys_oid):
+    if not sys_oid:
+        return False
+    return sys_oid.startswith(".1.3.6.1.4.1.14525.3")
 
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.14525.4.8.1.1"
-        ], mutates=False)
+        res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        sys_oid = res.stdout.strip() if res.rc == 0 else ""
+        if not _is_juniper_trpz(sys_oid):
+            return {"changed": False, "msg": "not a Juniper Trapezoid device", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered flash", "data": {"discovery": [{"item": "", "params": {"levels": (90.0, 95.0)}, "metrics": ["used_juniper_trpz_flash"]}]}}
 
-        # Check if we got any output (device exists)
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-
-        # Parse: look for lines ending with .3 and .4
-        used_val = None
-        total_val = None
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # Format: ".1.3.6.1.4.1.14525.4.8.1.1.3 = STRING: value"
-            parts = line.split(" = ", 1)
-            if len(parts) < 2:
-                continue
-            oid_part, value_part = parts
-            value_part = value_part.strip()
-            # Extract type and value
-            type_val = value_part.split(": ", 1)
-            if len(type_val) < 2:
-                continue
-            val_str = type_val[1].strip()
-            # Validate that value is numeric (allow decimals)
-            clean_val = val_str.replace(".", "")
-            if not clean_val.isdigit():
-                continue
-
-            if oid_part.endswith(".3"):
-                used_val = val_str
-            elif oid_part.endswith(".4"):
-                total_val = val_str
-
-        # If both values present, this device has flash data
-        if used_val != None and total_val != None:
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {
-                    "discovery": [
-                        {"item": "", "params": {"levels": (90.0, 95.0)},
-                         "metrics": ["used"]}
-                    ]
-                }
-            }
-        else:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-
-    # Check mode (one item only, and item is always "" for this single-service check)
-    # Get host and community from params if provided, else defaults
-    host = params.get("host", "localhost")
+    item = params.get("item", "")
+    base = ".1.3.6.1.4.1.14525.4.8.1.1"
     community = params.get("community", "public")
+    host = params.get("host", "localhost")
 
-    # Fetch both values via SNMP walk
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.14525.4.8.1.1"
-    ], mutates=False)
+    sys_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    sys_oid = sys_res.stdout.strip() if sys_res.rc == 0 else ""
+    if not _is_juniper_trpz(sys_oid):
+        return {"changed": False, "msg": "not a Juniper Trapezoid device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "SNMP walk failed", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    used_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base + ".3"], mutates=False)
+    total_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base + ".4"], mutates=False)
 
-    # Parse to get used and total
-    used_val = None
-    total_val = None
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) < 2:
-            continue
-        oid_part, value_part = parts
-        value_part = value_part.strip()
-        type_val = value_part.split(": ", 1)
-        if len(type_val) < 2:
-            continue
-        val_str = type_val[1].strip()
-        clean_val = val_str.replace(".", "")
-        if not clean_val.isdigit():
-            continue
+    if used_res.rc != 0 or total_res.rc != 0:
+        return {"changed": False, "msg": "flash data unavailable", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-        if oid_part.endswith(".3"):
-            used_val = val_str
-        elif oid_part.endswith(".4"):
-            total_val = val_str
+    used = _to_float(used_res.stdout.strip())
+    total = _to_float(total_res.stdout.strip())
 
-    if used_val == None or total_val == None:
-        return {"changed": False, "msg": "SNMP data missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if used == None or total == None:
+        return {"changed": False, "msg": "invalid flash values", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse numbers with guards (no try/except in Starlark)
-    used = 0.0
-    total = 0.0
-    
-    # Convert used_val to float
-    if used_val.find(".") != -1:
-        # Has decimal point
-        parts_float = used_val.split(".")
-        if len(parts_float) == 2 and parts_float[0].isdigit() and parts_float[1].isdigit():
-            used = float(used_val)
-        else:
-            return {"changed": False, "msg": "Failed to parse used value",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    elif used_val.isdigit():
-        used = float(used_val)
-    else:
-        return {"changed": False, "msg": "Failed to parse used value",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Convert total_val to float
-    if total_val.find(".") != -1:
-        # Has decimal point
-        parts_float = total_val.split(".")
-        if len(parts_float) == 2 and parts_float[0].isdigit() and parts_float[1].isdigit():
-            total = float(total_val)
-        else:
-            return {"changed": False, "msg": "Failed to parse total value",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    elif total_val.isdigit():
-        total = float(total_val)
-    else:
-        return {"changed": False, "msg": "Failed to parse total value",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    if total == 0:
-        return {"changed": False, "msg": "Total flash size is zero",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Get thresholds: Checkmk default is (90.0, 95.0)
     levels = params.get("levels", (90.0, 95.0))
     warn = levels[0]
     crit = levels[1]
 
-    # Compute percentage used
-    perc_used = (used / total) * 100
+    perc_used = (used / total) * 100 if total > 0 else 0
 
-    # Determine state
-    # In Checkmk, crit and warn are percentages for this check (float values)
-    state = "CRIT" if perc_used > crit else ("WARN" if perc_used > warn else "OK")
+    if warn < 100:
+        a_warn = (warn / 100.0) * total
+        a_crit = (crit / 100.0) * total
+        level_str = "Levels Warn/Crit are (%f%%, %f%%)" % (warn, crit)
+        if perc_used > crit:
+            state = "CRIT"
+        elif perc_used > warn:
+            state = "WARN"
+        else:
+            state = "OK"
+    else:
+        level_str = "Levels Warn/Crit are (%d, %d)" % (int(warn), int(crit))
+        if used > crit:
+            state = "CRIT"
+        elif used > warn:
+            state = "WARN"
+        else:
+            state = "OK"
 
-    # Build message (Checkmk style, human-readable)
-    # We'll report in MB for readability
-    def _to_mb(v):
-        return v / (1024.0 * 1024.0)
-
-    msg = "Used: %f MB of %f MB " % (_to_mb(used), _to_mb(total))
-    levels_str = "Levels Warn/Crit are (%f%%, %f%%)" % (warn, crit)
-
-    if state == "CRIT":
-        msg += levels_str
-    elif state == "WARN":
-        msg += levels_str
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"used": used},
-            "details": "",
-        },
-    }
+    msg = "Used: %s of %s %s" % (_render_bytes(used), _render_bytes(total), level_str)
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"used_juniper_trpz_flash": used}, "details": ""}}

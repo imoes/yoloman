@@ -1,202 +1,119 @@
-def main(ctx, params):
-    # Read sshd_config file directly
-    config_path = "/etc/ssh/sshd_config"
-    if not ctx.file_exists(config_path):
-        return {"changed": False, "msg": "SSH daemon configuration not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    content = ctx.file_read(config_path)
-    
-    # Parse sshd_config - collect ports and relevant options
+def _identity(x):
+    return x
+
+def _map_permit_root_login(value):
+    if value in ["prohibit-password", "without-password"]:
+        return "key-based"
+    return value
+
+def _sorted_by_comma(x):
+    return sorted(x.split(","))
+
+_RELEVANT_SINGULAR_OPTIONS_PARSER = {
+    "protocol": _sorted_by_comma,
+    "permitrootlogin": _map_permit_root_login,
+    "passwordauthentication": _identity,
+    "permitemptypasswords": _identity,
+    "challengeresponseauthentication": _identity,
+    "kbdinteractiveauthentication": _identity,
+    "x11forwarding": _identity,
+    "usepam": _identity,
+    "ciphers": _sorted_by_comma,
+}
+
+_OPTIONS_TO_HUMAN_READABLE = {
+    "protocol": "Protocols",
+    "port": "Ports",
+    "permitrootlogin": "Permit root login",
+    "passwordauthentication": "Allow password authentication",
+    "permitemptypasswords": "Permit empty passwords",
+    "kbdinteractiveauthentication": "Allow keyboard-interactive authentication",
+    "challengeresponseauthentication": "Allow challenge-response authentication",
+    "x11forwarding": "Permit X11 forwarding",
+    "usepam": "Use pluggable authentication module",
+    "ciphers": "Ciphers",
+}
+
+_MISSING_OPTIONS_TO_HUMAN_READABLE = {
+    "kbdinteractiveauthentication": "Allow keyboard-interactive/challenge-response authentication",
+    "challengeresponseauthentication": "Allow keyboard-interactive/challenge-response authentication",
+}
+
+_DEPRECATED_MAP = {
+    "kbdinteractiveauthentication": "challengeresponseauthentication",
+}
+
+def _value_to_human(v):
+    if type(v) == "list":
+        return ", ".join([str(x) for x in v])
+    return str(v)
+
+def _parse_sshd_config(ctx, path):
+    content = ctx.file_read(path)
     ports = []
-    section = {}
-    
-    # Relevant singular options parsers (case-insensitive matching)
-    relevant_keys = [
-        "protocol",
-        "permitrootlogin",
-        "passwordauthentication",
-        "permitemptypasswords",
-        "challengeresponseauthentication",
-        "kbdinteractiveauthentication",
-        "x11forwarding",
-        "usepam",
-        "ciphers"
-    ]
-    
-    # Helper functions
-    def _map_permit_root_login(value):
-        v = value.lower()
-        if v == "prohibit-password" or v == "without-password":
-            return "key-based"
-        return value
-    
-    def _process_line(line):
-        # Skip empty lines and comments
-        stripped = line.strip()
-        if stripped == "" or stripped.startswith("#"):
-            return
-        
-        # Split on whitespace
-        parts = stripped.split(None, 1)
-        if len(parts) < 1:
-            return
-        
-        key = parts[0].lower()
-        
-        # Handle Port (special case - can be multiple)
-        if key == "port" and len(parts) > 1:
-            port_str = parts[1]
-            if port_str.isdigit():
-                ports.append(int(port_str))
-            return
-        
-        # Skip if not a relevant option
-        found = False
-        for rk in relevant_keys:
-            if rk == key:
-                found = True
-                break
-        if not found:
-            return
-        
-        # Get value (everything after the key)
-        value = parts[1] if len(parts) > 1 else ""
-        
-        # Apply parser logic
-        if key == "protocol":
-            # Sort comma-separated protocols
-            protocols = []
-            for p in value.split(","):
-                p_stripped = p.strip()
-                if p_stripped != "":
-                    protocols.append(p_stripped)
-            protocols = sorted(protocols)
-            section[key] = ",".join(protocols)
-        elif key == "permitrootlogin":
-            section[key] = _map_permit_root_login(value)
-        elif key == "ciphers":
-            # Sort comma-separated ciphers
-            ciphers = []
-            for c in value.split(","):
-                c_stripped = c.strip()
-                if c_stripped != "":
-                    ciphers.append(c_stripped)
-            ciphers = sorted(ciphers)
-            section[key] = ciphers
-        else:
-            section[key] = value
-    
-    # Parse each line
+    options = {}
     for line in content.splitlines():
-        _process_line(line)
-    
-    # Add ports if found
-    if len(ports) > 0:
-        section["port"] = ports
-    
-    # Build human-readable mapping
-    options_to_human = {
-        "protocol": "Protocols",
-        "port": "Ports",
-        "permitrootlogin": "Permit root login",
-        "passwordauthentication": "Allow password authentication",
-        "permitemptypasswords": "Permit empty passwords",
-        "kbdinteractiveauthentication": "Allow keyboard-interactive authentication",
-        "challengeresponseauthentication": "Allow challenge-response authentication",
-        "x11forwarding": "Permit X11 forwarding",
-        "usepam": "Use pluggable authentication module",
-        "ciphers": "Ciphers"
-    }
-    
-    missing_options_to_human = {
-        "kbdinteractiveauthentication": "Allow keyboard-interactive/challenge-response authentication",
-        "challengeresponseauthentication": "Allow keyboard-interactive/challenge-response authentication"
-    }
-    
-    # Adjust params (handle deprecated names and permitrootlogin)
-    adjusted_params = {}
-    for option in params:
-        value = params[option]
-        
-        # Handle deprecated names
-        if option == "kbdinteractiveauthentication" and section.get("challengeresponseauthentication", None) != None:
-            option = "challengeresponseauthentication"
-        
-        # Special handling for permitrootlogin
-        if option == "permitrootlogin" and value == "without-password":
-            value = "key-based"
-        
-        adjusted_params[option] = value
-    
-    # Build results
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        parts = stripped.split(None, 1)
+        key = parts[0].lower()
+        rest = parts[1].strip() if len(parts) > 1 else ""
+        if key == "port":
+            if rest and rest.isdigit():
+                ports.append(int(rest))
+        elif key in _RELEVANT_SINGULAR_OPTIONS_PARSER:
+            options[key] = _RELEVANT_SINGULAR_OPTIONS_PARSER[key](" ".join(rest.split()))
+    if ports:
+        options["port"] = ports
+    return options
+
+def _adjust_params(params, section):
+    p = dict(params)
+    if p.get("permitrootlogin") == "without-password":
+        p["permitrootlogin"] = "key-based"
+    adjusted = {}
+    for option, value in p.items():
+        key = option
+        dep = _DEPRECATED_MAP.get(option)
+        if dep and dep in section:
+            key = dep
+        adjusted[key] = value
+    return adjusted
+
+def main(ctx, params):
+    if params.get("_discover"):
+        if not ctx.file_exists("/etc/ssh/sshd_config"):
+            return {"changed": False, "msg": "sshd_config not present", "data": {"discovery": [], "host_labels": {"cmk/os_family": "linux"}}}
+        section = _parse_sshd_config(ctx, "/etc/ssh/sshd_config")
+        if not section:
+            return {"changed": False, "msg": "sshd_config has no relevant options", "data": {"discovery": [], "host_labels": {"cmk/os_family": "linux"}}}
+        return {"changed": False, "msg": "discovered SSH daemon configuration", "data": {"discovery": [{"item": "", "params": {}, "metrics": []}], "host_labels": {"cmk/os_family": "linux"}}}
+
+    if not ctx.file_exists("/etc/ssh/sshd_config"):
+        return {"changed": False, "msg": "no sshd_config found", "data": {"state": "UNKNOWN", "metrics": {}, "details": "File /etc/ssh/sshd_config not found"}}
+
+    section = _parse_sshd_config(ctx, "/etc/ssh/sshd_config")
+    if not section:
+        return {"changed": False, "msg": "no relevant sshd_config options found", "data": {"state": "UNKNOWN", "metrics": {}, "details": "No relevant SSH daemon configuration options found"}}
+
+    adjusted = _adjust_params(params, section)
     results = []
-    state = "OK"
-    
-    # Check section options
-    for option in sorted(section.keys()):
-        val = section[option]
-        human_name = option
-        if option in options_to_human:
-            human_name = options_to_human[option]
-        
-        # Format value for display
-        if type(val) == "list":
-            val_str = ", ".join([str(v) for v in val])
-        else:
-            val_str = str(val)
-        
-        summary = "%s: %s" % (human_name, val_str)
-        
-        # Check against expected value
-        if option in adjusted_params:
-            expected = adjusted_params[option]
-            if type(expected) == "list":
-                expected_str = ", ".join([str(v) for v in expected])
-            else:
-                expected_str = str(expected)
-            
-            # Normalize for comparison (handle lists)
-            if type(val) == "list" and type(expected) == "list":
-                if val != expected:
-                    state = "CRIT"
-                    summary = "%s (expected %s)" % (summary, expected_str)
-            elif type(val) == "list" or type(expected) == "list":
-                # One is list, one is not - compare string representations
-                if str(val) != str(expected):
-                    state = "CRIT"
-                    summary = "%s (expected %s)" % (summary, expected_str)
-            else:
-                if str(val) != str(expected):
-                    state = "CRIT"
-                    summary = "%s (expected %s)" % (summary, expected_str)
-        
-        results.append(summary)
-    
-    # Check for missing expected options
-    for option in sorted(adjusted_params.keys()):
-        found = False
-        for section_key in section.keys():
-            if section_key == option:
-                found = True
-                break
-        if not found:
-            human_name = option
-            if option in missing_options_to_human:
-                human_name = missing_options_to_human[option]
-            elif option in options_to_human:
-                human_name = options_to_human[option]
-            summary = "%s: not present in SSH daemon configuration" % human_name
+    overall = "OK"
+    for option, val in section.items():
+        state = "OK"
+        summary = "%s: %s" % (_OPTIONS_TO_HUMAN_READABLE.get(option, option), _value_to_human(val))
+        expected = adjusted.get(option)
+        if expected and expected != val:
             state = "CRIT"
-            results.append(summary)
-    
-    # Determine overall state
-    final_state = "OK"
-    if state == "CRIT":
-        final_state = "CRIT"
-    elif state == "WARN":
-        final_state = "WARN"
-    
-    # Return check result
-    return {"changed": False, "msg": "; ".join(results),
-            "data": {"state": final_state, "metrics": {}, "details": ""}}
+            summary += " (expected %s)" % (_value_to_human(expected))
+        results.append(summary)
+        if state == "CRIT":
+            overall = "CRIT"
+
+    for option in sorted(set(adjusted) - set(section)):
+        hr = _MISSING_OPTIONS_TO_HUMAN_READABLE.get(option, _OPTIONS_TO_HUMAN_READABLE.get(option, option))
+        results.append("%s: not present in SSH daemon configuration" % hr)
+        overall = "CRIT"
+
+    return {"changed": False, "msg": ", ".join(results), "data": {"state": overall, "metrics": {}, "details": "; ".join(results)}}

@@ -1,100 +1,87 @@
-# State mapping: SNMP integer -> (state, description)
-_OCTOPUS_STATES_MAP = {
-    1: ("OK", "normal"),
-    2: ("WARN", "warning"),
-    3: ("WARN", "minor"),
-    4: ("CRIT", "major"),
-    5: ("CRIT", "critical"),
-}
+# Checkmk check: sni_octopuse_status — Global status (SNMP Octopus E PABX)
+# Translated to a read-only Starlark check module for the yolo-man agent.
+#
+# Data source: SNMP scalar .1.3.6.1.4.1.231.7.2.9.1.1.0
+# Detection: sysDescr.0 (1.3.6.1.2.1.1.1.0) contains "agent for hipath"
+# States: normal(1) OK, warning(2) WARN, minor(3) WARN, major(4) CRIT, critical(5) CRIT
+
+def _state_for(value):
+    """Map the Octopus E PABX status integer to (state, description)."""
+    table = {
+        1: ("OK", "normal"),
+        2: ("WARN", "warning"),
+        3: ("WARN", "minor"),
+        4: ("CRIT", "major"),
+        5: ("CRIT", "critical"),
+    }
+    return table.get(value, ("UNKNOWN", "unknown(%s)" % str(value)))
 
 def main(ctx, params):
-    # Discovery mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    oid_base = "1.3.6.1.4.1.231.7.2.9.1.1"
+    oid = oid_base + ".0"
+
     if params.get("_discover"):
-        # Check if system matches detection rule: .1.3.6.1.2.1.1.1.0 contains "agent for hipath"
-        res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "127.0.0.1", ".1.3.6.1.2.1.1.1.0"], mutates=False)
-        if "agent for hipath" in res.stdout:
+        # Detection: does sysDescr look like an Octopus E PABX?
+        sysDescr_oid = "1.3.6.1.2.1.1.1.0"
+        sd = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, sysDescr_oid],
+            mutates=False,
+        )
+        if sd.rc != 0 or "agent for hipath" not in sd.stdout:
             return {
                 "changed": False,
-                "msg": "discovered Global status service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
+                "msg": "Octopus E PABX not detected",
+                "data": {"discovery": []},
             }
-        else:
-            return {
-                "changed": False,
-                "msg": "system does not match detection rule",
-                "data": {"discovery": []}
-            }
-
-    # Check mode: fetch current Octopus status from SNMP
-    # OID: .1.3.6.1.4.1.231.7.2.9.1.1.0
-    res = ctx.run(["snmpget", "-On", "-v2c", "-c", "public", "127.0.0.1", ".1.3.6.1.4.1.231.7.2.9.1.1.0"], mutates=False)
-    
-    # Parse the response: expected format "iso.3.6.1.4.1.231.7.2.9.1.1.0 = INTEGER: X"
-    if res.rc != 0 or not res.stdout.strip():
+        # The PABX is present — this is a single-service check.
         return {
             "changed": False,
-            "msg": "Unable to retrieve Octopus status",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered 1 item",
+            "data": {"discovery": [
+                {"item": "", "params": {}, "metrics": ["status"]},
+            ]},
         }
 
-    # Extract integer value from output
-    line = res.stdout.strip()
-    # Find " = INTEGER: " part
-    idx = line.find(" = INTEGER: ")
-    if idx == -1:
+    # Check mode: fetch the scalar status value.
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout == "":
         return {
             "changed": False,
-            "msg": "Unexpected SNMP response format",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    value_str = line[idx + len(" = INTEGER: "):].strip()
-    
-    # Guard against non-integer values
-    if not value_str:
-        return {
-            "changed": False,
-            "msg": "Empty SNMP value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Check if string represents a valid integer
-    valid = True
-    i = 0
-    if value_str.startswith("-"):
-        i = 1
-    if i >= len(value_str):
-        valid = False
-    while i < len(value_str):
-        c = value_str[i]
-        if c < '0' or c > '9':
-            valid = False
-            break
-        i = i + 1
-    
-    if not valid:
-        return {
-            "changed": False,
-            "msg": "SNMP value not an integer: " + value_str,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    octopus_state = int(value_str)
-
-    # Look up state and description
-    if octopus_state not in _OCTOPUS_STATES_MAP:
-        return {
-            "changed": False,
-            "msg": "Unknown Octopus state: " + str(octopus_state),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no Octopus E PABX status reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    state, desc = _OCTOPUS_STATES_MAP[octopus_state]
+    raw = res.stdout.strip()
+    # snmpget -Oqv may emit a quoted string for some types; strip quotes if present.
+    if raw.startswith('"') and raw.endswith('"') and len(raw) >= 2:
+        raw = raw[1:-1]
+
+    try_value = raw
+    # Guard the int conversion like the original would parse STRING/Integer.
+    is_int = try_value.lstrip("-").isdigit()
+    if not is_int:
+        return {
+            "changed": False,
+            "msg": "unexpected status value: " + raw,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    octopus_state = int(try_value)
+    state, desc = _state_for(octopus_state)
     msg = "PBX system state is " + desc
     if octopus_state >= 3:
         msg += " error"
 
+    # Emit the raw integer as a perfdata metric (status level 1..5).
+    metrics = {"status": octopus_state}
+
     return {
         "changed": False,
         "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""}
+        "data": {"state": state, "metrics": metrics, "details": ""},
     }

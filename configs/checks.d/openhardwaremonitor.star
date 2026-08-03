@@ -1,137 +1,102 @@
-PARENT_SUBST = [
-    ["intelcpu", "cpu"],
-    ["amdcpu", "cpu"],
-    ["genericcpu", "cpu"],
-]
+TRAITS = {
+    "Clock": {"unit": " MHz", "factor": 1.0, "perf_var": "clock"},
+    "Temperature": {"unit": "°C", "factor": 1.0},
+    "Power": {"unit": " W", "factor": 1.0, "perf_var": "w"},
+    "Fan": {"unit": " RPM", "factor": 1.0},
+    "Level": {"unit": "%", "factor": 1.0},
+    "Voltage": {"unit": " V", "factor": 1.0},
+    "Load": {"unit": "%", "factor": 1.0},
+    "Flow": {"unit": " L/h", "factor": 1.0},
+    "Control": {"unit": "%", "factor": 1.0},
+    "Factor": {"unit": "1", "factor": 1.0},
+    "Data": {"unit": " B", "factor": 1073741824.0},
+}
 
-NAME_REMOVALS = ["CPU ", "Temperature"]
+REPLACEMENTS = {"intelcpu": "cpu", "amdcpu": "cpu", "genericcpu": "cpu"}
 
-STATE_ORDER = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
-
-def _normalize_parent(parent):
-    result = parent
-    for pair in PARENT_SUBST:
-        result = result.replace(pair[0], pair[1])
+def _dict_replace(input_str, replacements):
+    result = input_str
+    for old, new in replacements.items():
+        result = result.replace(old, new)
     return result
 
-def _normalize_name(name):
-    result = name
-    for removal in NAME_REMOVALS:
-        result = result.replace(removal, "")
-    return result
-
-def _make_full_name(parent, name):
-    p = _normalize_parent(parent).replace("/", "")
-    n = _normalize_name(name)
-    return (p + " " + n).strip()
-
-def _worst(a, b):
-    if STATE_ORDER.get(a, 0) >= STATE_ORDER.get(b, 0):
-        return a
-    return b
-
-def _threshold_state(reading, params):
-    state = "OK"
-    lower = params.get("lower")
-    upper = params.get("upper")
-    if lower != None:
-        if reading < lower[1]:
-            state = _worst(state, "CRIT")
-        elif reading < lower[0]:
-            state = _worst(state, "WARN")
-    if upper != None:
-        if reading >= upper[1]:
-            state = _worst(state, "CRIT")
-        elif reading >= upper[0]:
-            state = _worst(state, "WARN")
-    return state
-
-def _query_sensors(ctx):
-    cmd = (
-        "Get-WmiObject -Namespace root\\OpenHardwareMonitor -Class Sensor" +
-        " | Select-Object Index,Name,Parent,SensorType,Value" +
-        " | ConvertTo-Json -Compress"
-    )
-    res = ctx.run(["powershell", "-NonInteractive", "-Command", cmd], mutates=False)
-    if res.rc != 0:
-        return None, "WMI query failed (rc=%d): %s" % (res.rc, res.stderr.strip())
-    raw = res.stdout.strip()
-    if not raw or raw == "null":
-        return [], ""
-    data = json.decode(raw)
-    if data == None:
-        return [], ""
-    if type(data) == "dict":
-        data = [data]
-    return data, ""
+def _full_name(parent, name):
+    parent = _dict_replace(parent, REPLACEMENTS)
+    name = _dict_replace(name, {"CPU ": "", "Temperature": ""})
+    return (parent.replace("/", "") + " " + name).strip()
 
 def main(ctx, params):
     if params.get("_discover"):
-        sensors, err = _query_sensors(ctx)
-        if sensors == None:
-            return {
-                "changed": False,
-                "msg": err,
-                "data": {"discovery": []},
-            }
-        items = []
-        seen = {}
-        for s in sensors:
-            if s.get("SensorType") != "Clock":
+        res = ctx.run(["curl", "-fsS", "http://localhost:8085/"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "openhardwaremonitor not available",
+                    "data": {"discovery": []}}
+        lines = res.stdout.splitlines()
+        if not lines:
+            return {"changed": False, "msg": "no openhardwaremonitor data",
+                    "data": {"discovery": []}}
+        header = lines[0].split(",")
+        if "Index" not in header:
+            return {"changed": False, "msg": "unexpected openhardwaremonitor format",
+                    "data": {"discovery": []}}
+        out = []
+        for line in lines[1:]:
+            fields = line.split(",")
+            if len(fields) < 5:
                 continue
-            parent = s.get("Parent", "")
-            name = s.get("Name", "")
-            full_name = _make_full_name(parent, name)
-            if seen.get(full_name) == None:
-                seen[full_name] = True
-                items.append({
-                    "item": full_name,
-                    "params": {},
-                    "metrics": ["clock"],
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d clock sensors" % len(items),
-            "data": {"discovery": items},
-        }
+            if fields[0] == "Index":
+                continue
+            name = fields[1]
+            parent = fields[2]
+            sensor_type = fields[3]
+            if sensor_type != "Clock":
+                continue
+            full_name = _full_name(parent, name)
+            out.append({"item": full_name, "params": {"warn": 0, "crit": 0},
+                        "metrics": ["clock"]})
+        return {"changed": False, "msg": "discovered %d clock sensors" % len(out),
+                "data": {"discovery": out}}
 
     item = params.get("item", "")
-    sensors, err = _query_sensors(ctx)
+    res = ctx.run(["curl", "-fsS", "http://localhost:8085/"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "openhardwaremonitor not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    lines = res.stdout.splitlines()
+    if not lines:
+        return {"changed": False, "msg": "no data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if sensors == None:
-        return {
-            "changed": False,
-            "msg": err,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": err},
-        }
-
-    target = None
-    for s in sensors:
-        if s.get("SensorType") != "Clock":
+    reading = None
+    unit = " MHz"
+    for line in lines[1:]:
+        fields = line.split(",")
+        if len(fields) < 5:
             continue
-        parent = s.get("Parent", "")
-        name = s.get("Name", "")
-        full_name = _make_full_name(parent, name)
+        if fields[0] == "Index":
+            continue
+        name = fields[1]
+        parent = fields[2]
+        sensor_type = fields[3]
+        if sensor_type != "Clock":
+            continue
+        full_name = _full_name(parent, name)
         if full_name == item:
-            target = s
+            value_str = fields[4]
+            reading = float(value_str)
             break
 
-    if target == None:
-        return {
-            "changed": False,
-            "msg": "Clock sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if reading == None:
+        return {"changed": False, "msg": "no such clock sensor: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    reading = float(target.get("Value", 0))
-    state = _threshold_state(reading, params)
-
-    return {
-        "changed": False,
-        "msg": "%f MHz" % reading,
-        "data": {
-            "state": state,
-            "metrics": {"clock": reading},
-            "details": "",
-        },
-    }
+    warn = params.get("warn", 0)
+    crit = params.get("crit", 0)
+    state = "OK"
+    if crit != 0 and reading >= crit:
+        state = "CRIT"
+    elif warn != 0 and reading >= warn:
+        state = "WARN"
+    msg = "%s %f%s" % (item, reading, unit)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"clock": reading}, "details": ""}}

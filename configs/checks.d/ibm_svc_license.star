@@ -1,93 +1,97 @@
-def _parse_licenses(stdout):
-    licenses = {}
-    for line in stdout.splitlines():
-        line = line.strip()
-        if line == "":
-            continue
-        parts = line.split(":")
-        if len(parts) < 2:
-            continue
-        key = parts[0].strip()
-        val = parts[1].strip()
-        if key.startswith("license_"):
-            name = key[8:]
-            if name not in licenses:
-                licenses[name] = [0.0, 0.0]
-            licenses[name][0] = 0.0 if val == "off" else float(val)
-        elif key.startswith("used_"):
-            name = key[5:]
-            if name not in licenses:
-                licenses[name] = [0.0, 0.0]
-            licenses[name][1] = float(val)
-    return licenses
-
-
-def _compute_levels(licensed, kind, warn_val, crit_val):
+def _compute_levels(licensed, level_spec):
+    kind = level_spec[0]
+    value = level_spec[1]
     if kind == "always_ok":
         return None, None
     if kind == "crit_on_all":
         return licensed, licensed
     if kind == "absolute":
-        w = licensed - warn_val
-        c = licensed - crit_val
-        return (0.0 if w < 0.0 else w), (0.0 if c < 0.0 else c)
+        warn_abs = value[0]
+        crit_abs = value[1]
+        return max(0.0, licensed - warn_abs), max(0.0, licensed - crit_abs)
     if kind == "percentage":
-        return licensed * (1.0 - warn_val / 100.0), licensed * (1.0 - crit_val / 100.0)
+        warn_pct = value[0]
+        crit_pct = value[1]
+        return licensed * (1 - warn_pct / 100.0), licensed * (1 - crit_pct / 100.0)
     return None, None
 
 
 def main(ctx, params):
-    host = params.get("host", "localhost")
-    user = params.get("user", "monitor")
-    port = params.get("port", 22)
-    levels_kind = params.get("levels_kind", "crit_on_all")
-    levels_warn = params.get("levels_warn", 0.0)
-    levels_crit = params.get("levels_crit", 0.0)
-
-    argv = [
-        "ssh", "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=no",
-        "-p", str(port), user + "@" + host,
-        "lslicense", "-delim", ":",
-    ]
-    res = ctx.run(argv, mutates=False)
-
-    if res.rc != 0:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "ssh lslicense failed: " + res.stderr,
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "ssh lslicense failed: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr}}
-
-    licenses = _parse_licenses(res.stdout)
-
     if params.get("_discover"):
-        items = []
-        for name in sorted(licenses.keys()):
-            d = licenses[name]
-            if d[0] != 0.0 or d[1] != 0.0:
-                items.append({
-                    "item": name,
-                    "params": {"levels_kind": "crit_on_all"},
-                    "metrics": ["licenses"],
-                })
-        return {"changed": False, "msg": "discovered %d items" % len(items),
-                "data": {"discovery": items}}
+        res = ctx.run(["svcinfo", "lslicense"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no ibm_svc_license data available",
+                    "data": {"discovery": []}}
+        licenses = {}
+        for line in res.stdout.splitlines():
+            line = line.strip()
+            if not line or ":" not in line:
+                continue
+            parts = line.split(":", 1)
+            if len(parts) != 2:
+                continue
+            key = parts[0].strip()
+            val = parts[1].strip()
+            if key.startswith("license_"):
+                license_ = key.replace("license_", "")
+                if license_ not in licenses:
+                    licenses[license_] = [0.0, 0.0]
+                licenses[license_][0] = 0.0 if val == "off" else float(val)
+            elif key.startswith("used_"):
+                license_ = key.replace("used_", "")
+                if license_ not in licenses:
+                    licenses[license_] = [0.0, 0.0]
+                licenses[license_][1] = float(val)
+        section = {}
+        for item, data in licenses.items():
+            section[item] = (data[0], data[1])
+        discovery = []
+        for item, data in section.items():
+            if data != (0.0, 0.0):
+                discovery.append({"item": item, "params": {"levels": ("crit_on_all", None)},
+                                  "metrics": ["licenses"]})
+        return {"changed": False, "msg": "discovered %d license items" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    if item not in licenses:
-        return {"changed": False, "msg": "item not found: " + item,
+    res = ctx.run(["svcinfo", "lslicense"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "svcinfo lslicense not available",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    licensed = licenses[item][0]
-    used = licenses[item][1]
-
-    warn, crit = _compute_levels(licensed, levels_kind, levels_warn, levels_crit)
-
+    licenses = {}
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if not line or ":" not in line:
+            continue
+        parts = line.split(":", 1)
+        if len(parts) != 2:
+            continue
+        key = parts[0].strip()
+        val = parts[1].strip()
+        if key.startswith("license_"):
+            license_ = key.replace("license_", "")
+            if license_ not in licenses:
+                licenses[license_] = [0.0, 0.0]
+            licenses[license_][0] = 0.0 if val == "off" else float(val)
+        elif key.startswith("used_"):
+            license_ = key.replace("used_", "")
+            if license_ not in licenses:
+                licenses[license_] = [0.0, 0.0]
+            licenses[license_][1] = float(val)
+    section = {}
+    for i, data in licenses.items():
+        section[i] = (data[0], data[1])
+    data = section.get(item)
+    if data == None:
+        return {"changed": False, "msg": "no license item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    licensed, used = data
+    levels = params.get("levels", ("crit_on_all", None))
+    warn, crit = _compute_levels(licensed, levels)
     if used <= licensed:
         summary = "used %d out of %d licenses" % (int(used), int(licensed))
     else:
         summary = "used %d licenses, but you have only %d" % (int(used), int(licensed))
-
     state = "OK"
     if warn != None and crit != None:
         if used >= crit:
@@ -95,10 +99,9 @@ def main(ctx, params):
         elif used >= warn:
             state = "WARN"
         if state != "OK":
-            summary += " (warn/crit at %d/%d)" % (int(warn), int(crit))
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": {"licenses": used}, "details": ""},
-    }
+            summary = summary + " (warn/crit at %d/%d)" % (int(warn), int(crit))
+    metrics = {"licenses": used}
+    if warn != None and crit != None:
+        metrics = {"licenses": used}
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

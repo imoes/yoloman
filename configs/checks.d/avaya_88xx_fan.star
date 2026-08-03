@@ -1,79 +1,68 @@
-# Map fan states: OID value -> (Checkmk State, description)
-# 1=UNKNOWN, 2=OK, 3=CRIT
-_FAN_STATE_MAP = {
-    "1": ("UNKNOWN", "Reported Unknown"),
-    "2": ("OK", "Running"),
-    "3": ("CRIT", "Down"),
-}
-
 def main(ctx, params):
-    # Determine mode
-    if params.get("_discover"):
-        # Discovery mode: enumerate all fan items
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2272.1.4.7.1.1.2"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "snmpwalk failed: " + res.stderr,
-                    "data": {"discovery": []}}
+    base_oid = ".1.3.6.1.4.1.2272.1.4.7.1.1"
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
 
-        # Parse snmpwalk output: ".1.3.6.1.4.1.2272.1.4.7.1.1.2.<i> = INTEGER: <value>"
-        out = []
+    detect = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+         params.get("host", "localhost"), sys_oid],
+        mutates=False,
+    )
+    if detect.rc != 0 or detect.stdout.strip() != ".1.3.6.1.4.1.2272":
+        return {"changed": False, "msg": "not an Avaya device", "data": {"discovery": [], "state": "UNKNOWN", "metrics": {}, "details": "sysObjectID does not match Avaya enterprise prefix"}}
+
+    if params.get("_discover"):
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn",
+             params.get("host", "localhost"), base_oid],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {"changed": False, "msg": "no Avaya fan data", "data": {"discovery": []}}
+
+        rows = {}
         for line in res.stdout.splitlines():
-            # Split on '=' and get value part
-            parts = line.split(" = ")
+            sp = len(line) - len(line.lstrip(" "))
+            oid = line.strip().split(" ", 1)[0]
+            val = line.strip().split(" ", 1)[1] if " " in line.strip() else ""
+            suffix = oid[len(base_oid) + 1:]
+            parts = suffix.split(".")
             if len(parts) < 2:
                 continue
-            value_part = parts[1].strip()
-            # Extract integer value (e.g. "INTEGER: 2" -> "2")
-            if value_part.startswith("INTEGER: "):
-                fan_value = value_part[11:].strip()
-                # Use index (item) as position in list
-                idx = str(len(out))
-                out.append({"item": idx, "params": {}, "metrics": []})
-        return {"changed": False, "msg": "discovered %d fans" % len(out),
-                "data": {"discovery": out}}
+            idx = parts[0]
+            col = parts[1]
+            if idx not in rows:
+                rows[idx] = {}
+            rows[idx][col] = val
 
-    # Check mode: single item
+        discovery = []
+        for idx in sorted(rows.keys(), key=lambda x: int(x)):
+            discovery.append({"item": idx, "params": {}, "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d fans" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    # Fetch fan state OID: .1.3.6.1.4.1.2272.1.4.7.1.1.2.<item>
-    base_oid = ".1.3.6.1.4.1.2272.1.4.7.1.1.2." + item
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        base_oid
-    ], mutates=False)
+    idx_int = int(item)
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+         params.get("host", "localhost"), base_oid + ".2." + item],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False, "msg": "no fan data for index " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "fan index " + item + " not found"}}
 
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "fan item %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    fan_state = res.stdout.strip()
+    fan_map = {
+        "1": ("UNKNOWN", "Reported Unknown"),
+        "2": ("OK", "Running"),
+        "3": ("CRIT", "Down"),
+    }
+    entry = fan_map.get(fan_state)
+    if entry == None:
+        return {"changed": False, "msg": "unknown fan state: " + fan_state,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "unmapped fan state value " + fan_state}}
 
-    # Parse snmpget: "<oid> = INTEGER: <value>"
-    line = res.stdout.strip()
-    parts = line.split(" = ")
-    if len(parts) < 2:
-        return {"changed": False, "msg": "malformed snmpget output for fan " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    value_part = parts[1].strip()
-    if not value_part.startswith("INTEGER: "):
-        return {"changed": False, "msg": "non-integer value for fan " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    fan_value = value_part[11:].strip()
-    state_tuple = _FAN_STATE_MAP.get(fan_value)
-    if state_tuple == None:
-        return {"changed": False, "msg": "unknown fan state value: " + fan_value,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    state, text = state_tuple
-    return {"changed": False, "msg": text,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+    state, text = entry
+    return {"changed": False, "msg": "Fan " + item + " " + text,
+            "data": {"state": state, "metrics": {}, "details": text}}

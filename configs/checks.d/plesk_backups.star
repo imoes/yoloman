@@ -1,177 +1,187 @@
-# ===== Starlark check module for plesk_backups =====
-# Read-only: never mutates, never writes.
+# Copyright (C) 2019 Checkmk GmbH - translated to read-only Starlark for yolo-man
+# Licensed under GNU General Public License v2.
 
-# Helper to format time (Starlark has no time.strftime)
-def _format_timestamp(ts):
-    # Approximate %c format: "EEE MMM DD HH:MM:SS YYYY"
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-    # Compute date from Unix timestamp (UTC only)
-    # Use integer division; assume ts >= 0
-    secs = ts
-    secs_in_day = 86400
-    days_since_epoch = secs // secs_in_day
-    secs_mod_day = secs % secs_in_day
-    hours = secs_mod_day // 3600
-    mins = (secs_mod_day % 3600) // 60
-    secs_rem = secs_mod_day % 60
-    # Compute year, month, day from days_since_epoch (epoch 1970-01-01)
-    year = 1970
-    while True:
-        year_days = 366 if _is_leap_year(year) else 365
-        if days_since_epoch < year_days:
-            break
-        days_since_epoch -= year_days
-        year += 1
-    month = 0
-    while month < 12:
-        month_days = _days_in_month(year, month)
-        if days_since_epoch < month_days:
-            break
-        days_since_epoch -= month_days
-        month += 1
-    day = days_since_epoch + 1
-    # Determine weekday (1970-01-01 is Thursday = 4)
-    weekday = (4 + ts // secs_in_day) % 7
-    return "%s %s %d %d:%d:%d %d" % (days[weekday], months[month], day, hours, mins, secs_rem, year)
+def _saveint(i):
+    s = str(i)
+    neg = s.startswith("-")
+    body = s[1:] if neg else s
+    if body == "" or body == "-":
+        return 0
+    out = 0
+    for ch in body:
+        if ch < "0" or ch > "9":
+            return 0
+        out = out * 10 + (ord(ch) - ord("0"))
+    return -out if neg else out
 
-def _is_leap_year(y):
-    return (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0)
 
-def _days_in_month(y, m):
-    # m is 0-based
-    if m == 1:
-        return 29 if _is_leap_year(y) else 28
-    elif m == 3 or m == 5 or m == 8 or m == 10:
-        return 30
-    else:
-        return 31
+def _disksize(n):
+    # render.disksize: human readable disk size, 1K-blocks input
+    bytes_ = n
+    units = ["B", "kB", "MB", "GB", "TB", "PB"]
+    idx = 0
+    f = float(bytes_)
+    while f >= 1024.0 and idx < len(units) - 1:
+        f = f / 1024.0
+        idx = idx + 1
+    if idx == 0:
+        return "%d %s" % (bytes_, units[idx])
+    return "%f %s" % (f, units[idx])
+
+
+def _timespan(s):
+    # render.timespan: human readable seconds
+    s = int(s)
+    if s < 60:
+        return "%d s" % s
+    if s < 3600:
+        return "%d min" % int(s / 60)
+    if s < 86400:
+        return "%d h %d min" % (int(s / 3600), int(s % 3600) / 60)
+    days = int(s / 86400)
+    return "%d d %d h" % (days, int((s % 86400) / 3600))
+
+
+def _check_level(value, params, name, infoname, levels):
+    # Emulates check_levels single-value path.
+    # params: either None (no levels) or a tuple/list (warn, crit) or
+    #   a struct-compatible mapping. handles upper (warn/crit) thresholds.
+    state = "OK"
+    summary = ""
+    crit = None
+    warn = None
+    if params != None:
+        if type(params) == "list" or type(params) == "tuple":
+            if len(params) >= 2:
+                warn = params[0]
+                crit = params[1]
+        elif type(params) == "dict":
+            warn = params.get("warn", None) if params.get("warn") != None else params.get("warning", None)
+            crit = params.get("crit", None) if params.get("crit") != None else params.get("critical", None)
+        else:
+            # scalar: treat as warn==crit
+            warn = params
+            crit = params
+    metric = value
+    if crit != None and value >= crit:
+        state = "CRIT"
+        summary = "%s: %s (crit>%s)" % (infoname, str(value), str(crit))
+    elif warn != None and value >= warn:
+        state = "WARN"
+        summary = "%s: %s (warn>%s)" % (infoname, str(value), str(warn))
+    return state, summary, metric
+
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["plesk", "bin", "backup_manager", "--list"], mutates=False)
-        items = []
-        for line in res.stdout.splitlines():
-            if line.strip() == "":
-                continue
-            fields = line.split()
-            if len(fields) >= 1:
-                domain = fields[0]
-                items.append({
-                    "item": domain,
-                    "params": {
-                        "backup_age": None,
-                        "total_size": None,
-                        "no_backup_configured_state": 1,
-                        "no_backup_found_state": 1,
-                    },
-                    "metrics": ["last_backup_size", "last_backup_age", "total_size"],
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d backups" % len(items),
-            "data": {"discovery": items},
-        }
+        res = ctx.run(["/usr/local/psa/bin/plesk", "backup", "--list", "-verbose"], mutates=False)
+        section = {}
+        if res.rc == 0 and res.stdout != "":
+            for line in res.stdout.splitlines():
+                f = line.split()
+                if len(f) != 5:
+                    continue
+                section[f[0]] = f
+        # Fallback: parse plesk_backup_stat output if plesk CLI not available
+        if len(section) == 0:
+            res2 = ctx.run(["/usr/local/psa/bin/plesk_backup_stat", "-l"], mutates=False)
+            if res2.rc == 0 and res2.stdout != "":
+                for line in res2.stdout.splitlines():
+                    f = line.split()
+                    if len(f) != 5:
+                        continue
+                    section[f[0]] = f
+        if len(section) == 0:
+            res3 = ctx.run(["plesk", "sso", "list"], mutates=False)
+            _ = res3
+        discovery = []
+        for item in sorted(section.keys()):
+            discovery.append({"item": item, "params": {}, "metrics": ["last_backup_size", "last_backup_age", "total_size"]})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    res = ctx.run(["plesk", "bin", "backup_manager", "--list"], mutates=False)
+    res = ctx.run(["/usr/local/psa/bin/plesk", "backup", "--list", "-verbose"], mutates=False)
     section = {}
-    for line in res.stdout.splitlines():
-        if line.strip() == "":
-            continue
-        fields = line.split()
-        if len(fields) >= 5:
-            section[fields[0]] = fields
+    if res.rc == 0 and res.stdout != "":
+        for line in res.stdout.splitlines():
+            f = line.split()
+            if len(f) != 5:
+                continue
+            section[f[0]] = f
+    if len(section) == 0:
+        res2 = ctx.run(["/usr/local/psa/bin/plesk_backup_stat", "-l"], mutates=False)
+        if res2.rc == 0 and res2.stdout != "":
+            for line in res2.stdout.splitlines():
+                f = line.split()
+                if len(f) != 5:
+                    continue
+                section[f[0]] = f
 
-    line = section.get(item)
+    line = section.get(item, None)
     if line == None:
-        return {
-            "changed": False,
-            "msg": "backup for domain not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        if item == "":
+            return {"changed": False, "msg": "no Plesk backup found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "no such item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
+    metrics = {}
+    details_lines = []
     if len(line) != 5 or line[1] != "0":
-        code = line[1] if len(line) > 1 else "unknown"
-        if code == "2":
-            return {
-                "changed": False,
-                "msg": "Error in agent (" + " ".join(line[1:]) + ")",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-            }
-        elif code == "4":
-            state = "WARN" if int(params.get("no_backup_configured_state", 1)) == 1 else "CRIT"
-            return {
-                "changed": False,
-                "msg": "No backup configured",
-                "data": {"state": state, "metrics": {}, "details": ""},
-            }
-        elif code == "5":
-            state = "WARN" if int(params.get("no_backup_found_state", 1)) == 1 else "CRIT"
-            return {
-                "changed": False,
-                "msg": "No backup found",
-                "data": {"state": state, "metrics": {}, "details": ""},
-            }
+        rc = line[1]
+        if rc == "2":
+            msg = "Error in agent (" + " ".join(line[1:]) + ")"
+            return {"changed": False, "msg": msg, "data": {"state": "UNKNOWN", "metrics": {}, "details": msg}}
+        elif rc == "4":
+            st = int(params.get("no_backup_configured_state", 1))
+            state_str = "OK" if st == 0 else ("WARN" if st == 1 else "CRIT")
+            return {"changed": False, "msg": "No backup configured", "data": {"state": state_str, "metrics": {}, "details": ""}}
+        elif rc == "5":
+            st = int(params.get("no_backup_found_state", 1))
+            state_str = "OK" if st == 0 else ("WARN" if st == 1 else "CRIT")
+            return {"changed": False, "msg": "No backup found", "data": {"state": state_str, "metrics": {}, "details": ""}}
         else:
-            return {
-                "changed": False,
-                "msg": "Unexpected line " + str(line),
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-            }
+            msg = "Unexpected line " + str(line)
+            return {"changed": False, "msg": msg, "data": {"state": "UNKNOWN", "metrics": {}, "details": msg}}
 
-    domain, rc, r_timestamp, r_size, r_total_size = line
-    size = int(r_size) if r_size.isdigit() else 0
-    total_size = int(r_total_size) if r_total_size.isdigit() else 0
-    timestamp = int(r_timestamp) if r_timestamp.isdigit() else 0
+    _domain, _rc, r_timestamp, r_size, r_total_size = line
+    size = _saveint(r_size)
+    total_size = _saveint(r_total_size)
+    timestamp = _saveint(r_timestamp)
 
-    now_res = ctx.run(["date", "+%s"], mutates=False)
-    now = int(now_res.stdout.strip())
-    age_seconds = now - timestamp
+    # 1. last backup size not 0 bytes (levels: warn=None, crit=0, default upper)
+    size_params = params.get("last_backup_size", None)
+    st, summ, m = _check_level(size, size_params, "last_backup_size", "Last Backup - Size", None)
+    if len(details_lines) == 0 or details_lines[0] != summ:
+        details_lines.append("Last Backup - Size: " + _disksize(size))
+    metrics["last_backup_size"] = size
+    final_state = st
 
-    state = "OK"
-    summaries = []
+    # 2. age of last backup (upper levels)
+    age_params = params.get("backup_age", None)
+    age = int(ctx.run(["date", "+%s"], mutates=False).stdout.split()[0]) - timestamp if ctx.run(["date", "+%s"], mutates=False).rc == 0 else 0
+    st2, summ2, m2 = _check_level(age, age_params, "last_backup_age", "Age", None)
+    details_lines.append("Age: " + _timespan(age))
+    metrics["last_backup_age"] = age
+    if st2 == "CRIT":
+        final_state = "CRIT"
+    elif st2 == "WARN" and final_state != "CRIT":
+        final_state = "WARN"
 
-    summaries.append("Size: %d bytes" % size)
+    # 3. total size (upper levels)
+    total_params = params.get("total_size", None)
+    st3, summ3, m3 = _check_level(total_size, total_params, "total_size", "Total size", None)
+    details_lines.append("Total size: " + _disksize(total_size))
+    metrics["total_size"] = total_size
+    if st3 == "CRIT":
+        final_state = "CRIT"
+    elif st3 == "WARN" and final_state != "CRIT":
+        final_state = "WARN"
 
-    age_levels = params.get("backup_age")
-    if age_levels != None and len(age_levels) >= 2:
-        warn_age = age_levels[0]
-        crit_age = age_levels[1]
-        if crit_age != None and age_seconds >= crit_age:
-            state = "CRIT"
-        elif warn_age != None and age_seconds >= warn_age:
-            state = "WARN" if state == "OK" else state
-        summaries.append("Age: %d s" % age_seconds)
+    # summary line: Backup time
+    ts_res = ctx.run(["date", "-d", "@" + str(timestamp), "+%c"], mutates=False)
+    if ts_res.rc == 0:
+        ts_str = ts_res.stdout.strip()
     else:
-        summaries.append("Age: %d s" % age_seconds)
+        ts_str = str(timestamp)
 
-    total_levels = params.get("total_size")
-    if total_levels != None and len(total_levels) >= 2:
-        warn_total = total_levels[0]
-        crit_total = total_levels[1]
-        if crit_total != None and total_size >= crit_total:
-            state = "CRIT"
-        elif warn_total != None and total_size >= warn_total:
-            state = "WARN" if state == "OK" else state
-        summaries.append("Total: %d bytes" % total_size)
-    else:
-        summaries.append("Total: %d bytes" % total_size)
-
-    # Format timestamp using our helper
-    timestamp_str = _format_timestamp(timestamp)
-    summaries.append("Backup time: " + timestamp_str)
-
-    return {
-        "changed": False,
-        "msg": ", ".join(summaries),
-        "data": {
-            "state": state,
-            "metrics": {
-                "last_backup_size": size,
-                "last_backup_age": age_seconds,
-                "total_size": total_size,
-            },
-            "details": "",
-        },
-    }
+    summary = "Backup time: " + ts_str
+    return {"changed": False, "msg": summary, "data": {"state": final_state, "metrics": metrics, "details": "\n".join(details_lines)}}

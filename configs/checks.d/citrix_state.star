@@ -1,140 +1,184 @@
-CONSTANTS_MAP = {
-    "maintenancemode": {
-        "False": 0,
-        "True": 1,
-    },
-    "powerstate": {
-        "Unmanaged": 1,
-        "Unknown": 1,
-        "Unavailable": 2,
-        "Off": 2,
-        "On": 0,
-        "Suspended": 2,
-        "TurningOn": 1,
-        "TurningOff": 1,
-    },
-    "vmtoolsstate": {
-        "NotPresent": 2,
-        "Unknown": 3,
-        "NotStarted": 1,
-        "Running": 0,
-    },
-    "faultstate": {
-        "None": 0,
-        "FailedToStart": 2,
-        "StuckOnBoot": 2,
-        "Unregistered": 2,
-        "MaxCapacity": 1,
-    },
-    "registrationstate": {
-        "Unregistered": 2,
-        "Initializing": 1,
-        "Registered": 0,
-        "AgentError": 2,
-    },
-}
-
-STATE_INT_TO_STR = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-
-INSTANCE_FIELDS = [
-    "FaultState",
-    "MaintenanceMode",
-    "PowerState",
-    "RegistrationState",
-    "VMToolsState",
-]
-
-PS_CMD = (
-    "Add-PSSnapin Citrix.Broker.Admin.V2 -ErrorAction SilentlyContinue; " +
-    "$m = Get-BrokerMachine -MachineName ($env:USERDOMAIN + '\\' + $env:COMPUTERNAME) " +
-    "-ErrorAction SilentlyContinue; " +
-    "if ($m) { " +
-    "Write-Output ('RegistrationState ' + $m.RegistrationState); " +
-    "Write-Output ('PowerState ' + $m.PowerState); " +
-    "Write-Output ('MaintenanceMode ' + $m.InMaintenanceMode); " +
-    "Write-Output ('VMToolsState ' + $m.VMToolsState); " +
-    "Write-Output ('FaultState ' + $m.FaultState); " +
-    "if ($m.ControllerDNSName) { Write-Output ('Controller ' + $m.ControllerDNSName) }; " +
-    "if ($m.HostingServerName) { Write-Output ('HostingServer ' + $m.HostingServerName) } " +
-    "}"
-)
-
-
-def _parse_section(output):
-    section = {"instance": {}}
-    for raw in output.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        idx = line.find(" ")
-        if idx < 0:
-            continue
-        key = line[:idx]
-        val = line[idx + 1:]
-        if key == "Controller":
-            section["controller"] = val
-        elif key == "HostingServer":
-            section["hosting_server"] = val
-        elif key in INSTANCE_FIELDS:
-            section["instance"][key] = val
-    return section
-
-
 def main(ctx, params):
-    res = ctx.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", PS_CMD],
-        mutates=False,
-        ok_codes=[0, 1],
-    )
+    # Citrix Instance State check — read-only monitoring of Citrix Hypervisor VM states
+    # Data source: `xe` CLI (citrix-state / citrix_state agent plugin equivalent)
 
+    DEFAULT_PARAMS = {
+        "registrationstate": {
+            "Unregistered": 2,
+            "Initializing": 1,
+            "Registered": 0,
+            "AgentError": 2,
+        },
+        "vmtoolsstate": {
+            "NotPresent": 2,
+            "Unknown": 3,
+            "NotStarted": 1,
+            "Running": 0,
+        },
+    }
+
+    CONSTANTS_MAP = {
+        "maintenancemode": {
+            "False": 0,
+            "True": 1,
+        },
+        "powerstate": {
+            "Unmanaged": 1,
+            "Unknown": 1,
+            "Unavailable": 2,
+            "Off": 2,
+            "On": 0,
+            "Suspended": 2,
+            "TurningOn": 1,
+            "TurningOff": 1,
+        },
+        "vmtoolsstate": {
+            "NotPresent": 2,
+            "Unknown": 3,
+            "NotStarted": 1,
+            "Running": 0,
+        },
+        "faultstate": {
+            "None": 0,
+            "FailedToStart": 2,
+            "StuckOnBoot": 2,
+            "Unregistered": 2,
+            "MaxCapacity": 1,
+        },
+    }
+
+    # --- probe for the real thing: the `xe` binary must be present ---
+    probe = ctx.run(["xe", "host-list", "--minimal"], mutates=False)
+    if probe.rc == 127:
+        return {
+            "changed": False,
+            "msg": "xe binary not found on this host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # --- DISCOVERY MODE ---
     if params.get("_discover"):
-        if not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        section = _parse_section(res.stdout)
-        if not section["instance"]:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        # The original check has three plugins; this module implements the
+        # main "citrix_state" instance-level check (Service per VM instance).
+        # We discover one service if any VM state data is available.
+        res = ctx.run(
+            ["xe", "vm-list", "is-control-domain=false", "--minimal"],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {
+                "changed": False,
+                "msg": "discovered 0 items",
+                "data": {"discovery": []},
+            }
+
+        uuids = [u for u in res.stdout.strip().split(";") if u]
+        if len(uuids) == 0:
+            return {
+                "changed": False,
+                "msg": "discovered 0 items",
+                "data": {"discovery": []},
+            }
+
+        discovery = []
+        for uuid in uuids:
+            discovery.append({
+                "item": uuid,
+                "params": dict(DEFAULT_PARAMS),
+                "metrics": ["powerstate", "registrationstate", "vmtoolsstate",
+                            "faultstate", "maintenancemode"],
+            })
         return {
             "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    if not res.stdout.strip():
+    # --- CHECK MODE ---
+    item = params.get("item", "")
+    if item == "":
         return {
             "changed": False,
-            "msg": "Citrix state data not available",
+            "msg": "no Citrix VM instance specified",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    section = _parse_section(res.stdout)
-    instance = section["instance"]
+    # Gather the instance state fields via `xe vm-param-get`
+    # These correspond to the lines the agent plugin would produce:
+    #   PowerState, RegistrationState, VMToolsState, FaultState, MaintenanceMode
+    state_types = [
+        "PowerState",
+        "RegistrationState",
+        "VMToolsState",
+        "FaultState",
+        "MaintenanceMode",
+    ]
 
-    if not instance:
+    section_instance = {}
+    for st in state_types:
+        res = ctx.run(
+            ["xe", "vm-param-get", "uuid=%s" % item, "param-name=%s" % st, "-minimal"],
+            mutates=False,
+        )
+        if res.rc == 0 and res.stdout.strip() != "":
+            section_instance[st] = res.stdout.strip()
+        else:
+            section_instance[st] = ""
+
+    if len(section_instance) == 0:
         return {
             "changed": False,
-            "msg": "no Citrix instance state found",
+            "msg": "no state data for VM %s" % item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    worst = 0
+    # Build the monitoring map from params or the constants fallback
+    merged_map = dict(DEFAULT_PARAMS)
+    if params:
+        for k, v in params.items():
+            if k.lower() in ("powerstate", "registrationstate", "vmtoolsstate",
+                             "faultstate", "maintenancemode"):
+                merged_map[k.lower()] = v
+
+    worst_state = 0  # 0 = OK
     summaries = []
+    metric_values = {}
 
-    for state_type in sorted(instance.keys()):
-        state_val = instance[state_type]
-        key = state_type.lower()
-        monitoring_map = params.get(key) or CONSTANTS_MAP.get(key)
-        if monitoring_map == None:
-            continue
-        num = monitoring_map.get(state_val, 3)
-        if num > worst:
-            worst = num
-        summaries.append("%s %s" % (state_type, state_val))
+    for state_type, state in section_instance.items():
+        key_lower = state_type.lower()
+        monitoring_map = merged_map.get(key_lower, CONSTANTS_MAP.get(key_lower))
 
-    state_str = STATE_INT_TO_STR.get(worst, "UNKNOWN")
-    msg = ", ".join(summaries) if summaries else "no state data"
+        if monitoring_map != None and state != None and state != "":
+            if state in monitoring_map:
+                level = monitoring_map[state]
+                if type(level) == "int" and level > worst_state:
+                    worst_state = level
+                metric_values[key_lower] = float(level)
+                summaries.append("%s %s" % (state_type, state))
+            else:
+                metric_values[key_lower] = 3.0
+                summaries.append("%s %s" % (state_type, state))
+        elif state == "" or state == None:
+            summaries.append("%s -" % state_type)
+        else:
+            metric_values[key_lower] = 3.0
+            summaries.append("%s %s" % (state_type, state))
+
+    if worst_state >= 2:
+        state_str = "CRIT"
+    elif worst_state >= 1:
+        state_str = "WARN"
+    else:
+        state_str = "OK"
+
+    summary = ", ".join(summaries) if len(summaries) > 0 else "no state data"
 
     return {
         "changed": False,
-        "msg": msg,
-        "data": {"state": state_str, "metrics": {}, "details": ""},
+        "msg": summary,
+        "data": {
+            "state": state_str,
+            "metrics": metric_values,
+            "details": summary,
+        },
     }

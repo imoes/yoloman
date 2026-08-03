@@ -1,145 +1,136 @@
-def _worst(a, b):
-    scores = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
-    if (scores.get(b) or 0) > (scores.get(a) or 0):
-        return b
-    return a
+# Checkmk httpv2 active check → read-only Starlark check module
+# Monitors HTTP/HTTPS endpoints by invoking curl and grading the response.
+
+def _curl_cmd(params, item):
+    args = ["curl", "-sS", "-o", "/dev/null", "-w", "%{http_code} %{time_total}"]
+    args.append("-w")
+    args.append(" %{ssl_verify_result}")
+    args.append("--connect-timeout")
+    args.append("10")
+    args.append("--max-time")
+    args.append("30")
+    url = item
+    args.append(url)
+    return args
+
 
 def main(ctx, params):
     if params.get("_discover"):
-        return {"changed": False, "msg": "active check (assign with parameters)", "data": {"discovery": []}}
+        endpoints = params.get("endpoints", [])
+        if not endpoints or type(endpoints) != "list":
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
 
-    url = params.get("url") or ""
-    timeout_s = params.get("timeout_s") or 10
-    method_map = {"get": "GET", "head": "HEAD", "post": "POST", "put": "PUT", "delete": "DELETE"}
-    method = method_map.get(params.get("method") or "get") or "GET"
+        host_config = params.get("host_config", {})
+        macros = host_config.get("macros", {})
 
-    probe_params = {"url": url, "timeout_s": timeout_s, "method": method}
+        discovery = []
+        for ep in endpoints:
+            url = ep.get("url", "")
+            settings = ep.get("settings", {})
+            if type(settings) != "dict":
+                settings = {}
 
-    user_agent = params.get("user_agent")
-    if user_agent != None:
-        probe_params["user_agent"] = user_agent
+            svc_name_desc = ep.get("service_name", {})
+            name = svc_name_desc.get("name", url) if type(svc_name_desc) == "dict" else url
+            prefix = svc_name_desc.get("prefix", "none") if type(svc_name_desc) == "dict" else "none"
 
-    headers = {}
-    auth_token_header = params.get("auth_token_header")
-    auth_token = params.get("auth_token")
-    if auth_token_header != None and auth_token != None:
-        headers[auth_token_header] = auth_token
-    content_type = params.get("content_type")
-    if content_type != None:
-        headers["Content-Type"] = content_type
-    if len(headers) > 0:
-        probe_params["headers"] = headers
+            protocol = "HTTPS" if url.startswith("https://") else "HTTP"
+            desc = ""
+            if prefix == "auto":
+                desc = protocol + " " + name
+            elif prefix == "none":
+                desc = name
+            else:
+                desc = name
 
-    send_body = params.get("send_body")
-    if send_body != None:
-        probe_params["body"] = send_body
+            rt_levels = settings.get("response_time", None)
+            warn = 2.0
+            crit = 5.0
+            if rt_levels != None and type(rt_levels) == "list" and len(rt_levels) == 2:
+                if rt_levels[0] == "fixed":
+                    lvls = rt_levels[1]
+                    if type(lvls) == "list" and len(lvls) == 2:
+                        warn = float(lvls[0])
+                        crit = float(lvls[1])
 
-    auth_user = params.get("auth_user")
-    auth_password = params.get("auth_password")
-    if auth_user != None:
-        probe_params["auth_user"] = auth_user
-    if auth_password != None:
-        probe_params["auth_password"] = auth_password
+            discovery.append({
+                "item": url,
+                "params": {"warn": warn, "crit": crit},
+                "metrics": ["response_time", "status_code"],
+            })
 
-    virtual_host = params.get("virtual_host")
-    if virtual_host != None:
-        probe_params["virtual_host"] = virtual_host
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
 
-    verify_tls = params.get("verify_tls")
-    if verify_tls != None:
-        probe_params["verify_tls"] = verify_tls
+    # CHECK MODE
+    item = params.get("item", "")
+    if item == "":
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    follow_redirects = params.get("follow_redirects")
-    if follow_redirects != None:
-        probe_params["follow_redirects"] = follow_redirects
+    url = item
 
-    probe = ctx.probe("http", probe_params)
+    warn = params.get("warn", 2.0)
+    crit = params.get("crit", 5.0)
 
-    if probe.get("error"):
-        return {"changed": False, "msg": "CRIT", "data": {"state": "CRIT", "metrics": {}, "details": probe["error"]}}
+    curl_args = ["-sS", "-o", "/dev/null", "-w", "%{http_code} %{time_total} %{ssl_verify_result}",
+                 "--connect-timeout", "10", "--max-time", "30", url]
 
-    status = int(probe.get("status_code") or 0)
-    resp_ms = float(probe.get("response_ms") or 0)
-    body = probe.get("body") or ""
-    body_bytes = int(probe.get("body_bytes") or 0)
-    cert_days = probe.get("cert_days_left")
+    res = ctx.run(["curl"] + curl_args, mutates=False)
 
-    state = "OK"
-    problems = []
+    if res.rc == 127:
+        return {"changed": False, "msg": "curl is not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    expected_codes = params.get("expected_status_codes")
-    if expected_codes != None and len(expected_codes) > 0:
-        if status not in expected_codes:
-            state = _worst(state, "WARN")
-            problems.append("unexpected status %d" % status)
+    if res.skipped:
+        return {"changed": False, "msg": "would check " + url,
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+    if res.rc != 0:
+        return {"changed": False, "msg": "curl failed: " + res.stderr.strip(),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr.strip()}}
+
+    parts = res.stdout.strip().split()
+    if len(parts) < 2:
+        return {"changed": False, "msg": "no response from " + url,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stdout.strip()}}
+
+    status_code = 0
+    if parts[0].isdigit():
+        status_code = int(parts[0])
+
+    resp_time = 0.0
+    if parts[1].replace(".", "").isdigit():
+        resp_time = float(parts[1])
+
+    metrics = {"response_time": resp_time, "status_code": status_code}
+
+    details = "URL: %s, HTTP Status: %d, Response Time: %fs" % (url, status_code, resp_time)
+
+    if status_code == 0:
+        state = "UNKNOWN"
+        msg = "no response from " + url
+    elif status_code >= 400:
+        state = "CRIT"
+        msg = "%s returned HTTP %d" % (url, status_code)
+    elif status_code >= 300:
+        state = "WARN"
+        msg = "%s returned HTTP %d (redirect)" % (url, status_code)
     else:
-        if status >= 500:
-            state = _worst(state, "CRIT")
-            problems.append("status %d" % status)
-        elif status >= 400:
-            state = _worst(state, "WARN")
-            problems.append("status %d" % status)
+        if resp_time >= crit:
+            state = "CRIT"
+        elif resp_time >= warn:
+            state = "WARN"
+        else:
+            state = "OK"
+        msg = "%s: HTTP %d, %fs" % (url, status_code, resp_time)
 
-    resp_crit = params.get("response_time_crit_ms")
-    resp_warn = params.get("response_time_warn_ms")
-    if resp_crit != None and resp_ms >= float(resp_crit):
-        state = _worst(state, "CRIT")
-        problems.append("response %d ms >= crit %d ms" % (int(resp_ms), int(resp_crit)))
-    elif resp_warn != None and resp_ms >= float(resp_warn):
-        state = _worst(state, "WARN")
-        problems.append("response %d ms >= warn %d ms" % (int(resp_ms), int(resp_warn)))
-
-    cert_warn_days = params.get("cert_warn_days")
-    cert_crit_days = params.get("cert_crit_days")
-    if cert_days != None:
-        cert_days_int = int(cert_days)
-        if cert_crit_days != None and cert_days_int < int(cert_crit_days):
-            state = _worst(state, "CRIT")
-            problems.append("cert expires in %d days (crit < %d)" % (cert_days_int, int(cert_crit_days)))
-        elif cert_warn_days != None and cert_days_int < int(cert_warn_days):
-            state = _worst(state, "WARN")
-            problems.append("cert expires in %d days (warn < %d)" % (cert_days_int, int(cert_warn_days)))
-    elif url.startswith("https://") and (params.get("check_cert") or cert_warn_days != None or cert_crit_days != None):
-        state = _worst(state, "WARN")
-        problems.append("no certificate information")
-
-    fetch_body = params.get("fetch_body")
-    if fetch_body == None:
-        fetch_body = True
-    if fetch_body:
-        min_size = params.get("min_body_size")
-        max_size = params.get("max_body_size")
-        if min_size != None and body_bytes < int(min_size):
-            state = _worst(state, "WARN")
-            problems.append("body %d bytes < min %d" % (body_bytes, int(min_size)))
-        if max_size != None and body_bytes > int(max_size):
-            state = _worst(state, "WARN")
-            problems.append("body %d bytes > max %d" % (body_bytes, int(max_size)))
-        body_string = params.get("body_string")
-        if body_string != None:
-            found = body_string in body
-            invert = params.get("body_string_invert") or False
-            fail = (found and invert) or (not found and not invert)
-            if fail:
-                fail_state = params.get("body_fail_state") or "WARN"
-                state = _worst(state, fail_state)
-                if invert:
-                    problems.append("body contains '%s'" % body_string)
-                else:
-                    problems.append("body missing '%s'" % body_string)
-
-    metrics = {"response_ms": resp_ms, "status_code": float(status)}
-    if cert_days != None:
-        metrics["cert_days_left"] = float(cert_days)
-    if fetch_body:
-        metrics["body_bytes"] = float(body_bytes)
-
-    detail = "HTTP %d, %d ms" % (status, int(resp_ms))
-    if fetch_body:
-        detail += ", %d bytes" % body_bytes
-    if cert_days != None:
-        detail += ", cert %d days" % int(cert_days)
-    if problems:
-        detail += " | " + "; ".join(problems)
-
-    return {"changed": False, "msg": state, "data": {"state": state, "metrics": metrics, "details": detail}}
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {"state": state, "metrics": metrics, "details": details},
+    }

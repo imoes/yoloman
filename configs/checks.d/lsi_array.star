@@ -1,80 +1,146 @@
-MEGACLI_PATHS = [
-    "/opt/MegaRAID/MegaCli/MegaCli64",
-    "/usr/local/bin/MegaCli64",
-    "/usr/bin/MegaCli64",
-    "/opt/MegaRAID/MegaCli/MegaCli",
-    "/usr/local/bin/MegaCli",
-    "/usr/bin/MegaCli",
-]
+# Checkmk check: checkmk.lsi_array — RAID array status (read-only Starlark translation)
+# Reproduces the agent_based/lsi.py parse + discover + check logic using the
+# on-host MegaCLI /storcli source that the Checkmk agent plugin reads.
 
-STATE_MAP = {
-    "Optimal": "Okay(OKY)",
-    "Degraded": "Degraded(DGD)",
-    "Partially Degraded": "Partially Degraded(PDG)",
-    "Failed": "Failed(FLD)",
-    "Offline": "Offline(OFL)",
-}
+def _parse_storcli(output):
+    """Parse `storcli /c0 /v show` or `MegaCli -LDInfo -Lall -aALL` text into
+    {arrays: {vol_id: status}, disks: {target_id: state}} mirroring parse_lsi."""
+    arrays = {}
+    disks = {}
+    lines = output.splitlines()
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        low = line.lower()
+        # Virtual Drive block: "Virtual Drive: 2 (Target Id: 1)"
+        if "virtual drive" in low or "target id" in low:
+            vol_id = ""
+            target_id = ""
+            # try to grab ids from this line
+            parts = line.split()
+            for p in parts:
+                if p.isdigit():
+                    vol_id = p
+                    break
+            # capture State line for this virtual drive
+            j = i
+            depth = 0
+            state_val = ""
+            while j < n and depth < 12:
+                nl = lines[j].lower()
+                if "state" in nl:
+                    s = lines[j].split()
+                    # find the value after "State :" 
+                    idx = -1
+                    for k in range(len(s)):
+                        if s[k].lower() == "state" and k + 1 < len(s):
+                            idx = k + 1
+                            break
+                    if idx >= 0:
+                        state_val = s[idx]
+                if vol_id != "" and state_val != "":
+                    break
+                j += 1
+            if vol_id != "":
+                arrays[vol_id] = state_val
+        # Physical disk / Drive block: "Drive: 1" + "State: Onln"
+        if low.startswith("drive") or "drive state" in low or "media type" in low:
+            target_id = ""
+            parts = line.split()
+            for p in parts:
+                if p.isdigit():
+                    target_id = p
+                    break
+            j = i
+            state_val = ""
+            while j < n and (j - i) < 8:
+                nl = lines[j].lower()
+                if "state" in nl:
+                    s = lines[j].split()
+                    idx = -1
+                    for k in range(len(s)):
+                        if s[k].lower() == "state" and k + 1 < len(s):
+                            idx = k + 1
+                            break
+                    if idx >= 0:
+                        state_val = s[idx]
+                if target_id != "" and state_val != "":
+                    break
+                j += 1
+            if target_id != "":
+                disks[target_id] = state_val
+        i += 1
+    return {"arrays": arrays, "disks": disks}
 
-def _find_megacli(ctx):
-    for path in MEGACLI_PATHS:
-        if ctx.file_exists(path):
-            return path
+
+def _lsi_available(ctx):
+    """Probe for the real source tool: MegaCli or storcli."""
+    for tool in (["MegaCli", "-v"], ["storcli", "show"]):
+        res = ctx.run(tool, mutates=False)
+        if res.rc == 127:
+            continue
+        # rc 0 or any non-127 means the binary is present
+        rc = res.rc
+        if rc != 127:
+            return tool[0]
     return None
 
-def _parse_arrays(stdout):
-    arrays = {}
-    current_vd = None
-    for line in stdout.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("Virtual Drive:") and "(" in stripped:
-            parts = stripped.split()
-            if len(parts) >= 3:
-                current_vd = parts[2]
-        elif stripped.startswith("State") and ":" in stripped and current_vd != None:
-            state_raw = stripped.split(":", 1)[1].strip()
-            arrays[current_vd] = STATE_MAP.get(state_raw, state_raw)
-    return arrays
+
+def _run_storcli(ctx, tool):
+    """Run the equivalent of the Checkmk lsi agent section."""
+    # MegaCli: adapter 0, all virtual drives
+    if tool == "MegaCli":
+        res = ctx.run(["MegaCli", "-LDInfo", "-Lall", "-aALL"], mutates=False)
+    else:
+        res = ctx.run(["storcli", "/c0", "/v", "show"], mutates=False)
+    return res
+
 
 def main(ctx, params):
-    megacli = _find_megacli(ctx)
-
+    # ---- DISCOVERY ----
     if params.get("_discover"):
-        if megacli == None:
-            return {"changed": False, "msg": "discovered 0 arrays",
+        tool = _lsi_available(ctx)
+        if tool == None:
+            # Not present -> empty discovery, never a placeholder
+            return {"changed": False, "msg": "no LSI/MegaRAID controller found",
                     "data": {"discovery": []}}
-        res = ctx.run([megacli, "-LDInfo", "-Lall", "-aAll", "-NoLog"],
-                      mutates=False, ok_codes=list(range(10)))
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "discovered 0 arrays",
+        res = _run_storcli(ctx, tool)
+        if res.rc != 0 and res.stdout == "":
+            return {"changed": False, "msg": "no LSI/MegaRAID controller found",
                     "data": {"discovery": []}}
-        arrays = _parse_arrays(res.stdout)
-        discovery = [
-            {"item": vol_id, "params": {}, "metrics": []}
-            for vol_id, _ in arrays.items()
-        ]
-        return {"changed": False, "msg": "discovered %d arrays" % len(discovery),
-                "data": {"discovery": discovery}}
+        section = _parse_storcli(res.stdout)
+        out = []
+        for vol_id in section["arrays"].keys():
+            out.append({"item": vol_id, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d RAID arrays" % len(out),
+                "data": {"discovery": out}}
 
+    # ---- CHECK (single item) ----
     item = params.get("item", "")
-
-    if megacli == None:
-        return {"changed": False, "msg": "MegaCli binary not found",
-                "data": {"state": "UNKNOWN", "metrics": {},
-                         "details": "MegaCli not installed"}}
-
-    res = ctx.run([megacli, "-LDInfo", "-Lall", "-aAll", "-NoLog"],
-                  mutates=False, ok_codes=list(range(10)))
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "MegaCli returned rc=%d" % res.rc,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr}}
-
-    arrays = _parse_arrays(res.stdout)
-
-    if item not in arrays:
-        return {"changed": False, "msg": "RAID volume %s not existing" % item,
-                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
-
-    state_str = arrays[item]
-    check_state = "OK" if state_str == "Okay(OKY)" else "CRIT"
-    return {"changed": False, "msg": "Status is '%s'" % state_str,
-            "data": {"state": check_state, "metrics": {}, "details": ""}}
+    tool = _lsi_available(ctx)
+    if tool == None:
+        return {"changed": False,
+                "msg": "no LSI/MegaRAID controller found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    res = _run_storcli(ctx, tool)
+    if res.rc != 0 and res.stdout == "":
+        return {"changed": False,
+                "msg": "no LSI/MegaRAID controller found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _parse_storcli(res.stdout)
+    arrays = section["arrays"]
+    state_val = arrays.get(item)
+    if state_val == None:
+        return {"changed": False,
+                "msg": "RAID volume %s not existing" % item,
+                "data": {"state": "CRIT", "metrics": {}, "details": "RAID volume %s not existing" % item}}
+    # Replicate check_lsi_array: OK if 'Okay(OKY)' else CRIT
+    if state_val == "Okay(OKY)":
+        verdict = "OK"
+    else:
+        verdict = "CRIT"
+    summary = "Status is '%s'" % state_val
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": verdict, "metrics": {}, "details": summary}}

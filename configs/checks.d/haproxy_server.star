@@ -1,8 +1,22 @@
+# HAProxy server discovery + check (read-only).
+# Reproduces the haproxy_server / haproxy_backend / haproxy_frontend checks
+# from the Checkmk haproxy agent section.
 
-# HAProxy status enums (matching Checkmk's library)
-HAProxyFrontendStatus = {
-    "OPEN": "OPEN",
-    "STOP": "STOP",
+# Default status -> state mapping (Checkmk states: 0=OK,1=WARN,2=CRIT,3=UNKNOWN)
+DEFAULT_SERVER_STATES = {
+    "UP": 0,
+    "DOWN": 2,
+    "NOLB": 2,
+    "MAINT": 2,
+    "MAINT (resolution)": 1,
+    "MAINT (via)": 1,
+    "DRAIN": 2,
+    "no check": 2,
+}
+
+DEFAULT_FRONTEND_STATES = {
+    "OPEN": 0,
+    "STOP": 2,
 }
 
 HAProxyServerStatus = {
@@ -10,215 +24,338 @@ HAProxyServerStatus = {
     "DOWN": "DOWN",
     "NOLB": "NOLB",
     "MAINT": "MAINT",
-    "MAINT_RES": "MAINT (resolution)",
-    "MAINT_VIA": "MAINT (via)",
+    "MAINT (resolution)": "MAINT (resolution)",
+    "MAINT (via)": "MAINT (via)",
     "DRAIN": "DRAIN",
-    "NO_CHECK": "no check",
+    "no check": "no check",
 }
 
-# Default states per status (OK=0, WARN=1, CRIT=2, UNKNOWN=3)
-DEFAULT_FRONTEND_STATES = {
-    "OPEN": 0,
-    "STOP": 2,
-}
-
-DEFAULT_SERVER_STATES = {
-    "UP": 0,
-    "DOWN": 2,
-    "NOLB": 2,
-    "MAINT": 2,
-    "MAINT_VIA": 1,
-    "MAINT_RES": 1,
-    "DRAIN": 2,
-    "NO_CHECK": 2,
+HAProxyFrontendStatus = {
+    "OPEN": "OPEN",
+    "STOP": "STOP",
 }
 
 
-def _parse_status(status_str, enum_dict, default_states):
-    """Convert string status to enum key, return None if invalid."""
-    for k in enum_dict.keys():
-        if status_str == k:
-            return k
+def _parse_int(val):
+    if val == None:
+        return None
+    s = val.strip()
+    if s == "":
+        return None
+    neg = False
+    body = s
+    if s.startswith("-"):
+        neg = True
+        body = s[1:]
+    if body.isdigit():
+        v = int(body)
+        return -v if neg else v
     return None
 
 
-def _get_state_from_params(status_key, params, default_states):
-    """Return State code from params or default_states."""
-    if status_key == None:
-        return 3  # UNKNOWN
-    
-    if params.get(status_key) != None:
-        return int(params.get(status_key))
-    elif status_key in default_states:
-        return int(default_states[status_key])
+def _status_to_enum(status, enum_map):
+    if status in enum_map:
+        return enum_map[status]
+    return status
+
+
+def _parse_haproxy(string_table):
+    backends = {}
+    frontends = {}
+    servers = {}
+    for line in string_table:
+        if len(line) <= 32 or line[32] not in ("0", "1", "2"):
+            continue
+        status = line[17]
+        if line[32] == "0":
+            name = line[0]
+            stot = _parse_int(line[7])
+            if stot == None:
+                continue
+            frontends[name] = {
+                "status": _status_to_enum(status, HAProxyFrontendStatus),
+                "stot": stot,
+            }
+        elif line[32] in ("1", "2"):
+            uptime = _parse_int(line[23])
+            active = _parse_int(line[19])
+            backup = _parse_int(line[20])
+            stot = _parse_int(line[7])
+            if stot == None:
+                continue
+            if line[32] == "1":
+                name = line[0]
+                backends[name] = {
+                    "status": _status_to_enum(status, HAProxyServerStatus),
+                    "uptime": uptime,
+                    "active": active,
+                    "backup": backup,
+                    "stot": stot,
+                }
+            elif line[32] == "2":
+                name = line[0] + "/" + line[1]
+                layer_check = line[36]
+                servers[name] = {
+                    "status": _status_to_enum(status, HAProxyServerStatus),
+                    "layer_check": layer_check,
+                    "uptime": uptime,
+                    "active": active,
+                    "backup": backup,
+                    "stot": stot,
+                }
+    return {"backends": backends, "frontends": frontends, "servers": servers}
+
+
+def _read_stats_socket(ctx):
+    sock_res = ctx.run(
+        ["curl", "-s", "--unix-socket", "/var/run/haproxy.sock",
+         "http:/127.0.0.1/haproxy?stats;csv"],
+        mutates=False,
+    )
+    lines = []
+    if sock_res.rc == 0 and sock_res.stdout != "" and sock_res.stdout != None:
+        raw = sock_res.stdout
+        for ln in raw.splitlines():
+            parts = ln.split(",")
+            if len(parts) > 0 and (parts[0].startswith("#") or parts[0] == ""):
+                continue
+            lines.append(parts)
+        return lines
+    ha_res = ctx.run(["ha", "stats", "csv"], mutates=False)
+    if ha_res.rc == 0 and ha_res.stdout != None:
+        for ln in ha_res.stdout.splitlines():
+            parts = ln.split(",")
+            if len(parts) > 0 and parts[0].startswith("#"):
+                continue
+            lines.append(parts)
+        return lines
+    return []
+
+
+def _discover_servers(section):
+    out = []
+    for key in section["servers"].keys():
+        out.append({
+            "item": key,
+            "params": dict(DEFAULT_SERVER_STATES),
+            "metrics": ["session_rate"],
+        })
+    return out
+
+
+def _discover_backends(section):
+    out = []
+    for key in section["backends"].keys():
+        out.append({
+            "item": key,
+            "params": dict(DEFAULT_SERVER_STATES),
+            "metrics": ["active_backends", "session_rate"],
+        })
+    return out
+
+
+def _discover_frontends(section):
+    out = []
+    for key in section["frontends"].keys():
+        out.append({
+            "item": key,
+            "params": dict(DEFAULT_FRONTEND_STATES),
+            "metrics": ["session_rate"],
+        })
+    return out
+
+
+def _format_timespan(seconds):
+    s = int(seconds)
+    if s < 0:
+        s = 0
+    d = s // 86400
+    h = (s % 86400) // 3600
+    m = (s % 3600) // 60
+    sec = s % 60
+    if d > 0:
+        return "%dd %dh %dm" % (d, h, m)
+    if h > 0:
+        return "%dh %dm %ds" % (h, m, sec)
+    if m > 0:
+        return "%dm %ds" % (m, sec)
+    return "%ds" % sec
+
+
+def _status_result(status, params, is_frontend):
+    if status == None:
+        return {"state": "UNKNOWN", "summary": "Unknown status", "metrics": {}, "details": ""}
+    enum_map = HAProxyFrontendStatus if is_frontend else HAProxyServerStatus
+    is_known = status in enum_map
+    if not is_known:
+        return {"state": "UNKNOWN", "summary": "Unknown status: " + str(status), "metrics": {}, "details": ""}
+    if status in params:
+        st = params[status]
+        if st == 0:
+            label = "OK"
+        elif st == 1:
+            label = "WARN"
+        elif st == 2:
+            label = "CRIT"
+        else:
+            label = "UNKNOWN"
+        return {"state": label, "summary": "Status: " + str(status), "metrics": {}, "details": ""}
+    return {"state": "WARN", "summary": "Status: " + str(status), "metrics": {}, "details": ""}
+
+
+def _worst_state(states):
+    worst = "OK"
+    for s in states:
+        if s == "CRIT":
+            worst = "CRIT"
+        elif s == "WARN" and worst != "CRIT":
+            worst = "WARN"
+        elif s == "UNKNOWN" and worst not in ("CRIT", "WARN"):
+            worst = "UNKNOWN"
+    return worst
+
+
+def _check_server(item, params, section):
+    data = section["servers"].get(item)
+    if data == None:
+        return {"state": "UNKNOWN", "summary": "no such server", "metrics": {}, "details": ""}
+    results = []
+    results.append(_status_result(data["status"], params, False))
+    active = data["active"]
+    backup = data["backup"]
+    if active:
+        results.append({"state": "OK", "summary": "Active", "metrics": {}, "details": ""})
+    elif backup:
+        results.append({"state": "OK", "summary": "Backup", "metrics": {}, "details": ""})
     else:
-        return 1  # WARN for unknown status
+        results.append({"state": "CRIT", "summary": "Neither active nor backup", "metrics": {}, "details": ""})
+    results.append({"state": "OK", "summary": "Layer Check: " + str(data["layer_check"]), "metrics": {}, "details": ""})
+    uptime = data["uptime"]
+    if uptime != None:
+        stateStr = "UP"
+        if isinstance(data["status"], str):
+            stateStr = data["status"]
+        results.append({"state": "OK", "summary": stateStr + " since " + _format_timespan(uptime), "metrics": {}, "details": ""})
+    merged_metrics = {}
+    stot = data["stot"]
+    if stot:
+        merged_metrics["session_rate"] = stot
+    states = []
+    summary_parts = []
+    for r in results:
+        states.append(r["state"])
+        summary_parts.append(r["summary"])
+        for k, v in r["metrics"].items():
+            merged_metrics[k] = v
+    worst = _worst_state(states)
+    return {"state": worst, "summary": ", ".join(summary_parts), "metrics": merged_metrics, "details": ""}
+
+
+def _check_backend(item, params, section):
+    data = section["backends"].get(item)
+    if data == None:
+        return {"state": "UNKNOWN", "summary": "no such backend", "metrics": {}, "details": ""}
+    results = []
+    results.append(_status_result(data["status"], params, False))
+    active = data["active"]
+    backup = data["backup"]
+    if active:
+        results.append({"state": "OK", "summary": "Active", "metrics": {"active_backends": active}, "details": ""})
+    elif backup:
+        results.append({"state": "OK", "summary": "Backup", "metrics": {}, "details": ""})
+    else:
+        results.append({"state": "OK", "summary": "Neither active nor backup", "metrics": {}, "details": ""})
+    uptime = data["uptime"]
+    if uptime != None:
+        stateStr = "UP"
+        if isinstance(data["status"], str):
+            stateStr = data["status"]
+        results.append({"state": "OK", "summary": stateStr + " since " + _format_timespan(uptime), "metrics": {}, "details": ""})
+    merged_metrics = {}
+    stot = data["stot"]
+    if stot:
+        merged_metrics["session_rate"] = stot
+    if active:
+        merged_metrics["active_backends"] = active
+    states = []
+    summary_parts = []
+    for r in results:
+        states.append(r["state"])
+        summary_parts.append(r["summary"])
+        for k, v in r["metrics"].items():
+            merged_metrics[k] = v
+    worst = _worst_state(states)
+    return {"state": worst, "summary": ", ".join(summary_parts), "metrics": merged_metrics, "details": ""}
+
+
+def _check_frontend(item, params, section):
+    data = section["frontends"].get(item)
+    if data == None:
+        return {"state": "UNKNOWN", "summary": "no such frontend", "metrics": {}, "details": ""}
+    results = []
+    results.append(_status_result(data["status"], params, True))
+    merged_metrics = {}
+    stot = data["stot"]
+    if stot:
+        merged_metrics["session_rate"] = stot
+    states = []
+    summary_parts = []
+    for r in results:
+        states.append(r["state"])
+        summary_parts.append(r["summary"])
+        for k, v in r["metrics"].items():
+            merged_metrics[k] = v
+    worst = _worst_state(states)
+    return {"state": worst, "summary": ", ".join(summary_parts), "metrics": merged_metrics, "details": ""}
 
 
 def main(ctx, params):
+    ha_res = ctx.run(["ha", "--version"], mutates=False)
+    sock_stat = ctx.stat("/var/run/haproxy.sock")
+    has_ha = ha_res.rc == 0
+    has_sock = (sock_stat != None) and sock_stat.get("exists", False)
+    if not has_ha and not has_sock:
+        return {"changed": False, "msg": "HAProxy not installed", "data": {"discovery": []}}
     if params.get("_discover"):
-        # Discovery: gather HAProxy socket data via stats socket
-        socket_path = params.get("socket", "/var/run/haproxy.sock")
-        cmd = ["socat", "-u", socket_path, "STDOUT"]
-        res = ctx.run(cmd, mutates=False)
-        if res.rc != 0 or not res.stdout:
-            # No HAProxy stats available - return empty discovery
-            return {"changed": False, "msg": "no HAProxy data available", 
-                    "data": {"discovery": []}}
-        
-        # Parse CSV stats output (same format as Checkmk agent plugin expects)
-        lines = res.stdout.splitlines()
-        if len(lines) == 0:
-            return {"changed": False, "msg": "no HAProxy data available", 
-                    "data": {"discovery": []}}
-        
-        # First line is header; skip it
-        header = lines[0].split(',')
-        if len(header) <= 32:
-            return {"changed": False, "msg": "invalid HAProxy stats format", 
-                    "data": {"discovery": []}}
-        
-        # Find column indices
-        type_col = 32
-        name_col = 0
-        frontend_name_col = 1
-        
-        # Discover backends (type '2') and servers (type '3')
-        discovered = []
-        for line in lines[1:]:
-            fields = line.split(',')
-            if len(fields) <= type_col:
-                continue
-            typ = fields[type_col].strip()
-            if typ == '2':  # backend
-                item = fields[name_col].strip()
-                discovered.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": ["active_backends", "session_rate"]
-                })
-            elif typ == '3':  # server
-                item = fields[name_col].strip() + "/" + fields[frontend_name_col].strip()
-                discovered.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": ["active_backends", "session_rate"]
-                })
-        
-        return {"changed": False, "msg": "discovered %d HAProxy items" % len(discovered),
-                "data": {"discovery": discovered}}
-
-    # Check mode
-    item = params.get("item", "")
-    socket_path = params.get("socket", "/var/run/haproxy.sock")
-    cmd = ["socat", "-u", socket_path, "STDOUT"]
-    res = ctx.run(cmd, mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "no HAProxy data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse CSV stats
-    lines = res.stdout.splitlines()
-    if len(lines) <= 1:
-        return {"changed": False, "msg": "no HAProxy data available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    header = lines[0].split(',')
-    type_col = 32
-    name_col = 0
-    frontend_name_col = 1
-    status_col = 17
-    stot_col = 7
-    uptime_col = 23
-    active_col = 19
-    backup_col = 20
-    layer_check_col = 36
-
-    # Look for our item
-    server_data = None
-    for line in lines[1:]:
-        fields = line.split(',')
-        if len(fields) <= type_col:
-            continue
-        
-        item_name = ""
-        if fields[type_col].strip() == "2":  # backend
-            item_name = fields[name_col].strip()
-        elif fields[type_col].strip() == "3":  # server
-            item_name = fields[name_col].strip() + "/" + fields[frontend_name_col].strip()
-        
-        if item_name == item:
-            status_str = fields[status_col].strip()
-            stot_str = fields[stot_col].strip()
-            uptime_str = fields[uptime_col].strip() if len(fields) > uptime_col else ""
-            active_str = fields[active_col].strip() if len(fields) > active_col else ""
-            backup_str = fields[backup_col].strip() if len(fields) > backup_col else ""
-            layer_check_str = fields[layer_check_col].strip() if len(fields) > layer_check_col else ""
-
-            server_data = {
-                "status": status_str,
-                "stot": int(stot_str) if stot_str.isdigit() else None,
-                "uptime": int(uptime_str) if uptime_str.isdigit() else None,
-                "active": int(active_str) if active_str.isdigit() else None,
-                "backup": int(backup_str) if backup_str.isdigit() else None,
-                "layer_check": layer_check_str,
-            }
-            break
-
-    if server_data == None:
-        return {"changed": False, "msg": "item not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    status = server_data["status"]
-    status_key = _parse_status(status, HAProxyServerStatus, DEFAULT_SERVER_STATES)
-    state_code = _get_state_from_params(status_key, params, DEFAULT_SERVER_STATES)
-    state = "UNKNOWN" if state_code == 3 else ("OK" if state_code == 0 else ("WARN" if state_code == 1 else "CRIT"))
-    
-    summary_parts = []
-    if status_key == None:
-        summary_parts.append("Unknown status: " + status)
-        state = "UNKNOWN"
-    else:
-        summary_parts.append("Status: " + HAProxyServerStatus.get(status_key, status))
-    
-    # Determine active/backup status
-    if server_data["active"] != None:
-        summary_parts.append("Active")
-        if server_data["active"] > 0:
-            # Active backends metric (only for backends)
-            if server_data["active"] > 0 and status_key == "BACKEND":
-                pass  # metric will be added below
-    
-    if server_data["active"] == None and server_data["backup"] != None and server_data["backup"] > 0:
-        summary_parts.append("Backup")
-    
-    if server_data["active"] == None and server_data["backup"] == None:
-        summary_parts.append("Neither active nor backup")
-        if status_key != None:
-            state = "CRIT"
-
-    if server_data["layer_check"] != None and server_data["layer_check"] != "":
-        summary_parts.append("Layer Check: " + server_data["layer_check"])
-
-    if server_data["uptime"] != None:
-        if status_key != None:
-            state_str = HAProxyServerStatus.get(status_key, status)
+        lines = _read_stats_socket(ctx)
+        section = _parse_haproxy(lines)
+        kind = params.get("kind", "server")
+        if kind == "server":
+            discovery = _discover_servers(section)
+        elif kind == "backend":
+            discovery = _discover_backends(section)
+        elif kind == "frontend":
+            discovery = _discover_frontends(section)
         else:
-            state_str = status
-        summary_parts.append("%s since %ds" % (state_str, server_data["uptime"]))
-
-    # Compute session rate (simplified - without value store persistence across calls)
-    # We'll just report the raw stot as a counter; in real checkmk this would be rate-computed
-    # Since we can't persist state, just report the stot value directly as a metric
-    metrics = {}
-    if server_data["stot"] != None:
-        metrics["stot"] = server_data["stot"]
-        summary_parts.append("Session rate: %d" % server_data["stot"])
-
-    if server_data["active"] != None:
-        metrics["active_backends"] = server_data["active"]
-        summary_parts.append("Active backends: %d" % server_data["active"])
-
-    msg = ", ".join(summary_parts)
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+            discovery = _discover_servers(section)
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery,
+                     "host_labels": {"cmk/haproxy_kind": kind}},
+        }
+    item = params.get("item", "")
+    kind = params.get("kind", "server")
+    lines = _read_stats_socket(ctx)
+    section = _parse_haproxy(lines)
+    if kind == "server":
+        params_used = dict(DEFAULT_SERVER_STATES)
+    elif kind == "backend":
+        params_used = dict(DEFAULT_SERVER_STATES)
+    else:
+        params_used = dict(DEFAULT_FRONTEND_STATES)
+    if kind == "server":
+        result = _check_server(item, params_used, section)
+    elif kind == "backend":
+        result = _check_backend(item, params_used, section)
+    else:
+        result = _check_frontend(item, params_used, section)
+    return {
+        "changed": False,
+        "msg": result["summary"],
+        "data": {
+            "state": result["state"],
+            "metrics": result["metrics"],
+            "details": result["details"],
+        },
+    }

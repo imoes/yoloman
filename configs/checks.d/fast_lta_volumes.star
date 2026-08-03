@@ -1,181 +1,216 @@
-# Module-level constants (no imports, no try/except)
-DEFAULT_WARN = 80.0
-DEFAULT_CRIT = 90.0
-DEFAULT_INODE_WARN = 80.0
-DEFAULT_INODE_CRIT = 90.0
+def _df_check_filesystem_list(fslist_blocks, item, warn, crit):
+    # Determine the filesystem block data
+    # fslist_blocks: list of (volname, size_mb, free_mb, reserved)
+    size_mb = 0.0
+    free_mb = 0.0
+    for block in fslist_blocks:
+        # block is (volname, size_mb, free_mb, reserved)
+        size_mb = block[1]
+        free_mb = block[2]
+        break
+    if size_mb <= 0:
+        used_pct = 0.0
+    else:
+        used_pct = ((size_mb - free_mb) / size_mb) * 100.0
+
+    if used_pct >= crit:
+        state = "CRIT"
+    elif used_pct >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+    return state, used_pct
 
 def main(ctx, params):
-    # Discovery mode: enumerate all volumes
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.27417.5.1.1.2"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed for fast_lta_volumes: " + res.stderr)
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        # Check if the SNMP agent is reachable / product is present
+        # Use the sysoid probe first (Fastlane/LTA detection)
+        sysoid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysoid_res.rc != 0:
+            return {"changed": False, "msg": "not present", "data": {"discovery": []}}
 
-        # Extract volume names from SNMP output
-        # Format: .1.3.6.1.4.1.27417.5.1.1.2.<idx> = STRING: "<volname>"
-        volumes = []
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # Split once on '=' to separate OID from value
-            parts = line.split("=", 1)
+        # Probe for the Fastlane/LTA OID
+        detect_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-On", host, ".1.3.6.1.4.1.27417.5.1.1.2.0"],
+            mutates=False,
+        )
+        if detect_res.rc != 0:
+            return {"changed": False, "msg": "not present", "data": {"discovery": []}}
+
+        # Walk the volume table: base .1.3.6.1.4.1.27417.5.1.1, OIDs 2 (name), 9 (quota), 11 (used)
+        name_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.27417.5.1.1.2"],
+            mutates=False,
+        )
+        quota_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.27417.5.1.1.9"],
+            mutates=False,
+        )
+        used_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.27417.5.1.1.11"],
+            mutates=False,
+        )
+
+        volname_map = {}
+        for line in name_res.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) != 2:
                 continue
-            value_part = parts[1].strip()
-            # Extract string value (remove quotes)
-            if value_part.startswith('"') and value_part.endswith('"'):
-                volname = value_part[1:-1]
-            else:
-                # Fallback: use raw value if not quoted
-                volname = value_part
-            volumes.append(volname)
+            oid, val = parts[0], parts[1]
+            idx = oid[len(".1.3.6.1.4.1.27417.5.1.1.2") + 1:]
+            name_str = val.strip().strip('"').strip()
+            volname_map[idx] = name_str
 
-        discovery_items = []
-        for volname in volumes:
-            discovery_items.append({
-                "item": volname,
-                "params": {
-                    "levels": (DEFAULT_WARN, DEFAULT_CRIT),
-                    "levels_low": (None, None),
-                    "trend_range": 24,
-                    "trend_perfdata": True
-                },
-                "metrics": ["used_percent"]
-            })
+        quota_map = {}
+        for line in quota_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid, val = parts[0], parts[1]
+            idx = oid[len(".1.3.6.1.4.1.27417.5.1.1.9") + 1:]
+            quota_map[idx] = val
+
+        used_map = {}
+        for line in used_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid, val = parts[0], parts[1]
+            idx = oid[len(".1.3.6.1.4.1.27417.5.1.1.11") + 1:]
+            used_map[idx] = val
+
+        discovery = []
+        seen = set()
+        for idx in volname_map:
+            if idx in quota_map and idx in used_map:
+                volname = volname_map[idx]
+                if volname in seen:
+                    continue
+                seen.add(volname)
+                discovery.append({
+                    "item": volname,
+                    "params": {"levels": params.get("levels", (80, 90))},
+                    "metrics": ["used_percent", "size", "free"],
+                })
 
         return {
             "changed": False,
-            "msg": "discovered %d volumes" % len(volumes),
-            "data": {"discovery": discovery_items}
+            "msg": "discovered %d volumes" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    # Check mode: evaluate one volume
     item = params.get("item", "")
-    # Get thresholds from params (Checkmk defaults for filesystem checks)
-    levels = params.get("levels", (DEFAULT_WARN, DEFAULT_CRIT))
-    warn, crit = levels if isinstance(levels, (list, tuple)) and len(levels) >= 2 else (DEFAULT_WARN, DEFAULT_CRIT)
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    # Fetch both volume quota and used values via snmpget (OIDs .2 and .11)
-    # We need to get both values for the specific item (volume name index)
-    # First get the index for this volume name
-    res_idx = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.27417.5.1.1.2"
-    ], mutates=False)
-    if res_idx.rc != 0:
-        return {
-            "changed": False,
-            "msg": "volume %s: SNMP fetch failed" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Re-walk the three columns to gather data for this specific item
+    name_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.27417.5.1.1.2"],
+        mutates=False,
+    )
+    quota_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.27417.5.1.1.9"],
+        mutates=False,
+    )
+    used_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.27417.5.1.1.11"],
+        mutates=False,
+    )
 
-    # Find the index for the volume name
-    vol_idx = -1
-    for line in res_idx.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split("=", 1)
+    name_map = {}
+    for line in name_res.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) != 2:
             continue
-        value_part = parts[1].strip()
-        # Extract string value (remove quotes)
-        if value_part.startswith('"') and value_part.endswith('"'):
-            volname = value_part[1:-1]
-        else:
-            volname = value_part
+        oid, val = parts[0], parts[1]
+        idx = oid[len(".1.3.6.1.4.1.27417.5.1.1.2") + 1:]
+        name_map[idx] = val.strip().strip('"').strip()
 
+    quota_map = {}
+    for line in quota_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid, val = parts[0], parts[1]
+        idx = oid[len(".1.3.6.1.4.1.27417.5.1.1.9") + 1:]
+        quota_map[idx] = val
+
+    used_map = {}
+    for line in used_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid, val = parts[0], parts[1]
+        idx = oid[len(".1.3.6.1.4.1.27417.5.1.1.11") + 1:]
+        used_map[idx] = val
+
+    # Find the index for this item
+    target_idx = None
+    for idx, volname in name_map.items():
         if volname == item:
-            # Extract the last number from the OID (e.g., ".1.3.6.1.4.1.27417.5.1.1.2.5" -> "5")
-            oid = parts[0].strip()
-            if "." in oid:
-                vol_idx = oid.rsplit(".", 1)[1]
+            target_idx = idx
             break
 
-    if vol_idx == -1:
+    if target_idx == None:
         return {
             "changed": False,
-            "msg": "volume %s: not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such volume: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Now fetch quota and used values for this index
-    res_quota = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.27417.5.1.1.9.%s" % vol_idx
-    ], mutates=False)
-    res_used = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.27417.5.1.1.11.%s" % vol_idx
-    ], mutates=False)
-
-    if res_quota.rc != 0 or res_used.rc != 0:
+    quota_str = quota_map.get(target_idx, "")
+    used_str = used_map.get(target_idx, "")
+    if quota_str == "" or used_str == "":
         return {
             "changed": False,
-            "msg": "volume %s: SNMP fetch failed" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "incomplete data for volume: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Parse quota and used values
-    def parse_snmp_value(line):
-        parts = line.strip().split("=", 1)
-        if len(parts) != 2:
-            return None
-        value_part = parts[1].strip()
-        # Extract number (remove trailing characters if needed)
-        # Common formats: "INTEGER: 1234567890", "Gauge32: 1234567890", "1234567890"
-        if ":" in value_part:
-            value_part = value_part.split(":", 1)[1].strip()
-        # Remove any remaining non-digit characters except minus
-        clean_value = ""
-        for c in value_part:
-            if c.isdigit() or (c == "-" and not clean_value):
-                clean_value += c
-        return int(clean_value) if clean_value else None
+    # Convert to bytes; parse values (strip type tags if present)
+    def _clean_num(s):
+        s = s.strip()
+        if s.startswith('"') and s.endswith('"'):
+            s = s[1:-1]
+        return int(s) if s.isdigit() else 0
 
-    quota_bytes = parse_snmp_value(res_quota.stdout)
-    used_bytes = parse_snmp_value(res_used.stdout)
+    quota_bytes = _clean_num(quota_str)
+    used_bytes = _clean_num(used_str)
+    size_mb = quota_bytes / 1048576.0
+    free_mb = (quota_bytes - used_bytes) / 1048576.0
 
-    if quota_bytes == None or used_bytes == None or quota_bytes <= 0:
-        return {
-            "changed": False,
-            "msg": "volume %s: invalid data" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    levels = params.get("levels", (80, 90))
+    warn = levels[0] if type(levels) == "list" or type(levels) == "tuple" else 80
+    if type(levels) == "dict":
+        warn = levels.get("warn", 80)
+        crit = levels.get("crit", 90)
+    else:
+        warn = levels[0]
+        crit = levels[1]
 
-    # Calculate values in MB (same as original parse_fast_lta_volumes)
-    quota_mb = float(quota_bytes) / 1048576.0
-    free_mb = float(quota_bytes - used_bytes) / 1048576.0
-    used_mb = float(used_bytes) / 1048576.0
+    if size_mb <= 0:
+        used_pct = 0.0
+    else:
+        used_pct = ((size_mb - free_mb) / size_mb) * 100.0
 
-    # Calculate used_percent
-    used_percent = (float(used_bytes) / float(quota_bytes)) * 100.0
-
-    # Determine state based on thresholds (upper levels)
-    if used_percent >= crit:
+    if used_pct >= crit:
         state = "CRIT"
-    elif used_percent >= warn:
+    elif used_pct >= warn:
         state = "WARN"
     else:
         state = "OK"
 
-    # Build message (Checkmk-style: "Size: 1.2 MB, Age: 5 m")
-    msg = "Size: %f MB, Used: %f MB (%f%%)" % (quota_mb, used_mb, used_percent)
-
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "%s %f%% used (%f MB of %f MB)" % (item, used_pct, size_mb - free_mb, size_mb),
         "data": {
             "state": state,
-            "metrics": {"used_percent": used_percent},
-            "details": ""
-        }
+            "metrics": {"used_percent": used_pct, "size": size_mb, "free": free_mb},
+            "details": "",
+        },
     }

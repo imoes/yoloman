@@ -1,104 +1,102 @@
-OID_DESC = ".1.3.6.1.4.1.14823.2.2.1.1.1.9.1.2"
-OID_UTIL = ".1.3.6.1.4.1.14823.2.2.1.1.1.9.1.3"
-
-def _snmp_val(raw):
-    pos = raw.find(": ")
-    val = raw[pos + 2:].strip() if pos >= 0 else raw.strip()
-    if val.startswith('"') and val.endswith('"'):
-        val = val[1:-1]
-    return val
-
-def _snmp_idx(oid):
-    dot = oid.rfind(".")
-    return oid[dot + 1:] if dot >= 0 else oid
-
-def _walk_map(ctx, host, community, base_oid):
-    res = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid],
-        mutates=False,
-    )
-    result = {}
-    if res.rc != 0:
-        return result
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        eq = line.find(" = ")
-        if eq < 0:
-            continue
-        oid = line[:eq].strip()
-        val = _snmp_val(line[eq + 3:])
-        result[_snmp_idx(oid)] = val
-    return result
-
-def _to_float(s):
-    neg = s.startswith("-")
-    core = s[1:] if neg else s
-    dot = core.find(".")
-    if dot >= 0:
-        ip = core[:dot]
-        fp = core[dot + 1:]
-        ok = (ip == "" or ip.isdigit()) and (fp == "" or fp.isdigit())
-    else:
-        ok = core != "" and core.isdigit()
-    if not ok:
-        return None
-    return float(s)
-
-def _collect_items(ctx, params):
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-    descs = _walk_map(ctx, host, community, OID_DESC)
-    utils = _walk_map(ctx, host, community, OID_UTIL)
-    items = {}
-    for idx, desc in descs.items():
-        if idx in utils:
-            v = _to_float(utils[idx])
-            if v != None:
-                items[desc] = v
-    return items
-
 def main(ctx, params):
     if params.get("_discover"):
-        items = _collect_items(ctx, params)
-        out = [
-            {
-                "item": it,
-                "params": {"levels": [80.0, 90.0]},
-                "metrics": ["util"],
-            }
-            for it in sorted(items.keys())
-        ]
-        return {
-            "changed": False,
-            "msg": "discovered %d CPU items" % len(out),
-            "data": {"discovery": out},
-        }
-
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        base_oid = ".1.3.6.1.4.1.14823.2.2.1.1.1.9.1"
+        col_desc = base_oid + ".2"
+        col_val = base_oid + ".3"
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_desc], mutates=False)
+        if walk.rc != 0 or not walk.stdout.strip():
+            return {"changed": False, "msg": "no aruba cpu data", "data": {"discovery": []}}
+        names = {}
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            val = parts[1]
+            index = oid[len(col_desc):]
+            if len(index) > 0 and index[0] == ".":
+                index = index[1:]
+            names[index] = val
+        out = []
+        for index in names:
+            val_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col_val + "." + index], mutates=False)
+            if val_res.rc != 0 or not val_res.stdout.strip():
+                continue
+            v = val_res.stdout.strip()
+            v_clean = _safe_float(v)
+            if v_clean == None:
+                continue
+            out.append({"item": names[index], "params": {"levels": [80.0, 90.0]}, "metrics": ["cpu_util"]})
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
     item = params.get("item", "")
-    items = _collect_items(ctx, params)
-
-    if item not in items:
-        return {
-            "changed": False,
-            "msg": "item not found in SNMP data: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    util = items[item]
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.14823.2.2.1.1.1.9.1"
+    col_desc = base_oid + ".2"
+    col_val = base_oid + ".3"
+    walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_desc], mutates=False)
+    if walk.rc != 0 or not walk.stdout.strip():
+        return {"changed": False, "msg": "no aruba cpu data: snmpwalk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    found_index = None
+    for line in walk.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        oid = parts[0]
+        val = parts[1]
+        if val != item:
+            continue
+        index = oid[len(col_desc):]
+        if len(index) > 0 and index[0] == ".":
+            index = index[1:]
+        found_index = index
+        break
+    if found_index == None:
+        return {"changed": False, "msg": "no such cpu item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    val_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col_val + "." + found_index], mutates=False)
+    if val_res.rc != 0 or not val_res.stdout.strip():
+        return {"changed": False, "msg": "no cpu util value for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    v = val_res.stdout.strip()
+    util = _safe_float(v)
+    if util == None:
+        return {"changed": False, "msg": "cannot parse cpu util: " + v, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     levels = params.get("levels", [80.0, 90.0])
-    warn = float(levels[0])
-    crit = float(levels[1])
+    warn = 80.0
+    crit = 90.0
+    if type(levels) == "list" or type(levels) == "tuple":
+        if len(levels) >= 1:
+            warn = float(levels[0])
+        if len(levels) >= 2:
+            crit = float(levels[1])
+    state = "OK"
+    if util >= crit:
+        state = "CRIT"
+    elif util >= warn:
+        state = "WARN"
+    return {"changed": False, "msg": "CPU utilization %s: %f%%" % (item, util), "data": {"state": state, "metrics": {"cpu_util": util}, "details": ""}}
 
-    state = "CRIT" if util >= crit else ("WARN" if util >= warn else "OK")
-
-    return {
-        "changed": False,
-        "msg": "CPU utilization %s: %f%%" % (item, util),
-        "data": {
-            "state": state,
-            "metrics": {"util": util},
-            "details": "",
-        },
-    }
+def _safe_float(s):
+    s = s.strip()
+    if not s:
+        return None
+    neg = False
+    body = s
+    if s[0] == "-":
+        neg = True
+        body = s[1:]
+    if len(body) == 0:
+        return None
+    parts = body.split(".", 1)
+    if len(parts) > 2:
+        return None
+    for p in parts:
+        if len(p) == 0:
+            return None
+        if not p.isdigit():
+            return None
+    f = float(s)
+    if neg:
+        f = -f
+    return f

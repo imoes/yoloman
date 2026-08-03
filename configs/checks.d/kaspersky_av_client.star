@@ -1,156 +1,192 @@
-# Module: kaspersky_av_client.star
-# Read-only check for Kaspersky AV client status
-# Discovery: yields one service if data is present
-# Check: reports age of signatures and last fullscan, plus failure state
+def _render_timespan(seconds):
+    seconds = int(seconds)
+    if seconds < 0:
+        seconds = 0
+    days = seconds // 86400
+    hours = (seconds % 86400) // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+    if days > 0:
+        return "%dd %dh %dm" % (days, hours, minutes)
+    if hours > 0:
+        return "%dh %dm %ds" % (hours, minutes, secs)
+    if minutes > 0:
+        return "%dm %ds" % (minutes, secs)
+    return "%ds" % secs
+
+
+def _parse_datetime(date_text, time_text):
+    # date_text: "DD.MM.YYYY", time_text: "HH:MM:SS"
+    parts = date_text.split(".")
+    if len(parts) != 3:
+        return None
+    day_str, month_str, year_str = parts
+    if not (day_str.isdigit() and month_str.isdigit() and year_str.isdigit()):
+        return None
+    day = int(day_str)
+    month = int(month_str)
+    year = int(year_str)
+    tparts = time_text.split(":")
+    if len(tparts) != 3:
+        return None
+    if not (tparts[0].isdigit() and tparts[1].isdigit() and tparts[2].isdigit()):
+        return None
+    hour = int(tparts[0])
+    minute = int(tparts[1])
+    second = int(tparts[2])
+    if month < 1 or month > 12:
+        return None
+    if day < 1 or day > 31:
+        return None
+    if hour < 0 or hour > 23:
+        return None
+    if minute < 0 or minute > 59:
+        return None
+    if second < 0 or second > 59:
+        return None
+    days_in_month = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if day > days_in_month[month - 1]:
+        return None
+    # Compute epoch using days from 1970-01-01
+    total_days = 0
+    for y in range(1970, year):
+        if _is_leap(y):
+            total_days += 366
+        else:
+            total_days += 365
+    for m in range(1, month):
+        total_days += days_in_month[m - 1]
+    total_days += day - 1
+    return total_days * 86400 + hour * 3600 + minute * 60 + second
+
+
+def _is_leap(y):
+    return (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0)
+
 
 def main(ctx, params):
-    # Always run discovery first if requested
+    # Probe for the real Kaspersky AV client on this host
+    probe = ctx.run(["klnagchk", "-p"], mutates=False)
+    if probe.rc == 127 or (probe.rc != 0 and not probe.stdout):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        return {"changed": False, "msg": "klnagchk not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Get current time as epoch seconds
+    now_res = ctx.run(["date", "+%s"], mutates=False)
+    if not now_res.stdout or not now_res.stdout.strip().isdigit():
+        current_time = 0.0
+    else:
+        current_time = float(now_res.stdout.strip())
+
+    section = {}
+    if probe.rc == 0 and probe.stdout:
+        for line in probe.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 2 or parts[1] == "Missing":
+                continue
+            date_text = parts[1]
+            time_text = parts[2] if len(parts) > 2 else "00:00:00"
+            parsed_time = _parse_datetime(date_text, time_text)
+            if parsed_time == None:
+                continue
+            age = current_time - parsed_time
+            if parts[0] == "Signatures":
+                section["signature_age"] = age
+            elif parts[0] == "Fullscan":
+                section["fullscan_age"] = age
+                if len(parts) == 4:
+                    section["fullscan_failed"] = parts[3] != "0"
+
     if params.get("_discover"):
-        section = _gather_kaspersky_av_data(ctx)
-        if len(section) > 0:
+        if section:
             return {
                 "changed": False,
-                "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
+                "msg": "discovered 1 item",
+                "data": {
+                    "discovery": [
+                        {
+                            "item": "",
+                            "params": {
+                                "signature_age": (86400, 7 * 86400),
+                                "fullscan_age": (86400, 7 * 86400),
+                            },
+                            "metrics": ["signature_age", "fullscan_age"],
+                        }
+                    ],
+                    "host_labels": {},
+                },
             }
-        else:
-            return {
-                "changed": False,
-                "msg": "no Kaspersky AV data available",
-                "data": {"discovery": []}
-            }
+        return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
 
-    # Normal check mode for the single service
-    section = _gather_kaspersky_av_data(ctx)
-    if len(section) == 0:
-        return {
-            "changed": False,
-            "msg": "no Kaspersky AV data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    sig_levels = params.get("signature_age", (86400, 7 * 86400))
+    full_levels = params.get("fullscan_age", (86400, 7 * 86400))
 
-    # Thresholds with Checkmk defaults
-    sig_warn = params.get("signature_age", [86400, 7 * 86400])[0]
-    sig_crit = params.get("signature_age", [86400, 7 * 86400])[1]
-    scan_warn = params.get("fullscan_age", [86400, 7 * 86400])[0]
-    scan_crit = params.get("fullscan_age", [86400, 7 * 86400])[1]
+    results = []
 
-    # Check signature age
     sig_age = section.get("signature_age")
-    sig_state = "OK"
-    sig_summary = ""
     if sig_age == None:
-        sig_state = "UNKNOWN"
-        sig_summary = "Last update of signatures unknown"
-    elif sig_age >= sig_crit:
-        sig_state = "CRIT"
-        sig_summary = "Last update of signatures: %d seconds ago (>%d)" % (sig_age, sig_crit)
-    elif sig_age >= sig_warn:
-        sig_state = "WARN"
-        sig_summary = "Last update of signatures: %d seconds ago (>%d)" % (sig_age, sig_warn)
+        results.append({"state": "UNKNOWN", "summary": "Last update of signatures unkown", "details": "", "metrics": {}})
     else:
-        sig_summary = "Last update of signatures: %d seconds ago" % sig_age
+        state = "OK"
+        if sig_age >= sig_levels[1]:
+            state = "CRIT"
+        elif sig_age >= sig_levels[0]:
+            state = "WARN"
+        results.append({
+            "state": state,
+            "summary": "Last update of signatures: %s ago" % _render_timespan(sig_age),
+            "details": "",
+            "metrics": {"signature_age": sig_age},
+        })
 
-    # Check fullscan age
-    scan_age = section.get("fullscan_age")
-    scan_state = "OK"
-    scan_summary = ""
-    if scan_age == None:
-        scan_state = "OK"  # don't downgrade OK if age is missing
-        scan_summary = ""
-    elif scan_age >= scan_crit:
-        scan_state = "CRIT"
-        scan_summary = "Last fullscan: %d seconds ago (>%d)" % (scan_age, scan_crit)
-    elif scan_age >= scan_warn:
-        scan_state = "WARN"
-        scan_summary = "Last fullscan: %d seconds ago (>%d)" % (scan_age, scan_warn)
+    full_age = section.get("fullscan_age")
+    if full_age == None:
+        results.append({"state": "UNKNOWN", "summary": "Last fullscan unkown", "details": "", "metrics": {}})
     else:
-        scan_summary = "Last fullscan: %d seconds ago" % scan_age
+        state = "OK"
+        if full_age >= full_levels[1]:
+            state = "CRIT"
+        elif full_age >= full_levels[0]:
+            state = "WARN"
+        results.append({
+            "state": state,
+            "summary": "Last fullscan: %s ago" % _render_timespan(full_age),
+            "details": "",
+            "metrics": {"fullscan_age": full_age},
+        })
 
-    # Build final state and message
-    final_state = "OK"
-    summaries = []
+    if section.get("fullscan_failed"):
+        results.append({"state": "CRIT", "summary": "Last fullscan failed", "details": "", "metrics": {}})
 
-    # State precedence: UNKNOWN > CRIT > WARN > OK
-    if sig_state == "UNKNOWN" or scan_state == "UNKNOWN":
-        final_state = "UNKNOWN"
-    elif sig_state == "CRIT" or scan_state == "CRIT":
-        final_state = "CRIT"
-    elif sig_state == "WARN" or scan_state == "WARN":
-        final_state = "WARN"
+    if len(results) == 0:
+        return {"changed": False, "msg": "no kaspersky data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if sig_age != None:
-        summaries.append(sig_summary)
-    if scan_age != None:
-        summaries.append(scan_summary)
-
-    # Fullscan failure check
-    if section.get("fullscan_failed", False):
-        summaries.append("Last fullscan failed")
-        if final_state != "UNKNOWN":
-            final_state = "CRIT"
-
-    msg = "; ".join(summaries) if len(summaries) > 0 else "No status information"
-    metrics = {}
-    if sig_age != None:
-        metrics["signature_age"] = sig_age
-    if scan_age != None:
-        metrics["fullscan_age"] = scan_age
+    state_priority = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    worst_state = "OK"
+    worst_summary = ""
+    all_metrics = {}
+    all_details = []
+    for r in results:
+        r_pri = state_priority.get(r["state"], 3)
+        w_pri = state_priority.get(worst_state, 0)
+        if r_pri > w_pri:
+            worst_state = r["state"]
+            worst_summary = r["summary"]
+        elif r_pri == w_pri and r_pri > 0:
+            worst_summary = r["summary"]
+        elif worst_state == "OK" and r["state"] == "OK" and worst_summary == "":
+            worst_summary = r["summary"]
+        all_metrics.update(r["metrics"])
+        if r["details"]:
+            all_details.append(r["details"])
 
     return {
         "changed": False,
-        "msg": msg,
-        "data": {"state": final_state, "metrics": metrics, "details": ""}
+        "msg": worst_summary,
+        "data": {
+            "state": worst_state,
+            "metrics": all_metrics,
+            "details": "\n".join(all_details),
+        },
     }
-
-
-def _gather_kaspersky_av_data(ctx):
-    """
-    Gather Kaspersky AV data by parsing:
-    - Signatures: <date> <time> (e.g., "26.10.2025 14:30:00")
-    - Fullscan:   <date> <time> <exit_code> (e.g., "26.10.2025 13:00:00 0")
-    via klbackup.exe or similar (Checkmk uses 'klbackup' command in agent plugin)
-    """
-    # Use klbackup.exe as per Checkmk agent plugin
-    res = ctx.run(["klbackup"], mutates=False)
-    if res.rc != 0:
-        return {}
-
-    lines = res.stdout.splitlines()
-    parsed = {}
-    now_res = ctx.run(["date", "+%s"], mutates=False)
-    now = 0
-    if now_res.rc == 0 and now_res.stdout.strip() != "":
-        now = float(now_res.stdout.strip())
-
-    for line in lines:
-        parts = line.strip().split()
-        if len(parts) < 2:
-            continue
-
-        if parts[0] == "Signatures":
-            date_text = parts[1]
-            time_text = parts[2] if len(parts) > 2 else "00:00:00"
-            timestamp_str = date_text + " " + time_text
-            # Use date command to parse timestamp
-            epoch_cmd = ["date", "+%s", "-d", timestamp_str]
-            epoch_res = ctx.run(epoch_cmd, mutates=False)
-            if epoch_res.rc == 0 and epoch_res.stdout.strip() != "":
-                age = now - float(epoch_res.stdout.strip())
-                parsed["signature_age"] = age
-
-        elif parts[0] == "Fullscan":
-            date_text = parts[1]
-            time_text = parts[2] if len(parts) > 2 else "00:00:00"
-            timestamp_str = date_text + " " + time_text
-            # Use date command to parse timestamp
-            epoch_cmd = ["date", "+%s", "-d", timestamp_str]
-            epoch_res = ctx.run(epoch_cmd, mutates=False)
-            if epoch_res.rc == 0 and epoch_res.stdout.strip() != "":
-                age = now - float(epoch_res.stdout.strip())
-                parsed["fullscan_age"] = age
-                # Check for exit code (parts[3])
-                if len(parts) >= 4 and parts[3] != "0":
-                    parsed["fullscan_failed"] = True
-
-    return parsed

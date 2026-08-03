@@ -1,128 +1,121 @@
-def _saveint(i):
-    # Guard instead of try/except: only convert if all digits or starts with '-' then digits
-    if i == "":
-        return 0
-    if i.startswith("-"):
-        if len(i) == 1 or not i[1:].isdigit():
-            return 0
-        return int(i)
-    if not i.isdigit():
-        return 0
-    return int(i)
+def _saveint(s):
+    return int(s) if s != None and str(s).isdigit() else 0
 
-def _discover_items(ctx, what):
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", "public", "-On",
-        "localhost", ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
-    ], mutates=False)
-    
-    items = []
-    for line in res.stdout.splitlines():
-        # Line format: OID = STRING: "value1|value2|value3"
-        if "STRING:" not in line:
+def _convert(section, what):
+    result = []
+    for row in section:
+        if len(row) < 3:
             continue
-        parts = line.strip().split("STRING: \"")
-        if len(parts) != 2:
-            continue
-        values_str = parts[1].rstrip("\"")
-        values = values_str.split("|")
-        if len(values) < 3:
-            continue
-        presence, state, name = values[0], values[1], values[2].lstrip()
-        
-        # Filter for the specified "what" type
-        if not name.startswith(what):
-            continue
-        # Skip if presence is "6" (not present)
-        if presence == "6":
-            continue
-        # Skip if state is 0 (or less) unless it's Power
+        presence = row[0]
+        state = row[1]
+        name = row[2].lstrip()
         state_int = _saveint(state)
-        if what != "Power" and state_int <= 0:
-            continue
-        
-        # Extract sensor ID (last part after #)
-        sensor_id = name.split("#")[-1]
-        items.append(sensor_id)
-    
-    return items
+        if name.startswith(what) and presence != "6" and (state_int > 0 or what == "Power"):
+            sensor_id = name.split("#")[-1]
+            result.append([sensor_id, name, state])
+    return result
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
+    col_presence = base_oid + ".3"
+    col_state = base_oid + ".4"
+    col_name = base_oid + ".5"
+
     if params.get("_discover"):
-        items = _discover_items(ctx, "SLOT")
-        out = []
-        for item in items:
-            out.append({
-                "item": item,
-                "params": {"levels": (55.0, 60.0)},
-                "metrics": ["temperature"]
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(out),
-            "data": {"discovery": out}
-        }
-    
+        # Walk presence column to discover row indices
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_presence], mutates=False)
+        if walk.rc != 0 and walk.rc != 127:
+            return {"changed": False, "msg": "snmptable discovery failed", "data": {"discovery": []}}
+        if walk.skipped:
+            return {"changed": False, "msg": "would discover brocade temp sensors", "data": {"discovery": []}}
+
+        indices = {}
+        if walk.stdout:
+            for line in walk.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) < 2:
+                    continue
+                oid = parts[0]
+                idx = oid[len(col_presence) + 1:]
+                indices[idx] = parts[1]
+
+        if not indices:
+            return {"changed": False, "msg": "no brocade temp sensors found", "data": {"discovery": []}}
+
+        discovery = []
+        for idx in sorted(indices.keys()):
+            # Query state and name by index
+            state_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col_state + "." + idx], mutates=False)
+            name_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col_name + "." + idx], mutates=False)
+
+            if state_res.rc != 0 or name_res.rc != 0:
+                continue
+
+            presence = indices[idx]
+            state = state_res.stdout.strip()
+            name = name_res.stdout.strip().lstrip()
+
+            # Apply the same conversion logic as _brocade_sensor_convert with "SLOT"
+            state_int = _saveint(state)
+            if name.startswith("SLOT") and presence != "6" and state_int > 0:
+                sensor_id = name.split(" ")[-1].split("#")[-1]
+                # Actually, name could be "SLOT #0: TEMP #1", sensor_id = name.split("#")[-1] = "1"
+                sensor_id = name.split("#")[-1]
+                discovery.append({"item": sensor_id, "params": {"levels": (55.0, 60.0)}, "metrics": ["temperature"]})
+
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"), "-On",
-        "localhost", ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
-    ], mutates=False)
-    
-    # Find the matching sensor value
-    value = None
-    for line in res.stdout.splitlines():
-        if "STRING:" not in line:
-            continue
-        parts = line.strip().split("STRING: \"")
-        if len(parts) != 2:
-            continue
-        values_str = parts[1].rstrip("\"")
-        values = values_str.split("|")
-        if len(values) < 3:
-            continue
-        presence, state, name = values[0], values[1], values[2].lstrip()
-        
-        # Filter for SLOT and check item match
-        if not name.startswith("SLOT"):
-            continue
-        if presence == "6":
-            continue
-        
-        sensor_id = name.split("#")[-1]
-        if sensor_id == item:
-            value = _saveint(state)
-            break
-    
-    # Handle missing sensor
-    if value == None:
-        return {
-            "changed": False,
-            "msg": "temperature sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Threshold logic
-    levels = params.get("levels", (55.0, 60.0))
-    warn, crit = float(levels[0]), float(levels[1])
-    
-    temp = float(value)
-    if temp >= crit:
-        state = "CRIT"
-        summary = "CRIT (at %d°C, threshold %d°C)" % (temp, crit)
-    elif temp >= warn:
-        state = "WARN"
-        summary = "WARN (at %d°C, threshold %d°C)" % (temp, warn)
+    warn = params.get("levels", (55.0, 60.0))
+    if type(warn) == "tuple":
+        warn_val = warn[0]
+        crit_val = warn[1]
     else:
-        state = "OK"
-        summary = "OK (at %d°C)" % temp
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"temperature": temp},
-            "details": ""
-        }
-    }
+        warn_val = 55.0
+        crit_val = 60.0
+
+    # Re-discover all SLOT sensors to find the matching item
+    walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_presence], mutates=False)
+    if walk.rc != 0 and walk.rc != 127:
+        return {"changed": False, "msg": "no brocade temp sensors found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if walk.skipped:
+        return {"changed": False, "msg": "no brocade temp sensors found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    indices = {}
+    if walk.stdout:
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            idx = oid[len(col_presence) + 1:]
+            indices[idx] = parts[1]
+
+    if not indices:
+        return {"changed": False, "msg": "no brocade temp sensors found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    temperature = None
+    for idx in sorted(indices.keys()):
+        state_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col_state + "." + idx], mutates=False)
+        name_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col_name + "." + idx], mutates=False)
+        if state_res.rc != 0 or name_res.rc != 0:
+            continue
+
+        presence = indices[idx]
+        state = state_res.stdout.strip()
+        name = name_res.stdout.strip().lstrip()
+
+        state_int = _saveint(state)
+        if name.startswith("SLOT") and presence != "6" and state_int > 0:
+            sensor_id = name.split("#")[-1]
+            if sensor_id == item:
+                temperature = state_int
+                break
+
+    if temperature == None:
+        return {"changed": False, "msg": "sensor not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    state = "CRIT" if temperature >= crit_val else ("WARN" if temperature >= warn_val else "OK")
+    return {"changed": False, "msg": "Temperature: %s C" % temperature, "data": {"state": state, "metrics": {"temperature": float(temperature)}, "details": ""}}

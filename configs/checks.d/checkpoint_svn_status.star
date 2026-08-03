@@ -1,132 +1,126 @@
 def main(ctx, params):
-    # Discovery mode: yield one service (single-service check)
-    if params.get("_discover"):
-        # Probe SNMP: base OID .1.3.6.1.4.1.2620.1.6, OIDs [2,3,101,103]
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.2620.1.6"
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "discovery failed",
-                "data": {"discovery": []}
-            }
+    discover = params.get("_discover", False)
+    community = params.get("community", "public")
+    host = params.get("host", ctx.facts().get("hostname", "localhost"))
 
-        # Parse SNMP output: we need .1.3.6.1.4.1.2620.1.6.2 (major), .1.3.6.1.4.1.2620.1.6.3 (minor),
-        # .1.3.6.1.4.1.2620.1.6.101 (code), .1.3.6.1.4.1.2620.1.6.103 (description)
-        # Build a map from base OID suffix to value
-        entries = {}
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if "=" not in line:
-                continue
-            parts = line.split("=", 1)
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip()
-            # Extract suffix after base
-            if oid_part.startswith(".1.3.6.1.4.1.2620.1.6."):
-                suffix = oid_part[len(".1.3.6.1.4.1.2620.1.6."):]
-                val = val_part
-                # Strip type prefix if present (e.g. "STRING: " or "INTEGER: ")
-                if val.startswith("STRING: ") or val.startswith("STRING:"):
-                    val = val.split(":", 1)[1].strip().strip('"')
-                elif val.startswith("INTEGER: ") or val.startswith("INTEGER:"):
-                    val = val.split(":", 1)[1].strip()
-                entries[suffix] = val
+    # Probe for the real thing: a Check Point product running on the host.
+    # Detection mirrors cmk.plugins.checkpoint.lib.DETECT.
+    sys_desc = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    sys_oid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
 
-        # Check if we have all required values (at least one entry)
-        if not entries:
-            return {
-                "changed": False,
-                "msg": "discovery failed - no data",
-                "data": {"discovery": []}
-            }
+    if sys_desc.rc != 0 or sys_oid.rc != 0:
+        # Not reachable via SNMP -> not a Check Point device for us.
+        if discover:
+            return {"changed": False, "msg": "not SNMP-reachable", "data": {"discovery": []}}
+        return {"changed": False, "msg": "SNMP not reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-        # Return one item for the single-service check
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
+    sys_oid_val = sys_oid.stdout.strip()
+    sys_desc_val = sys_desc.stdout.strip()
 
-    # Check mode: fetch SNMP and parse
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.2620.1.6"
-    ], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SVN Status: SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # all_of(
+    #   any_of(
+    #     startswith(sys_oid, ".1.3.6.1.4.1.2620"),
+    #     matches(sys_desc, "[^ ]+ [^ ]+ [^ ]*cp( .*)?"),
+    #     startswith(sys_desc, "IPSO "),
+    #     matches(sys_desc, "Linux.*cpx.*"),
+    #   ),
+    #   any_of(
+    #     startswith(".1.3.6.1.4.1.2620.1.1.21.0", "firewall"),
+    #     matches(".1.3.6.1.4.1.2620.1.6.5.1.0", "Gaia"),
+    #   ),
+    # )
+    oid_ok = sys_oid_val.startswith(".1.3.6.1.4.1.2620")
+    desc_ok = (sys_desc_val.startswith("IPSO ") or
+               sys_desc_val.find("cpx") != -1 or
+               _matches_cp(sys_desc_val))
 
-    # Parse entries: build a map from suffix to value
-    entries = {}
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        val_part = parts[1].strip()
-        if oid_part.startswith(".1.3.6.1.4.1.2620.1.6."):
-            suffix = oid_part[len(".1.3.6.1.4.1.2620.1.6."):]
-            val = val_part
-            # Strip type prefix
-            if val.startswith("STRING: ") or val.startswith("STRING:"):
-                val = val.split(":", 1)[1].strip().strip('"')
-            elif val.startswith("INTEGER: ") or val.startswith("INTEGER:"):
-                val = val.split(":", 1)[1].strip()
-            entries[suffix] = val
+    fw = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.2620.1.1.21.0"],
+        mutates=False,
+    )
+    gaia = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.2620.1.6.5.1.0"],
+        mutates=False,
+    )
 
-    # Require the 4 OIDs: 2 (major), 3 (minor), 101 (code), 103 (description)
-    if not entries or "2" not in entries or "3" not in entries or "101" not in entries or "103" not in entries:
-        return {
-            "changed": False,
-            "msg": "SVN Status: missing SNMP data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    fw_val = fw.stdout.strip() if fw.rc == 0 else ""
+    gaia_val = gaia.stdout.strip() if gaia.rc == 0 else ""
+    fw_ok = fw_val.startswith("firewall")
+    gaia_ok = gaia_val.find("Gaia") != -1
 
-    major = entries["2"]
-    minor = entries["3"]
-    code = entries["101"]
-    description = entries["103"]
+    detected = (oid_ok or desc_ok) and (fw_ok or gaia_ok)
 
-    # Handle empty or missing code
-    if code == "" or not code.isdigit():
-        return {
-            "changed": False,
-            "msg": "SVN Status: OK (v%s.%s)" % (major, minor),
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
+    if not detected:
+        if discover:
+            return {"changed": False, "msg": "not a Check Point device", "data": {"discovery": []}}
+        return {"changed": False, "msg": "host is not a Check Point device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    code_int = int(code)
-    if code_int != 0:
-        summary = description if description else "Error code %s (v%s.%s)" % (code, major, minor)
-        return {
-            "changed": False,
-            "msg": "SVN Status: " + summary,
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
-        }
+    # Fetch the SVN status table: .1.3.6.1.4.1.2620.1.6 with OIDs 2,3,101,103.
+    tree = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         ".1.3.6.1.4.1.2620.1.6.2",
+         ".1.3.6.1.4.1.2620.1.6.3",
+         ".1.3.6.1.4.1.2620.1.6.101",
+         ".1.3.6.1.4.1.2620.1.6.103"],
+        mutates=False,
+    )
 
-    return {
-        "changed": False,
-        "msg": "SVN Status: OK (v%s.%s)" % (major, minor),
-        "data": {"state": "OK", "metrics": {}, "details": ""}
-    }
+    out = tree.stdout.strip() if tree.rc == 0 else ""
+    if not out:
+        if discover:
+            return {"changed": False, "msg": "no SVN status data", "data": {"discovery": []}}
+        return {"changed": False, "msg": "no SVN status data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # snmpget -Oqv with multiple OIDs returns one value per line, in order.
+    vals = out.splitlines()
+    if len(vals) < 4:
+        if discover:
+            return {"changed": False, "msg": "insufficient SVN status data", "data": {"discovery": []}}
+        return {"changed": False, "msg": "insufficient SVN status data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    major = vals[0]
+    minor = vals[1]
+    code = vals[2]
+    description = vals[3]
+
+    # Discovery: single-service check, one item with no per-item metrics.
+    if discover:
+        return {"changed": False,
+                "msg": "discovered 1 SVN status item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}
+                ]}}
+
+    # Check mode for the single service (item is "").
+    ver = "v%s.%s" % (major, minor)
+
+    code_stripped = code.strip()
+    if code_stripped != "" and int(code_stripped) != 0:
+        summary = description.strip() if description.strip() else "Error code %s (%s)" % (code_stripped, ver)
+        return {"changed": False, "msg": summary,
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    return {"changed": False, "msg": "OK (%s)" % ver,
+            "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+
+def _matches_cp(s):
+    # matches ".1.3.6.1.2.1.1.1.0", "[^ ]+ [^ ]+ [^ ]*cp( .*)?"
+    # i.e. sysDescr has at least 3 tokens where the third-ish contains "cp"
+    parts = s.split(" ")
+    if len(parts) < 3:
+        return False
+    for p in parts:
+        if p.find("cp") != -1:
+            return True
+    return False

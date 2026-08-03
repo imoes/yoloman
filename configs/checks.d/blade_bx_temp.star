@@ -1,173 +1,180 @@
-_BLADE_BX_STATUS = {
-    "1": "unknown",
-    "2": "sensor-disabled",
-    "3": "ok",
-    "4": "sensor-failed",
-    "5": "warning-temp",
-    "6": "critical-temp",
-    "7": "not-available",
-}
-
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1"
-        ], mutates=False)
-        
-        items = []
+        res = ctx.run(
+            [
+                "snmpwalk",
+                "-v2c",
+                "-c",
+                params.get("community", "public"),
+                "-Oqn",
+                "-M",
+                params.get("host", "localhost"),
+                ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1.1",
+            ],
+            mutates=False,
+        )
+        # Probe the device presence via the first scalar column status OID
+        if res.rc != 0:
+            return {"changed": False, "msg": "SNMP unavailable", "data": {"discovery": []}}
+
+        status_map = {}
         for line in res.stdout.splitlines():
-            # Parse "OID = TYPE: value" format
-            parts = line.strip().split(" = ")
+            # each line: "<oid> <value>"
+            parts = line.split()
             if len(parts) != 2:
                 continue
-            value_part = parts[1].strip()
-            # Extract last field after colon (value)
-            if ":" in value_part:
-                value = value_part.rsplit(":", 1)[1].strip()
-            else:
+            oid = parts[0]
+            # index is the suffix after the column base OID
+            base = ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1.1"
+            if oid.startswith(base):
+                idx = oid[len(base) + 1:]
+                # status column is .1 -> value
+                status_map[idx] = parts[1]
+
+        # Now fetch description column (.3) to get the item names
+        res2 = ctx.run(
+            [
+                "snmpwalk",
+                "-v2c",
+                "-c",
+                params.get("community", "public"),
+                "-Oqn",
+                "-M",
+                params.get("host", "localhost"),
+                ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1.3",
+            ],
+            mutates=False,
+        )
+        discovery = []
+        for line in res2.stdout.splitlines():
+            parts = line.split()
+            if len(parts) != 2:
                 continue
-            
-            # Split value into fields (status, descr, ...)
-            fields = value.split()
-            if len(fields) < 7:
+            oid = parts[0]
+            base = ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1.3"
+            if not oid.startswith(base):
                 continue
-            
-            # Fields: index, status, descr, level_warn, level_crit, temp, crit_react
-            status_str = fields[1]
-            descr = fields[2]
-            
-            # Check if status is valid and not "not-available" (7)
-            if status_str.isdigit():
-                status = int(status_str)
-                if status != 7:
-                    items.append({
+            idx = oid[len(base) + 1:]
+            descr = parts[1].strip("\"")
+            status = saveint(status_map.get(idx, "0"))
+            # status 7 = "not-available" -> skip
+            if status != 7:
+                discovery.append(
+                    {
                         "item": descr,
-                        "params": {},
-                        "metrics": ["temp"]
-                    })
-        
+                        "params": {"warn": 60, "crit": 80},
+                        "metrics": ["temp"],
+                    }
+                )
         return {
             "changed": False,
-            "msg": "discovered %d temperature sensors" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d blades" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode
+
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1"
-    ], mutates=False)
-    
-    # Parse SNMP data
-    found = False
-    for line in res.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        value_part = parts[1].strip()
-        if ":" in value_part:
-            value = value_part.rsplit(":", 1)[1].strip()
-        else:
-            continue
-        
-        fields = value.split()
-        if len(fields) < 7:
-            continue
-        
-        # index, status, descr, level_warn, level_crit, temp, crit_react
-        descr = fields[2]
-        if descr != item:
-            continue
-        
-        found = True
-        
-        status_str = fields[1]
-        level_warn_str = fields[3]
-        level_crit_str = fields[4]
-        temp_str = fields[5]
-        crit_react = fields[6]
-        
-        # Validate status field is numeric
-        if not status_str.isdigit():
-            return {
-                "changed": False,
-                "msg": "Device %s not found in SNMP data" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-        
-        status = int(status_str)
-        level_warn = int(level_warn_str) if level_warn_str.isdigit() else 0
-        level_crit = int(level_crit_str) if level_crit_str.isdigit() else 0
-        temp = int(temp_str) if temp_str.isdigit() else 0
-        
-        # Check critical reaction flag (2 = active, non-2 = not present/poweroff)
-        if crit_react != "2":
-            return {
-                "changed": False,
-                "msg": "Temperature not present or poweroff",
-                "data": {
-                    "state": "CRIT",
-                    "metrics": {"temp": float(temp)},
-                    "details": ""
-                }
-            }
-        
-        # Check status
-        if status != 3:
-            status_msg = _BLADE_BX_STATUS.get(status_str, "unknown")
-            return {
-                "changed": False,
-                "msg": "Status is %s" % status_msg,
-                "data": {
-                    "state": "CRIT",
-                    "metrics": {"temp": float(temp)},
-                    "details": ""
-                }
-            }
-        
-        # Apply temperature thresholds (warn/crit from params or defaults)
-        warn = params.get("warn", 20.0)  # Checkmk default: 20°C warn
-        crit = params.get("crit", 40.0)  # Checkmk default: 40°C crit
-        
-        # Check against device-provided thresholds (level_warn, level_crit)
-        # If device has valid thresholds, use those; else use defaults
-        dev_warn = level_warn if level_warn != 0 else warn
-        dev_crit = level_crit if level_crit != 0 else crit
-        
-        # Determine state
-        if temp >= dev_crit:
-            state = "CRIT"
-        elif temp >= dev_warn:
-            state = "WARN"
-        else:
-            state = "OK"
-        
-        msg = "Temperature: %d C" % temp
+    base = ".1.3.6.1.4.1.7244.1.1.1.3.4.1.1"
+    # Fetch all columns as a table; we need to find the row whose description
+    # matches the requested item.
+    # Columns: 1=status, 3=descr, 4=warn, 5=crit, 6=temp, 7=crit_react
+
+    def fetch_col(col_oid):
+        res = ctx.run(
+            [
+                "snmpwalk",
+                "-v2c",
+                "-c",
+                params.get("community", "public"),
+                "-Oqn",
+                "-M",
+                params.get("host", "localhost"),
+                base + "." + col_oid,
+            ],
+            mutates=False,
+        )
+        rows = {}
+        if res.rc == 0:
+            for line in res.stdout.splitlines():
+                parts = line.split()
+                if len(parts) != 2:
+                    continue
+                oid = parts[0]
+                if oid.startswith(base + "." + col_oid):
+                    idx = oid[len(base + "." + col_oid) + 1:]
+                    rows[idx] = parts[1].strip("\"")
+        return rows
+
+    status_rows = fetch_col("1")
+    descr_rows = fetch_col("3")
+    warn_rows = fetch_col("4")
+    crit_rows = fetch_col("5")
+    temp_rows = fetch_col("6")
+    crit_react_rows = fetch_col("7")
+
+    # Find the index of the row matching the requested item (description)
+    target_idx = None
+    for idx, descr in descr_rows.items():
+        if descr == item:
+            target_idx = idx
+            break
+
+    if target_idx == None:
         return {
             "changed": False,
-            "msg": msg,
-            "data": {
-                "state": state,
-                "metrics": {"temp": float(temp)},
-                "details": ""
-            }
+            "msg": "Device " + item + " not found in SNMP data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Device not found in SNMP data
-    if not found:
+
+    status = saveint(status_rows.get(target_idx, "0"))
+    level_warn = saveint(warn_rows.get(target_idx, "0"))
+    level_crit = saveint(crit_rows.get(target_idx, "0"))
+    temp = saveint(temp_rows.get(target_idx, "0"))
+    crit_react = crit_react_rows.get(target_idx, "0")
+
+    status_map = {
+        1: "unknown",
+        2: "sensor-disabled",
+        3: "ok",
+        4: "sensor-failed",
+        5: "warning-temp",
+        6: "critical-temp",
+        7: "not-available",
+    }
+
+    if crit_react != "2":
         return {
             "changed": False,
-            "msg": "Device %s not found in SNMP data" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Temperature not present or poweroff",
+            "data": {"state": "CRIT", "metrics": {"temp": float(temp)}, "details": ""},
         }
+    if status != 3:
+        return {
+            "changed": False,
+            "msg": "Status is " + status_map.get(status, "unknown"),
+            "data": {"state": "CRIT", "metrics": {"temp": float(temp)}, "details": ""},
+        }
+
+    warn = params.get("warn", 60)
+    crit = params.get("crit", 80)
+    state = "CRIT" if temp >= crit else ("WARN" if temp >= warn else "OK")
+    msg = "Temp: %s C, Status: %s" % (str(temp), status_map.get(status, "unknown"))
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {"state": state, "metrics": {"temp": float(temp)}, "details": ""},
+    }
+
+
+def saveint(i):
+    if i == None:
+        return 0
+    val = str(i).strip()
+    sign = 1
+    start = 0
+    if val.startswith("-"):
+        sign = -1
+        start = 1
+    body = val[start:]
+    if body == "" or not body.isdigit():
+        return 0
+    return sign * int(body)

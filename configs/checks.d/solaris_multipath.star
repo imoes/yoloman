@@ -1,87 +1,126 @@
 def main(ctx, params):
     if params.get("_discover"):
-        # Gather multipath data by running a shell command that parses the device output
-        res = ctx.run(["bash", "-c", "for f in /dev/rdsk/*; do if echo \"$f\" | grep -qE '^/dev/rdsk/c[0-9]+t[0-9a-fA-F]+d0s[0-9]+$'; then echo \"$f\"; fi; done 2>/dev/null | head -100"], mutates=False, ok_codes=[0])
-        out = []
-        for line in res.stdout.splitlines():
-            parts = line.split()
-            if len(parts) >= 3:
-                device = parts[0]
-                total_str = parts[1]
-                operational_str = parts[2]
-                if device.startswith("/dev/rdsk/c") and device.endswith("s2") and total_str.isdigit() and operational_str.isdigit():
+        res = ctx.run(["multipathing", "show", " topology"], mutates=False)
+        if res.rc != 0 or res.rc == 127:
+            # Try reading from the kernel directly as a fallback data source
+            res = ctx.run(["kstat", "-p", "mp", "path_state"], mutates=False)
+            if res.rc != 0 or res.rc == 127:
+                return {"changed": False, "msg": "no solaris multipathing found", "data": {"discovery": []}}
+
+        # Parse the topology output to find devices and their path counts
+        discovery = []
+        lines = res.stdout.splitlines()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if line.startswith("/dev/rdsk/"):
+                # Parse device path - extract device name
+                device = line
+                # Look for path counts in subsequent lines or same line
+                parts = line.split()
+                if len(parts) >= 3 and parts[-1].isdigit() and parts[-2].isdigit():
+                    total = int(parts[-2])
+                    operational = int(parts[-1])
                     item = device.split("/")[-1]
-                    out.append({
-                        "item": item,
-                        "params": {"levels": int(operational_str)},
-                        "metrics": ["operational_paths"]
-                    })
+                    discovery.append({"item": item, "params": {"levels": operational}, "metrics": []})
+            i += 1
+
         return {
             "changed": False,
-            "msg": "discovered %d multipath devices" % len(out),
-            "data": {"discovery": out}
+            "msg": "discovered %d multipath devices" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
     item = params.get("item", "")
-    res = ctx.run(["bash", "-c", "for f in /dev/rdsk/*; do if echo \"$f\" | grep -qE '^/dev/rdsk/c[0-9]+t[0-9a-fA-F]+d0s[0-9]+$'; then echo \"$f\"; fi; done 2>/dev/null"], mutates=False, ok_codes=[0])
-    found = False
+    # Re-read the topology to get current path state for this specific device
+    res = ctx.run(["multipathing", "show", "topology"], mutates=False)
+    if res.rc != 0 or res.rc == 127:
+        res2 = ctx.run(["kstat", "-p", "mp", "path_state"], mutates=False)
+        if res2.rc != 0 or res2.rc == 127:
+            return {
+                "changed": False,
+                "msg": "multipathing not available on this host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "multipathing tools not found"},
+            }
+        res = res2
+
+    lines = res.stdout.splitlines()
     operational_int = 0
     total_int = 0
+    found = False
 
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) >= 3:
-            device = parts[0]
-            total_str = parts[1]
-            operational_str = parts[2]
-            if device.startswith("/dev/rdsk/c") and device.endswith("s2") and total_str.isdigit() and operational_str.isdigit():
-                if device.split("/")[-1] == item:
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if line.startswith("/dev/rdsk/"):
+            device_item = line.split("/")[-1]
+            if item == "" or device_item == item:
+                parts = line.split()
+                if len(parts) >= 3 and parts[-1].isdigit() and parts[-2].isdigit():
+                    total_int = int(parts[-2])
+                    operational_int = int(parts[-1])
                     found = True
-                    total_int = int(total_str)
-                    operational_int = int(operational_str)
+                    break
+        i += 1
 
     if not found:
+        if item == "":
+            return {
+                "changed": False,
+                "msg": "no multipath devices found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no multipath devices present"},
+            }
         return {
             "changed": False,
-            "msg": "multipath device not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "multipath device %s not found" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "device %s not present" % item},
         }
 
     infotext = "%d paths operational, %d paths total" % (operational_int, total_int)
     levels = params.get("levels")
-    state = "OK"
-
     if levels == None:
-        state = "WARN"
-        infotext = infotext + ", expected paths unknown, please redo service discovery"
-    elif type(levels) == "int":
-        expected = levels
+        return {
+            "changed": False,
+            "msg": infotext + ", expected paths unknown, please redo service discovery",
+            "data": {"state": "WARN", "metrics": {"operational": operational_int, "total": total_int}, "details": infotext},
+        }
+
+    state = "OK"
+    details = infotext
+
+    if type(levels) == "list":
+        # levels is a list/tuple [warn, crit] interpreted as percentages
+        warn = levels[0]
+        crit = levels[1]
+        warn_num = (warn / 100.0) * total_int
+        crit_num = (crit / 100.0) * total_int
+        levels_text = " (Warning/ Critical at %d/ %d)" % (warn_num, crit_num)
+        info = "paths active: %d" % operational_int
+        details = info + levels_text
+        if operational_int <= crit_num:
+            state = "CRIT"
+        elif operational_int <= warn_num:
+            state = "WARN"
+        else:
+            state = "OK"
+            details = info
+    else:
+        expected = int(levels)
         if operational_int > expected:
             state = "WARN"
-            infotext = infotext + ", %d paths expected to be operational" % expected
-        elif operational_int < expected:
-            if expected >= operational_int * 2:
-                state = "CRIT"
-            else:
-                state = "WARN"
-            infotext = infotext + ", %d paths expected to be operational" % expected
-    elif type(levels) == "list" and len(levels) == 2:
-        warn_pct = levels[0]
-        crit_pct = levels[1]
-        warn_num = (warn_pct / 100.0) * float(total_int)
-        crit_num = (crit_pct / 100.0) * float(total_int)
-        if float(operational_int) <= crit_num:
+        elif expected == operational_int:
+            state = "OK"
+        elif expected >= operational_int * 2:
             state = "CRIT"
-        elif float(operational_int) <= warn_num:
+        else:
             state = "WARN"
-        levels_text = " (Warning/Critical at %f/%f)" % (warn_num, crit_num)
-        infotext = "paths active: %d%s" % (operational_int, levels_text)
-    else:
-        state = "WARN"
-        infotext = infotext + ", invalid levels format"
+        if state != "OK":
+            details = infotext + ", %d paths expected to be operational" % expected
+        else:
+            details = infotext
 
     return {
         "changed": False,
-        "msg": infotext,
-        "data": {"state": state, "metrics": {"operational_paths": operational_int}, "details": ""}
+        "msg": details,
+        "data": {"state": state, "metrics": {"operational": operational_int, "total": total_int}, "details": details},
     }

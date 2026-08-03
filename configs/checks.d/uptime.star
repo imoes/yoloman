@@ -1,87 +1,66 @@
 def main(ctx, params):
-    # Discovery mode: single-service check, no items
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
+        btime = _read_boot_time(ctx)
+        if btime == None:
+            return {"changed": False, "msg": "uptime not available on this host",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False, "msg": "discovered uptime",
+                "data": {"discovery": [
                     {"item": "", "params": {}, "metrics": ["uptime"]}
-                ]
-            },
-        }
+                ], "host_labels": {}}}
+    item = params.get("item", "")
+    warn = params.get("warn", 8760)
+    crit = params.get("crit", 0)
+    btime = _read_boot_time(ctx)
+    if btime == None:
+        return {"changed": False, "msg": "no uptime information found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    secs = _now_seconds(ctx) - btime
+    if secs < 0:
+        return {"changed": False, "msg": "system time before boot time",
+                "data": {"state": "UNKNOWN", "metrics": {"uptime": max(secs, 0)}, "details": ""}}
+    state = _grade(secs, warn, crit)
+    msg = _fmt_uptime(secs)
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": state, "metrics": {"uptime": secs}, "details": msg}}
 
-    # Check mode: single item (item == "")
-    # Read /proc/uptime on Linux, fallback to 'uptime' command elsewhere
-    if ctx.facts().get("os_family") == "redhat" or ctx.facts().get("os_family") == "debian":
-        # Linux: /proc/uptime contains "up_time_in_seconds seconds_idle"
-        uptime_str = ctx.file_read("/proc/uptime").split()[0]
-        uptime_sec = float(uptime_str)
-    else:
-        # Fallback: parse 'uptime' command output (GNU/Linux, BSD, macOS)
-        res = ctx.run(["uptime"], mutates=False)
-        output = res.stdout.strip()
-        # Pattern: " 2:30pm  up  5:45,  3 users,  load average: 0.01, 0.05, 0.01"
-        # or " 2:30pm  up 2 days,  5:45, ..."
-        # Try to extract "up N time" or "up N day(s), N hr(s)" etc.
-        up_match = output.find("up")
-        if up_match == -1:
-            fail("cannot parse uptime command output")
-        # Extract substring starting after 'up'
-        after_up = output[up_match + 2:].strip()
-        # Use regex-free string parsing: split and scan
-        parts = after_up.split()
-        days = 0
-        hrs = 0
-        mins = 0
-        i = 0
-        while i < len(parts):
-            if parts[i].isdigit():
-                num = int(parts[i])
-                if i + 1 < len(parts):
-                    if parts[i + 1].startswith("day"):
-                        days = num
-                        i += 2
-                        continue
-                    elif parts[i + 1].startswith("hr") or parts[i + 1].startswith("hrs"):
-                        hrs = num
-                        i += 2
-                        continue
-                    elif parts[i + 1].startswith("min"):
-                        mins = num
-                        i += 2
-                        continue
-            # Handle colon time: HH:MM
-            if parts[i].find(":") != -1:
-                hm = parts[i].split(":")
-                if len(hm) == 2:
-                    if hm[0].isdigit() and hm[1].isdigit():
-                        hrs = int(hm[0])
-                        mins = int(hm[1])
-                        i += 1
-                        continue
-            i += 1
-        uptime_sec = 86400 * days + 3600 * hrs + 60 * mins
 
-    # Convert to days/hours/mins for human readable message
-    days = int(uptime_sec // 86400)
-    hours = int((uptime_sec % 86400) // 3600)
-    minutes = int((uptime_sec % 3600) // 60)
-    msg_parts = []
-    if days:
-        msg_parts.append("%d day%s" % (days, "s" if days != 1 else ""))
-    if hours:
-        msg_parts.append("%d hour%s" % (hours, "s" if hours != 1 else ""))
-    if minutes:
-        msg_parts.append("%d min%s" % (minutes, "s" if minutes != 1 else ""))
-    msg = "Uptime: %s" % (", ".join(msg_parts) if msg_parts else "0 minutes")
+def _read_boot_time(ctx):
+    res = ctx.run(["cat", "/proc/stat"], mutates=False)
+    if res.rc == 0 and res.stdout:
+        for line in res.stdout.split("\n"):
+            if line.startswith("btime "):
+                parts = line.split()
+                if len(parts) > 1:
+                    return int(parts[1])
+        return None
+    res = ctx.run(["sysctl", "-n", "kern.timecreate.btime"], mutates=False)
+    if res.rc == 0 and res.stdout.strip():
+        s = res.stdout.strip()
+        return int(float(s))
+    return None
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": "OK",
-            "metrics": {"uptime": uptime_sec},
-            "details": ""
-        },
-    }
+
+def _now_seconds(ctx):
+    res = ctx.run(["date", "+%s"], mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        return 0
+    return int(float(res.stdout.strip()))
+
+
+def _grade(secs, warn, crit):
+    if crit > 0 and secs >= crit:
+        return "CRIT"
+    if warn > 0 and secs >= warn:
+        return "WARN"
+    return "OK"
+
+
+def _fmt_uptime(secs):
+    days = int(secs // 86400)
+    hours = int((secs % 86400) // 3600)
+    mins = int((secs % 3600) // 60)
+    if days > 0:
+        return "up %d day(s), %d:%d" % (days, hours, mins)
+    return "up %d:%d" % (hours, mins)

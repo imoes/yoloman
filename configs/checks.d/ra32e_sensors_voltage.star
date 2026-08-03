@@ -1,101 +1,79 @@
-def name_to_index(item):
-    if item.startswith("Sensor "):
-        rest = item.replace("Sensor ", "")
-        if rest.isdigit():
-            return int(rest) - 1
-    return None
-
-def index_to_sensor(index):
-    return "Sensor " + str(index + 1)
+def _voltage_state(value, warn, crit):
+    if value <= warn:
+        if value <= crit:
+            return "CRIT"
+        return "WARN"
+    return "OK"
 
 def main(ctx, params):
-    # === DISCOVERY MODE ===
     if params.get("_discover"):
-        items = []
-        for i in range(0, 8):
-            oid = ".1.3.6.1.4.1.20916.1.8.1.2." + str(i + 1) + ".3"
-            res = ctx.run([
-                "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), oid
-            ], mutates=False)
-            
-            found = False
-            for line in res.stdout.splitlines():
-                pos = line.find("INTEGER:")
-                if pos == -1:
-                    pos = line.find("Gauge32:")
-                if pos != -1:
-                    val = line[pos + len("INTEGER:") if "INTEGER:" in line else pos + len("Gauge32:"):].strip()
-                    if val.isdigit() and int(val) > 0:
-                        found = True
-                        break
-            
-            if found:
-                items.append({
-                    "item": index_to_sensor(i),
-                    "params": {"voltage": (210, 180)},
-                    "metrics": ["voltage"]
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d voltage sensors" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # === CHECK MODE ===
+        base = ".1.3.6.1.4.1.20916.1.8.1.2"
+        res = ctx.run(["snmpwalk", "-v2c", "-c",
+                       params.get("community", "public"), "-Oqn",
+                       params.get("host", "localhost"), base],
+                      mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no roomalert32e voltage sensors (snmpwalk failed)",
+                    "data": {"discovery": []}}
+        rows = {}
+        for line in res.stdout.split("\n"):
+            if not line:
+                continue
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            val = line[sp+1:]
+            rest = oid[len(base)+1:]
+            parts = rest.split(".")
+            if len(parts) >= 2:
+                col = parts[0]
+                idx = parts[1]
+                rows.setdefault(idx, {})[col] = val
+        out = []
+        for idx in sorted(rows.keys(), key=lambda x: int(x)):
+            cols = rows[idx]
+            col3 = cols.get("3")
+            if col3 == None:
+                continue
+            if not col3.lstrip("-").isdigit():
+                continue
+            out.append({"item": "Sensor %s" % str(int(idx)+1),
+                        "params": {"voltage": (210, 180)},
+                        "metrics": ["voltage"]})
+        return {"changed": False,
+                "msg": "discovered %d voltage sensors" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    index = name_to_index(item)
-    if index == None:
-        return {
-            "changed": False,
-            "msg": "invalid item name: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    oid = ".1.3.6.1.4.1.20916.1.8.1.2." + str(index + 1) + ".3"
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), oid
-    ], mutates=False)
-    
-    voltage = None
-    for line in res.stdout.splitlines():
-        pos = line.find("INTEGER:")
-        if pos == -1:
-            pos = line.find("Gauge32:")
-        if pos != -1:
-            val = line[pos + len("INTEGER:") if "INTEGER:" in line else pos + len("Gauge32:"):].strip()
-            if val.isdigit():
-                voltage = float(int(val))
-                break
-    
-    if voltage == None:
-        return {
-            "changed": False,
-            "msg": "no voltage reading available for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    thresholds = params.get("voltage", (210, 180))
-    warn = 210.0
-    crit = 180.0
-    if type(thresholds) == "list":
-        warn = float(thresholds[0]) if len(thresholds) > 0 and str(thresholds[0]).replace('.','').replace('-','').isdigit() else 210.0
-        crit = float(thresholds[1]) if len(thresholds) > 1 and str(thresholds[1]).replace('.','').replace('-','').isdigit() else 180.0
-    
-    if voltage <= crit:
-        state = "CRIT"
-    elif voltage <= warn:
-        state = "WARN"
-    else:
-        state = "OK"
-    
-    return {
-        "changed": False,
-        "msg": "Voltage: %f V" % voltage,
-        "data": {
-            "state": state,
-            "metrics": {"voltage": voltage},
-            "details": ""
-        }
-    }
+    snum_str = item.replace("Sensor ", "")
+    snum = int(snum_str) - 1 if snum_str.isdigit() else -1
+    if snum < 0:
+        return {"changed": False, "msg": "invalid item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    idx = str(snum)
+    base = ".1.3.6.1.4.1.20916.1.8.1.2"
+    oid = base + ".3." + idx
+    res = ctx.run(["snmpget", "-v2c", "-c",
+                   params.get("community", "public"), "-Oqv",
+                   params.get("host", "localhost"), oid],
+                  mutates=False)
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "no voltage reading for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    val = res.stdout.strip()
+    if not val:
+        return {"changed": False,
+                "msg": "empty voltage for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    value = float(val)
+    levels = params.get("voltage", (210, 180))
+    warn = levels[0] if isinstance(levels, (list, tuple)) and len(levels) >= 2 else 210
+    crit = levels[1] if isinstance(levels, (list, tuple)) and len(levels) >= 2 else 180
+    state = _voltage_state(value, warn, crit)
+    return {"changed": False,
+            "msg": "Voltage %s: %s V" % (item, str(value)),
+            "data": {"state": state,
+                     "metrics": {"voltage": value},
+                     "details": "voltage %s V (warn<=%s, crit<=%s)" % (str(value), str(warn), str(crit))}}

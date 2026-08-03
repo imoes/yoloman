@@ -1,225 +1,184 @@
-# ===== Starlark check module: stormshield_packets =====
-# Translate Checkmk check: checkmk.stormshield_packets
-# Read-only: gathers SNMP data and reports packet stats per interface.
+def main(ctx, params):
+    if params.get("_discover"):
+        # Probe for the real thing: a Stormshield device responds to the
+        # enterprise sysObjectID and the Basic Info OID (.1.3.6.1.4.1.11256.1.0.1.0).
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
 
-# SNMP base OID for stormshield_packets section
-_STORMSHIELD_BASE_OID = ".1.3.6.1.4.1.11256.1.4.1.1"
+        sysid = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysid.rc == 127:
+            return {"changed": False, "msg": "snmpget not installed", "data": {"discovery": []}}
+        if sysid.rc != 0 or not sysid.stdout.strip():
+            return {"changed": False, "msg": "no SNMP response", "data": {"discovery": []}}
 
-def _discover_interfaces(ctx, community, host):
-    # Fetch all rows from the stormshield_packets SNMP table
-    # OIDs: 2=description, 3=name, 6=iftype, 11=pktaccepted, 12=pktblocked,
-    #       16=pkticmp, 23=tcp, 24=udp
-    base = _STORMSHIELD_BASE_OID
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        base
-    ], mutates=False)
-    
-    # Parse SNMP output: each line is OID = TYPE: value
-    lines = res.stdout.splitlines()
-    if len(lines) == 0:
-        return []
-    
-    # Group by row index (8 columns per row)
-    rows = []
-    current_row = []
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) < 2:
-            continue
-        # Extract value after " = "
-        value = parts[1].strip()
-        # Strip type prefix like "INTEGER: ", "STRING: ", "Gauge32: ", etc.
-        if ": " in value:
-            value = value.split(": ", 1)[1].strip()
-        # Remove surrounding quotes from STRINGs
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        current_row.append(value)
-        if len(current_row) == 8:
-            rows.append(current_row)
-            current_row = []
-    
-    # Filter and build discovery list: iftype must be "ethernet" or "ipsec"
-    items = []
-    for row in rows:
-        if len(row) < 8:
-            continue
-        description = row[0]  # description (index 2)
-        name = row[1]         # name (index 3)
-        iftype = row[2]       # iftype (index 6)
-        # Check if type matches discovery criteria (case-insensitive)
-        if iftype.lower() in ["ethernet", "ipsec"]:
-            # Build suggested params (no thresholds needed for this check)
-            items.append({
-                "item": description,
-                "params": {},
-                "metrics": ["tcp_active_sessions", "udp_active_sessions",
-                            "packages_accepted", "packages_blocked", "packages_icmp_total"]
-            })
-    
-    return items
+        basic = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.11256.1.0.1.0"],
+            mutates=False,
+        )
+        if basic.rc != 0 or not basic.stdout.strip():
+            return {"changed": False, "msg": "not a Stormshield device", "data": {"discovery": []}}
 
-def _check_interface(ctx, community, host, item, params):
-    # Fetch specific OID row for the requested item
-    # We'll walk and filter locally since snmpwalk returns all rows.
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        _STORMSHIELD_BASE_OID
-    ], mutates=False)
-    
-    # Parse output and find the row with matching description
-    lines = res.stdout.splitlines()
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) < 2:
-            continue
-        # Extract description from first OID (.1.3.6.1.4.1.11256.1.4.1.1.2.*)
-        if not line.startswith(_STORMSHIELD_BASE_OID + ".2"):
-            continue
-        
-        # Extract value after " = "
-        value = parts[1].strip()
-        if ": " in value:
-            value = value.split(": ", 1)[1].strip()
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        description = value
-        
-        # If not matching, skip to next row
-        if description != item:
-            # Skip ahead to next row (7 more OIDs)
-            continue
-        
-        # We found the row: collect all 8 values
-        # Extract the 7 subsequent OIDs for this row
-        # Use a simple approach: collect all lines and group
-        pass  # We'll restructure below
-    
-    # Better approach: parse all rows as in discovery, then filter by item
-    # (Same logic as discovery, but return metrics for the single item)
-    rows = []
-    current_row = []
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) < 2:
-            continue
-        value = parts[1].strip()
-        if ": " in value:
-            value = value.split(": ", 1)[1].strip()
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        current_row.append(value)
-        if len(current_row) == 8:
-            rows.append(current_row)
-            current_row = []
-    
-    # Find the matching row
-    matched = None
-    for row in rows:
-        if len(row) < 8:
-            continue
-        if row[0] == item:
-            matched = row
-            break
-    
-    if matched == None:
+        # Walk the interface table columns (-Oqn: bare "<oid>.<index> <value>").
+        cols = {
+            "description": "2",
+            "name": "3",
+            "iftype": "6",
+            "pktaccepted": "11",
+            "pktblocked": "12",
+            "pkticmp": "16",
+            "tcp": "23",
+            "udp": "24",
+        }
+        base = ".1.3.6.1.4.1.11256.1.4.1.1"
+        by_index = {}
+        indices = []
+
+        for field in cols:
+            walk = ctx.run(
+                ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + cols[field]],
+                mutates=False,
+            )
+            if walk.rc != 0:
+                continue
+            col_oid = base + "." + cols[field]
+            for line in walk.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) != 2:
+                    continue
+                oid, val = parts
+                if not oid.startswith(col_oid + "."):
+                    continue
+                idx = oid[len(col_oid) + 1:]
+                if idx not in by_index:
+                    by_index[idx] = {}
+                    indices.append(idx)
+                by_index[idx][field] = val
+
+        discovery = []
+        for idx in indices:
+            row = by_index[idx]
+            iftype = row.get("iftype", "")
+            if iftype.lower() in ["ethernet", "ipsec"]:
+                desc = row.get("description", "")
+                if desc == "":
+                    continue
+                discovery.append({
+                    "item": desc,
+                    "params": {},
+                    "metrics": ["tcp_active_sessions", "udp_active_sessions",
+                                "packages_accepted", "packages_blocked", "packages_icmp_total"],
+                })
+
         return {
             "changed": False,
-            "msg": "interface not found: %s" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    description = matched[0]
-    name = matched[1]
-    iftype = matched[2]
-    pktaccepted_str = matched[3]
-    pktblocked_str = matched[4]
-    pkticmp_str = matched[5]
-    tcp_str = matched[6]
-    udp_str = matched[7]
-    
-    # Convert to int
-    pktaccepted = int(pktaccepted_str) if pktaccepted_str.isdigit() else 0
-    pktblocked = int(pktblocked_str) if pktblocked_str.isdigit() else 0
-    pkticmp = int(pkticmp_str) if pkticmp_str.isdigit() else 0
-    tcp = int(tcp_str) if tcp_str.isdigit() else 0
-    udp = int(udp_str) if udp_str.isdigit() else 0
-    
-    # Build info text
-    infotext = "[%s], tcp: %d, udp: %d" % (name, tcp, udp)
-    
-    # Metrics: we do NOT use rate calculation here because:
-    # - Checkmk's get_rate relies on value_store (not available in Starlark)
-    # - The agent runs once per check; the source uses get_rate with a persistent store.
-    # - We'll report raw counts instead of rates (checkmk agent stores rates).
-    # - But the Checkmk source *requires* get_rate; since Starlark lacks persistence,
-    #   we report zero for rate metrics (or raw counts if acceptable).
-    #   To match the Checkmk plugin, we MUST use rates, so we'll simulate:
-    #   For now, return 0 for rate metrics and note that this is a known limitation
-    #   for single-run Starlark checks (a real agent would need persistent value_store).
-    metrics = {
-        "tcp_active_sessions": float(tcp),
-        "udp_active_sessions": float(udp),
-        "packages_accepted": float(0),  # rate — placeholder (requires persistent store)
-        "packages_blocked": float(0),   # rate — placeholder
-        "packages_icmp_total": float(0) # rate — placeholder
+
+    # CHECK MODE
+    item = params.get("item", "")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    sysid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysid.rc == 127:
+        return {"changed": False, "msg": "snmpget not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if sysid.rc != 0 or not sysid.stdout.strip():
+        return {"changed": False, "msg": "no SNMP response",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    basic = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.11256.1.0.1.0"],
+        mutates=False,
+    )
+    if basic.rc != 0 or not basic.stdout.strip():
+        return {"changed": False, "msg": "not a Stormshield device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    base = ".1.3.6.1.4.1.11256.1.4.1.1"
+    cols = {
+        "description": "2", "name": "3", "iftype": "6",
+        "pktaccepted": "11", "pktblocked": "12", "pkticmp": "16",
+        "tcp": "23", "udp": "24",
     }
-    
+
+    # Find the index whose description matches the item.
+    desc_walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + cols["description"]],
+        mutates=False,
+    )
+    target_idx = ""
+    if desc_walk.rc == 0:
+        col_oid = base + "." + cols["description"]
+        for line in desc_walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid, val = parts
+            if not oid.startswith(col_oid + "."):
+                continue
+            idx = oid[len(col_oid) + 1:]
+            # Strip surrounding quotes if present.
+            cleaned = val.strip()
+            if cleaned.startswith('"') and cleaned.endswith('"'):
+                cleaned = cleaned[1:-1]
+            if cleaned == item:
+                target_idx = idx
+                break
+
+    if target_idx == "":
+        return {"changed": False, "msg": "no matching interface: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    row = {}
+    for field in cols:
+        g = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, base + "." + cols[field] + "." + target_idx],
+            mutates=False,
+        )
+        row[field] = g.stdout.strip() if g.rc == 0 else ""
+
+    iftype = row.get("iftype", "")
+    if iftype.lower() not in ["ethernet", "ipsec"]:
+        return {"changed": False, "msg": "interface %s not monitored (iftype=%s)" % (item, iftype),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    def _to_int(v):
+        cleaned = v.strip()
+        if cleaned == "" or cleaned.lower() == "no":
+            return 0
+        if cleaned.isdigit():
+            return int(cleaned)
+        return 0
+
+    tcp = _to_int(row.get("tcp", "0"))
+    udp = _to_int(row.get("udp", "0"))
+    pktaccepted = _to_int(row.get("pktaccepted", "0"))
+    pktblocked = _to_int(row.get("pktblocked", "0"))
+    pkticmp = _to_int(row.get("pkticmp", "0"))
+
+    name = row.get("name", item)
+    infotext = "[%s], tcp: %d, udp: %d" % (name, tcp, udp)
+
     return {
         "changed": False,
         "msg": infotext,
         "data": {
             "state": "OK",
-            "metrics": metrics,
-            "details": ""
-        }
+            "metrics": {
+                "tcp_active_sessions": float(tcp),
+                "udp_active_sessions": float(udp),
+                "packages_accepted": float(pktaccepted),
+                "packages_blocked": float(pktblocked),
+                "packages_icmp_total": float(pkticmp),
+            },
+            "details": "",
+        },
     }
-
-def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # Discovery mode
-    if params.get("_discover"):
-        items = _discover_interfaces(ctx, community, host)
-        return {
-            "changed": False,
-            "msg": "discovered %d interfaces" % len(items),
-            "data": {
-                "discovery": items
-            }
-        }
-    
-    # Check mode: single item
-    item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no interface item specified",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    return _check_interface(ctx, community, host, item, params)

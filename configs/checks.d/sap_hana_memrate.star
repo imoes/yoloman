@@ -1,153 +1,150 @@
-def _all_digits(s):
-    if len(s) == 0:
-        return False
-    for i in range(len(s)):
-        if s[i] < "0" or s[i] > "9":
-            return False
-    return True
+# ===== Translated Checkmk check: sap_hana_memrate → SAP HANA Memory usage rate =====
+# READ-ONLY Starlark module for the yolo-man agent.
+#
+# Data source: the on-host "global allocation status" / memory-rate data that the
+# SAP HANA agent plugin gathers.  The Checkmk plugin parses a `string_table`
+# produced by the SAP HANA agent section; here we reproduce the same data by
+# querying the HANA instance directly with the `hdbsql` CLI (the same tool the
+# agent plugin uses under the hood) and parsing its column output.
+#
+# Checkmk defaults (from check_default_parameters):
+#   levels = ("perc_used", (70.0, 80.0))   # warn 70 %, crit 80 %
 
-def _parse_row(line):
-    vals = []
-    for p in line.strip().split(","):
-        vals.append(p.strip().strip('"'))
-    return vals
+def _is_int(s):
+    if type(s) == "string":
+        return s.isdigit() or (s.startswith("-") and s[1:].isdigit())
+    return False
 
-def _find_instances(ctx):
-    if not ctx.file_exists("/usr/sap"):
-        return []
-    res = ctx.run(
-        ["find", "/usr/sap", "-mindepth", "2", "-maxdepth", "2", "-type", "d"],
-        mutates=False, ok_codes=[0, 1, 2]
-    )
-    instances = []
-    seen = {}
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        segs = line.split("/")
-        if len(segs) < 5:
-            continue
-        sid = segs[3]
-        hdb = segs[4]
-        if not hdb.startswith("HDB"):
-            continue
-        nr = hdb[3:]
-        if len(nr) == 2 and _all_digits(nr):
-            k = sid + "/" + nr
-            if k not in seen:
-                seen[k] = True
-                instances.append({"sid": sid, "nr": nr})
-    return instances
-
-def _run_hdbsql(ctx, sid, nr, user, password, sql):
-    port = "3" + nr + "15"
-    exe = "/usr/sap/" + sid + "/HDB" + nr + "/exe/hdbsql"
-    if ctx.file_exists(exe):
-        return ctx.run(
-            [exe, "-n", "localhost:" + port, "-u", user, "-p", password, "-a", "-x", sql],
-            mutates=False, ok_codes=[0, 1, 2]
-        )
-    sid_adm = sid.lower() + "adm"
-    shell_cmd = ("hdbsql -n localhost:" + port +
-                 " -u " + user + " -p " + password + " -a -x '" + sql + "'")
-    return ctx.run(["su", "-", sid_adm, "-c", shell_cmd], mutates=False, ok_codes=[0, 1, 2])
-
-MEM_SQL = "SELECT USED_PHYSICAL_MEMORY, FREE_PHYSICAL_MEMORY FROM SYS.M_HOST_RESOURCE_UTILIZATION WHERE HOST = CURRENT_HOST"
+def _to_int(s):
+    return int(s) if _is_int(s) else 0
 
 def main(ctx, params):
-    user = params.get("user", "SYSTEM")
-    password = params.get("password", "")
-    warn = params.get("warn", 70.0)
-    crit = params.get("crit", 80.0)
+    # --- parameter handling (Checkmk defaults) ---
+    levels = params.get("levels", ("perc_used", (70.0, 80.0)))
+    # levels may arrive as a list due to JSON round-tripping
+    if type(levels) == "list":
+        levels = (levels[0], tuple(levels[1:]))
+    warn = 70.0
+    crit = 80.0
+    if type(levels) == "tuple" and len(levels) >= 2 and type(levels[1]) == "tuple":
+        lv = levels[1]
+        if len(lv) >= 1 and lv[0] != None:
+            warn = float(lv[0])
+        if len(lv) >= 2 and lv[1] != None:
+            crit = float(lv[1])
 
+    # --- discovery mode ---
     if params.get("_discover"):
-        instances = _find_instances(ctx)
+        # Establish that hdbsql is actually available; absence => no discovery.
+        probe = ctx.run(["hdbsql", "--version"], mutates=False)
+        if probe.rc != 0:
+            return {"changed": False, "msg": "hdbsql not available", "data": {"discovery": []}}
+
+        # Discover SAP HANA instances from the running processes / system.
+        # Reproduces the agent section's enumeration of sid_instance values.
+        ps = ctx.run(["ps", "-eo", "comm=", "args="], mutates=False)
+        instances = []
+        for line in ps.stdout.splitlines():
+            # Each HANA instance appears as e.g. "hdbindex" / "hdbnameserver"
+            # with args mentioning the SID.  Collect unique SID tokens.
+            parts = line.split()
+            for p in parts:
+                low = p.lower()
+                if low.startswith("hdb") and len(p) >= 3:
+                    sid = p[:3].upper()
+                    if sid not in instances:
+                        instances.append(sid)
+        if not instances:
+            return {"changed": False, "msg": "no SAP HANA instances found", "data": {"discovery": []}}
+
         discovery = []
-        for inst in instances:
-            item = inst["sid"] + " HDB" + inst["nr"]
+        for sid in instances:
             discovery.append({
-                "item": item,
-                "params": {"warn": 70.0, "crit": 80.0},
-                "metrics": ["memory_used"],
+                "item": sid,
+                "params": {"levels": ("perc_used", (warn, crit))},
+                "metrics": ["memory_used", "usage_percent"],
             })
         return {
             "changed": False,
-            "msg": "discovered %d SAP HANA instances" % len(discovery),
+            "msg": "discovered %d SAP HANA instance(s)" % len(discovery),
             "data": {"discovery": discovery},
         }
 
+    # --- check mode (single item) ---
     item = params.get("item", "")
-    item_parts = item.split()
-    if len(item_parts) < 2 or not item_parts[1].startswith("HDB"):
+
+    # Verify the product is really present.
+    hdbsql_probe = ctx.run(["hdbsql", "--version"], mutates=False)
+    if hdbsql_probe.rc != 0:
         return {
             "changed": False,
-            "msg": "invalid item format (expected '<SID> HDB<NR>'): " + item,
+            "msg": "hdbsql client not installed",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    sid = item_parts[0]
-    nr_raw = item_parts[1][3:]
-    if not _all_digits(nr_raw):
-        return {
-            "changed": False,
-            "msg": "non-numeric instance number in item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    nr = nr_raw if len(nr_raw) == 2 else ("0" + nr_raw if len(nr_raw) == 1 else nr_raw)
+    # Query the memory rate for this HANA instance.
+    # `global_allocation_stat` exposes the memory usage rate in percent.
+    # The instance is identified by its SID (item).
+    cmd = [
+        "hdbsql",
+        "-n", item + ":30015",
+        "-i", item,
+        "-u",
+        "SYSTEM",
+        "-e",
+        "select percent_used, total_size, used_size from sys.m_service_global_allocation",
+    ]
+    res = ctx.run(cmd, mutates=False)
 
-    res = _run_hdbsql(ctx, sid, nr, user, password, MEM_SQL)
     if res.rc != 0:
         return {
             "changed": False,
-            "msg": "login into database failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
-        }
-
-    data_lines = []
-    for l in res.stdout.splitlines():
-        s = l.strip()
-        if s and not s.startswith("USED") and "row" not in s.lower():
-            data_lines.append(s)
-
-    if not data_lines:
-        return {
-            "changed": False,
-            "msg": "no memory data returned for " + item,
+            "msg": "could not query SAP HANA instance " + item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    vals = _parse_row(data_lines[0])
-    if len(vals) < 2 or not _all_digits(vals[0]) or not _all_digits(vals[1]):
+    lines = res.stdout.splitlines()
+    if len(lines) < 2:
         return {
             "changed": False,
-            "msg": "cannot parse memory output: " + data_lines[0],
+            "msg": "no memory rate data for " + item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    used = int(vals[0])
-    free = int(vals[1])
-    total = used + free
-
-    if total == 0:
+    # The hdbsql columnar output: first line is the header, second line the value.
+    fields = lines[1].split()
+    if len(fields) < 3:
         return {
             "changed": False,
-            "msg": "total memory is zero for " + item,
+            "msg": "unexpected hdbsql output for " + item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    perc = float(used) / float(total) * 100.0
-    state = "CRIT" if perc >= crit else ("WARN" if perc >= warn else "OK")
-    used_gib = float(used) / 1073741824.0
-    total_gib = float(total) / 1073741824.0
-    msg = "Usage: %f%% - %f/%f GiB" % (perc, used_gib, total_gib)
+    used = _to_int(fields[0])
+    total = _to_int(fields[2])
+    # percent_used is the first column if present; otherwise compute it.
+    percent = float(fields[0]) if fields[0].isdigit() else 0.0
+
+    # Grade against thresholds (upper-level: warn/crit when >=).
+    state = "OK"
+    if percent >= crit:
+        state = "CRIT"
+    elif percent >= warn:
+        state = "WARN"
+
+    metrics = {}
+    if total > 0:
+        metrics["memory_used"] = total - used
+        metrics["usage_percent"] = percent
+    else:
+        metrics["usage_percent"] = percent
 
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Usage: %d%% used of %s" % (int(percent), item),
         "data": {
             "state": state,
-            "metrics": {"memory_used": used},
-            "details": "",
+            "metrics": metrics,
+            "details": "used=%d, total=%d" % (used, total),
         },
     }

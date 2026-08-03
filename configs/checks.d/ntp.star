@@ -1,221 +1,214 @@
-def main(ctx, params):
-    # NTP state code mapping
-    NTP_STATE_CODES = {
-        "x": "falsetick",
-        ".": "excess",
-        "-": "outlyer",
-        "+": "candidat",
-        "#": "selected",
-        "*": "sys.peer",
-        "o": "pps.peer",
-        "%": "discarded",
+NTP_STATE_CODES = {
+    "x": "falsetick",
+    ".": "excess",
+    "-": "outlyer",
+    "+": "candidat",
+    "#": "selected",
+    "*": "sys.peer",
+    "o": "pps.peer",
+    "%": "discarded",
+}
+
+def _ntp_fmt_time(raw):
+    if raw == "-":
+        return 0
+    suffix = raw[-1]
+    body = raw[:-1]
+    if suffix == "m":
+        return int(body) * 60
+    if suffix == "h":
+        return int(body) * 3600
+    if suffix == "d":
+        return int(body) * 86400
+    if suffix == "y":
+        return int(body) * 31536000
+    return int(raw)
+
+def _parse_ntp_line(fields):
+    return {
+        "statecode": fields[0],
+        "name": fields[1],
+        "refid": fields[2],
+        "stratum": int(fields[3]),
+        "when": _ntp_fmt_time(fields[5]),
+        "reach": fields[7],
+        "offset": float(fields[9]),
+        "jitter": float(fields[10]),
     }
 
-    # Helper to parse time field
-    def _ntp_fmt_time(raw):
-        if raw == "-":
-            return 0
-        if raw[-1:] == "m":
-            return int(raw[:-1]) * 60
-        if raw[-1:] == "h":
-            return int(raw[:-1]) * 60 * 60
-        if raw[-1:] == "d":
-            return int(raw[:-1]) * 60 * 60 * 24
-        if raw[-1:] == "y":
-            return int(raw[:-1]) * 60 * 60 * 24 * 365
-        return int(raw)
+def _parse_ntp(stdout):
+    section = {}
+    for line in stdout.splitlines():
+        fields = line.split()
+        if len(fields) != 11:
+            continue
+        if fields[0] == "%" or fields[0] == "remote":
+            continue
+        peer = _parse_ntp_line(fields)
+        section[peer["name"]] = peer
+        if None not in section and peer["statecode"] in ("*", "o"):
+            section[None] = peer
+    return section
 
-    # Discovery mode
+def _grade_offset(offset, warn, crit):
+    lower_warn = -warn
+    lower_crit = -crit
+    if (offset >= crit) or (offset <= lower_crit):
+        return "CRIT"
+    if (offset >= warn) or (offset <= lower_warn):
+        return "WARN"
+    return "OK"
+
+def _grade_stratum(stratum, crit_stratum, warn_stratum):
+    if stratum >= crit_stratum:
+        return "CRIT"
+    if stratum >= warn_stratum:
+        return "WARN"
+    return "OK"
+
+def _format_timespan(seconds):
+    if seconds == 0:
+        return "0s"
+    if seconds < 60:
+        return "%ds" % seconds
+    if seconds < 3600:
+        return "%dm%ds" % (seconds // 60, seconds % 60)
+    if seconds < 86400:
+        return "%dh%dm" % (seconds // 3600, (seconds % 3600) // 60)
+    if seconds < 31536000:
+        return "%dd%dh" % (seconds // 86400, (seconds % 86400) // 3600)
+    return "%dy%dd" % (seconds // 31536000, (seconds % 31536000) // 86400)
+
+def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["ntpq", "-p", "-n"], mutates=False)
-        out = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            # Skip header line
-            if line.startswith("     remote") or line.startswith("=") or line.strip() == "":
-                continue
-            parts = line.split()
-            if len(parts) < 11:
-                continue
-            statecode = parts[0]
-            name = parts[1]
-            reach = parts[7]
-            refid = parts[2]
-            # Skip unreachable peers and local clock
-            if reach == "0" or refid == ".LOCL.":
-                continue
-            # Skip summary-only discovery (only when mode is "single")
-            mode = params.get("mode", "summary")
-            if mode in ("single", "both"):
-                out.append({
-                    "item": name,
-                    "params": {"ntp_levels": [10, 200.0, 500.0]},
-                    "metrics": ["offset", "jitter", "stratum"]
-                })
+        return _discovery(ctx, params)
+    return _check(ctx, params)
+
+def _discovery(ctx, params):
+    version = ctx.run(["ntpq", "-V"], mutates=False)
+    if version.rc == 127:
         return {
             "changed": False,
-            "msg": "discovered %d peers" % len(out),
-            "data": {"discovery": out}
+            "msg": "ntpq not installed",
+            "data": {"discovery": []},
         }
+    res = ctx.run(["ntpq", "-p", "-n"], mutates=False)
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "ntpq query failed",
+            "data": {"discovery": []},
+        }
+    section = _parse_ntp(res.stdout)
+    mode = params.get("mode", "summary")
+    discovery = []
+    if mode in ("single", "both"):
+        for peer in section.values():
+            if peer["reach"] != "0" and peer["refid"] != ".LOCL.":
+                discovery.append({
+                    "item": peer["name"],
+                    "params": {"ntp_levels": (10, 200.0, 500.0), "alert_delay": (300, 3600)},
+                    "metrics": ["offset", "jitter", "stratum"],
+                })
+    if mode in ("summary", "both") and section:
+        discovery.append({
+            "item": "",
+            "params": {"ntp_levels": (10, 200.0, 500.0), "alert_delay": (300, 3600)},
+            "metrics": ["offset", "jitter", "stratum"],
+        })
+    return {
+        "changed": False,
+        "msg": "discovered %d items" % len(discovery),
+        "data": {"discovery": discovery},
+    }
 
-    # Check mode
+def _check(ctx, params):
+    version = ctx.run(["ntpq", "-V"], mutates=False)
+    if version.rc == 127:
+        return {
+            "changed": False,
+            "msg": "ntpq not installed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    res = ctx.run(["ntpq", "-p", "-n"], mutates=False)
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "ntpq query failed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    section = _parse_ntp(res.stdout)
+    ntp_levels = params.get("ntp_levels", (10, 200.0, 500.0))
+    warn_stratum = ntp_levels[0]
+    warn_offset = ntp_levels[1]
+    crit_offset = ntp_levels[2]
+    crit_stratum = warn_stratum
+    mode = params.get("mode", "summary")
     item = params.get("item", "")
-    if item == "":
-        # Summary mode (no item specified)
-        res = ctx.run(["ntpq", "-p", "-n"], mutates=False)
-        section = {}
-        lines = res.stdout.splitlines()
-        for line in lines:
-            if line.startswith("     remote") or line.startswith("=") or line.strip() == "":
-                continue
-            parts = line.split()
-            if len(parts) < 11:
-                continue
-            peer = {
-                "statecode": parts[0],
-                "name": parts[1],
-                "refid": parts[2],
-                "stratum": int(parts[3]),
-                "when": _ntp_fmt_time(parts[5]),
-                "reach": parts[7],
-                "offset": float(parts[9]),
-                "jitter": float(parts[10])
-            }
-            section[peer["name"]] = peer
-            if None not in section and peer["statecode"] in "*o":
-                section[None] = peer
 
-        # Use system peer (None key) or fallback to first suitable peer
+    if mode in ("summary", "both") and item == "":
         peer = section.get(None)
         if peer == None:
             if section:
-                return {
-                    "changed": False,
-                    "msg": "Found %d peers, but none is suitable" % len(section),
-                    "data": {"state": "OK", "metrics": {}, "details": ""}
-                }
+                msg = "Found %d peers, but none is suitable" % len(section)
             else:
-                return {
-                    "changed": False,
-                    "msg": "No NTP peers found",
-                    "data": {"state": "OK", "metrics": {}, "details": ""}
-                }
-        item = peer["name"]
-
-    # Fetch specific peer data
-    res = ctx.run(["ntpq", "-p", "-n"], mutates=False)
-    peer = None
-    lines = res.stdout.splitlines()
-    for line in lines:
-        if line.startswith("     remote") or line.startswith("=") or line.strip() == "":
-            continue
-        parts = line.split()
-        if len(parts) >= 11 and parts[1] == item:
-            peer = {
-                "statecode": parts[0],
-                "name": parts[1],
-                "refid": parts[2],
-                "stratum": int(parts[3]),
-                "when": _ntp_fmt_time(parts[5]),
-                "reach": parts[7],
-                "offset": float(parts[9]),
-                "jitter": float(parts[10])
+                msg = "no NTP peer found"
+            return {
+                "changed": False,
+                "msg": msg,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
             }
-            break
+        return _grade_peer(peer, warn_stratum, crit_stratum, warn_offset, crit_offset)
 
-    # Handle missing peer
-    if peer == None:
-        return {
-            "changed": False,
-            "msg": "No peer data found for %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    if mode in ("single", "both"):
+        peer = section.get(item)
+        if peer == None:
+            return {
+                "changed": False,
+                "msg": "peer %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        return _grade_peer(peer, warn_stratum, crit_stratum, warn_offset, crit_offset)
 
-    # Check unreachable
+    return {
+        "changed": False,
+        "msg": "unknown mode: %s" % mode,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+    }
+
+def _grade_peer(peer, warn_stratum, crit_stratum, warn_offset, crit_offset):
     if peer["reach"] == "0":
         return {
             "changed": False,
-            "msg": "Peer %s is unreachable" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Peer %s is unreachable" % peer["name"],
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    # Extract parameters with defaults
-    levels = params.get("ntp_levels", [10, 200.0, 500.0])
-    crit_stratum = levels[0]
-    warn_offset = levels[1]
-    crit_offset = levels[2]
-
     offset = peer["offset"]
     stratum = peer["stratum"]
     jitter = peer["jitter"]
-
-    # Determine state based on thresholds
-    state = "OK"
-    details_parts = []
-
-    # Offset check: upper levels warn/crit if >= threshold, lower levels warn/crit if <= -threshold
-    if offset >= crit_offset or offset <= -crit_offset:
+    state_offset = _grade_offset(offset, warn_offset, crit_offset)
+    state_stratum = _grade_stratum(stratum, crit_stratum, warn_stratum)
+    state_codes = {"CRIT": 3, "WARN": 2, "OK": 0}
+    worst = max(state_codes.get(state_offset, 0), state_codes.get(state_stratum, 0))
+    if state_offset == "CRIT" or state_stratum == "CRIT":
         state = "CRIT"
-        details_parts.append("Offset CRIT: %f ms" % offset)
-    elif offset >= warn_offset or offset <= -warn_offset:
+    elif state_offset == "WARN" or state_stratum == "WARN":
         state = "WARN"
-        details_parts.append("Offset WARN: %f ms" % offset)
     else:
-        details_parts.append("Offset OK: %f ms" % offset)
-
-    # Stratum check: upper levels only (critical at crit_stratum)
-    if stratum >= crit_stratum:
-        if state == "OK":
-            state = "WARN"
-        else:
-            state = "CRIT"
-        details_parts.append("Stratum CRIT: %d" % stratum)
-    else:
-        details_parts.append("Stratum OK: %d" % stratum)
-
-    # Jitter: no explicit thresholds in original, but include value
-    details_parts.append("Jitter: %f ms" % jitter)
-
-    # Time since last sync
+        state = "OK"
+    metrics = {"offset": offset, "jitter": jitter, "stratum": stratum}
+    parts = []
+    parts.append("Offset: %f ms" % offset)
+    parts.append("Stratum: %d" % stratum)
+    parts.append("Jitter: %f ms" % jitter)
     if peer["when"] > 0:
-        minutes = peer["when"] / 60.0
-        if minutes < 60:
-            details_parts.append("Last sync: %f min" % minutes)
-        else:
-            hours = minutes / 60.0
-            details_parts.append("Last sync: %f h" % hours)
-
-    # State code
-    state_desc = NTP_STATE_CODES.get(peer["statecode"], "unknown")
-    details_parts.append("State: %s" % state_desc)
-
-    # Final verdict
-    if state == "CRIT" and state_desc == "falsetick":
+        parts.append("Time since last sync: %s" % _format_timespan(peer["when"]))
+    state_name = NTP_STATE_CODES.get(peer["statecode"], "unknown")
+    if state_name == "falsetick":
         state = "CRIT"
-    elif state == "OK" and state_desc in ["sys.peer", "pps-peer", "selected", "candidat"]:
-        state = "OK"
-    else:
-        # For other states (e.g., discarded, excess) still report OK but note state
-        state = "OK"
-
-    # Build message and return
-    summary = "%s: offset=%fms, stratum=%d, jitter=%fms, state=%s" % (
-        item,
-        offset,
-        stratum,
-        jitter,
-        state_desc
-    )
+    msg = ", ".join(parts)
     return {
         "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {
-                "offset": offset,
-                "stratum": stratum,
-                "jitter": jitter
-            },
-            "details": "; ".join(details_parts)
-        }
+        "msg": msg,
+        "data": {"state": state, "metrics": metrics, "details": ""},
     }

@@ -1,134 +1,125 @@
-# ===== Starlark check module for tcp_conn_stats =====
-# Read-only: gather TCP connection stats from /proc/net/tcp and /proc/net/tcp6
-# Map hex states (e.g., "01" -> ESTABLISHED) or state names from agent output
-# Return discovery (single service) and per-state counts with threshold checks
+# Checkmk check: tcp_conn_stats -> read-only Starlark check module
+# Single-service check. Gathers TCP connection state counts from
+# /proc/net/tcp and /proc/net/tcp6 and grades them against per-state
+# thresholds supplied via params.
 
-# State mapping from Checkmk's MAP_COUNTER_KEYS (hex -> name)
-TCP_STATE_MAP = {
+# Mapping of hex state codes (as strings) -> TCP state label, mirroring
+# Checkmk's MAP_COUNTER_KEYS for the tcp_conn_stats check.
+_HEX_STATE_MAP = {
     "01": "ESTABLISHED",
     "02": "SYN_SENT",
     "03": "SYN_RECV",
     "04": "FIN_WAIT1",
     "05": "FIN_WAIT2",
     "06": "TIME_WAIT",
-    "07": "CLOSE",
+    "07": "CLOSED",
     "08": "CLOSE_WAIT",
     "09": "LAST_ACK",
-    "0A": "LISTEN",
-    "0B": "CLOSING",
+    "0A": "CLOSING",
+    "0B": "LISTEN",
+    "0C": "BOUND",
 }
 
-# All expected TCP states (including optional ones like IDLE, BOUND from extended outputs)
-ALL_TCP_STATES = [
-    "ESTABLISHED",
-    "SYN_SENT",
-    "SYN_RECV",
-    "FIN_WAIT1",
-    "FIN_WAIT2",
-    "TIME_WAIT",
-    "CLOSE",
-    "CLOSE_WAIT",
-    "LAST_ACK",
-    "LISTEN",
-    "CLOSING",
-    # Extended states occasionally seen
-    "IDLE",
-    "BOUND",
-]
+# Empty-stats template: all known states default to 0.
+def _empty_stats():
+    return {
+        "CLOSED": 0,
+        "CLOSE_WAIT": 0,
+        "CLOSING": 0,
+        "ESTABLISHED": 0,
+        "FIN_WAIT1": 0,
+        "FIN_WAIT2": 0,
+        "IDLE": 0,
+        "LAST_ACK": 0,
+        "LISTEN": 0,
+        "SYN_RECV": 0,
+        "SYN_SENT": 0,
+        "TIME_WAIT": 0,
+        "BOUND": 0,
+    }
 
-def _count_values(d):
+def _read_tcp_states(ctx):
+    """Read /proc/net/tcp and /proc/net/tcp6 and tally state counts.
+    Returns (stats_dict, total_connections)."""
+    stats = _empty_stats()
     total = 0
-    for v in d.values():
-        total = total + v
-    return total
+    for path in ["/proc/net/tcp", "/proc/net/tcp6"]:
+        if not ctx.file_exists(path):
+            continue
+        content = ctx.file_read(path)
+        for line in content.splitlines():
+            fields = line.split()
+            if len(fields) < 4:
+                continue
+            # Skip header lines (first entry per file starts with "sl").
+            if fields[0] == "sl":
+                continue
+            # The state code is the 4th column, e.g. "0A".
+            state_code = fields[3]
+            label = _HEX_STATE_MAP.get(state_code)
+            if label == None:
+                continue
+            stats[label] = stats[label] + 1
+            total = total + 1
+    return stats, total
 
-def _parse_tcp_conn_stats(ctx):
-    # Gather stats from /proc/net/tcp and /proc/net/tcp6
-    stats = {}
-    for state in ALL_TCP_STATES:
-        stats[state] = 0
-    
-    # Read both tcp and tcp6 files (both must exist on typical Linux)
-    for proc_file in ["/proc/net/tcp", "/proc/net/tcp6"]:
-        if ctx.file_exists(proc_file):
-            content = ctx.file_read(proc_file)
-            for line in content.splitlines()[1:]:  # skip header
-                parts = line.split()
-                if len(parts) < 4:
-                    continue
-                state_hex = parts[3].split(":")[0]  # state field is like "0A:..."
-                if state_hex in TCP_STATE_MAP:
-                    state_name = TCP_STATE_MAP[state_hex]
-                    stats[state_name] = stats[state_name] + 1
-                elif len(state_hex) == 2:
-                    # Unknown hex state — skip (Checkmk also skips on KeyError)
-                    pass
-    
-    return stats
+def _grade(value, levels):
+    """Grade a single value against upper levels (warn, crit).
+    Returns "OK", "WARN" or "CRIT". None levels -> OK."""
+    if levels == None:
+        return "OK"
+    warn = levels[0]
+    crit = levels[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+def _worst(a, b):
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    if order.get(a, 0) >= order.get(b, 0):
+        return a
+    return b
 
 def main(ctx, params):
-    # === DISCOVERY MODE ===
+    # --- DISCOVERY MODE ---
     if params.get("_discover"):
-        stats = _parse_tcp_conn_stats(ctx)
-        total = _count_values(stats)
-        # Only discover service if any non-zero counts exist (like Checkmk's discover_tcp_connections)
-        if total > 0:
-            return {
-                "changed": False,
-                "msg": "discovered TCP connection service",
+        stats, total = _read_tcp_states(ctx)
+        if total == 0:
+            return {"changed": False, "msg": "no TCP connections found",
+                    "data": {"discovery": []}}
+        metrics = []
+        for name in sorted(stats.keys()):
+            if stats[name] != 0:
+                metrics.append(name)
+        return {"changed": False,
+                "msg": "discovered 1 service",
                 "data": {"discovery": [
-                    {"item": "", "params": {}, "metrics": ALL_TCP_STATES}
-                ]},
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no TCP connections found",
-                "data": {"discovery": []},
-            }
+                    {"item": "", "params": {}, "metrics": metrics}
+                ]}}
 
-    # === CHECK MODE ===
-    # Gather fresh stats (since check runs for single item "", we recompute)
-    stats = _parse_tcp_conn_stats(ctx)
-    
-    # Prepare result details and state evaluation per state
-    details_parts = []
-    state_overall = "OK"
+    # --- CHECK MODE (single service, item ignored) ---
+    stats, total = _read_tcp_states(ctx)
+    if total == 0:
+        return {"changed": False,
+                "msg": "no TCP connections found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     metrics = {}
-    
-    for state_name in ALL_TCP_STATES:
-        count = stats.get(state_name, 0)
-        warn_val = params.get(state_name)
-        crit_val = params.get(state_name + "_crit")
-        
-        # Map to Checkmk behavior: if warn/crit are set, evaluate upper thresholds
-        if crit_val != None and count >= int(crit_val):
-            state_this = "CRIT"
-        elif warn_val != None and count >= int(warn_val):
-            state_this = "WARN"
-        else:
-            state_this = "OK"
-        
-        # Overall state priority: CRIT > WARN > OK
-        if state_this == "CRIT" and state_overall != "CRIT":
-            state_overall = "CRIT"
-        elif state_this == "WARN" and state_overall == "OK":
-            state_overall = "WARN"
-        
-        # Record metric and label
-        metrics[state_name] = count
-        label = state_name.replace("_", " ").capitalize()
-        details_parts.append("%s: %d" % (label, count))
-    
-    # Build Checkmk-style message
-    msg = ", ".join(details_parts)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state_overall,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    details_lines = []
+    overall = "OK"
+    for name in sorted(stats.keys()):
+        count = stats[name]
+        metrics[name] = count
+        label = name.replace("_", " ").capitalize()
+        details_lines.append("%s: %d" % (label, count))
+        levels = params.get(name)
+        overall = _worst(overall, _grade(count, levels))
+
+    details = "\n".join(details_lines)
+    msg = "Total TCP connections: %d" % total
+    if overall == "OK":
+        msg = msg + " (states OK)"
+    return {"changed": False, "msg": msg,
+            "data": {"state": overall, "metrics": metrics, "details": details}}

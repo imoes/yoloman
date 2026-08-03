@@ -1,128 +1,42 @@
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.3224.4.1.1.1.4"
-        ], mutates=False)
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        sysid = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        if sysid.rc != 0:
+            return {"changed": False, "msg": "SNMP sysObjectID not reachable", "data": {"discovery": []}}
+        if not sysid.stdout.startswith(".1.3.6.1.4.1.3224.1"):
+            return {"changed": False, "msg": "host is not a Juniper ScreenOS device", "data": {"discovery": []}}
+        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.3224.4.1.1.1.4"], mutates=False)
         if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "snmpwalk failed for juniper_screenos_vpn",
-                "data": {"discovery": []}
-            }
-        # Also fetch the corresponding status OID to build item->status map
-        res_status = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.3224.4.1.1.1.23"
-        ], mutates=False)
-        if res_status.rc != 0:
-            return {
-                "changed": False,
-                "msg": "snmpwalk failed for juniper_screenos_vpn status",
-                "data": {"discovery": []}
-            }
-        
-        # Parse both walks and build map: item = OID leaf (index), value = status
-        status_map = {}
-        # Process status walk first (OID .1.3.6.1.4.1.3224.4.1.1.1.23)
-        for line in res_status.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
+            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
+        out = []
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
                 continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            # Extract the leaf (last numeric part of OID)
-            if oid_part.startswith(".1.3.6.1.4.1.3224.4.1.1.1.23."):
-                index = oid_part.rsplit(".", 1)[-1]
-                # Value is typically "INTEGER: 0" or "INTEGER: 1"
-                if value_part.startswith("INTEGER: "):
-                    status = value_part.split(": ", 1)[1].strip()
-                    status_map[index] = status
-        
-        # Build discovery list from status_map (item = vpn_id)
-        discovery_items = []
-        for vpn_id in sorted(status_map.keys()):
-            # Default thresholds aren't used here, but include empty dict for params
-            discovery_items.append({
-                "item": vpn_id,
-                "params": {},
-                "metrics": []
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d VPNs" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode
+            oid = line[:sp]
+            idx = oid[len(".1.3.6.1.4.1.3224.4.1.1.1.4") + 1:]
+            if not idx:
+                continue
+            out.append({"item": idx, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d VPNs" % len(out), "data": {"discovery": out}}
     item = params.get("item", "")
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    # Fetch status for the specific item (OID .1.3.6.1.4.1.3224.4.1.1.1.23.<item>)
-    # We need to construct the full OID for the item's leaf
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.3224.4.1.1.1.23." + item
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "unable to retrieve VPN status for item %s" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Parse single-line output: "OID = INTEGER: <value>"
-    line = res.stdout.strip()
-    parts = line.split(" = ")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "unable to parse VPN status for item %s" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    value_part = parts[1].strip()
-    if not value_part.startswith("INTEGER: "):
-        return {
-            "changed": False,
-            "msg": "unexpected response format for VPN item %s" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    status = value_part.split(": ", 1)[1].strip()
+    col_oid = ".1.3.6.1.4.1.3224.4.1.1.1.4"
+    status_oid = ".1.3.6.1.4.1.3224.4.1.1.1.23"
+    status_get = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, status_oid + "." + item], mutates=False)
+    if status_get.rc != 0:
+        return {"changed": False, "msg": "VPN %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    status = status_get.stdout.strip().strip('"')
     if status == "1":
-        summary = "VPN Status %s is active" % item
         state = "OK"
+        summary = "VPN Status %s is active" % item
     elif status == "0":
-        summary = "VPN Status %s inactive" % item
         state = "CRIT"
+        summary = "VPN Status %s inactive" % item
     else:
-        summary = "Unknown vpn status %s" % status
         state = "WARN"
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+        summary = "Unknown vpn status %s" % status
+    return {"changed": False, "msg": summary, "data": {"state": state, "metrics": {}, "details": ""}}

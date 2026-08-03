@@ -1,158 +1,179 @@
-UNIT_TO_MB = {
-    "Bytes": 1.0 / 1048576.0,
+# Checkmk check: scaleio_storage_pool -> read-only Starlark check module
+# Translated for the yolo-man agent's Starlark runtime. READ-ONLY: never
+# mutates the system, never writes files, always changed=False.
+#
+# The Checkmk plugin reads data from an agent section <<<scaleio_storage_pool>>
+# produced by the ScaleIO (now PowerFlex) CSI / MDM. There is no on-host CLI
+# that exposes this data on a plain node; absence -> empty discovery / UNKNOWN.
+
+# Unit -> multiplier to MiB
+KNOWN_CONVERSION_VALUES_INTO_MB = {
+    "Bytes": 1.0 / 1024.0 / 1024.0,
     "KB": 1.0 / 1024.0,
     "MB": 1.0,
     "GB": 1024.0,
-    "TB": 1048576.0,
+    "TB": 1024.0 * 1024.0,
 }
 
-def _capacity_mb(tokens):
-    if len(tokens) < 2:
-        return None
-    unit = tokens[1].rstrip(")")
-    factor = UNIT_TO_MB.get(unit)
-    if factor == None:
-        return None
-    val_s = tokens[0].lstrip("(")
-    if not val_s.replace(".", "").isdigit():
-        return None
-    return float(val_s) * factor
+# Unit -> multiplier to Bytes
+KNOWN_CONVERSION_VALUES_INTO_BYTES = {
+    "Bytes": 1.0,
+    "KB": 1024.0,
+    "MB": 1024.0 * 1024.0,
+    "GB": 1024.0 * 1024.0 * 1024.0,
+    "TB": 1024.0 * 1024.0 * 1024.0 * 1024.0,
+}
 
-def _parse_pools(stdout):
-    pools = {}
-    cur_id = None
-    cur = {}
-    for raw in stdout.splitlines():
-        line = raw.strip()
-        if not line:
+# ScaleIO space values are shown like "65.5 TB" -> the numeric part is the
+# value and the unit is KNOWN_CONVERSION_VALUES_INTO_MB's key.
+def _split_space(s):
+    parts = s.strip().split(" ", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return s, ""
+
+def _convert_to_mb(unit, value):
+    if unit not in KNOWN_CONVERSION_VALUES_INTO_MB:
+        return None
+    return float(value) * KNOWN_CONVERSION_VALUES_INTO_MB[unit]
+
+def _convert_to_bytes(unit, value):
+    if unit not in KNOWN_CONVERSION_VALUES_INTO_BYTES:
+        return None
+    return float(value) * KNOWN_CONVERSION_VALUES_INTO_BYTES[unit]
+
+# The raw agent output (<<<scaleio_storage_pool>>>) is a multi-line block:
+#   STORAGE_POOL <id>:
+#        KEY value ...
+#   ...
+# Parse it into { pool_id: { KEY: [token, token, ...] } }.
+def _parse_scaleio_section(text):
+    section = {}
+    sys_id = ""
+    lines = text.splitlines() if text else []
+    for line in lines:
+        if not line.strip():
             continue
-        lo = line.lower()
-        if "storage pool id" in lo:
-            if cur_id != None:
-                pools[cur_id] = cur
-            colon_pos = line.find(":")
-            if colon_pos >= 0:
-                pool_id = line[colon_pos + 1:].strip().rstrip(":")
-                if not pool_id:
-                    words = line.split()
-                    pool_id = words[-1].rstrip(":")
-            else:
-                words = line.split()
-                pool_id = words[-1].rstrip(":")
-            cur_id = pool_id
-            cur = {"id": cur_id, "name": "", "max_mb": 0.0, "free_mb": 0.0, "failed": 0.0}
-        elif cur_id != None:
-            if lo.startswith("name:"):
-                cur["name"] = line.split(":", 1)[1].strip()
-            elif ("maximum capacity" in lo or "max capacity" in lo) and ":" in line:
-                rest = line.split(":", 1)[1].strip().split()
-                mb = _capacity_mb(rest)
-                if mb != None:
-                    cur["max_mb"] = mb
-            elif "failed capacity" in lo and ":" in line:
-                rest = line.split(":", 1)[1].strip().split()
-                if len(rest) >= 1 and rest[0].replace(".", "").isdigit():
-                    cur["failed"] = float(rest[0])
-            elif ("unused capacity" in lo or "available capacity" in lo or "free capacity" in lo) and "failed" not in lo and ":" in line:
-                rest = line.split(":", 1)[1].strip().split()
-                mb = _capacity_mb(rest)
-                if mb != None:
-                    cur["free_mb"] = mb
-    if cur_id != None:
-        pools[cur_id] = cur
-    return pools
+        tokens = line.strip().split()
+        first = tokens[0]
+        if first.startswith("STORAGE_POOL") and len(tokens) >= 2:
+            sys_id = tokens[1].replace(":", "")
+            section.setdefault(sys_id, {})
+        elif sys_id and len(tokens) >= 2:
+            section[sys_id][first] = tokens[1:]
+    return section
+
+def _parse_storage_pool(section, pool_id):
+    if pool_id not in section:
+        return None
+    pool = section[pool_id]
+    if "NAME" not in pool:
+        return None
+    capacity = pool.get("MAX_CAPACITY_IN_KB", [])
+    total_space = _split_space(" ".join(capacity)) if capacity else ("", "")
+    unused = pool.get("UNUSED_CAPACITY_IN_KB", [])
+    free_space = _split_space(" ".join(unused)) if unused else ("", "")
+    failed = pool.get("FAILED_CAPACITY_IN_KB", ["0"])
+    return {
+        "name": pool["NAME"][0],
+        "total_value": total_space[0],
+        "total_unit": total_space[1],
+        "free_value": free_space[0],
+        "free_unit": free_space[1],
+        "failed_value": failed[0],
+        "failed_unit": "Bytes",
+    }
+
+def _df_state(total, free, used, warn, crit):
+    # warn/crit are percentages (upper level: WARN at >=warn, CRIT at >=crit)
+    if total <= 0:
+        return "UNKNOWN"
+    pct = (used / total) * 100.0
+    if pct >= crit:
+        return "CRIT"
+    if pct >= warn:
+        return "WARN"
+    return "OK"
 
 def main(ctx, params):
-    host = params.get("host", "")
-    if host:
-        cmd = ["scli", "--mdm_ip", host, "--query_all_storage_pools", "--approve_certificate"]
-    else:
-        cmd = ["scli", "--query_all_storage_pools", "--approve_certificate"]
-
-    res = ctx.run(cmd, mutates=False, ok_codes=[0, 1, 2, 127])
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "scli failed (rc=%d): %s" % (res.rc, res.stderr.strip()),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    pools = _parse_pools(res.stdout)
-
     if params.get("_discover"):
-        discovery = []
-        for pool_id in pools:
-            discovery.append({
-                "item": pool_id,
-                "params": {"levels": [80.0, 90.0]},
-                "metrics": ["used_percent", "used_mb", "total_mb", "free_mb", "failed_bytes"],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d storage pools" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        # Probe for the real thing: the <<<scaleio_storage_pool>>> section
+        # is produced by an agent plugin; there is no standard command on a
+        # plain node. We look for the ScaleIO/PowerFlex sysfs/config markers
+        # that indicate this product is present.
+        probe = ctx.run(["scaleio-config", "--version"], mutates=False)
+        if probe.rc == 127:
+            # Binary missing -> not installed -> no service discovered.
+            return {"changed": False, "msg": "no scaleio storage pool data",
+                    "data": {"discovery": []}}
+        # If the binary exists we still need the parsed section text; in this
+        # runtime the section is exposed via a small helper the agent emits.
+        text = ctx.run(["scaleio-config", "--agent-section", "scaleio_storage_pool"],
+                       mutates=False).stdout
+        section = _parse_scaleio_section(text)
+        if not section:
+            return {"changed": False, "msg": "no scaleio storage pool data",
+                    "data": {"discovery": []}}
+        out = []
+        for pool_id in section:
+            out.append({"item": pool_id, "params": {"warnsize": 80, "critsize": 90},
+                        "metrics": ["size", "used_percent"]})
+        return {"changed": False,
+                "msg": "discovered %d scaleio storage pools" % len(out),
+                "data": {"discovery": out}}
 
+    # --- CHECK MODE ---
     item = params.get("item", "")
-    pool = pools.get(item)
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
+
+    # Same absence-probe as discovery.
+    probe = ctx.run(["scaleio-config", "--version"], mutates=False)
+    if probe.rc == 127:
+        return {"changed": False, "msg": "no scaleio storage pool data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    text = ctx.run(["scaleio-config", "--agent-section", "scaleio_storage_pool"],
+                   mutates=False).stdout
+    section = _parse_scaleio_section(text)
+
+    pool = _parse_storage_pool(section, item)
     if pool == None:
-        return {
-            "changed": False,
-            "msg": "storage pool not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        return {"changed": False, "msg": "no such scaleio storage pool: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    total_mb = pool["max_mb"]
-    free_mb = pool["free_mb"]
-    failed = pool["failed"]
+    total = _convert_to_mb(pool["total_unit"], pool["total_value"])
+    free = _convert_to_mb(pool["free_unit"], pool["free_value"])
+    failed = _convert_to_mb(pool["failed_unit"], pool["failed_value"])
 
-    if total_mb <= 0.0:
-        return {
-            "changed": False,
-            "msg": "no capacity data for pool %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if total == None or free == None:
+        unit = pool["total_unit"] if total == None else pool["free_unit"]
+        return {"changed": False,
+                "msg": "Unknown unit: " + str(unit),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    used_mb = total_mb - free_mb
-    used_pct = used_mb / total_mb * 100.0
+    used = total - free
+    state = _df_state(total, free, used, warn, crit)
 
-    levels = params.get("levels", [80.0, 90.0])
-    warn = levels[0]
-    crit = levels[1]
+    # Render numbers human-friendly.
+    def _mb(v):
+        if v == None:
+            return "n/a"
+        if v >= 1024.0:
+            return "%f GB" % (v / 1024.0)
+        return "%f MB" % v
 
-    state = "CRIT" if used_pct >= crit else ("WARN" if used_pct >= warn else "OK")
-    if failed > 0.0:
-        state = "CRIT"
+    pct = (used / total) * 100.0 if total > 0 else 0.0
+    msg = "Size: %s, Used: %s (%f%%), Free: %s" % (
+        _mb(total), _mb(used), pct, _mb(free))
 
-    name = pool.get("name", item)
-    if not name:
-        name = item
-    total_gb = total_mb / 1024.0
-    used_gb = used_mb / 1024.0
-    free_gb = free_mb / 1024.0
+    metrics = {"size": total, "used": used, "used_percent": pct}
 
-    msg = "Pool %s: %f%% used (%f of %f GB, free %f GB)" % (
-        name, used_pct, used_gb, total_gb, free_gb
-    )
-    if failed > 0.0:
-        msg = msg + ", Failed: %d Bytes" % int(failed)
+    # Failed capacity is a hard CRIT per the source plugin.
+    if failed > 0:
+        return {"changed": False,
+                "msg": msg + ", Failed Capacity: %s" % _mb(failed),
+                "data": {"state": "CRIT", "metrics": metrics, "details": ""}}
 
-    details = ""
-    if state != "OK":
-        details = "WARN at %f%%, CRIT at %f%%" % (warn, crit)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {
-                "used_percent": used_pct,
-                "used_mb": used_mb,
-                "total_mb": total_mb,
-                "free_mb": free_mb,
-                "failed_bytes": failed,
-            },
-            "details": details,
-        },
-    }
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

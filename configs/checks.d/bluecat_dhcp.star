@@ -1,145 +1,91 @@
-# Module for Checkmk bluecat_dhcp check (translated to Starlark)
-# Read-only SNMP-based check: no mutations, no file writes, always changed=False
+_OPER_STATE_MAP = {
+    1: "running normally",
+    2: "not running",
+    3: "currently starting",
+    4: "currently stopping",
+    5: "fault",
+}
+
+_DETECT_BLUECAT_OID = ".1.3.6.1.2.1.1.2.0"
+_DETECT_BLUECAT_VAL = ".1.3.6.1.4.1.13315.2.1"
+
+_BASE_OID = ".1.3.6.1.4.1.13315.3.1.1.2.1"
+_COL_OPER_STATE = "1"
+_COL_LEASES = "3"
 
 def main(ctx, params):
-    # SNMP base OID for bluecat_dhcp section
-    base_oid = ".1.3.6.1.4.1.13315.3.1.1.2.1"
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
-    # Discovery mode
     if params.get("_discover"):
-        # Fetch both OIDs: dhcpOperState (1) and dhcpLeaseStatsSuccess (3)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, base_oid
-        ], mutates=False)
-        if res.rc != 0 or res.stdout == "":
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
+        res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                       "-Oqv", params.get("host", "localhost"), _DETECT_BLUECAT_OID], mutates=False)
+        if res.rc != 0 or not res.stdout.strip():
+            return {"changed": False, "msg": "bluecat not detected", "data": {"discovery": []}}
+        if res.stdout.strip() != _DETECT_BLUECAT_VAL:
+            return {"changed": False, "msg": "bluecat not detected", "data": {"discovery": []}}
+
+        oper_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                            "-Oqv", params.get("host", "localhost"),
+                            _BASE_OID + ".1." + _COL_OPER_STATE], mutates=False)
+        leases_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                              "-Oqv", params.get("host", "localhost"),
+                              _BASE_OID + ".1." + _COL_LEASES], mutates=False)
+
+        if oper_res.rc != 0 or not oper_res.stdout.strip():
+            return {"changed": False, "msg": "no dhcp operational state found",
+                    "data": {"discovery": []}}
 
         oper_state = None
-        leases = None
+        if oper_res.stdout.strip().isdigit():
+            oper_state = int(oper_res.stdout.strip())
 
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if line == "":
-                continue
-            parts = line.split(" = ", 2)
-            if len(parts) < 2:
-                continue
-            oid_val = parts[0].strip()
-            val_part = parts[1].strip()
-            if oid_val == base_oid + ".1":
-                oper_state = val_part
-            elif oid_val == base_oid + ".3":
-                leases = val_part
+        has_leases = leases_res.rc == 0 and leases_res.stdout.strip() and leases_res.stdout.strip().isdigit()
 
-        # Parse values: strip type prefix if present (e.g., "INTEGER: ", " Gauge32: ")
-        if oper_state != None:
-            if ":" in oper_state:
-                oper_state = oper_state.split(":", 1)[1].strip()
-            if not oper_state.isdigit():
-                oper_state = None
-            else:
-                oper_state = int(oper_state)
-
-        if leases != None:
-            if ":" in leases:
-                leases = leases.split(":", 1)[1].strip()
-            if not leases.isdigit():
-                leases = None
-            else:
-                leases = int(leases)
-
-        # Only discover if oper_state != 2 (not "not running")
-        # Checkmk source: if section["oper_state"] != 2: yield Service()
         if oper_state != None and oper_state != 2:
-            return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [
-                {"item": "", "params": {"oper_states": {"warning": [2, 3, 4], "critical": [5]}},
-                 "metrics": ["leases"]}
-            ]}}
-        else:
-            return {"changed": False, "msg": "DHCP not discovered", "data": {"discovery": []}}
+            return {"changed": False, "msg": "discovered 1 item",
+                    "data": {"discovery": [{"item": "", "params": {
+                        "oper_states": {"warning": [2, 3, 4], "critical": [5]}},
+                        "metrics": ["leases"] if has_leases else []}]}}
 
-    # Check mode
-    # Fetch values again (same as discovery, but now for one service)
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, base_oid
-    ], mutates=False)
-    if res.rc != 0 or res.stdout == "":
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "no dhcp service found",
+                "data": {"discovery": []}}
+
+    res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                   "-Oqv", params.get("host", "localhost"),
+                   _BASE_OID + ".1." + _COL_OPER_STATE], mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "no dhcp operational state found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
     oper_state = None
-    leases = None
+    if res.stdout.strip().isdigit():
+        oper_state = int(res.stdout.strip())
+    else:
+        return {"changed": False, "msg": "cannot parse dhcp operational state",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if line == "":
-            continue
-        parts = line.split(" = ", 2)
-        if len(parts) < 2:
-            continue
-        oid_val = parts[0].strip()
-        val_part = parts[1].strip()
-        if oid_val == base_oid + ".1":
-            oper_state = val_part
-        elif oid_val == base_oid + ".3":
-            leases = val_part
+    if oper_state == 2:
+        return {"changed": False, "msg": "DHCP is not running",
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
 
-    # Parse values
-    if oper_state != None:
-        if ":" in oper_state:
-            oper_state = oper_state.split(":", 1)[1].strip()
-        if not oper_state.isdigit():
-            oper_state = None
-        else:
-            oper_state = int(oper_state)
+    warn_states = params.get("oper_states", {}).get("warning", [2, 3, 4])
+    crit_states = params.get("oper_states", {}).get("critical", [5])
 
-    if leases != None:
-        if ":" in leases:
-            leases = leases.split(":", 1)[1].strip()
-        if not leases.isdigit():
-            leases = None
-        else:
-            leases = int(leases)
-
-    # State mapping (same as _OPER_STATE_MAP)
-    oper_state_map = {
-        1: "running normally",
-        2: "not running",
-        3: "currently starting",
-        4: "currently stopping",
-        5: "fault",
-    }
-
-    # Get params (checkmk default)
-    oper_states = params.get("oper_states", {"warning": [2, 3, 4], "critical": [5]})
-    warning_states = oper_states.get("warning", [2, 3, 4])
-    critical_states = oper_states.get("critical", [5])
-
-    # Determine monitoring state
     state = "OK"
-    if oper_state == None:
-        return {"changed": False, "msg": "No operational state data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    if oper_state in critical_states:
+    if oper_state in crit_states:
         state = "CRIT"
-    elif oper_state in warning_states:
+    elif oper_state in warn_states:
         state = "WARN"
 
-    # Service name: DHCP if leases present, else DNS
-    service_name = "DHCP" if leases != None else "DNS"
+    desc = _OPER_STATE_MAP.get(oper_state, "unknown state")
+    msg = "DHCP is %s" % desc
 
-    msg = "%s is %s" % (service_name, oper_state_map.get(oper_state, "unknown state"))
     metrics = {}
-    details = ""
+    leases_res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                          "-Oqv", params.get("host", "localhost"),
+                          _BASE_OID + ".1." + _COL_LEASES], mutates=False)
+    if leases_res.rc == 0 and leases_res.stdout.strip().isdigit():
+        leases = int(leases_res.stdout.strip())
+        metrics["leases"] = leases
+        msg = msg + ", %d lease%s per second" % (leases, "" if leases == 1 else "s")
 
-    if service_name == "DHCP" and leases != None:
-        msg += ", %d lease%s per second" % (leases, "" if leases == 1 else "s")
-        metrics = {"leases": leases}
-        # No details required by example
-    else:
-        details = ""
-
-    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": metrics, "details": details}}
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

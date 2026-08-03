@@ -1,13 +1,26 @@
-# ===== Starlark check module for cmk.cmciii (state monitor) =====
-# This check monitors the state of Rittal CMCIII devices via SNMP.
-# It reproduces the Checkmk check plugin logic as a read-only Starlark module.
+# Checkmk cmciii check - Rittal CMCIII device state monitoring via SNMP
+# Translated to read-only Starlark
 
-# OID base constants (from Checkmk source)
-BASE_OID_DEVICE_TABLE = ".1.3.6.1.4.1.2606.7.4.1.2.1"
-BASE_OID_VAR_TABLE = ".1.3.6.1.4.1.2606.7.4.2.2.1"
+# SNMP OIDs
+SYS_OBJECT_ID = ".1.3.6.1.2.1.1.2.0"
+RITTAL_ENTERPRISE = ".1.3.6.1.4.1.2606.7"
+DEVICE_BASE = ".1.3.6.1.4.1.2606.7.4.1.2.1"
+VAR_BASE = ".1.3.6.1.4.1.2606.7.4.2.2.1"
 
-# MAP_STATES mapping (state ID -> (State, description))
-# Using Starlark-compatible strings for states: "OK", "WARN", "CRIT", "UNKNOWN"
+# Device table column OIDs
+COL_DEV_NAME = DEVICE_BASE + ".2"
+COL_DEV_ALIAS = DEVICE_BASE + ".3"
+COL_DEV_STATUS = DEVICE_BASE + ".6"
+
+# Variable table column OIDs  
+COL_VAR_NAME = VAR_BASE + ".3"
+COL_VAR_TYPE = VAR_BASE + ".4"
+COL_VAR_UNIT = VAR_BASE + ".5"
+COL_VAR_SCALE = VAR_BASE + ".7"
+COL_VAR_VAL_STR = VAR_BASE + ".10"
+COL_VAR_VAL_INT = VAR_BASE + ".11"
+
+# Status mapping (from MAP_STATES)
 MAP_STATES = {
     "1": ("UNKNOWN", "not available"),
     "2": ("OK", "OK"),
@@ -17,202 +30,150 @@ MAP_STATES = {
     "6": ("CRIT", "error"),
 }
 
-def main(ctx, params):
-    # ===== DISCOVERY MODE =====
-    if params.get("_discover"):
-        # Fetch device table via SNMP
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            BASE_OID_DEVICE_TABLE
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP device table query failed",
-                "data": {"discovery": []}
-            }
-        
-        # Parse device table lines: "OID = STRING: name", "OID = STRING: alias", "OID = INTEGER: status"
-        # The SNMP section fetches 4 OIDs per device: endoid (index), name, alias, status
-        # We need to group them as 4-tuples per device
-        devices = {}
-        states = {}
-        num = 0
-        lines = res.stdout.splitlines()
-        i = 0
-        while i < len(lines):
-            # Expect 4 lines per device (OIDEnd, name, alias, status)
-            if i + 3 >= len(lines):
-                break
-            
-            # Extract value from "OID = TYPE: value" format
-            line1 = lines[i].strip()
-            line2 = lines[i+1].strip()
-            line3 = lines[i+2].strip()
-            line4 = lines[i+3].strip()
-            
-            # Get endoid (index)
-            endoid = ""
-            if "=" in line1:
-                endoid = line1.split("=")[0].strip()
-            
-            # Get name
-            name = ""
-            if "=" in line2:
-                parts = line2.split("=")
-                val = "=".join(parts[1:]).strip()
-                if val.startswith("STRING:"):
-                    name = val[7:].strip().strip('"')
-            
-            # Get alias
-            alias = ""
-            if "=" in line3:
-                parts = line3.split("=")
-                val = "=".join(parts[1:]).strip()
-                if val.startswith("STRING:"):
-                    alias = val[7:].strip().strip('"')
-            
-            # Get status
-            status = ""
-            if "=" in line4:
-                parts = line4.split("=")
-                val = "=".join(parts[1:]).strip()
-                if val.startswith("INTEGER:"):
-                    status = val[8:].strip()
-            
-            # Skip if we don't have all required fields
-            if not endoid or not status:
-                i += 4
-                continue
-            
-            num += 1
-            # Build dev_name (alias with spaces replaced by underscores, fallback to name-index)
-            dev_name = alias.replace(" ", "_")
-            if not dev_name:
-                dev_name = name + "-" + str(num)
-            
-            # Handle duplicate dev_name by appending endoid
-            if dev_name in states and states[dev_name]["_location_"] != endoid:
-                dev_name += " %s" % endoid
-            
-            devices[endoid] = dev_name
-            states[dev_name] = {"status": status, "_location_": endoid}
-            
-            i += 4
-        
-        # Build discovery list
-        discovery_items = []
-        for id_, entry in states.items():
-            if params.get("use_sensor_description", False):
-                item = "%s %s" % (entry["_location_"], id_)
-            else:
-                item = id_
-            discovery_items.append({
-                "item": item,
-                "params": {"_item_key": id_},
-                "metrics": ["state"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d devices" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # ===== CHECK MODE =====
-    item = params.get("item", "")
-    entry_key = params.get("_item_key", item)
-    
-    # Fetch device table via SNMP (read-only)
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        BASE_OID_DEVICE_TABLE
-    ], mutates=False)
-    
+def _snmp_walk(ctx, community, host, oid):
+    """Walk an SNMP column, returning dict of {index: value}."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return {}
+    result = {}
+    for line in res.stdout.splitlines():
+        if not line.strip():
+            continue
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        full_oid, value = parts[0], parts[1]
+        idx = full_oid[len(oid):]
+        # idx starts with "."; strip it
+        if idx.startswith("."):
+            idx = idx[1:]
+        result[idx] = value
+    return result
+
+def _snmp_get(ctx, community, host, oid):
+    """Get a single SNMP scalar value."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+def _detect_cmciii(ctx, params):
+    """Check if this is a Rittal CMCIII device."""
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    sysoid = _snmp_get(ctx, community, host, SYS_OBJECT_ID)
+    if not sysoid:
+        return False
+    return RITTAL_ENTERPRISE in sysoid
+
+def _parse_devices(ctx, params):
+    """Parse the device table into states dict."""
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
     
-    # Parse device table to find the specific device entry
-    # We need to locate the device with matching item/key
-    lines = res.stdout.splitlines()
-    i = 0
-    while i < len(lines):
-        if i + 3 >= len(lines):
-            break
+    names = _snmp_walk(ctx, community, host, COL_DEV_NAME)
+    aliases = _snmp_walk(ctx, community, host, COL_DEV_ALIAS)
+    statuses = _snmp_walk(ctx, community, host, COL_DEV_STATUS)
+    
+    # Collect all indices
+    all_indices = list(names.keys()) + list(aliases.keys()) + list(statuses.keys())
+    # Deduplicate
+    seen = set()
+    indices = []
+    for idx in all_indices:
+        if idx not in seen:
+            seen.add(idx)
+            indices.append(idx)
+    
+    devices = {}
+    states = {}
+    for num, idx in enumerate(indices, start=1):
+        name = names.get(idx, "")
+        alias = aliases.get(idx, "")
+        status = statuses.get(idx, "1")  # default to "1" (not available) if missing
         
-        line1 = lines[i].strip()
-        line2 = lines[i+1].strip()
-        line3 = lines[i+2].strip()
-        line4 = lines[i+3].strip()
+        # Parse device id from endoid - the index IS the endoid
+        endoid = idx
         
-        # Extract values
-        endoid = ""
-        if "=" in line1:
-            endoid = line1.split("=")[0].strip()
-        
-        name = ""
-        if "=" in line2:
-            parts = line2.split("=")
-            val = "=".join(parts[1:]).strip()
-            if val.startswith("STRING:"):
-                name = val[7:].strip().strip('"')
-        
-        alias = ""
-        if "=" in line3:
-            parts = line3.split("=")
-            val = "=".join(parts[1:]).strip()
-            if val.startswith("STRING:"):
-                alias = val[7:].strip().strip('"')
-        
-        status = ""
-        if "=" in line4:
-            parts = line4.split("=")
-            val = "=".join(parts[1:]).strip()
-            if val.startswith("INTEGER:"):
-                status = val[8:].strip()
-        
-        # Build dev_name (same logic as discovery)
+        # Reproduce parse_devices_and_states logic
         dev_name = alias.replace(" ", "_")
         if not dev_name:
-            dev_name = name + "-" + str(i//4 + 1)
+            dev_name = name + "-" + str(num)
+        
+        if dev_name in states:
+            dev_name = alias + " " + endoid
+        
+        devices.setdefault(endoid, dev_name)
         
         if dev_name in states and states[dev_name]["_location_"] != endoid:
             dev_name += " %s" % endoid
         
-        # Check if this is the target device
-        if dev_name == entry_key:
-            # Found the device - get state mapping
-            status_val = status if status in MAP_STATES else "1"
-            state, state_readable = MAP_STATES.get(status_val, ("UNKNOWN", "not available"))
-            
-            return {
-                "changed": False,
-                "msg": "Status: %s" % state_readable,
-                "data": {
-                    "state": state,
-                    "metrics": {"state": 1.0 if state == "OK" else (0.0 if state == "CRIT" else 0.5)},
-                    "details": ""
-                }
-            }
-        
-        i += 4
+        states.setdefault(dev_name, {"status": status, "_location_": endoid})
     
-    # Device not found
+    return devices, states
+
+def main(ctx, params):
+    if not _detect_cmciii(ctx, params):
+        return {
+            "changed": False,
+            "msg": "no Rittal CMCIII device detected",
+            "data": {"discovery": [], "host_labels": {}},
+        }
+    
+    if params.get("_discover"):
+        devices, states = _parse_devices(ctx, params)
+        discovery = []
+        use_desc = params.get("discovery_params", {}).get("use_sensor_description", False)
+        for id_, entry in states.items():
+            item = id_
+            if use_desc:
+                item = "%s %s" % (entry["_location_"], id_)
+            discovery.append({
+                "item": item,
+                "params": {"_item_key": id_},
+                "metrics": [],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d devices" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+    
+    # Check mode
+    item = params.get("item", "")
+    devices, states = _parse_devices(ctx, params)
+    
+    # get_sensor logic: use _item_key if present, else use item
+    check_params = params.get("check_params", {})
+    item_key = check_params.get("_item_key") if check_params else None
+    if item_key:
+        entry = states.get(item_key)
+    else:
+        entry = states.get(item)
+    
+    if not entry:
+        return {
+            "changed": False,
+            "msg": "no sensor entry found for item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    
+    status = entry.get("status", "1")
+    state_info = MAP_STATES.get(status)
+    if state_info:
+        state, state_readable = state_info
+    else:
+        state = "UNKNOWN"
+        state_readable = "unknown"
+    
     return {
         "changed": False,
-        "msg": "device not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        "msg": "Status: %s" % state_readable,
+        "data": {"state": state, "metrics": {}, "details": ""},
     }

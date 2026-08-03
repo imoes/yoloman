@@ -1,143 +1,113 @@
 def main(ctx, params):
     if params.get("_discover"):
-        community = params.get("community", "public")
         host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.12124.2.2.52.1.2"
-        ], mutates=False)
-        disk_names = {}
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(" = STRING: ")
-            if len(parts) < 2:
-                continue
-            oid_val = parts[0].strip()
-            disk_name = parts[1].strip().strip('"')
-            # Extract instance index from OID (last numeric part after last dot)
-            if oid_val.rfind(".") >= 0:
-                idx = oid_val[oid_val.rfind(".") + 1:]
-                if idx.isdigit():
-                    disk_names[idx] = disk_name
+        community = params.get("community", "public")
+        sys_oid = ".1.3.6.1.2.1.1.1.0"
+        sys_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, sys_oid],
+            mutates=False,
+        )
+        if sys_res.rc == 127:
+            return {"changed": False, "msg": "snmpget not installed",
+                    "data": {"discovery": []}}
+        if sys_res.rc != 0 or sys_res.stdout.find("isilon") == -1:
+            return {"changed": False, "msg": "not an Isilon system",
+                    "data": {"discovery": []}}
 
-        res_ops = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.12124.2.2.52.1.3"
-        ], mutates=False)
-        iops_map = {}
-        for line in res_ops.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(" = ")
-            if len(parts) < 2:
-                continue
-            oid_val = parts[0].strip()
-            val_str = parts[1].strip()
-            if not val_str.startswith("INTEGER: "):
-                continue
-            if oid_val.rfind(".") >= 0:
-                idx = oid_val[oid_val.rfind(".") + 1:]
-                val_part = val_str.split(": ", 1)
-                if len(val_part) == 2 and val_part[1].isdigit():
-                    iops = int(val_part[1])
-                    if idx in disk_names:
-                        iops_map[disk_names[idx]] = iops
+        base = ".1.3.6.1.4.1.12124.2.2.52.1"
+        name_col = base + ".2"
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, name_col],
+            mutates=False,
+        )
+        if walk.rc == 127:
+            return {"changed": False, "msg": "snmpwalk not installed",
+                    "data": {"discovery": []}}
+        if walk.rc != 0:
+            return {"changed": False, "msg": "SNMP walk failed",
+                    "data": {"discovery": []}}
 
         discovery = []
-        for item, iops in iops_map.items():
-            discovery.append({
-                "item": item,
-                "params": {},
-                "metrics": ["iops"]
-            })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d disks" % len(discovery),
-            "data": {"discovery": discovery}
-        }
+        seen = []
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            idx = line[:sp]
+            idx_suffix = idx[len(name_col) + 1:]
+            val_part = line[sp + 1:].strip()
+            if val_part.startswith('"') and val_part.endswith('"'):
+                val_part = val_part[1:-1]
+            if idx_suffix and val_part:
+                if val_part not in seen:
+                    seen.append(val_part)
+                    discovery.append({"item": val_part, "params": {},
+                                      "metrics": ["iops"]})
+        return {"changed": False,
+                "msg": "discovered %d disk IO items" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # First get disk index to name mapping
-    res_names = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.12124.2.2.52.1.2"
-    ], mutates=False)
-    
-    idx_to_disk = {}
-    for line in res_names.stdout.splitlines():
-        line = line.strip()
-        if not line:
+    community = params.get("community", "public")
+    warn = params.get("warn", 0)
+    crit = params.get("crit", 0)
+
+    iops_col = ".1.3.6.1.4.1.12124.2.2.52.1.3"
+    base = ".1.3.6.1.4.1.12124.2.2.52.1"
+    name_col = base + ".2"
+
+    walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, name_col],
+        mutates=False,
+    )
+    if walk.rc == 127:
+        return {"changed": False, "msg": "snmpwalk not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if walk.rc != 0:
+        return {"changed": False, "msg": "SNMP walk failed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    index = None
+    for line in walk.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
             continue
-        parts = line.split(" = STRING: ")
-        if len(parts) < 2:
-            continue
-        oid_val = parts[0].strip()
-        disk_name = parts[1].strip().strip('"')
-        if oid_val.rfind(".") >= 0:
-            idx = oid_val[oid_val.rfind(".") + 1:]
-            if idx.isdigit():
-                idx_to_disk[idx] = disk_name
-    
-    # Find the index corresponding to the requested item
-    target_idx = ""
-    found = False
-    for idx, disk in idx_to_disk.items():
-        if disk == item:
-            target_idx = idx
-            found = True
+        oid = line[:sp]
+        val_part = line[sp + 1:].strip()
+        if val_part.startswith('"') and val_part.endswith('"'):
+            val_part = val_part[1:-1]
+        if val_part == item:
+            index = oid[len(name_col) + 1:]
             break
-    
-    if not found:
-        return {
-            "changed": False,
-            "msg": "disk not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get iops value for the specific index
-    res_ops = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.12124.2.2.52.1.3." + target_idx
-    ], mutates=False)
-    
-    item_iops = None
-    for line in res_ops.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ")
-        if len(parts) < 2:
-            continue
-        val_str = parts[1].strip()
-        if val_str.startswith("INTEGER: "):
-            val_part = val_str.split(": ", 1)
-            if len(val_part) == 2 and val_part[1].isdigit():
-                item_iops = int(val_part[1])
-                break
-    
-    if item_iops == None:
-        return {
-            "changed": False,
-            "msg": "disk not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
 
-    state = "OK"
-    msg = "Disk operations: %d/s" % item_iops
+    if index == None:
+        return {"changed": False,
+                "msg": "disk not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"iops": item_iops},
-            "details": ""
-        }
-    }
+    iops_oid = iops_col + "." + index
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, iops_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False, "msg": "could not read iops for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    raw = res.stdout.strip()
+    if raw.startswith('"') and raw.endswith('"'):
+        raw = raw[1:-1]
+    iops = int(raw) if raw.isdigit() else 0
+
+    if crit > 0 and iops >= crit:
+        state = "CRIT"
+    elif warn > 0 and iops >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    return {"changed": False,
+            "msg": "Disk %s IO: %d/s" % (item, iops),
+            "data": {"state": state, "metrics": {"iops": iops},
+                     "details": "Disk operations: %d/s" % iops}}

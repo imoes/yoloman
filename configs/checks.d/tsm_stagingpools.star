@@ -1,105 +1,109 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/checkmk-agent/cache/tsm_stagingpools"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "cannot read agent cache file",
-                    "data": {"discovery": []}}
-        
-        # Parse the agent output
-        parsed = {}
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            inst, pool, util = parts[0], parts[1], parts[2]
-            # Handle malformed lines with 6 parts (two lines merged)
-            if len(parts) == 6:
-                inst2, pool2, util2 = parts[3], parts[4], parts[5]
-                add_item(parsed, inst2, pool2, util2)
-            add_item(parsed, inst, pool, util)
+# ===== check plugin: cmk.plugins.tsm_stagingpools (read-only Starlark) =====
+# Translated from the Checkmk check_plugin tsm_stagingpools.
+# The Checkmk agent section <<<tsm_stagingpools>>> is produced by an agent
+# plug-in that runs on the TSM server and parses `db2pd` output. We read the
+# same raw source the agent plug-in would use: the `tsm_stagingpools` data
+# produced by `db2pd -db <db> -stagingpools` (or its piped variant). No
+# checkmk tooling / special agent is invoked here.
 
-        # Build discovery list
-        discovery = []
-        for item in parsed:
-            discovery.append({"item": item, "params": {"free_below": 70, "levels": [5, 2]},
-                              "metrics": ["free", "tapes", "util"]})
-        return {"changed": False, "msg": "discovered %d staging pools" % len(discovery),
-                "data": {"discovery": discovery}}
+TSM_STAGINGPOOLS_DEFAULT_LEVELS = {
+    "free_below": 70,
+}
 
+def parse_tsm_stagingpools(string_table):
+    """Mirror parse_tsm_stagingpools from the source."""
+    parsed = {}
+
+    def add_item(lineinfo):
+        inst = lineinfo[0]
+        pool = lineinfo[1]
+        util = lineinfo[2]
+        if inst == "default":
+            item = pool
+        else:
+            item = inst + " / " + pool
+        if item not in parsed:
+            parsed[item] = []
+        parsed[item].append(util.replace(",", "."))
+
+    for line in string_table:
+        add_item(line[0:3])
+        # The agent plug-in sometimes seems to mix two lines together.
+        # Detect and fix that.
+        if len(line) == 6:
+            add_item(line[3:])
+    return parsed
+
+
+def gather_raw(ctx, params):
+    """Reproduce the data the Checkmk agent plug-in reads, on host."""
+    db2pd = ctx.run(["db2pd", "--version"], mutates=False)
+    if db2pd.rc == 127:
+        return None
+    db2pd = ctx.run(["db2pd", "-alldbs", "-stagingpools"], mutates=False)
+    if db2pd.rc != 0 and not db2pd.skipped:
+        return None
+    string_table = []
+    for line in db2pd.stdout.splitlines():
+        if not line:
+            continue
+        f = line.split()
+        if len(f) >= 3:
+            string_table.append(f)
+    return string_table
+
+
+def discovery(ctx, params):
+    raw = gather_raw(ctx, params)
+    if raw == None:
+        return {"changed": False, "msg": "no tsm stagingpools data", "data": {"discovery": []}}
+    section = parse_tsm_stagingpools(raw)
+    discovery = []
+    for item in section:
+        discovery.append({"item": item, "params": {"free_below": params.get("free_below", TSM_STAGINGPOOLS_DEFAULT_LEVELS["free_below"]), "levels": params.get("levels", (None, None))}, "metrics": ["free", "tapes", "util"]})
+    return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
+
+
+def check(ctx, params):
     item = params.get("item", "")
-    
-    # Read agent cache for the current item
-    res = ctx.run(["cat", "/var/lib/checkmk-agent/cache/tsm_stagingpools"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "cannot read agent cache file",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Parse agent output into a section-like dict
-    section = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        inst, pool, util = parts[0], parts[1], parts[2]
-        key = pool if inst == "default" else (inst + " / " + pool)
-        section.setdefault(key, [])
-        # Handle merged lines (6 parts)
-        if len(parts) == 6:
-            inst2, pool2, util2 = parts[3], parts[4], parts[5]
-            key2 = pool2 if inst2 == "default" else (inst2 + " / " + pool2)
-            section.setdefault(key2, []).append(util.replace(",", "."))
-        section[key].append(util.replace(",", "."))
-
-    # Check if item exists
+    raw = gather_raw(ctx, params)
+    if raw == None:
+        return {"changed": False, "msg": "no tsm stagingpools data (no db2pd / no TSM)", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = parse_tsm_stagingpools(raw)
     if item not in section:
-        return {"changed": False, "msg": "pool not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "item " + item + " not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Compute metrics
+    free_below = params.get("free_below", TSM_STAGINGPOOLS_DEFAULT_LEVELS["free_below"]) / 100.0
+    levels = params.get("levels", (None, None))
+    warn = levels[0] if len(levels) > 0 else None
+    crit = levels[1] if len(levels) > 1 else None
+
     num_tapes = 0
     num_free_tapes = 0
     utilization = 0.0
-    free_below = params.get("free_below", 70)
     for util in section[item]:
-        # Guard: only process if util is numeric
-        util_clean = util.replace(",", ".")
-        if util_clean.replace(".", "", 1).isdigit() or util_clean == ".":
-            util_float = float(util_clean) / 100.0
-            utilization += util_float
-            num_tapes += 1
-            if util_float <= free_below / 100.0:
-                num_free_tapes += 1
+        util_float = float(util) / 100.0
+        utilization += util_float
+        num_tapes += 1
+        if util_float <= free_below:
+            num_free_tapes += 1
 
     if num_tapes == 0:
-        return {"changed": False, "msg": "No tapes in this pool or pool not existant.",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "No tapes in this pool or pool not existant.", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Determine state from levels
-    levels = params.get("levels", [None, None])
-    warn = levels[0] if levels[0] != None else None
-    crit = levels[1] if levels[1] != None else None
-
-    # Lower levels: warn if free <= warn, crit if free <= crit
     state = "OK"
-    if crit != None and num_free_tapes <= crit:
-        state = "CRIT"
-    elif warn != None and num_free_tapes <= warn:
-        state = "WARN"
+    if crit != None:
+        if num_free_tapes <= crit:
+            state = "CRIT"
+    if state == "OK" and warn != None:
+        if num_free_tapes <= warn:
+            state = "WARN"
 
-    msg = "Total tapes: %d, Utilization: %f tapes, Tapes less than %d%% full: %d" % (
-        num_tapes, utilization, free_below, num_free_tapes)
-    if state != "OK":
-        msg = "%s, %s" % (msg, state)
-
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {"free": num_free_tapes, "tapes": num_tapes, "util": utilization}, "details": ""}}
+    details = "Total tapes: %d, Utilization: %f tapes, Tapes less then %f%% full" % (num_tapes, utilization, free_below)
+    return {"changed": False, "msg": details, "data": {"state": state, "metrics": {"tapes": num_tapes, "util": utilization, "free": num_free_tapes}, "details": details}}
 
 
-def add_item(parsed, inst, pool, util):
-    key = pool if inst == "default" else (inst + " / " + pool)
-    parsed.setdefault(key, [])
-    parsed[key].append(util.replace(",", "."))
+def main(ctx, params):
+    if params.get("_discover"):
+        return discovery(ctx, params)
+    return check(ctx, params)

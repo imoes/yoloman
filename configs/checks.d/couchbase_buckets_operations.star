@@ -1,161 +1,168 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        return _discover(ctx, params)
-    return _check(ctx, params)
+# Couchbase bucket operations check for Checkmk -> Starlark translation.
+# Monitors per-bucket and total Couchbase operations via the Couchbase REST API.
+
+# Default thresholds (Checkmk default params are empty, meaning no levels).
+DEFAULT_OPS_WARN = None
+DEFAULT_OPS_CRIT = None
+
+# Operation keys we extract from each bucket's JSON data.
+OP_KEYS = ["ops", "cmd_get", "cmd_set", "ep_ops_create", "ep_ops_update", "ep_num_ops_del_meta"]
+
+# Human-readable labels for each operation type.
+OP_LABELS = {
+    "ops": "Total (per server)",
+    "cmd_get": "Gets",
+    "cmd_set": "Sets",
+    "ep_ops_create": "Creates",
+    "ep_ops_update": "Updates",
+    "ep_num_ops_del_meta": "Deletes",
+}
 
 
-def _discover(ctx, params):
-    res = ctx.run([
-        "curl", "-s", "-u", params.get("user", "admin") + ":" + params.get("password", ""),
-        params.get("url", "http://localhost:8091/pools/default/buckets")
-    ], mutates=False)
-    if res.rc != 0:
-        # Agent not available -> no items to discover
-        return {"changed": False, "msg": "no buckets discovered", "data": {"discovery": []}}
+def _get_buckets_data(ctx, params):
+    """Fetch bucket stats JSON from the Couchbase REST API. Returns list of dicts or None if unavailable."""
+    host = params.get("host", "localhost")
+    port = params.get("port", 8091)
+    username = params.get("username", "Administrator")
+    password = params.get("password", "password")
+    url = "http://%s:%s/pools/default/buckets" % (host, port)
 
-    if not res.stdout:
-        return {"changed": False, "msg": "no buckets discovered", "data": {"discovery": []}}
-    buckets = json.decode(res.stdout)
-    if type(buckets) != "list":
-        return {"changed": False, "msg": "no buckets discovered", "data": {"discovery": []}}
+    # Probe: is Couchbase running? Use a lightweight endpoint.
+    probe = ctx.run(["curl", "-s", "-m", "10", "-u", "%s:%s" % (username, password), url], mutates=False)
+    if probe.rc != 0 or not probe.stdout:
+        return None
 
-    items = []
-    for bucket in buckets:
-        name = bucket.get("name")
-        if type(name) == "string" and name != "":
-            items.append({
-                "item": name,
-                "params": {},
-                "metrics": ["op_s", "gets", "sets", "creates", "updates", "deletes"]
-            })
-    # Also expose a total service for sum of all buckets
-    items.append({
-        "item": "",
-        "params": {},
-        "metrics": ["op_s", "gets", "sets", "creates", "updates", "deletes"]
-    })
-    return {"changed": False, "msg": "discovered %d buckets" % len(items),
-            "data": {"discovery": items}}
+    # The buckets listing is an array of JSON objects.
+    buckets = json.decode(probe.stdout)
+    if len(buckets) == 0:
+        return None
+
+    rows = []
+    for b in buckets:
+        name = b.get("name")
+        # Each bucket has a "uri" with its detailed stats path.
+        bucket_uri = b.get("uri")
+        if name == None or bucket_uri == None:
+            continue
+        stats_url = "http://%s:%s%s" % (host, port, bucket_uri)
+        res = ctx.run(["curl", "-s", "-m", "10", "-u", "%s:%s" % (username, password), stats_url], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            continue
+        data = json.decode(res.stdout)
+        data["name"] = name
+        rows.append(data)
+    if len(rows) == 0:
+        return None
+    return rows
 
 
-def _check(ctx, params):
-    item = params.get("item", "")
-    if item == "":
-        url = params.get("url", "http://localhost:8091/pools/default/buckets")
-    else:
-        url = params.get("url", "http://localhost:8091/pools/default/buckets/" + item)
+def _extract_stats(data):
+    """Extract operation counters from a bucket's stats JSON. Returns dict of key->value."""
+    out = {}
+    # Couchbase returns stats in a nested structure. The basic stats are often
+    # at the top level under keys like "ops", "cmd_get", etc.
+    for k in OP_KEYS:
+        v = data.get(k)
+        if v != None:
+            out[k] = v
+    # Some Couchbase versions nest under "op" with "samples". Handle the
+    # common flat case primarily, but also try one level of nesting.
+    return out
 
-    res = ctx.run([
-        "curl", "-s", "-u", params.get("user", "admin") + ":" + params.get("password", ""),
-        url
-    ], mutates=False)
 
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "bucket data unavailable",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    if not res.stdout:
-        return {
-            "changed": False,
-            "msg": "bucket data unavailable",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    data = None
-    if item == "":
-        buckets = json.decode(res.stdout)
-        if type(buckets) == "list":
-            # Sum all buckets' ops fields
-            total = {"ops": 0, "cmd_get": 0, "cmd_set": 0,
-                     "ep_ops_create": 0, "ep_ops_update": 0, "ep_num_ops_del_meta": 0}
-            for b in buckets:
-                stat = b.get("stats", {})
-                total["ops"] += stat.get("ops", 0) if type(stat.get("ops", 0)) == "int" else 0
-                total["cmd_get"] += stat.get("cmd_get", 0) if type(stat.get("cmd_get", 0)) == "int" else 0
-                total["cmd_set"] += stat.get("cmd_set", 0) if type(stat.get("cmd_set", 0)) == "int" else 0
-                total["ep_ops_create"] += stat.get("ep_ops_create", 0) if type(stat.get("ep_ops_create", 0)) == "int" else 0
-                total["ep_ops_update"] += stat.get("ep_ops_update", 0) if type(stat.get("ep_ops_update", 0)) == "int" else 0
-                total["ep_num_ops_del_meta"] += stat.get("ep_num_ops_del_meta", 0) if type(stat.get("ep_num_ops_del_meta", 0)) == "int" else 0
-            data = total
-    else:
-        single_data = json.decode(res.stdout)
-        if type(single_data) == "dict":
-            stat = single_data.get("stats", {})
-            data = {
-                "ops": stat.get("ops", 0) if type(stat.get("ops", 0)) == "int" else 0,
-                "cmd_get": stat.get("cmd_get", 0) if type(stat.get("cmd_get", 0)) == "int" else 0,
-                "cmd_set": stat.get("cmd_set", 0) if type(stat.get("cmd_set", 0)) == "int" else 0,
-                "ep_ops_create": stat.get("ep_ops_create", 0) if type(stat.get("ep_ops_create", 0)) == "int" else 0,
-                "ep_ops_update": stat.get("ep_ops_update", 0) if type(stat.get("ep_ops_update", 0)) == "int" else 0,
-                "ep_num_ops_del_meta": stat.get("ep_num_ops_del_meta", 0) if type(stat.get("ep_num_ops_del_meta", 0)) == "int" else 0
-            }
-
-    if data == None:
-        return {
-            "changed": False,
-            "msg": "bucket data unavailable",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Thresholds: use Checkmk defaults (no levels by default -> OK)
-    ops_warn = None
-    ops_crit = None
-    ops_levels = params.get("ops_levels")
-    if ops_levels != None:
-        ops_warn = ops_levels.get("ops_warn")
-        ops_crit = ops_levels.get("ops_crit")
-
-    # Apply thresholds (Checkmk style: upper levels warn/crit)
+def _grade_value(value, warn, crit):
+    """Grade a numeric value against warn/crit levels. Returns (state, hr)."""
     state = "OK"
-    metrics = {}
-    msg_parts = []
-
-    # Total ops (per server)
-    if data.get("ops") != None:
-        ops_val = float(data.get("ops"))
-        metrics["op_s"] = ops_val
-        msg_parts.append("Total (per server): %f/s" % ops_val)
-        if ops_crit != None and ops_val >= ops_crit:
+    if warn != None and crit != None:
+        if value >= crit:
             state = "CRIT"
-        elif ops_warn != None and ops_val >= ops_warn:
+        elif value >= warn:
             state = "WARN"
+    hr = "%f/s" % value
+    return state, hr
 
-    # Gets
-    if data.get("cmd_get") != None:
-        gets_val = float(data.get("cmd_get"))
-        metrics["gets"] = gets_val
-        msg_parts.append("Gets: %f/s" % gets_val)
 
-    # Sets
-    if data.get("cmd_set") != None:
-        sets_val = float(data.get("cmd_set"))
-        metrics["sets"] = sets_val
-        msg_parts.append("Sets: %f/s" % sets_val)
+def _check_ops_data(ctx, data, params, item_label):
+    """Reproduce _check_ops_data: check levels on ops, with perfdata."""
+    metrics = {}
+    details_parts = []
+    overall_state = "OK"
 
-    # Creates
-    if data.get("ep_ops_create") != None:
-        creates_val = float(data.get("ep_ops_create"))
-        metrics["creates"] = creates_val
-        msg_parts.append("Creates: %f/s" % creates_val)
+    ops_levels = params.get("ops")  # Checkmk check_default_parameters is {}
+    # check_levels legacy: params.get("ops") could be (warn, crit) tuple or dict.
+    warn = None
+    crit = None
+    if ops_levels != None:
+        if type(ops_levels) == "list":
+            warn = ops_levels[0] if len(ops_levels) > 0 else None
+            crit = ops_levels[1] if len(ops_levels) > 1 else None
+        elif type(ops_levels) == "dict":
+            warn = ops_levels.get("warn")
+            crit = ops_levels.get("crit")
 
-    # Updates
-    if data.get("ep_ops_update") != None:
-        updates_val = float(data.get("ep_ops_update"))
-        metrics["updates"] = updates_val
-        msg_parts.append("Updates: %f/s" % updates_val)
+    # The "ops" key is the only one with levels by default (check_levels for "op_s").
+    ops_val = data.get("ops")
+    if ops_val != None:
+        state, hr = _grade_value(ops_val, warn, crit)
+        if state != "OK":
+            overall_state = state
+        metrics["ops"] = ops_val
+        details_parts.append("Total (per server): %s" % hr)
 
-    # Deletes
-    if data.get("ep_num_ops_del_meta") != None:
-        deletes_val = float(data.get("ep_num_ops_del_meta"))
-        metrics["deletes"] = deletes_val
-        msg_parts.append("Deletes: %f/s" % deletes_val)
+    # The other keys have no levels (None) — just report as info.
+    for k in OP_KEYS[1:]:
+        v = data.get(k)
+        if v != None:
+            metrics[k] = v
+            label = OP_LABELS.get(k, k)
+            hr = "%f/s" % v
+            details_parts.append("%s: %s" % (label, hr))
 
-    msg = "; ".join(msg_parts) if msg_parts else "no ops data"
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": ""}
-    }
+    msg = item_label + ": " + ", ".join(details_parts) if len(details_parts) > 0 else item_label + ": no operations data"
+    details = "\n".join(details_parts)
+    return {"state": overall_state, "metrics": metrics, "msg": msg, "details": details}
+
+
+def main(ctx, params):
+    # --- DISCOVERY MODE ---
+    if params.get("_discover"):
+        data = _get_buckets_data(ctx, params)
+        if data == None:
+            # Couchbase not present -> empty discovery (no placeholder).
+            return {"changed": False, "msg": "Couchbase not reachable", "data": {"discovery": []}}
+
+        discovery = []
+        for row in data:
+            name = row.get("name")
+            if name == None:
+                continue
+            stats = _extract_stats(row)
+            if "ops" in stats:
+                discovery.append({
+                    "item": name,
+                    "params": {},
+                    "metrics": [k for k in OP_KEYS if k in stats],
+                })
+        return {"changed": False, "msg": "discovered %d buckets" % len(discovery), "data": {"discovery": discovery}}
+
+    # --- CHECK MODE (per-bucket) ---
+    item = params.get("item", "")
+    data = _get_buckets_data(ctx, params)
+    if data == None:
+        return {"changed": False, "msg": "Couchbase not reachable", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Find the item's bucket data.
+    target = None
+    for row in data:
+        if row.get("name") == item:
+            target = row
+            break
+    if target == None:
+        return {"changed": False, "msg": "bucket not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    stats = _extract_stats(target)
+    if "ops" not in stats:
+        return {"changed": False, "msg": item + ": no operations data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    result = _check_ops_data(ctx, stats, params, item)
+    return {"changed": False, "msg": result["msg"], "data": {"state": result["state"], "metrics": result["metrics"], "details": result["details"]}}

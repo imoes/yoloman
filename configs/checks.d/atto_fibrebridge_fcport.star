@@ -1,160 +1,108 @@
-# Top-level constants
-OID_BASE = ".1.3.6.1.4.1.4547.2.3.3.2.1"
-SNMP_VERSION = "2c"
-SNMP_COMMUNITY = "public"
-
-def _parse_snmp_output(lines):
-    entries = {}
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0]
-        value_part = parts[1]
-        
-        # Extract last component (port index) from OID
-        oid_tokens = oid_part.split(".")
-        if len(oid_tokens) < 2:
-            continue
-        port_index = oid_tokens[-1]
-        
-        # Extract integer value
-        value_str = value_part.split(": ", 1)[-1] if ": " in value_part else ""
-        # Guard before conversion: check if digit
-        value = 0
-        if value_str.isdigit():
-            value = int(value_str)
-        else:
-            # Skip non-numeric values
-            continue
-        
-        # Find last OID component to distinguish tx (.2) vs rx (.3)
-        last_dot_idx = oid_part.rfind(".")
-        if last_dot_idx == -1:
-            continue
-        last_oid_component = oid_part[last_dot_idx+1:]
-        
-        # Initialize port entry if needed
-        if port_index not in entries:
-            entries[port_index] = {"tx": None, "rx": None}
-        
-        # Last component is 2 or 3
-        if last_oid_component == "2":
-            entries[port_index]["tx"] = value
-        elif last_oid_component == "3":
-            entries[port_index]["rx"] = value
-    
-    return entries
-
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", SNMP_COMMUNITY)
-        
-        # Walk the base OID
-        res = ctx.run(["snmpwalk", "-v", SNMP_VERSION, "-c", community, "-On", host, OID_BASE], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to gather SNMP data", "data": {"discovery": []}}
-        
-        entries = _parse_snmp_output(res.stdout.splitlines())
-        
-        discovery_items = []
-        for port_index, rates in entries.items():
-            if rates["tx"] != None and rates["rx"] != None:
-                discovery_items.append({
-                    "item": str(port_index),
-                    "params": {"fc_tx_words": None, "fc_rx_words": None},
-                    "metrics": ["fc_tx_words", "fc_rx_words"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d ports" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode
-    item = params.get("item", "")
     host = params.get("host", "localhost")
-    community = params.get("community", SNMP_COMMUNITY)
-    
-    res = ctx.run(["snmpwalk", "-v", SNMP_VERSION, "-c", community, "-On", host, OID_BASE], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to gather SNMP data",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    entries = _parse_snmp_output(res.stdout.splitlines())
-    
-    if item not in entries:
-        return {
-            "changed": False,
-            "msg": "port %s not found" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    rates = entries[item]
-    tx_words_raw = rates.get("tx")
-    rx_words_raw = rates.get("rx")
-    
-    if tx_words_raw == None or rx_words_raw == None:
-        return {
-            "changed": False,
-            "msg": "no data for port %s" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    fc_tx_words = float(tx_words_raw)
-    fc_rx_words = float(rx_words_raw)
-    
-    # Apply thresholds
-    warn_tx = params.get("fc_tx_words", None)
-    warn_rx = params.get("fc_rx_words", None)
-    
+    community = params.get("community", "public")
+    item = params.get("item", "")
+
+    if params.get("_discover"):
+        detect = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Ov", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if detect.rc != 0:
+            return {"changed": False, "msg": "not an Atto FibreBridge device",
+                    "data": {"discovery": []}}
+        if not detect.stdout.startswith(".1.3.6.1.4.1.4547"):
+            return {"changed": False, "msg": "not an Atto Fibrebridge device",
+                    "data": {"discovery": []}}
+
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             "1.3.6.1.4.1.4547.2.3.3.2.1.2"],
+            mutates=False,
+        )
+        found = []
+        indices = {}
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid, val = parts
+            base = "1.3.6.1.4.1.4547.2.3.3.2.1.2."
+            if oid.startswith(base):
+                idx = oid[len(base):]
+                indices[idx] = val
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            base = "1.3.6.1.4.1.4547.2.3.3.2.1.2."
+            if oid.startswith(base):
+                idx = oid[len(base):]
+                port_name = indices.get(idx, "")
+                if port_name not in [f["item"] for f in found]:
+                    found.append({"item": port_name,
+                                  "params": {"fc_tx_words": None, "fc_rx_words": None},
+                                  "metrics": ["fc_tx_words", "fc_rx_words"]})
+        return {"changed": False,
+                "msg": "discovered %d fc ports" % len(found),
+                "data": {"discovery": found,
+                         "host_labels": {"cmk/os_family": "snmp"}}}
+
+    if not item and not indices:
+        get_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+             "1.3.6.1.4.1.4547.2.3.3.2.1.2.%s" % item],
+            mutates=False,
+        )
+        if get_res.rc != 0 or not get_res.stdout:
+            return {"changed": False, "msg": "no fc port found",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    tx_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         "1.3.6.1.4.1.4547.2.3.3.2.1.2.%s" % item],
+        mutates=False,
+    )
+    rx_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         "1.3.6.1.4.1.4547.2.3.3.2.1.3.%s" % item],
+        mutates=False,
+    )
+
+    if tx_res.rc != 0 or rx_res.rc != 0 or not tx_res.stdout or not rx_res.stdout:
+        return {"changed": False, "msg": "no fc port data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    tx = int(tx_res.stdout)
+    rx = int(rx_res.stdout)
+
+    tx_warn = params.get("fc_tx_words_warn")
+    tx_crit = params.get("fc_tx_words_crit")
+    rx_warn = params.get("fc_rx_words_warn")
+    rx_crit = params.get("fc_rx_words_crit")
+
+    tx_state = "OK"
+    if tx_warn != None and tx_crit != None:
+        if tx >= float(tx_crit):
+            tx_state = "CRIT"
+        elif tx >= float(tx_warn):
+            tx_state = "WARN"
+    rx_state = "OK"
+    if rx_warn != None and rx_crit != None:
+        if rx >= float(rx_crit):
+            rx_state = "CRIT"
+        elif rx >= float(rx_warn):
+            rx_state = "WARN"
+
     state = "OK"
-    
-    # TX
-    if warn_tx != None:
-        if fc_tx_words >= warn_tx:
-            state = "CRIT"
-    
-    # RX
-    if warn_rx != None:
-        if fc_rx_words >= warn_rx:
-            state = "CRIT"
-        elif state == "OK" and warn_rx != None:
-            state = "WARN"
-    
-    details_parts = []
-    details_parts.append("TX: %f words/s" % fc_tx_words)
-    details_parts.append("RX: %f words/s" % fc_rx_words)
-    
-    msg = ", ".join(details_parts)
-    metrics = {"fc_tx_words": fc_tx_words, "fc_rx_words": fc_rx_words}
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    if tx_state == "CRIT" or rx_state == "CRIT":
+        state = "CRIT"
+    elif tx_state == "WARN" or rx_state == "WARN":
+        state = "WARN"
+
+    return {"changed": False,
+            "msg": "TX: %d words/s, RX: %d words/s" % (tx, rx),
+            "data": {"state": state,
+                     "metrics": {"fc_tx_words": tx, "fc_rx_words": rx},
+                     "details": ""}}

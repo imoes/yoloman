@@ -1,58 +1,18 @@
 name: cert
 fqcn: checkmk.cert
 collection: checkmk
-short_description: TLS/SSL Certificate Check
-description: Checks TLS/SSL certificates on direct TLS endpoints and STARTTLS-capable services (SMTP, IMAP, Postgres, LDAP). Reports days remaining until certificate expiry against configurable warn/crit thresholds and alerts on connection failure or certificate verification errors. Optionally checks TLS handshake response time and verifies a substring of the certificate subject.
+short_description:
+description: Checkmk active check 'cert', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
+    standard_settings:
         type: string
-        description: Service label shown in the monitoring UI
-        required: true
-    address:
-        type: string
-        description: Hostname or IP address of the TLS endpoint to check
-        required: true
-    port:
-        type: number
-        description: TCP port to connect to
-        default: 443
-    connection_type:
-        type: string
-        description: Protocol used to establish TLS: direct handshake or STARTTLS over a plain-text protocol
-        enum:
-            - tls
-            - smtp_starttls
-            - postgres_starttls
-            - imap_starttls
-            - ldap_starttls
-        default: tls
-    timeout_s:
-        type: number
-        description: Connection timeout in seconds
-        default: 10
-    response_time_warn_s:
-        type: number
-        description: Warn if TLS handshake takes longer than this many seconds (e.g. 0.5)
-    response_time_crit_s:
-        type: number
-        description: Critical if TLS handshake takes longer than this many seconds (e.g. 1.0)
-    days_warn:
-        type: number
-        description: Warn when certificate expires within this many days
-        default: 14
-    days_crit:
-        type: number
-        description: Critical when certificate expires within this many days
-        default: 7
-    allow_self_signed:
-        type: bool
-        description: Accept self-signed certificates without raising an alert
-        default: false
-    subject_cn:
-        type: string
-        description: Expected substring in the certificate subject (e.g. example.com); WARN on mismatch
+        description: standard_settings (from the check's parameters).
+    connections:
+        type: list
+        description: connections (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

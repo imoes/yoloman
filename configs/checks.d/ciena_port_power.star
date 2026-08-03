@@ -1,197 +1,165 @@
+def _ipow(b, e):
+    r = 1.0
+    i = 0
+    while i < e:
+        r = r * b
+        i = i + 1
+    return r
+
+_LN10 = 2.302585092994046
+_LN2 = 0.6931471805599453
+
+def _ln(x):
+    if x <= 0:
+        return None
+    n = 1
+    while n < 1000:
+        if x > _ipow(2, n - 1) and x <= _ipow(2, n):
+            break
+        n = n + 1
+    x = x / _ipow(2, n - 1)
+    x = x * 2 - 1
+    y = 0.0
+    k = 1
+    term = x / k
+    while k < 200:
+        y = y + term
+        k = k + 1
+        term = term * (-1) * x / k
+    return y - (n - 1) * _LN2
+
+def _log10(x):
+    return _ln(x) / _LN10
+
+def _micro_watt_to_dBm(m_w):
+    if m_w == 0:
+        return None
+    return 10 * _log10(m_w / 1000.0)
+
+def _get_columns(model):
+    if model == "5142":
+        return ["19", "42", "43", "27", "40", "41"]
+    return ["6", "15", "16", "35", "13", "14"]
+
 def main(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no ciena device found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "no ciena device found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sysdesc = res.stdout.strip()
+    model = None
+    base = None
+    if "5142" in sysdesc:
+        model = "5142"
+        base = ".1.3.6.1.4.1.6141.2.60.4.1.1.1.1"
+    elif "5171" in sysdesc:
+        model = "5171"
+        base = ".1.3.6.1.4.1.1271.2.1.9.1.1.1.1"
+    else:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no ciena device found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "no ciena device found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     if params.get("_discover"):
-        hostname = params.get("host", ctx.facts().get("hostname", "localhost"))
-        community = params.get("community", "public")
-        
-        # Detect device type
-        res_sys_object = ctx.run(["snmpget", "-v2c", "-c", community, "-On", hostname, ".1.3.6.1.2.1.1.2.0"], mutates=False)
-        res_sys_desc = ctx.run(["snmpget", "-v2c", "-c", community, "-On", hostname, ".1.3.6.1.2.1.1.1.0"], mutates=False)
-        
-        sys_object_id = ""
-        sys_desc = ""
-        for line in res_sys_object.stdout.splitlines():
-            if "=" in line:
-                sys_object_id = line.split("=")[-1].strip()
-                break
-        for line in res_sys_desc.stdout.splitlines():
-            if "=" in line:
-                sys_desc = line.split("=")[-1].strip()
-                break
-        
-        base_oid = ""
-        if "1.3.6.1.4.1.1271.1.2.11" in sys_object_id and "5171" in sys_desc:
-            base_oid = ".1.3.6.1.4.1.1271.2.1.9.1.1.1.1"
-        elif "1.3.6.1.4.1.6141.1.96" in sys_object_id and "5142" in sys_desc:
-            base_oid = ".1.3.6.1.4.1.6141.2.60.4.1.1.1.1"
-        else:
-            base_oid = ".1.3.6.1.4.1.6141.2.60.4.1.1.1.1"
-        
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", hostname, base_oid], mutates=False)
-        out = []
-        for line in res.stdout.splitlines():
-            stripped = line.strip()
-            if not stripped:
+        cols = _get_columns(model)
+        col_base = base + "." + cols[1]
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_base], mutates=False)
+        if walk.rc != 0 or not walk.stdout:
+            return {"changed": False, "msg": "no ciena port power entries", "data": {"discovery": []}}
+        items = []
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
                 continue
-            if stripped.startswith(base_oid):
-                parts = stripped.split("=")
-                if len(parts) < 2:
-                    continue
-                oid_full = parts[0].strip()
-                port_str = oid_full.rsplit(".", 1)[-1]
-                if port_str.isdigit():
-                    out.append({"item": port_str, "params": {}, "metrics": ["input_signal_power_dbm", "output_signal_power_dbm"]})
-        
-        return {"changed": False, "msg": "discovered %d ports" % len(out),
-                "data": {"discovery": out}}
+            oid = parts[0]
+            idx = oid[len(col_base) + 1:]
+            if idx and idx not in items:
+                items.append(idx)
+        discovery = []
+        for idx in items:
+            discovery.append({"item": idx, "params": {}, "metrics": ["input_signal_power_dbm", "output_signal_power_dbm"]})
+        return {"changed": False, "msg": "discovered %d ports" % len(discovery), "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    hostname = params.get("host", ctx.facts().get("hostname", "localhost"))
-    community = params.get("community", "public")
-    
-    res_sys_object = ctx.run(["snmpget", "-v2c", "-c", community, "-On", hostname, ".1.3.6.1.2.1.1.2.0"], mutates=False)
-    res_sys_desc = ctx.run(["snmpget", "-v2c", "-c", community, "-On", hostname, ".1.3.6.1.2.1.1.1.0"], mutates=False)
-    
-    sys_object_id = ""
-    sys_desc = ""
-    for line in res_sys_object.stdout.splitlines():
-        if "=" in line:
-            sys_object_id = line.split("=")[-1].strip()
+    cols = _get_columns(model)
+    vals = []
+    ok = True
+    for c in cols:
+        oid = base + "." + c + "." + item
+        r = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+        if r.rc != 0 or not r.stdout:
+            ok = False
             break
-    for line in res_sys_desc.stdout.splitlines():
-        if "=" in line:
-            sys_desc = line.split("=")[-1].strip()
-            break
-    
-    base_oid = ""
-    if "1.3.6.1.4.1.1271.1.2.11" in sys_object_id and "5171" in sys_desc:
-        base_oid = ".1.3.6.1.4.1.1271.2.1.9.1.1.1.1"
-    elif "1.3.6.1.4.1.6141.1.96" in sys_object_id and "5142" in sys_desc:
-        base_oid = ".1.3.6.1.4.1.6141.2.60.4.1.1.1.1"
-    else:
-        base_oid = ".1.3.6.1.4.1.6141.2.60.4.1.1.1.1"
-    
-    base_item = base_oid + "." + item
-    
-    oids = {
-        "rx_power": base_item + ".19",
-        "rx_high": base_item + ".42",
-        "rx_low": base_item + ".43",
-        "tx_power": base_item + ".27",
-        "tx_high": base_item + ".40",
-        "tx_low": base_item + ".41"
-    }
-    
-    oid_exists = True
-    for oid_name, oid_full in oids.items():
-        res_single = ctx.run(["snmpget", "-v2c", "-c", community, "-On", hostname, oid_full], mutates=False)
-        if "No Such Instance" in res_single.stdout or "No Such Object" in res_single.stdout:
-            oid_exists = False
-            break
-    
-    if not oid_exists:
-        return {"changed": False, "msg": "no such port: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", hostname, base_item], mutates=False)
-    
-    values = {}
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        if not stripped:
-            continue
-        parts = stripped.split("=")
-        if len(parts) < 2:
-            continue
-        oid_full = parts[0].strip()
-        value_part = parts[1].strip()
-        last_oid = oid_full.rsplit(".", 1)[-1]
-        if last_oid == "19":
-            values["rx_power"] = value_part
-        elif last_oid == "42":
-            values["rx_high"] = value_part
-        elif last_oid == "43":
-            values["rx_low"] = value_part
-        elif last_oid == "27":
-            values["tx_power"] = value_part
-        elif last_oid == "40":
-            values["tx_high"] = value_part
-        elif last_oid == "41":
-            values["tx_low"] = value_part
-    
-    def micro_watt_to_dBm(m_w_str):
-        if not m_w_str.isdigit():
-            m_w = 0
-        else:
-            m_w = int(m_w_str)
-        if m_w == 0:
-            return -999.0
-        mW = m_w / 1000.0
-        if mW <= 0:
-            return -999.0
-        
-        exp = 0
-        temp = mW
-        while temp < 0.1:
-            temp *= 10
-            exp -= 1
-        while temp >= 10:
-            temp /= 10
-            exp += 1
-        
-        y = (temp - 1) / (temp + 1)
-        y2 = y * y
-        s = 0.0
-        term = y
-        for i in range(1, 10, 2):
-            s += term / i
-            term *= y2
-        
-        ln_temp = 2.0 * s
-        log10_temp = ln_temp / 2.302585092994046
-        log10_mW = log10_temp + exp
-        return 10.0 * log10_mW
-    
-    rx_power_str = values.get("rx_power", "0")
-    rx_high_str = values.get("rx_high", "0")
-    rx_low_str = values.get("rx_low", "0")
-    tx_power_str = values.get("tx_power", "0")
-    tx_high_str = values.get("tx_high", "0")
-    tx_low_str = values.get("tx_low", "0")
-    
-    rx_power_dbm = micro_watt_to_dBm(rx_power_str)
-    rx_high_dbm = micro_watt_to_dBm(rx_high_str)
-    rx_low_dbm = micro_watt_to_dBm(rx_low_str)
-    tx_power_dbm = micro_watt_to_dBm(tx_power_str)
-    tx_high_dbm = micro_watt_to_dBm(tx_high_str)
-    tx_low_dbm = micro_watt_to_dBm(tx_low_str)
-    
-    rx_ok = rx_power_dbm != -999.0
-    tx_ok = tx_power_dbm != -999.0
-    
+        vals.append(r.stdout.strip())
+
+    if not ok:
+        return {"changed": False, "msg": "item %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    nums = []
+    for v in vals:
+        nums.append(int(v))
+
+    rx_pw = _micro_watt_to_dBm(nums[3])
+    rx_upper = _micro_watt_to_dBm(nums[1])
+    rx_lower = _micro_watt_to_dBm(nums[2])
+    tx_pw = _micro_watt_to_dBm(nums[6])
+    tx_upper = _micro_watt_to_dBm(nums[4])
+    tx_lower = _micro_watt_to_dBm(nums[5])
+
+    warn_rx_upper = params.get("levels_rx_upper_warn", None)
+    crit_rx_upper = params.get("levels_rx_upper_crit", None)
+    warn_rx_lower = params.get("levels_rx_lower_warn", None)
+    crit_rx_lower = params.get("levels_rx_lower_crit", None)
+    warn_tx_upper = params.get("levels_tx_upper_warn", None)
+    crit_tx_upper = params.get("levels_tx_upper_crit", None)
+    warn_tx_lower = params.get("levels_tx_lower_warn", None)
+    crit_tx_lower = params.get("levels_tx_lower_crit", None)
+
+    _rank = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+
+    def _worst(s1, s2):
+        if _rank.get(s1, 3) >= _rank.get(s2, 3):
+            return s1
+        return s2
+
+    def _grade(value, warn_u, crit_u, warn_l, crit_l):
+        s = "OK"
+        if value != None:
+            if value >= crit_u:
+                s = "CRIT"
+            elif value >= warn_u:
+                s = "WARN"
+            elif value <= crit_l:
+                s = "CRIT"
+            elif value <= warn_l:
+                s = "WARN"
+        return s
+
     state = "OK"
-    details = ""
     metrics = {}
-    
-    if rx_ok:
-        if rx_power_dbm >= rx_high_dbm or rx_power_dbm <= rx_low_dbm:
-            state = "CRIT"
-            details += "Receive power (%f dBm) out of range; " % rx_power_dbm
-        metrics["input_signal_power_dbm"] = rx_power_dbm
+    details = ""
+
+    if rx_pw != None and rx_upper != None and rx_lower != None:
+        metrics["input_signal_power_dbm"] = rx_pw
+        s = _grade(rx_pw, warn_rx_upper, crit_rx_upper, warn_rx_lower, crit_rx_lower)
+        state = _worst(state, s)
+        details = details + "Receive: %f dBm" % rx_pw
     else:
-        details += "Received signal power is 0 watt; "
-    
-    if tx_ok:
-        if tx_power_dbm >= tx_high_dbm or tx_power_dbm <= tx_low_dbm:
-            state = "CRIT"
-            details += "Transmit power (%f dBm) out of range; " % tx_power_dbm
-        metrics["output_signal_power_dbm"] = tx_power_dbm
+        details = details + " Receive: 0 watt"
+
+    if tx_pw != None and tx_upper != None and tx_lower != None:
+        metrics["output_signal_power_dbm"] = tx_pw
+        s = _grade(tx_pw, warn_tx_upper, crit_tx_upper, warn_tx_lower, crit_tx_lower)
+        state = _worst(state, s)
+        details = details + " Transmit: %f dBm" % tx_pw
     else:
-        details += "Transmitted signal power is 0 watt; "
-    
-    if state == "OK":
-        msg = "Port %s: rx=%f dBm, tx=%f dBm" % (item, rx_power_dbm if rx_ok else 0, tx_power_dbm if tx_ok else 0)
-    else:
-        msg = "Port %s: %s" % (item, details.strip("; "))
-    
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+        details = details + " Transmit: 0 watt"
+
+    if not details:
+        details = "no data"
+
+    return {"changed": False, "msg": details, "data": {"state": state, "metrics": metrics, "details": details}}

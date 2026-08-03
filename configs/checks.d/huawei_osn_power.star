@@ -1,127 +1,133 @@
 def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    warn = params.get("levels", [700, 730])
-    
-    if len(warn) != 2:
-        fail("levels must be a list/tuple of two integers [warn, crit]")
-    warn_val = int(warn[0])
-    crit_val = int(warn[1])
-    
-    base_oid = ".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1"
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        base_oid + ".1", base_oid + ".2"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    lines = res.stdout.splitlines()
-    items_data = []
-    power_data = {}
-    
-    for line in lines:
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0]
-        value_part = parts[1]
-        
-        # Parse value type and extract numeric value
-        value_str = value_part.strip()
-        if ":" in value_part:
-            colon_pos = value_part.find(":")
-            value_type = value_part[:colon_pos]
-            value_str = value_part[colon_pos + 1:].strip()
-        else:
-            value_type = ""
-        
-        # Extract numeric OID suffix
-        suffix = ""
-        if oid_part.startswith(base_oid + ".1"):
-            suffix = oid_part[len(base_oid + ".1"):]
-        elif oid_part.startswith(base_oid + ".2"):
-            suffix = oid_part[len(base_oid + ".2"):]
-        else:
-            continue
-        
-        if suffix == "":
-            continue
-        
-        # Parse integer value with guard (no try/except)
-        int_value = 0
-        if value_str.isdigit() or (value_str.startswith("-") and value_str[1:].isdigit()):
-            int_value = int(value_str)
-        else:
-            continue
-        
-        # Collect data
-        if oid_part.endswith(".1"):
-            # Name
-            if suffix not in power_data:
-                power_data[suffix] = {"name": "", "power": None}
-            power_data[suffix]["name"] = value_str
-        elif oid_part.endswith(".2"):
-            # Power
-            if suffix not in power_data:
-                power_data[suffix] = {"name": "", "power": None}
-            power_data[suffix]["power"] = int_value
-    
-    # Build discovery list
     if params.get("_discover"):
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        res = ctx.run([
+            "snmpget", "-v2c", "-c", community, "-Oqv",
+            "-t", "5", "-r", "1", host, ".1.3.6.1.2.1.1.2.0"
+        ], mutates=False)
+        sysoid = res.stdout.strip() if res.rc == 0 else ""
+        if sysoid == "" or not sysoid.startswith(".1.3.6.1.4.1.2011.2.25.1"):
+            return {"changed": False, "msg": "host is not a Huawei OSN device", "data": {"discovery": []}}
+        wres = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            "-t", "5", "-r", "1", host, ".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1"
+        ], mutates=False)
+        rows = []
+        if wres.rc == 0:
+            for line in wres.stdout.splitlines():
+                s = line.strip()
+                if s == "":
+                    continue
+                sp = s.find(" ")
+                if sp == -1:
+                    continue
+                rows.append((s[:sp], s[sp + 1:]))
+        base = ".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1"
+        items = {}
+        for oid, val in rows:
+            suffix = oid[len(base) + 1:].lstrip(".")
+            if suffix == "":
+                continue
+            items.setdefault(val, {})
+            items[val]["name"] = val
+        wres2 = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            "-t", "5", "-r", "1", host, ".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1.2"
+        ], mutates=False)
+        if wres2.rc == 0:
+            for line in wres2.stdout.splitlines():
+                s = line.strip()
+                if s == "":
+                    continue
+                sp = s.find(" ")
+                if sp == -1:
+                    continue
+                oid = s[:sp]
+                val = s[sp + 1:]
+                idx = oid[len(".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1.2") + 1:]
+                items.setdefault(idx, {})
+                items[idx]["power"] = val
         discovery = []
-        for suffix, data in power_data.items():
-            if data["name"] != "" and data["power"] != None:
-                discovery.append({
-                    "item": data["name"],
-                    "params": {"levels": [700, 730]},
-                    "metrics": ["power"]
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d power units" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-    
-    # Check mode
+        for k, d in items.items():
+            name = d.get("name", k)
+            p = d.get("power")
+            if p == None or p == "":
+                continue
+            pi = int(p) if p.lstrip("-").isdigit() else None
+            if pi == None:
+                continue
+            discovery.append({"item": name, "params": {"levels": (700, 730)}, "metrics": ["power"]})
+        return {"changed": False, "msg": "discovered %d power units" % len(discovery), "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Find the matching item
-    power_value = None
-    for suffix, data in power_data.items():
-        if data["name"] == item and data["power"] != None:
-            power_value = data["power"]
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        "-t", "5", "-r", "1", host, ".1.3.6.1.2.1.1.2.0"
+    ], mutates=False)
+    sysoid = res.stdout.strip() if res.rc == 0 else ""
+    if sysoid == "" or not sysoid.startswith(".1.3.6.1.4.1.2011.2.25.1"):
+        return {"changed": False, "msg": "host is not a Huawei OSN device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    wres = ctx.run([
+        "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            "-t", "5", "-r", "1", host, ".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1.1"
+    ], mutates=False)
+    names = {}
+    if wres.rc == 0:
+        for line in wres.stdout.splitlines():
+            s = line.strip()
+            if s == "":
+                continue
+            sp = s.find(" ")
+            if sp == -1:
+                continue
+            oid = s[:sp]
+            val = s[sp + 1:]
+            idx = oid[len(".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1.1") + 1:]
+            names[idx] = val
+    wres2 = ctx.run([
+        "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            "-t", "5", "-r", "1", host, ".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1.2"
+    ], mutates=False)
+    powers = {}
+    if wres2.rc == 0:
+        for line in wres2.stdout.splitlines():
+            s = line.strip()
+            if s == "":
+                continue
+            sp = s.find(" ")
+            if sp == -1:
+                continue
+            oid = s[:sp]
+            val = s[sp + 1:]
+            idx = oid[len(".1.3.6.1.4.1.2011.2.25.4.70.20.20.10.1.2") + 1:]
+            powers[idx] = val
+    reading = None
+    found = False
+    for idx in names.keys():
+        nm = names[idx]
+        if nm == item:
+            found = True
+            p = powers.get(idx)
+            if p == None or p == "":
+                break
+            if not p.lstrip("-").isdigit():
+                break
+            reading = int(p)
             break
-    
-    if power_value == None:
-        return {
-            "changed": False,
-            "msg": "no data for item %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Determine state based on thresholds
-    if power_value >= crit_val:
+    if not found:
+        return {"changed": False, "msg": "no power unit found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if reading == None:
+        return {"changed": False, "msg": "no power reading for: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    levels = params.get("levels", (700, 730))
+    warn = levels[0]
+    crit = levels[1]
+    if reading >= crit:
         state = "CRIT"
-    elif power_value >= warn_val:
+    elif reading >= warn:
         state = "WARN"
     else:
         state = "OK"
-    
-    return {
-        "changed": False,
-        "msg": "Current reading: %d W" % power_value,
-        "data": {
-            "state": state,
-            "metrics": {"power": power_value},
-            "details": ""
-        }
-    }
+    return {"changed": False, "msg": "Current reading: %d W" % reading, "data": {"state": state, "metrics": {"power": reading}, "details": ""}}

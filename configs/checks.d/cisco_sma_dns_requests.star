@@ -1,91 +1,116 @@
-# Constants for SNMP OIDs
-OID_OUTSTANDING = ".1.3.6.1.4.1.15497.1.1.1.15.0"
-OID_PENDING = ".1.3.6.1.4.1.15497.1.1.1.16.0"
-
 def main(ctx, params):
-    # Discovery mode: always yield one service for this check
     if params.get("_discover"):
+        # Probe for the real thing: the Cisco SMA SNMP device via its
+        # detection OIDs. If snmpget/snmpwalk is missing or the device
+        # does not respond, this check does not apply.
+        res = ctx.run(
+            ["snmpget", "-v2c",
+             "-c", params.get("community", "public"),
+             "-Oqv",
+             "-t", "3",
+             params.get("host", "localhost"),
+             ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if res.rc != 0:
+            # 127 = binary missing; any non-zero = device/feature absent
+            return {"changed": False, "msg": "no Cisco SMA device found",
+                    "data": {"discovery": []}}
+
+        # Walk the two columns of the DNS requests table.
+        res = ctx.run(
+            ["snmpwalk", "-v2c",
+             "-c", params.get("community", "public"),
+             "-Oqn",
+             "-t", "3",
+             params.get("host", "localhost"),
+             ".1.3.6.1.4.1.15497.1.1.1.15.0"],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {"changed": False, "msg": "no DNS request data available",
+                    "data": {"discovery": []}}
+
+        lines = res.stdout.splitlines()
+        if not lines:
+            return {"changed": False, "msg": "no DNS request data available",
+                    "data": {"discovery": []}}
+
+        # Single-service check: one Service with item "".
         return {
             "changed": False,
             "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": ["pending_dns_requests", "outstanding_dns_requests"]}]}
+            "data": {"discovery": [
+                {"item": "",
+                 "params": {
+                     "pending_dns_levels": params.get("pending_dns_levels", ("no_levels", None)),
+                     "outstanding_dns_levels": params.get("outstanding_dns_levels", ("no_levels", None)),
+                 },
+                 "metrics": ["pending_dns_requests", "outstanding_dns_requests"]},
+            ]},
         }
 
-    # Check mode: gather data via SNMP
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-    warn_pending = params.get("pending_dns_levels", ("no_levels", None))
-    crit_pending = params.get("pending_dns_levels", ("no_levels", None))
-    warn_outstanding = params.get("outstanding_dns_levels", ("no_levels", None))
-    crit_outstanding = params.get("outstanding_dns_levels", ("no_levels", None))
+    # CHECK MODE for the single service (item "").
+    base = ".1.3.6.1.4.1.15497.1.1.1"
+    oid_pending = base + ".15.0"
+    oid_outstanding = base + ".16.0"
 
-    # Extract levels - only "no_levels" or ("fixed", value) are supported by default
-    # For "no_levels", levels are None
-    pending_levels = warn_pending[1] if warn_pending[0] == "fixed" else None
-    outstanding_levels = warn_outstanding[1] if warn_outstanding[0] == "fixed" else None
+    res_p = ctx.run(["snmpget", "-v2c",
+                     "-c", params.get("community", "public"),
+                     "-Oqv", "-t", "3",
+                     params.get("host", "localhost"),
+                     oid_pending], mutates=False)
+    res_o = ctx.run(["snmpget", "-v2c",
+                     "-c", params.get("community", "public"),
+                     "-Oqv", "-t", "3",
+                     params.get("host", "localhost"),
+                     oid_outstanding], mutates=False)
 
-    # Get SNMP values
-    outstanding_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, OID_OUTSTANDING], mutates=False)
-    if outstanding_res.rc != 0:
-        return {"changed": False, "msg": "SNMP error fetching outstanding DNS requests",
+    if res_p.rc != 0 or res_o.rc != 0:
+        return {"changed": False,
+                "msg": "Cisco SMA DNS request data unavailable",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    pending_res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, OID_PENDING], mutates=False)
-    if pending_res.rc != 0:
-        return {"changed": False, "msg": "SNMP error fetching pending DNS requests",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    pending_raw = res_p.stdout.strip().strip('"')
+    outstanding_raw = res_o.stdout.strip().strip('"')
 
-    # Parse SNMP output: "OID = INTEGER: value"
-    outstanding = None
-    for line in outstanding_res.stdout.splitlines():
-        if line and line.strip():
-            parts = line.strip().split(" = ")
-            if len(parts) == 2:
-                value_str = parts[1].strip()
-                # Handle both "INTEGER: 123" and "123"
-                if value_str.startswith("INTEGER: "):
-                    value_str = value_str[9:]
-                if value_str.isdigit():
-                    outstanding = int(value_str)
-                    break
+    pending = int(pending_raw) if pending_raw.isdigit() else 0
+    outstanding = int(outstanding_raw) if outstanding_raw.isdigit() else 0
 
-    pending = None
-    for line in pending_res.stdout.splitlines():
-        if line and line.strip():
-            parts = line.strip().split(" = ")
-            if len(parts) == 2:
-                value_str = parts[1].strip()
-                if value_str.startswith("INTEGER: "):
-                    value_str = value_str[9:]
-                if value_str.isdigit():
-                    pending = int(value_str)
-                    break
+    def grade_upper(value, levels):
+        # levels is ("no_levels", None) or (warn, crit)
+        if levels == None:
+            return "OK"
+        if type(levels) == "tuple" and len(levels) == 2 and levels[0] == "no_levels":
+            return "OK"
+        # levels interpreted as (warn, crit)
+        if type(levels) == "list" or type(levels) == "tuple":
+            warn = None
+            crit = None
+            if len(levels) >= 1 and levels[0] != None:
+                warn = levels[0]
+            if len(levels) >= 2 and levels[1] != None:
+                crit = levels[1]
+            if crit != None and value >= crit:
+                return "CRIT"
+            if warn != None and value >= warn:
+                return "WARN"
+            return "OK"
+        return "OK"
 
-    # Handle missing values
-    if outstanding == None or pending == None:
-        return {"changed": False, "msg": "Could not parse DNS request values from SNMP",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    pend_levels = params.get("pending_dns_levels", ("no_levels", None))
+    out_levels = params.get("outstanding_dns_levels", ("no_levels", None))
 
-    # Determine states
-    # For "no_levels", always OK. For fixed levels, use standard upper bound logic.
-    state = "OK"
+    pend_state = grade_upper(pending, pend_levels)
+    out_state = grade_upper(outstanding, out_levels)
 
-    # Pending DNS requests check
-    if pending_levels != None:
-        if pending >= pending_levels:
-            state = "CRIT"
-        elif pending >= warn_pending[1] if warn_pending[0] == "fixed" else 0:
-            if state != "CRIT":
-                state = "WARN"
-    # Outstanding DNS requests check
-    if outstanding_levels != None:
-        if outstanding >= outstanding_levels:
-            state = "CRIT"
-        elif outstanding >= warn_outstanding[1] if warn_outstanding[0] == "fixed" else 0:
-            if state != "CRIT":
-                state = "WARN"
+    if pend_state == "CRIT" or out_state == "CRIT":
+        state = "CRIT"
+    elif pend_state == "WARN" or out_state == "WARN":
+        state = "WARN"
+    else:
+        state = "OK"
 
-    # Format message
     msg = "Pending: %d, Outstanding: %d" % (pending, outstanding)
 
     return {
@@ -94,6 +119,6 @@ def main(ctx, params):
         "data": {
             "state": state,
             "metrics": {"pending_dns_requests": pending, "outstanding_dns_requests": outstanding},
-            "details": ""
-        }
+            "details": "",
+        },
     }

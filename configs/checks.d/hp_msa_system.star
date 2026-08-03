@@ -1,90 +1,83 @@
-# Helper to parse hp_msa_system agent output
-def _parse_hp_msa_system(output):
+def _empty():
+    return []
+
+def main(ctx, params):
+    if params.get("_discover"):
+        res = ctx.run(["hpss", "status"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no HP MSA system found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        parsed = {}
+        current_name = None
+        for line in res.stdout.splitlines():
+            parts = line.split()
+            if len(parts) < 4:
+                continue
+            section = parts[0]
+            if section != "system":
+                continue
+            key = parts[2]
+            value = " ".join(parts[3:])
+            if key == "system-name":
+                current_name = value
+                parsed[current_name] = {"item_type": parts[0], "health-numeric": "0", "health-reason": ""}
+            elif current_name != None:
+                if key == "health-numeric":
+                    parsed[current_name]["health-numeric"] = value
+                elif key == "health-reason":
+                    parsed[current_name]["health-reason"] = value
+        discovery = []
+        for system_name in parsed:
+            discovery.append({"item": system_name, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery, "host_labels": {}}}
+
+    item = params.get("item", "")
+    res = ctx.run(["hpss", "status"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "no HP MSA system found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     parsed = {}
-    for line in output.splitlines():
+    current_name = None
+    for line in res.stdout.splitlines():
         parts = line.split()
         if len(parts) < 4:
             continue
-        if parts[2] == "system-name":
-            system_name = " ".join(parts[3:])
-            parsed[system_name] = {"item_type": parts[0]}
-        elif parts[2] == "health-numeric":
-            # Use the last system_name we found
-            if len(parts) > 3 and system_name:
-                parsed[system_name]["health-numeric"] = parts[3]
-        elif parts[2] == "health-reason":
-            # health-reason may span multiple words
-            reason = " ".join(parts[3:]) if len(parts) > 3 else ""
-            if system_name:
-                parsed[system_name]["health-reason"] = reason
-    return parsed
+        section = parts[0]
+        if section != "system":
+            continue
+        key = parts[2]
+        value = " ".join(parts[3:])
+        if key == "system-name":
+            current_name = value
+            parsed[current_name] = {"item_type": parts[0], "health-numeric": "0", "health-reason": ""}
+        elif current_name != None:
+            if key == "health-numeric":
+                parsed[current_name]["health-numeric"] = value
+            elif key == "health-reason":
+                parsed[current_name]["health-reason"] = value
 
-# Map numeric health to state string
-_HEALTH_MAP = {
-    "0": "OK",
-    "1": "Degraded",
-    "2": "Critical",
-}
-
-def main(ctx, params):
-    # Discovery mode: enumerate all discovered systems
-    if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/diskinfo/hp_msa_system"], mutates=False)
-        parsed = _parse_hp_msa_system(res.stdout) if res.stdout else {}
-        items = []
-        for system_name, data in parsed.items():
-            item = system_name
-            health_numeric = data.get("health-numeric", "999")
-            health_reason = data.get("health-reason", "")
-            items.append({
-                "item": item,
-                "params": {},
-                "metrics": [],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d systems" % len(items),
-            "data": {"discovery": items},
-        }
-
-    # Check mode: one item (system name)
-    item = params.get("item", "")
-    res = ctx.run(["cat", "/var/lib/diskinfo/hp_msa_system"], mutates=False)
-    parsed = _parse_hp_msa_system(res.stdout) if res.stdout else {}
-    
-    # Check if item exists
     if item not in parsed:
-        return {
-            "changed": False,
-            "msg": "system not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
+        return {"changed": False, "msg": "System not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     data = parsed[item]
-    health_numeric = data.get("health-numeric", "999")
-    health_reason = data.get("health-reason", "")
-    
-    # Determine state based on numeric health
-    state_str = _HEALTH_MAP.get(health_numeric, "UNKNOWN")
-    if state_str == "UNKNOWN":
-        msg = "unknown health (numeric=%s)" % health_numeric
-    else:
-        msg = state_str
-        if health_reason:
-            msg += ": " + health_reason
-    
-    # Map state strings to Checkmk states
-    if state_str == "OK":
+    health_numeric = int(data["health-numeric"]) if data["health-numeric"].isdigit() else 0
+    reason = data["health-reason"]
+
+    if health_numeric == 0:
         state = "OK"
-    elif state_str == "Critical":
-        state = "CRIT"
-    elif state_str == "Degraded":
+        msg = "Health: OK"
+    elif health_numeric == 1:
         state = "WARN"
+        msg = "Health: Warning - " + reason
+    elif health_numeric >= 2:
+        state = "CRIT"
+        msg = "Health: Critical - " + reason
     else:
         state = "UNKNOWN"
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+        msg = "Unknown health state: " + str(health_numeric)
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {}, "details": reason}}

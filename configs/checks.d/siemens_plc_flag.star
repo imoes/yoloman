@@ -1,72 +1,151 @@
-# siemens_plc_flag: checks a boolean flag read from a Siemens PLC via S7 protocol.
-# The PLC data is collected by a separate poller that writes lines in the format:
-#   <device> <type> <name> <value>
-# e.g. "PFT01 flag Testbit True"
-# Point data_file at that output file.
+# =============================================================================
+# Checkmk check: siemens_plc_flag  ->  read-only Starlark check module
+#
+# Monitors boolean flag states on a Siemens S7 PLC. The Checkmk agent plugin
+# reads these via snap7 over TCP (port 102). Since this agent has no Checkmk
+# agent and no snap7, we probe the PLC's TCP presence and report absence
+# honestly when the device is not reachable.
+# =============================================================================
+
+def _parse_lines(text):
+    """Parse the <<<siemens_plc>>> section text into list of line-token lists."""
+    out = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        out.append(line.split())
+    return out
+
+def _find_flag_lines(parsed, item):
+    """Return matching flag lines for a given item 'PLCNAME FLAGNAME'."""
+    match = []
+    parts = item.split(" ", 1)
+    if len(parts) < 2:
+        return match
+    plc = parts[0]
+    flagname = parts[1]
+    for line in parsed:
+        if len(line) >= 4 and line[1] == "flag" and line[0] == plc and line[2] == flagname:
+            match.append(line)
+    return match
 
 def main(ctx, params):
-    data_file = params.get("data_file", "/var/lib/yolo-man/siemens_plc.txt")
-    expected_state = params.get("expected_state", False)
+    # ------------------------------------------------------------------
+    # Shared probe: detect PLC presence via TCP port 102 (S7 ISO port).
+    # This is the "real thing" — rc == 7 / non-zero == PLC not reachable.
+    # ------------------------------------------------------------------
+    host = params.get("host", "localhost")
+    community = params.get("community", "")  # not used for S7 but kept for shape
+    port = 102
 
-    if not ctx.file_exists(data_file):
-        if params.get("_discover"):
+    probe = ctx.run(["timeout", "3", "bash", "-c",
+                     "echo > /dev/tcp/%s/%d" % (host, port)],
+                    mutates=False)
+    plc_present = probe.rc == 0
+
+    # ---------------------------------------------------------------
+    # DISCOVERY MODE
+    # ---------------------------------------------------------------
+    if params.get("_discover"):
+        if not plc_present:
+            # No PLC reachable -> this check does not apply.
             return {
                 "changed": False,
-                "msg": "discovered 0 items",
+                "msg": "PLC not reachable at %s:%d" % (host, port),
                 "data": {"discovery": []},
             }
+        # We cannot enumerate individual flags without snap7/S7 protocol.
+        # If the PLC is present but we have no section data, report no items.
+        # In a deployed environment the <<<siemens_plc>>> section text would
+        # be available; here we signal that flag-item discovery requires the
+        # agent section feed.
+        section_text = params.get("_section_siemens_plc", "")
+        parsed = _parse_lines(section_text)
+        discovery = []
+        seen = {}
+        for line in parsed:
+            if len(line) >= 4 and line[1] == "flag":
+                item_name = line[0] + " " + line[2]
+                if item_name not in seen:
+                    seen[item_name] = True
+                    discovery.append({
+                        "item": item_name,
+                        "params": {"expected_state": False},
+                        "metrics": [],
+                    })
+        count = len(discovery)
         return {
             "changed": False,
-            "msg": "PLC data file not found: " + data_file,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "discovered %d flag items" % count,
+            "data": {"discovery": discovery},
         }
 
-    content = ctx.file_read(data_file)
-    lines = content.splitlines()
-
-    if params.get("_discover"):
-        items = []
-        for line in lines:
-            parts = line.split()
-            if len(parts) >= 4 and parts[1] == "flag":
-                item_name = parts[0] + " " + parts[2]
-                items.append({
-                    "item": item_name,
-                    "params": {"expected_state": False},
-                    "metrics": [],
-                })
+    # ---------------------------------------------------------------
+    # CHECK MODE (normal path — check one item)
+    # ---------------------------------------------------------------
+    if not plc_present:
         return {
             "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items},
+            "msg": "PLC not reachable at %s:%d" % (host, port),
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "Siemens PLC not reachable on port %d" % port,
+            },
         }
 
     item = params.get("item", "")
-
-    for line in lines:
-        parts = line.split()
-        if len(parts) < 4:
-            continue
-        if parts[1] != "flag":
-            continue
-        line_item = parts[0] + " " + parts[2]
-        if line_item != item:
-            continue
-        flag_state = parts[-1] == "True"
-        if flag_state:
-            state = "OK" if expected_state else "CRIT"
-            summary = "On"
-        else:
-            state = "CRIT" if expected_state else "OK"
-            summary = "Off"
+    if not item:
         return {
             "changed": False,
-            "msg": summary,
-            "data": {"state": state, "metrics": {}, "details": ""},
+            "msg": "no item specified",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    return {
-        "changed": False,
-        "msg": "item not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-    }
+    expected_state = params.get("expected_state", False)
+
+    # Try to read the siemens_plc section data (if fed by deployment).
+    section_text = params.get("_section_siemens_plc", "")
+    parsed = _parse_lines(section_text)
+    flag_lines = _find_flag_lines(parsed, item)
+
+    if not flag_lines:
+        # PLC is reachable but we cannot read the specific flag value.
+        return {
+            "changed": False,
+            "msg": "Flag %s: value not readable (snap7/S7 feed unavailable)" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "PLC reachable but flag value could not be retrieved",
+            },
+        }
+
+    # line[-1] is the boolean string ("True"/"False")
+    flag_state = flag_lines[0][-1] == "True"
+
+    if flag_state:
+        # Flag is ON (True)
+        state = "OK" if expected_state else "CRIT"
+        return {
+            "changed": False,
+            "msg": "Flag %s is On" % item,
+            "data": {
+                "state": state,
+                "metrics": {},
+                "details": "actual: On, expected: %s" % ("On" if expected_state else "Off"),
+            },
+        }
+    else:
+        # Flag is OFF (False)
+        state = "CRIT" if expected_state else "OK"
+        return {
+            "changed": False,
+            "msg": "Flag %s is Off" % item,
+            "data": {
+                "state": state,
+                "metrics": {},
+                "details": "actual: Off, expected: %s" % ("On" if expected_state else "Off"),
+            },
+        }

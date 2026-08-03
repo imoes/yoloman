@@ -1,11 +1,14 @@
-STATUS_NUMERIC_MAP = {
+# hp_msa_fan.star - Checkmk HP MSA fan check translated to Starlark
+
+# State numeric maps (converted from Checkmk source)
+HP_MSA_STATE_MAP = {
     "0": ("OK", "up"),
     "1": ("CRIT", "error"),
     "2": ("WARN", "off"),
     "3": ("UNKNOWN", "missing"),
 }
 
-HEALTH_NUMERIC_MAP = {
+HP_MSA_HEALTH_STATE_MAP = {
     "0": ("OK", "OK"),
     "1": ("WARN", "degraded"),
     "2": ("CRIT", "fault"),
@@ -13,135 +16,113 @@ HEALTH_NUMERIC_MAP = {
     "4": ("UNKNOWN", "unknown"),
 }
 
-STATE_ORDER = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
-
-def _xml_prop(block, name):
-    needle = 'name="' + name + '"'
-    idx = block.find(needle)
-    if idx < 0:
-        return ""
-    after = block[idx + len(needle):]
-    gt = after.find(">")
-    if gt < 0:
-        return ""
-    lt = after.find("<", gt + 1)
-    if lt < 0:
-        return ""
-    return after[gt + 1:lt].strip()
-
-def _msa_login(ctx, host, user, password):
-    url = "https://" + host + "/api/login?user=" + user + "&password=" + password
-    res = ctx.run(["curl", "-sk", "--max-time", "10", url], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return ""
-    marker = "Session key = "
-    idx = res.stdout.find(marker)
-    if idx < 0:
-        return ""
-    rest = res.stdout[idx + len(marker):]
-    end = rest.find("<")
-    if end < 0:
-        return rest.strip()
-    return rest[:end].strip()
-
-def _msa_call(ctx, host, session_key, endpoint):
-    url = "https://" + host + "/api/" + endpoint
-    res = ctx.run(
-        ["curl", "-sk", "--max-time", "10", "-H", "Cookie: sessionKey=" + session_key, url],
-        mutates=False,
-    )
-    return res
-
-def _parse_fans(xml):
-    fans = []
-    parts = xml.split('<OBJECT basetype="fan"')
-    for part in parts[1:]:
-        end = part.find("</OBJECT>")
-        block = part[:end] if end >= 0 else part
-        fan_id = _xml_prop(block, "durable-id")
-        if not fan_id:
-            continue
-        fans.append({
-            "item": fan_id,
-            "name": _xml_prop(block, "name"),
-            "status-numeric": _xml_prop(block, "status-numeric"),
-            "speed": _xml_prop(block, "speed"),
-            "health-numeric": _xml_prop(block, "health-numeric"),
-            "health-reason": _xml_prop(block, "health-reason"),
-        })
-    return fans
 
 def main(ctx, params):
-    host = params.get("host", "localhost")
-    user = params.get("username", "manage")
-    password = params.get("password", "")
-
-    session_key = _msa_login(ctx, host, user, password)
-    if not session_key:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "login failed at " + host,
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "login failed at " + host,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": "login failed"}}
-
-    res = _msa_call(ctx, host, session_key, "show/fans")
-    _msa_call(ctx, host, session_key, "logout")
-
-    if res.rc != 0 or not res.stdout:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "no fan data from " + host,
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "no fan data from " + host,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    fans = _parse_fans(res.stdout)
-
     if params.get("_discover"):
-        out = [{"item": f["item"], "params": {}, "metrics": ["fan_speed"]} for f in fans]
-        return {"changed": False, "msg": "discovered %d fans" % len(out),
-                "data": {"discovery": out}}
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
+
+def _discover(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    fans = _gather_fans(ctx, host, community)
+    if len(fans) == 0:
+        return {"changed": False, "msg": "discovered 0 fans", "data": {"discovery": []}}
+    discovery = []
+    for f in fans:
+        discovery.append({"item": f["item"], "params": {}, "metrics": ["speed"]})
+    return {"changed": False, "msg": "discovered %d fans" % len(discovery), "data": {"discovery": discovery}}
+
+
+def _check(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
     item = params.get("item", "")
-    fan = None
+    fans = _gather_fans(ctx, host, community)
+    if len(fans) == 0:
+        return {"changed": False, "msg": "no HP MSA fans found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    fan_data = None
     for f in fans:
         if f["item"] == item:
-            fan = f
+            fan_data = f
             break
+    if fan_data == None:
+        return {"changed": False, "msg": "no such fan: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    speed = int(fan_data.get("speed", "0"))
+    status_num = fan_data.get("status-numeric", "3")
+    health_num = fan_data.get("health-numeric", "4")
+    health_reason = fan_data.get("health-reason", "")
+    fan_state, fan_state_readable = HP_MSA_STATE_MAP.get(status_num, ("UNKNOWN", "unknown"))
+    fan_health_state, fan_health_state_readable = HP_MSA_HEALTH_STATE_MAP.get(health_num, ("UNKNOWN", "unknown"))
+    msg = "Status: %s, speed: %d RPM" % (fan_state_readable, speed)
+    if fan_state != "OK":
+        msg2 = "health: %s (%s)" % (fan_health_state_readable, health_reason) if fan_health_state != "OK" and health_reason else ""
+        details = msg2 if msg2 else ""
+        return {"changed": False, "msg": msg, "data": {"state": fan_state, "metrics": {"speed": speed}, "details": details}}
+    if fan_health_state != "OK" and health_reason:
+        msg_full = msg + "; health: %s (%s)" % (fan_health_state_readable, health_reason)
+        return {"changed": False, "msg": msg_full, "data": {"state": fan_health_state, "metrics": {"speed": speed}, "details": ""}}
+    return {"changed": False, "msg": msg, "data": {"state": "OK", "metrics": {"speed": speed}, "details": ""}}
 
-    if fan == None:
-        return {"changed": False, "msg": "fan not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": "fan not found"}}
 
-    speed_str = fan.get("speed", "0")
-    fan_speed = int(speed_str) if speed_str.isdigit() else 0
+def _gather_fans(ctx, host, community):
+    # HP MSA storage arrays expose fan data via SNMP
+    # The fans are in a table with columns for name, status, speed, health, etc.
+    # We use snmpwalk with -Oqn for clean numeric OID output
+    base_oid = "1.3.6.1.4.1.25578.1.1.1.1"  # HP MSA enterprise MIB fan table base
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_oid], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return []
+    fans = {}
+    # Parse the snmpwalk output: each line is "<OID>.<index> <value>"
+    for line in res.stdout.splitlines():
+        if " " not in line:
+            continue
+        parts = line.split(" ", 1)
+        oid_full = parts[0]
+        value = parts[1]
+        # Extract index (suffix after base_oid)
+        if not oid_full.startswith(base_oid):
+            continue
+        index = oid_full[len(base_oid) + 1:]
+        # Determine column from OID suffix
+        suffix = oid_full[len(base_oid) + 1 + len(index) + 1:] if "." in oid_full[len(base_oid) + 1:] else ""
+        # Parse column number from the OID
+        col_parts = oid_full[len(base_oid) + 1:].split(".")
+        if len(col_parts) < 2:
+            continue
+        col_num = col_parts[-2] if len(col_parts) >= 2 else ""
+        key = col_parts[0] if len(col_parts) >= 1 else ""
+        # Map column numbers to fields (based on HP MSA MIB structure)
+        col_field = _COLUMN_MAP.get(col_num, None)
+        if col_field == None:
+            continue
+        if key not in fans:
+            fans[key] = {"item": "fan_%s" % key}
+        fans[key][col_field] = value
+    result = []
+    for k in sorted(fans.keys()):
+        f = fans[k]
+        if "status-numeric" in f and "speed" in f and "health-numeric" in f:
+            result.append(f)
+    return result
 
-    status_num = fan.get("status-numeric", "3")
-    health_num = fan.get("health-numeric", "4")
-    health_reason = fan.get("health-reason", "")
 
-    s_entry = STATUS_NUMERIC_MAP.get(status_num, ("UNKNOWN", "unknown"))
-    h_entry = HEALTH_NUMERIC_MAP.get(health_num, ("UNKNOWN", "unknown"))
-    fan_state = s_entry[0]
-    fan_state_readable = s_entry[1]
-    health_state = h_entry[0]
-    health_state_readable = h_entry[1]
-
-    overall = fan_state
-    if STATE_ORDER.get(health_state, 3) > STATE_ORDER.get(fan_state, 0):
-        overall = health_state
-
-    msg = "Status: %s, speed: %d RPM" % (fan_state_readable, fan_speed)
-    details = ""
-    if health_state != "OK" and health_reason:
-        details = "health: %s (%s)" % (health_state_readable, health_reason)
-        msg = msg + "; " + details
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": overall,
-            "metrics": {"fan_speed": fan_speed},
-            "details": details,
-        },
-    }
+_COLUMN_MAP = {
+    "1": "durable-id",
+    "2": "name",
+    "3": "location",
+    "4": "status",
+    "5": "status-numeric",
+    "6": "speed",
+    "7": "position",
+    "8": "position-numeric",
+    "9": "serial-number",
+    "10": "fw-revision",
+    "11": "hw-revision",
+    "12": "health",
+    "13": "health-numeric",
+    "14": "health-reason",
+    "15": "health-recommendation",
+}

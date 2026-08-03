@@ -1,185 +1,108 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.795.14.1"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-        
-        lines = res.stdout.splitlines()
-        slot_ids = []
-        disk_ids = []
-        disk_types = []
-        disk_states = []
-        slot_descs = []
-        
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_path = parts[0].strip()
-            value = parts[1].strip()
-            if value.startswith("STRING: "):
-                value = value[8:].strip('"')
-            elif value.startswith("INTEGER: "):
-                value = value[9:].strip()
-            
-            suffix = oid_path.split(".")[-1]
-            if suffix == "503.1.1.4":
-                slot_ids.append(value)
-            elif suffix == "400.1.1.1":
-                disk_ids.append(value)
-            elif suffix == "400.1.1.5":
-                disk_types.append(value)
-            elif suffix == "400.1.1.11":
-                disk_states.append(value)
-            elif suffix == "400.1.1.12":
-                slot_descs.append(value)
-        
-        data = {}
-        n = min(len(slot_ids), len(disk_ids), len(disk_types), len(disk_states), len(slot_descs))
-        for i in range(n):
-            slot_desc = slot_descs[i] if i < len(slot_descs) else ""
-            
-            if slot_desc and "slot" in slot_desc.lower():
-                parts_desc = slot_desc.split(", ")
-                if len(parts_desc) >= 3:
-                    last_part = parts_desc[-1]
-                    enc_part = parts_desc[-2]
-                    hba_part = parts_desc[-3]
-                    if last_part and enc_part and hba_part:
-                        last_digit = last_part[-1]
-                        enc_digit = enc_part[-1]
-                        hba_digit = hba_part[-1]
-                        if last_digit.isdigit() and enc_digit.isdigit() and hba_digit.isdigit():
-                            slot_id_int = int(last_digit)
-                            enc_id = int(enc_digit)
-                            hba_id = int(hba_digit)
-                            disk_path = str(hba_id) + "/" + str(enc_id) + "/" + str(slot_id_int)
-                            data[disk_path] = (
-                                slot_id_int,
-                                disk_ids[i] if i < len(disk_ids) else "",
-                                disk_types[i] if i < len(disk_types) else "",
-                                disk_states[i] if i < len(disk_states) else "",
-                                slot_desc
-                            )
-        
-        discovery_list = []
-        for disk_path, disk_entry in data.items():
-            _slot_label, _disk_id, _disk_type, _disk_state, _slot_desc = disk_entry
-            discovery_list.append({
-                "item": disk_path,
-                "params": {},
-                "metrics": []
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d pdisks" % len(discovery_list),
-            "data": {"discovery": discovery_list}
-        }
-    
-    item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.795.14.1"
-    ], mutates=False)
+def _snmp_get_table(ctx, community, host, column_base):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_base],
+        mutates=False,
+    )
+    rows = {}
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    lines = res.stdout.splitlines()
-    slot_ids = []
-    disk_ids = []
-    disk_types = []
-    disk_states = []
-    slot_descs = []
-    
-    for line in lines:
-        if not line.strip():
+        return rows
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
             continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
+        oid = line[:sp]
+        val = line[sp + 1:]
+        if not oid.startswith(column_base + "."):
             continue
-        oid_path = parts[0].strip()
-        value = parts[1].strip()
-        if value.startswith("STRING: "):
-            value = value[8:].strip('"')
-        elif value.startswith("INTEGER: "):
-            value = value[9:].strip()
-        
-        suffix = oid_path.split(".")[-1]
-        if suffix == "503.1.1.4":
-            slot_ids.append(value)
-        elif suffix == "400.1.1.1":
-            disk_ids.append(value)
-        elif suffix == "400.1.1.5":
-            disk_types.append(value)
-        elif suffix == "400.1.1.11":
-            disk_states.append(value)
-        elif suffix == "400.1.1.12":
-            slot_descs.append(value)
-    
-    n = min(len(slot_ids), len(disk_ids), len(disk_types), len(disk_states), len(slot_descs))
+        index = oid[len(column_base) + 1:]
+        rows[index] = val
+    return rows
+
+def _snmp_get_value(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+def _safe_int_last_char(s):
+    if len(s) == 0:
+        return None
+    ch = s[-1]
+    digits = "0123456789"
+    if ch in digits:
+        return int(ch)
+    return None
+
+def _parse_pdisks(ctx, community, host):
+    base = ".1.3.6.1.4.1.795.14.1"
+    oid_slot = base + ".503.1.1.4"
+    oid_diskid = base + ".400.1.1.1"
+    oid_disktype = base + ".400.1.1.5"
+    oid_state = base + ".400.1.1.11"
+    oid_desc = base + ".400.1.1.12"
+
+    col_slot = _snmp_get_table(ctx, community, host, oid_slot)
+    col_diskid = _snmp_get_table(ctx, community, host, oid_diskid)
+    col_disktype = _snmp_get_table(ctx, community, host, oid_disktype)
+    col_state = _snmp_get_table(ctx, community, host, oid_state)
+    col_desc = _snmp_get_table(ctx, community, host, oid_desc)
+
     data = {}
-    for i in range(n):
-        slot_desc = slot_descs[i] if i < len(slot_descs) else ""
-        
-        if slot_desc and "slot" in slot_desc.lower():
-            parts_desc = slot_desc.split(", ")
-            if len(parts_desc) >= 3:
-                last_part = parts_desc[-1]
-                enc_part = parts_desc[-2]
-                hba_part = parts_desc[-3]
-                if last_part and enc_part and hba_part:
-                    last_digit = last_part[-1]
-                    enc_digit = enc_part[-1]
-                    hba_digit = hba_part[-1]
-                    if last_digit.isdigit() and enc_digit.isdigit() and hba_digit.isdigit():
-                        slot_id_int = int(last_digit)
-                        enc_id = int(enc_digit)
-                        hba_id = int(hba_digit)
-                        disk_path = str(hba_id) + "/" + str(enc_id) + "/" + str(slot_id_int)
-                        data[disk_path] = (
-                            slot_id_int,
-                            disk_ids[i] if i < len(disk_ids) else "",
-                            disk_types[i] if i < len(disk_types) else "",
-                            disk_states[i] if i < len(disk_states) else "",
-                            slot_desc
-                        )
-    
-    for disk_path, disk_entry in data.items():
+    for index in col_desc:
+        slot_desc = col_desc.get(index, "")
+        disk_id = col_diskid.get(index, "")
+        disk_type = col_disktype.get(index, "")
+        disk_state = col_state.get(index, "")
+
+        slot_desc_lower = slot_desc.lower()
+        if "slot" not in slot_desc_lower:
+            continue
+        parts = slot_desc.split(", ")
+        if len(parts) < 3:
+            continue
+        slot_id_int = _safe_int_last_char(parts[-1])
+        enc_id = _safe_int_last_char(parts[-2])
+        hba_id = _safe_int_last_char(parts[-3])
+        if slot_id_int == None or enc_id == None or hba_id == None:
+            continue
+        disk_path = "%d/%d/%d" % (hba_id, enc_id, slot_id_int)
+        data[disk_path] = (slot_id_int, disk_id, disk_type, disk_state, slot_desc)
+    return data
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    if params.get("_discover"):
+        descr = _snmp_get_value(ctx, community, host, ".1.3.6.1.2.1.1.1.0")
+        detect_oid_val = _snmp_get_value(ctx, community, host, ".1.3.6.1.4.1.795.14.1.100.1.0")
+        if descr == None or detect_oid_val == None:
+            return {"changed": False, "msg": "not an IBM X-RAID system", "data": {"discovery": []}}
+        if descr != "software: windows" and descr != "linux":
+            return {"changed": False, "msg": "not an IBM X-RAID system", "data": {"discovery": []}}
+
+        section = _parse_pdisks(ctx, community, host)
+        discovery = []
+        for disk_path in section:
+            discovery.append({"item": disk_path, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    section = _parse_pdisks(ctx, community, host)
+    for disk_path, disk_entry in section.items():
         if disk_path == item:
             _slot_label, _disk_id, _disk_type, disk_state, slot_desc = disk_entry
             if disk_state == "3":
-                return {
-                    "changed": False,
-                    "msg": "Disk is active [%s]" % slot_desc,
-                    "data": {"state": "OK", "metrics": {}, "details": ""}
-                }
+                return {"changed": False, "msg": "Disk is active [%s]" % slot_desc,
+                        "data": {"state": "OK", "metrics": {}, "details": ""}}
             if disk_state == "4":
-                return {
-                    "changed": False,
-                    "msg": "Disk is rebuilding [%s]" % slot_desc,
-                    "data": {"state": "WARN", "metrics": {}, "details": ""}
-                }
+                return {"changed": False, "msg": "Disk is rebuilding [%s]" % slot_desc,
+                        "data": {"state": "WARN", "metrics": {}, "details": ""}}
             if disk_state == "5":
-                return {
-                    "changed": False,
-                    "msg": "Disk is dead [%s]" % slot_desc,
-                    "data": {"state": "CRIT", "metrics": {}, "details": ""}
-                }
-    
-    return {
-        "changed": False,
-        "msg": "disk is missing",
-        "data": {"state": "CRIT", "metrics": {}, "details": ""}
-    }
+                return {"changed": False, "msg": "Disk is dead [%s]" % slot_desc,
+                        "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    return {"changed": False, "msg": "disk is missing", "data": {"state": "CRIT", "metrics": {}, "details": ""}}

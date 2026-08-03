@@ -1,4 +1,6 @@
-# Sensor type mapping from Checkmk plugin
+# Regulator %s  —  Rittal LCP regulator check (Starlark, read-only SNMP)
+
+# Sensor typeid -> (name_prefix or None, type)
 _CMCTC_LCP_SENSORS = {
     "4": (None, "access"),
     "12": (None, "humidity"),
@@ -33,10 +35,20 @@ _CMCTC_LCP_SENSORS = {
     "62": (None, "regulator"),
 }
 
-# SNMP base trees for data collection
-_TREE_INDICES = ["3", "4", "5", "6"]
+# SNMP trees walked: cmcTcUnit{1..4}OutputTable
+_TREES = ["3", "4", "5", "6"]
 
-# Status mapping: Checkmk status codes
+# Column OIDs relative to each tree base (.1.3.6.1.4.1.2606.4.2.<tree>)
+_COL_INDEX = "5.2.1.1"
+_COL_TYPEID = "5.2.1.2"
+_COL_STATUS = "5.2.1.4"
+_COL_READING = "5.2.1.5"
+_COL_HIGH = "5.2.1.6"
+_COL_LOW = "5.2.1.7"
+_COL_WARN = "5.2.1.8"
+_COL_DESC = "7.2.1.2"
+
+# sensor status -> (state, text)
 _MAP_SENSOR_STATE = {
     "1": (3, "not available"),
     "2": (2, "lost"),
@@ -50,13 +62,12 @@ _MAP_SENSOR_STATE = {
     "10": (2, "error"),
 }
 
-# Unit suffix mapping
 _MAP_UNIT = {
     "access": "",
     "current": " A",
     "status": "",
     "position": "",
-    "temp": " °C",
+    "temp": "\u00b0C",
     "blower": " RPM",
     "blowergrade": "",
     "humidity": "%",
@@ -65,208 +76,222 @@ _MAP_UNIT = {
     "user": "",
 }
 
-
-def _is_float(s):
-    """Check if string can be parsed as float."""
-    s = s.strip()
-    if not s:
-        return False
-    # Handle negative numbers
-    if s.startswith("-"):
-        s = s[1:]
-    # Check if contains exactly one dot
-    parts = s.split(".")
-    if len(parts) > 2:
-        return False
-    for p in parts:
-        if not p:
-            return False
-        for c in p:
-            if c < "0" or c > "9":
-                return False
-    return True
+SENSORTYPE = "regulator"
 
 
-def _collect_sensors(ctx):
-    """Collect sensor data via SNMP for all trees."""
-    all_sensors = {}
-    
-    for tree in _TREE_INDICES:
-        base_oid = ".1.3.6.1.4.1.2606.4.2." + tree
-        # Query all relevant OIDs for this tree
-        res = ctx.run(["snmpwalk", "-v2c", "-c", "public", "-On", "localhost", base_oid], mutates=False)
-        
-        if res.rc != 0:
+def _snmp_oid(base, col, index):
+    return ".".join([base, col, index])
+
+
+def _walk_unit(ctx, host, community, tree, col):
+    base = ".1.3.6.1.4.1.2606.4.2." + tree
+    column_oid = ".".join([base, col])
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    rows = []
+    if res.rc != 0:
+        return rows
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
             continue
-        
-        # Parse SNMP walk output
-        lines = res.stdout.splitlines()
-        current_sensor = {}
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Format: OID = TYPE: value
-            eq_pos = line.find(" = ")
-            if eq_pos == -1:
-                continue
-            
-            oid = line[:eq_pos].strip()
-            value = line[eq_pos + 3:].strip()
-            
-            # Remove type prefix (STRING:, INTEGER:, etc.)
-            colon_pos = value.find(":")
-            if colon_pos >= 0:
-                value = value[colon_pos + 1:].strip()
-            
-            # Extract field index from OID
-            # OID format: .1.3.6.1.4.1.2606.4.2.{tree}.5.2.1.{field_index}.{row_index}
-            parts = oid.split(".")
-            if len(parts) >= 10:
-                field_idx_str = parts[-2]
-                field_idx = int(field_idx_str) if field_idx_str.isdigit() else 0
-                row_idx = parts[-1]
-                
-                # Determine field type
-                if field_idx == 1:
-                    current_sensor = {"tree": tree, "index": row_idx}
-                elif field_idx == 2:
-                    current_sensor["typeid"] = value
-                elif field_idx == 4:
-                    current_sensor["status"] = value
-                elif field_idx == 5:
-                    current_sensor["reading"] = value
-                elif field_idx == 6:
-                    current_sensor["high"] = value
-                elif field_idx == 7:
-                    current_sensor["low"] = value
-                elif field_idx == 8:
-                    current_sensor["warn"] = value
-                
-                # If we have all fields, process the sensor
-                if len(current_sensor) >= 7:
-                    typeid = current_sensor.get("typeid")
-                    if typeid and typeid in _CMCTC_LCP_SENSORS:
-                        sensor_spec = _CMCTC_LCP_SENSORS[typeid]
-                        item = (sensor_spec[0] + " - " + current_sensor["tree"] + "." + current_sensor["index"]) if sensor_spec[0] else (current_sensor["tree"] + "." + current_sensor["index"])
-                        
-                        reading_val = current_sensor.get("reading", "0")
-                        high_val = current_sensor.get("high", "0")
-                        low_val = current_sensor.get("low", "0")
-                        warn_val = current_sensor.get("warn", "0")
-                        
-                        reading = float(reading_val) if _is_float(reading_val) else 0.0
-                        high = float(high_val) if _is_float(high_val) else 0.0
-                        low = float(low_val) if _is_float(low_val) else 0.0
-                        warn = float(warn_val) if _is_float(warn_val) else 0.0
-                        
-                        sensor = {
-                            "status": current_sensor.get("status", "1"),
-                            "reading": reading,
-                            "high": high,
-                            "low": low,
-                            "warn": warn,
-                            "description": current_sensor.get("description", ""),
-                            "type_": sensor_spec[1],
-                        }
-                        all_sensors[item] = sensor
-                    current_sensor = {}
-    
-    return all_sensors
+        oid = line[:sp]
+        value = line[sp + 1:]
+        if not oid.startswith(column_oid + "."):
+            continue
+        index = oid[len(column_oid) + 1:]
+        rows.append((index, value))
+    return rows
+
+
+def _parse_sensor(ctx, host, community, tree, index):
+    base = ".1.3.6.1.4.1.2606.4.2." + tree
+    typeid = _snmpget_str(ctx, host, community, base, _COL_TYPEID, index)
+    if typeid == None:
+        return None
+    spec = _CMCTC_LCP_SENSORS.get(typeid)
+    if spec == None:
+        return None
+    return {
+        "type_": spec[1],
+        "status": _snmpget_str(ctx, host, community, base, _COL_STATUS, index),
+        "reading": _snmpget_float(ctx, host, community, base, _COL_READING, index),
+        "high": _snmpget_float(ctx, host, community, base, _COL_HIGH, index),
+        "low": _snmpget_float(ctx, host, community, base, _COL_LOW, index),
+        "warn": _snmpget_float(ctx, host, community, base, _COL_WARN, index),
+        "description": _snmpget_str(ctx, host, community, base, _COL_DESC, index),
+        "tree": tree,
+        "index": index,
+    }
+
+
+def _snmpget_str(ctx, host, community, base, col, index):
+    oid = _snmp_oid(base, col, index)
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _snmpget_float(ctx, host, community, base, col, index):
+    val = _snmpget_str(ctx, host, community, base, col, index)
+    if val == None or val == "":
+        return 0.0
+    parsed = _to_float(val)
+    if parsed == None:
+        return 0.0
+    return parsed
+
+
+def _to_float(s):
+    neg = False
+    work = s
+    if work.startswith("-"):
+        neg = True
+        work = work[1:]
+    elif work.startswith("+"):
+        work = work[1:]
+    if work == "" or work == ".":
+        return None
+    parts = work.split(".")
+    if len(parts) > 2:
+        return None
+    for p in parts:
+        if p == "":
+            continue
+        if not p.isdigit():
+            return None
+    if not work.isdigit() and "." not in work:
+        return None
+    f = float(s)
+    if neg:
+        f = -f
+    return f
 
 
 def main(ctx, params):
-    # Discovery mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # --- discovery ---
     if params.get("_discover"):
-        sensors = _collect_sensors(ctx)
-        
-        # Filter for regulator type only
-        regulator_sensors = []
-        for item, sensor in sensors.items():
-            if sensor["type_"] == "regulator":
-                regulator_sensors.append({
+        discovery = []
+        for tree in _TREES:
+            rows = _walk_unit(ctx, host, community, tree, _COL_TYPEID)
+            for index, typeid in rows:
+                spec = _CMCTC_LCP_SENSORS.get(typeid)
+                if spec == None:
+                    continue
+                if spec[1] != SENSORTYPE:
+                    continue
+                prefix = spec[0]
+                if prefix != None:
+                    item = prefix + " - " + tree + "." + index
+                else:
+                    item = tree + "." + index
+                discovery.append({
                     "item": item,
-                    "params": {},  # Checkmk default params are empty dict
-                    "metrics": ["regulator"],
+                    "params": {},
+                    "metrics": [SENSORTYPE],
                 })
-        
         return {
             "changed": False,
-            "msg": "discovered %d regulators" % len(regulator_sensors),
-            "data": {"discovery": regulator_sensors},
+            "msg": "discovered %d regulator sensors" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode for specific item
+
+    # --- check ---
     item = params.get("item", "")
-    sensors = _collect_sensors(ctx)
-    
-    if item not in sensors:
+    last_dot = item.rfind(".")
+    if last_dot == -1:
         return {
             "changed": False,
-            "msg": "sensor not found",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
+            "msg": "no such regulator sensor: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    sensor = sensors[item]
-    
-    # Get sensor info
+    index = item[last_dot + 1:]
+    rest = item[:last_dot]
+    dash = rest.rfind(" - ")
+    if dash != -1:
+        tree = rest[dash + 3:]
+    else:
+        tree = rest
+    valid_tree = False
+    for t in _TREES:
+        if t == tree:
+            valid_tree = True
+            break
+    if not valid_tree:
+        return {
+            "changed": False,
+            "msg": "no such regulator sensor: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sensor = _parse_sensor(ctx, host, community, tree, index)
+    if sensor == None:
+        return {
+            "changed": False,
+            "msg": "no such regulator sensor: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     unit = _MAP_UNIT.get(sensor["type_"], "")
     infotext = ""
-    if sensor["description"]:
-        infotext += "[" + sensor["description"] + "] "
-    
-    # Status mapping
-    status_val = sensor["status"]
-    state_code = 3
-    status_text = "UNKNOWN"
-    if status_val in _MAP_SENSOR_STATE:
-        state_code, status_text = _MAP_SENSOR_STATE[status_val]
-    
-    # Checkmk states: 0=OK, 1=WARNING, 2=CRITICAL, 3=UNKNOWN
-    # Map to our states: "OK", "WARN", "CRIT", "UNKNOWN"
-    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    state = state_map.get(state_code, "UNKNOWN")
-    
-    # Format output
-    reading = sensor["reading"]
-    summary = infotext + str(int(reading)) + unit
-    
-    # Handle levels if provided in params
-    extra_info = ""
+    if sensor["description"] != None and sensor["description"] != "":
+        infotext += "[%s] " % sensor["description"]
+
+    state_pair = _MAP_SENSOR_STATE.get(sensor["status"], (3, "unknown"))
+    state_num = state_pair[0]
+    extra_info = state_pair[1]
+
     extra_state = 0
-    if params:
-        warn = params.get("warn", 0)
-        crit = params.get("crit", 0)
-        if crit > 0 or warn > 0:
-            if reading >= crit:
-                extra_state = 2
-            elif reading >= warn:
-                extra_state = 1
-            
-            if extra_state > 0:
-                extra_info = " (warn/crit at %d/%d%s)" % (int(warn), int(crit), unit)
+    warn = params.get("warn")
+    crit = params.get("crit")
+    if warn != None and crit != None:
+        reading = sensor["reading"]
+        if reading >= crit:
+            extra_state = 2
+        elif reading >= warn:
+            extra_state = 1
+        if extra_state != 0:
+            extra_info = extra_info + " (warn/crit at %d/%d%s)" % (int(warn), int(crit), unit)
     else:
-        # Use device thresholds if no explicit params
-        if sensor["low"] < sensor["high"]:
-            if reading >= sensor["high"] or reading <= sensor["low"]:
-                extra_state = 2
-                extra_info = " (device lower/upper crit at %d/%d%s)" % (int(sensor["low"]), int(sensor["high"]), unit)
-    
-    # Final state selection
-    final_state = "CRIT" if extra_state == 2 else ("WARN" if extra_state == 1 else state)
-    
+        low = sensor["low"]
+        high = sensor["high"]
+        warn_v = sensor["warn"]
+        if low != 0.0 or high != 0.0 or warn_v != 0.0:
+            if (low != 0.0 and high != 0.0) and low < high:
+                reading = sensor["reading"]
+                if reading >= high or reading <= low:
+                    extra_state = 2
+                    extra_info = extra_info + " (device lower/upper crit at %f/%f%s)" % (low, high, unit)
+
+    metrics = {SENSORTYPE: sensor["reading"]}
+    msg = infotext + "%d%s" % (int(sensor["reading"]), unit)
+    if extra_info != "" and extra_info != state_pair[1]:
+        msg = msg + " " + extra_info
+
+    final_state = state_num if state_num != 0 else extra_state
+    state_str = "OK"
+    if final_state == 1:
+        state_str = "WARN"
+    elif final_state == 2:
+        state_str = "CRIT"
+    elif final_state == 3:
+        state_str = "UNKNOWN"
+
     return {
         "changed": False,
-        "msg": summary,
+        "msg": msg,
         "data": {
-            "state": final_state,
-            "metrics": {"regulator": reading},
+            "state": state_str,
+            "metrics": metrics,
             "details": extra_info,
         },
     }

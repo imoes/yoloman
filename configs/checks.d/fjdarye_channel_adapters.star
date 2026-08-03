@@ -1,15 +1,20 @@
-# ===== Checkmk fjdarye_channel_adapters translated to Starlark =====
-# SNMP OIDs mapping for supported devices
-FJDARYE_DEVICE_OIDS = {
-    ".1.3.6.1.4.1.211.1.21.1.60": ".2.2.2.1",  # fjdarye60
-    ".1.3.6.1.4.1.211.1.21.1.100": ".2.3.2.1", # fjdarye100
-    ".1.3.6.1.4.1.211.1.21.1.101": ".2.3.2.1", # fjdarye101
-    ".1.3.6.1.4.1.211.1.21.1.150": ".2.3.2.1", # fjdarye500
-    ".1.3.6.1.4.1.211.1.21.1.153": ".2.3.2.1", # fjdarye600
+# Checkmk check: fjdarye_channel_adapters
+# Fujitsu storage channel adapter status via SNMP.
+
+State_OK = "OK"
+State_WARN = "WARN"
+State_CRIT = "CRIT"
+State_UNKNOWN = "UNKNOWN"
+
+FJDARYE_CHANNEL_ADAPTER_OID = {
+    ".1.3.6.1.4.1.211.1.21.1.60": ".2.2.2.1",
+    ".1.3.6.1.4.1.211.1.21.1.100": ".2.3.2.1",
+    ".1.3.6.1.4.1.211.1.21.1.101": ".2.3.2.1",
+    ".1.3.6.1.4.1.211.1.21.1.150": ".2.3.2.1",
+    ".1.3.6.1.4.1.211.1.21.1.153": ".2.3.2.1",
 }
 
-# Status mapping: status code -> (state, summary)
-FJDARYE_STATUS_MAP = {
+FJDARYE_ITEM_STATUS = {
     "1": ("OK", "Normal"),
     "2": ("CRIT", "Alarm"),
     "3": ("WARN", "Warning"),
@@ -18,116 +23,110 @@ FJDARYE_STATUS_MAP = {
     "6": ("CRIT", "Undefined"),
 }
 
+
 def main(ctx, params):
-    # Discovery mode: enumerate all channel adapters
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # probe: get sysObjectID to confirm this is a supported Fujitsu device
+    sysoid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, "1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysoid_res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "host is not a supported Fujitsu storage device",
+            "data": {"discovery": [], "host_labels": {}},
+        }
+
+    sysoid = sysoid_res.stdout.strip()
+    base_suffix = FJDARYE_CHANNEL_ADAPTER_OID.get(sysoid)
+    if base_suffix == None:
+        return {
+            "changed": False,
+            "msg": "host is not a supported Fujitsu storage device",
+            "data": {"discovery": [], "host_labels": {}},
+        }
+
+    base_oid = "1.3.6.1.2.1.1" + base_suffix
+
+    # walk index column (.1) and status column (.3)
+    def _walk(col):
+        col_oid = base_oid + "." + col
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oid],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {}
+        table = {}
+        prefix = col_oid + "."
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp]
+            value = line[sp + 1:]
+            idx = oid[len(prefix):]
+            if idx != "":
+                table[idx] = value
+        return table
+
+    idx_table = _walk("1")
+    statuses = _walk("3")
+
     if params.get("_discover"):
-        discovery_items = []
-        for device_oid, channel_adapter_oid in FJDARYE_DEVICE_OIDS.items():
-            base_oid = device_oid + channel_adapter_oid
-            res = ctx.run([
-                "snmpwalk",
-                "-v2c",
-                "-c",
-                params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                base_oid + ".1",  # Index
-                base_oid + ".3"   # Status
-            ], mutates=False)
-            
-            # Parse snmpwalk output: OID = TYPE: value lines
-            lines = res.stdout.splitlines()
-            indices = {}
-            statuses = {}
-            
-            for line in lines:
-                # Format: .oid.index = STRING: value or INTEGER: value
-                if "=" not in line:
-                    continue
-                oid_part, value_part = line.split("=", 1)
-                oid = oid_part.strip()
-                value = value_part.strip()
-                
-                # Extract base OID (without .1 or .3 suffix)
-                if oid.endswith(".1"):
-                    item_idx = oid[:-2]
-                    # Extract index value
-                    idx_val = value.split(":")[-1].strip() if ":" in value else value
-                    indices[item_idx] = idx_val
-                elif oid.endswith(".3"):
-                    item_idx = oid[:-2]
-                    # Extract status value
-                    status_val = value.split(":")[-1].strip() if ":" in value else value
-                    statuses[item_idx] = status_val
-            
-            # Build list of (item_index, status) pairs
-            for item_idx in sorted(indices.keys()):
-                if item_idx in statuses:
-                    item_index = indices[item_idx]
-                    status = statuses[item_idx]
-                    discovery_items.append({
-                        "item": item_index,
-                        "params": {},
-                        "metrics": []
-                    })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d channel adapters" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode: examine one item
-    item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c",
-        params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        item + ".1",  # Index
-        item + ".3"   # Status
-    ], mutates=False)
-    
-    # Parse the response
-    lines = res.stdout.splitlines()
-    index_val = ""
-    status_val = ""
-    
-    for line in lines:
-        if "=" not in line:
-            continue
-        oid_part, value_part = line.split("=", 1)
-        oid = oid_part.strip()
-        value = value_part.strip()
-        
-        if oid == item + ".1":
-            index_val = value.split(":")[-1].strip() if ":" in value else value
-        elif oid == item + ".3":
-            status_val = value.split(":")[-1].strip() if ":" in value else value
-    
-    # Determine state and summary based on status
-    if status_val == "":
-        return {
-            "changed": False,
-            "msg": "channel adapter %s not found" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
+        discovery = []
+        for idx in sorted(idx_table.keys()):
+            status = statuses.get(idx, "")
+            entry = {
+                "item": idx,
+                "params": {},
+                "metrics": ["status_code"],
             }
+            if status != "4":
+                discovery.append(entry)
+        return {
+            "changed": False,
+            "msg": "discovered %d channel adapters" % len(discovery),
+            "data": {
+                "discovery": discovery,
+                "host_labels": {"cmk/fjdarye_device": sysoid},
+            },
         }
-    
-    state_summary = FJDARYE_STATUS_MAP.get(status_val, ("UNKNOWN", "Unknown"))
-    state, summary = state_summary
-    
+
+    item = params.get("item", "")
+    if item not in statuses:
+        return {
+            "changed": False,
+            "msg": "channel adapter index %s not found" % item,
+            "data": {
+                "state": State_UNKNOWN,
+                "metrics": {},
+                "details": "no data for index %s" % item,
+            },
+        }
+
+    status = statuses.get(item, "")
+    mapped = FJDARYE_ITEM_STATUS.get(status)
+    if mapped == None:
+        state = State_UNKNOWN
+        summary = "Unknown"
+    else:
+        state = mapped[0]
+        summary = mapped[1]
+
+    metrics = {}
+    if status != "" and status.isdigit():
+        metrics["status_code"] = int(status)
+
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "Channel Adapter %s: %s" % (item, summary),
         "data": {
             "state": state,
-            "metrics": {},
-            "details": ""
-        }
+            "metrics": metrics,
+            "details": "Status code %s" % status,
+        },
     }

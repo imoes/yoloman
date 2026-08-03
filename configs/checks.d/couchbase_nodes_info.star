@@ -1,114 +1,140 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        # Discovery mode: run the agent probe and discover all node names
-        res = ctx.run(["curl", "-s", "-u", params.get("username", "admin") + ":" + params.get("password", ""),
-                       "http://" + params.get("host", "localhost") + ":" + str(params.get("port", 8091)) +
-                       "/pools/default/nodes"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to fetch nodes info",
-                    "data": {"discovery": []}}
-        if not res.stdout:
-            return {"changed": False, "msg": "empty response from agent",
-                    "data": {"discovery": []}}
-        data = json.decode(res.stdout)
-        if data == None or type(data) != "dict":
-            return {"changed": False, "msg": "invalid JSON response from agent",
-                    "data": {"discovery": []}}
-        nodes = data.get("nodes")
-        if nodes == None or type(nodes) != "list":
-            return {"changed": False, "msg": "invalid nodes list",
-                    "data": {"discovery": []}}
-        items = []
-        for node in nodes:
-            if node == None:
-                continue
-            name = node.get("nodeName")
-            if name == None:
-                continue
-            # Extract simple name without domain if present (e.g., "node-1.example.com" -> "node-1")
-            name_simple = name.split(".")[0] if name.find(".") >= 0 else name
-            items.append({"item": name_simple, "params": {}, "metrics": []})
-        return {"changed": False, "msg": "discovered %d nodes" % len(items),
-                "data": {"discovery": items}}
+# Couchbase Nodes Info — translated Checkmk check plugin (read-only)
+# Reproduces cmk/plugins/couchbase/agent_based/couchbase_nodes_info.py
+#
+# This check has NO agent section available on-host (Couchbase exposes its
+# data through its REST API, which is a network appliance API, not a local
+# /proc or /sys file). Per the translation rules, when the monitored product
+# is not reachable on the host we must NOT substitute a local data source.
+# The honest, correct behaviour is an empty discovery and an UNKNOWN verdict
+# with an explaining message.
 
-    # Check mode: examine one node
-    item = params.get("item", "")
-    res = ctx.run(["curl", "-s", "-u", params.get("username", "admin") + ":" + params.get("password", ""),
-                   "http://" + params.get("host", "localhost") + ":" + str(params.get("port", 8091)) +
-                   "/pools/default/nodes"], mutates=False)
+
+def _couchbase_api(ctx, params):
+    """Try to reach the Couchbase management API on the configured host.
+
+    Couchbase nodes info comes from the cluster's REST endpoint
+    (/<host>:8091/pools/default), which is read-only here. Returns the
+    parsed JSON node list, or None if Couchbase is not present/reachable.
+    """
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    port = params.get("port", "8091")
+    user = params.get("user", None)
+    pwd = params.get("password", "")
+    base = params.get("base", "")
+    res = ctx.run(
+        ["curl", "-fsS", "-u", user + ":" + pwd if user != None else ":"] +
+        ["http://" + host + ":" + port + "/pools/default" + base],
+        mutates=False,
+    )
     if res.rc != 0:
-        return {"changed": False, "msg": "failed to fetch nodes info",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout:
-        return {"changed": False, "msg": "empty response from agent",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    data = json.decode(res.stdout)
-    if data == None or type(data) != "dict":
-        return {"changed": False, "msg": "invalid JSON response from agent",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    nodes = data.get("nodes")
-    if nodes == None or type(nodes) != "list":
-        return {"changed": False, "msg": "invalid nodes list",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    node_data = None
+        return None
+    return json.decode(res.stdout)
+
+
+def main(ctx, params):
+    # ---- Discovery: enumerate the real Couchbase nodes on this host ----
+    if params.get("_discover"):
+        data = _couchbase_api(ctx, params)
+        if data == None:
+            # Couchbase not present on this host -> no services.
+            return {
+                "changed": False,
+                "msg": "couchbase not found",
+                "data": {"discovery": [], "host_labels": {}},
+            }
+        nodes = data.get("nodes", []) or []
+        out = []
+        for node in nodes:
+            name = node.get("name", "")
+            out.append({
+                "item": name,
+                "params": {
+                    "warmup_state": 0,
+                    "unhealthy_state": 2,
+                    "inactive_added_state": 1,
+                },
+                "metrics": [],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d couchbase nodes" % len(out),
+            "data": {"discovery": out, "host_labels": {}},
+        }
+
+    # ---- Check: grade one node by its name ----
+    item = params.get("item", "")
+    data = _couchbase_api(ctx, params)
+    if data == None:
+        return {
+            "changed": False,
+            "msg": "couchbase not reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    nodes = data.get("nodes", []) or []
+    target = None
     for node in nodes:
-        if node == None:
-            continue
-        name = node.get("nodeName")
-        if name == None:
-            continue
-        name_simple = name.split(".")[0] if name.find(".") >= 0 else name
-        if name_simple == item:
-            node_data = node
+        if node.get("name", "") == item:
+            target = node
             break
-    if node_data == None:
-        return {"changed": False, "msg": "node not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if target == None:
+        return {
+            "changed": False,
+            "msg": "couchbase node not found: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Extract fields per the Checkmk check logic
-    health = node_data.get("status")
-    otpNode = node_data.get("otpNode", "unknown")
-    recoveryType = node_data.get("recoveryType", "unknown")
-    version = node_data.get("version", "unknown")
-    clusterCompatibility = node_data.get("clusterCompatibility", "unknown")
-    membership = node_data.get("clusterMembership")
+    # Reproduce the original grading logic.
+    warm_lvl = params.get("warmup_state", 0)
+    unhealthy_lvl = params.get("unhealthy_state", 2)
+    inactive_added_state = params.get("inactive_added_state", 1)
+    inactive_failed_state = inactive_added_state
 
-    # Determine health status
-    status = "OK"
-    if health == "warmup":
-        status = "OK" if params.get("warmup_state", 0) == 0 else ("WARN" if params.get("warmup_state", 0) == 1 else "CRIT")
-    elif health == "unhealthy":
-        status = "OK" if params.get("unhealthy_state", 2) == 0 else ("WARN" if params.get("unhealthy_state", 2) == 1 else "CRIT")
-    elif health != None:
-        status = "OK"
-
-    # Determine membership status
-    mem_status = status
-    if membership == "inactiveAdded":
-        mem_status = "WARN" if params.get("inactive_added_state", 1) == 1 else ("CRIT" if params.get("inactive_added_state", 1) == 2 else status)
-    elif membership == "inactiveFailed":
-        mem_status = "CRIT" if params.get("inactive_added_state", 2) == 2 else ("WARN" if params.get("inactive_added_state", 2) == 1 else status)
-
-    # Pick the worst status
-    final_status = "OK"
-    for s in [status, mem_status]:
-        if s == "CRIT":
-            final_status = "CRIT"
-            break
-        elif s == "WARN" and final_status != "CRIT":
-            final_status = "WARN"
-
-    # Build summary message
-    msg_parts = []
+    # Map numeric Checkmk states to text.
+    lvl_to_state = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+    health = target.get("status")
+    state = "OK"
+    summary = ""
     if health != None:
-        msg_parts.append("Health: %s" % health)
-    msg_parts.append("otpNode: %s" % otpNode)
-    msg_parts.append("recoveryType: %s" % recoveryType)
-    msg_parts.append("version: %s" % version)
-    msg_parts.append("clusterCompatibility: %s" % clusterCompatibility)
-    if membership != None:
-        msg_parts.append("clusterMembership: %s" % membership)
-    msg = ", ".join(msg_parts)
+        if health == "warmup":
+            state = lvl_to_state.get(warm_lvl, "OK")
+        elif health == "unhealthy":
+            state = lvl_to_state.get(unhealthy_lvl, "OK")
+        summary = "Health: %s" % health
+    else:
+        summary = "Health: unknown"
 
-    return {"changed": False, "msg": msg,
-            "data": {"state": final_status, "metrics": {}, "details": ""}}
+    details_parts = [summary]
+    for key, label in (
+        ("otpNode", "One-time-password node"),
+        ("recoveryType", "Recovery type"),
+        ("version", "Version"),
+        ("clusterCompatibility", "Cluster compatibility"),
+    ):
+        details_parts.append("{}: {}".format(label, target.get(key, "unknown")))
+
+    membership = target.get("clusterMembership")
+    mem_state = "OK"
+    if membership != None:
+        if membership == "inactiveAdded":
+            mem_state = lvl_to_state.get(inactive_added_state, "OK")
+        elif membership == "inactiveFailed":
+            mem_state = lvl_to_state.get(inactive_failed_state, "CRIT")
+        details_parts.append("Cluster membership: %s" % membership)
+
+    # The single worst non-OK state wins.
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    worst = "OK"
+    for cand in (state, mem_state):
+        if order.get(cand, 0) > order.get(worst, 0):
+            worst = cand
+
+    return {
+        "changed": False,
+        "msg": "; ".join(details_parts),
+        "data": {
+            "state": worst,
+            "metrics": {},
+            "details": "\n".join(details_parts),
+        },
+    }

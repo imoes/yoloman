@@ -1,159 +1,104 @@
-SQL_SESSIONS = (
-    "SET PAGESIZE 0\n" +
-    "SET FEEDBACK OFF\n" +
-    "SET HEADING OFF\n" +
-    "SET TRIMSPOOL ON\n" +
-    "SET LINESIZE 1000\n" +
-    "SELECT sid||'|'||serial#||'|'||machine||'|'||process||'|'||osuser" +
-    "||'|'||program||'|'||last_call_et||'|'||NVL(sql_id,'')" +
-    " FROM v$session WHERE status='ACTIVE'" +
-    " AND username IS NOT NULL AND last_call_et > 0;\n" +
-    "EXIT;\n"
-)
-
-def _oratab_entries(ctx):
-    entries = []
-    if not ctx.file_exists("/etc/oratab"):
-        return entries
-    content = ctx.file_read("/etc/oratab")
-    for line in content.splitlines():
-        stripped = line.strip()
-        if stripped == "" or stripped.startswith("#"):
-            continue
-        parts = stripped.split(":")
-        if len(parts) < 2:
-            continue
-        sid = parts[0].strip()
-        oh = parts[1].strip()
-        if sid == "" or sid == "*" or oh == "" or oh == "N/A":
-            continue
-        entries.append({"sid": sid, "oracle_home": oh})
-    return entries
-
-def _query_sessions(ctx, sid, oracle_home):
-    cmd_str = (
-        "ORACLE_SID=" + sid +
-        " ORACLE_HOME=" + oracle_home +
-        " PATH=" + oracle_home + "/bin:$PATH " +
-        oracle_home + "/bin/sqlplus -s / as sysdba <<'SQL_END'\n" +
-        SQL_SESSIONS +
-        "SQL_END\n"
-    )
-    return ctx.run(["bash", "-c", cmd_str], mutates=False)
-
-def _parse_sessions(stdout):
-    sessions = []
-    for line in stdout.splitlines():
-        s = line.strip()
-        if s == "":
-            continue
-        if s.startswith("SP2-") or s.startswith("ORA-") or s.startswith("ERROR"):
-            continue
-        parts = s.split("|")
-        if len(parts) < 7:
-            continue
-        sessions.append(parts)
-    return sessions
-
-def _fmt_timespan(secs):
-    s = int(secs)
-    h = s // 3600
-    m = (s % 3600) // 60
-    sec = s % 60
-    if h > 0:
-        return "%d h %d m %d s" % (h, m, sec)
-    if m > 0:
-        return "%d m %d s" % (m, sec)
-    return "%d s" % sec
-
 def main(ctx, params):
-    warn = params.get("warn", 500)
-    crit = params.get("crit", 1000)
-
     if params.get("_discover"):
-        entries = _oratab_entries(ctx)
+        oracle_home = _find_oracle_home(ctx)
+        if oracle_home == None:
+            return {"changed": False, "msg": "no oracle installation found",
+                    "data": {"discovery": []}}
+        sql = "SELECT upper(sid) AS instance_name, sid, serial#, machine, process, osuser, program, last_call_et, sql_id FROM v$session WHERE status='ACTIVE' AND last_call_et > 0"
+        res = ctx.run(["sqlplus", "-s", "/ as sysdba", "@-"], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "sqlplus not available",
+                    "data": {"discovery": []}}
+        lines = _parse_table(res.stdout)
+        if len(lines) == 0:
+            return {"changed": False, "msg": "no long active sessions found",
+                    "data": {"discovery": []}}
         discovery = []
-        for e in entries:
-            discovery.append({
-                "item": e["sid"],
-                "params": {"warn": 500, "crit": 1000, "oracle_home": e["oracle_home"]},
-                "metrics": ["count"],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d Oracle instances" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        for line in lines[1:]:
+            if len(line) < 9:
+                continue
+            instance = line[0]
+            found = False
+            for d in discovery:
+                if d["item"] == instance:
+                    found = True
+                    break
+            if not found:
+                discovery.append({"item": instance,
+                                  "params": {"levels": [500, 1000]},
+                                  "metrics": ["count"]})
+        return {"changed": False,
+                "msg": "discovered %d oracle long active session services" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    oracle_home = params.get("oracle_home", "")
+    sql = "SELECT sid, serial#, machine, process, osuser, program, last_call_et, sql_id FROM v$session WHERE status='ACTIVE' AND last_call_et > 0 AND upper(sid)='%s'" % item.upper()
+    res = ctx.run(["sqlplus", "-s", "/ as sysdba", "@-"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False,
+                "msg": "sqlplus not available on host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    lines = _parse_table(res.stdout)
+    if len(lines) <= 1:
+        return {"changed": False,
+                "msg": "no info from database. Check ORA %s Instance" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sessioncount = 0
+    longoutput = None
+    for line in lines[1:]:
+        if len(line) < 8:
+            continue
+        sid, serial, machine, process, osuser, program, last_call_el, sql_id = line[:8]
+        if str(sid).upper() != item.upper():
+            continue
+        sessioncount += 1
+        longoutput = "Session (sid,serial,proc) %s %s %s active for %s from %s osuser %s program %s sql_id %s" % (sid, serial, process,
+                          _render_timespan(int(last_call_el) if last_call_el.isdigit() else 0),
+                          machine, osuser, program, sql_id)
+    levels = params.get("levels", (500, 1000))
+    warn = levels[0] if len(levels) > 0 else 500
+    crit = levels[1] if len(levels) > 1 else 1000
+    state = "CRIT" if sessioncount >= crit else ("WARN" if sessioncount >= warn else "OK")
+    msg = "sessions: %d" % sessioncount
+    if longoutput:
+        msg = longoutput
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"count": sessioncount}, "details": ""}}
 
-    if oracle_home == "":
-        entries = _oratab_entries(ctx)
-        for e in entries:
-            if e["sid"] == item:
-                oracle_home = e["oracle_home"]
-                break
+def _find_oracle_home(ctx):
+    res = ctx.run(["which", "sqlplus"], mutates=False)
+    if res.rc == 0:
+        return "/usr/bin"
+    res = ctx.run(["sqlplus", "-v"], mutates=False)
+    if res.rc == 127:
+        return None
+    return "/usr/bin"
 
-    if oracle_home == "":
-        return {
-            "changed": False,
-            "msg": "oracle_home not found for instance: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+def _parse_table(out):
+    lines = []
+    for raw in out.splitlines():
+        s = raw.strip()
+        if len(s) == 0 or s.startswith("-") or s.startswith("SQL>"):
+            continue
+        lines.append(s.split("|"))
+    return lines
 
-    res = _query_sessions(ctx, item, oracle_home)
-
-    for line in res.stdout.splitlines():
-        s = line.strip()
-        if s.startswith("ORA-"):
-            return {
-                "changed": False,
-                "msg": "Oracle error on " + item + ": " + s,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": s},
-            }
-
-    if res.rc != 0:
-        err = res.stderr.strip()
-        if err == "":
-            err = res.stdout.strip()
-        return {
-            "changed": False,
-            "msg": "sqlplus failed for " + item + " (rc=%d): " % res.rc + err,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": err},
-        }
-
-    sessions = _parse_sessions(res.stdout)
-    session_count = len(sessions)
-
-    details_parts = []
-    for parts in sessions:
-        sidnr   = parts[0].strip()
-        serial  = parts[1].strip()
-        machine = parts[2].strip()
-        process = parts[3].strip()
-        osuser  = parts[4].strip()
-        program = parts[5].strip()
-        raw_el  = parts[6].strip()
-        sql_id  = parts[7].strip() if len(parts) > 7 else ""
-        elapsed = _fmt_timespan(int(raw_el) if raw_el.isdigit() else 0)
-        details_parts.append(
-            "Session (sid,serial,proc) %s %s %s active for %s from %s osuser %s program %s sql_id %s" % (
-                sidnr, serial, process, elapsed, machine, osuser, program, sql_id
-            )
-        )
-
-    state = "CRIT" if session_count >= crit else ("WARN" if session_count >= warn else "OK")
-    msg = "Long active sessions: %d" % session_count
-    if state != "OK":
-        msg += " (warn=%d, crit=%d)" % (warn, crit)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"count": session_count},
-            "details": "\n".join(details_parts),
-        },
-    }
+def _render_timespan(sec):
+    if sec == None or sec <= 0:
+        return "0s"
+    s = int(sec)
+    d = s // 86400
+    s = s % 86400
+    h = s // 3600
+    s = s % 3600
+    m = s // 60
+    s = s % 60
+    parts = []
+    if d > 0:
+        parts.append("%dd" % d)
+    if h > 0:
+        parts.append("%dh" % h)
+    if m > 0:
+        parts.append("%dm" % m)
+    parts.append("%ds" % s)
+    return " ".join(parts)

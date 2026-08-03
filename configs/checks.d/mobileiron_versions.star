@@ -1,184 +1,224 @@
+# MobileIron versions check — read-only Starlark check module for yolo-man agent
+#
+# Checkmk source: cmk/plugins/mobileiron/agent_based/mobileiron_versions.py
+# Network-based special-agent check: data fetched over the MobileIron REST API.
+
+DEFAULTS = {
+    "patchlevel_unparsable": 0,
+    "patchlevel_age": 7776000,
+    "os_build_unparsable": 0,
+    "os_age": 7776000,
+    "ios_version_regexp": "",
+    "android_version_regexp": "",
+    "os_version_other": 0,
+}
+
+STATE_LABELS = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
 DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
-STATE_ORDER = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
 
 def _is_leap(year):
-    return (year % 4 == 0) and ((year % 100 != 0) or (year % 400 == 0))
+    return (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0)
 
-def _dim(month, year):
-    if month == 2 and _is_leap(year):
-        return 29
-    return DAYS_IN_MONTH[month - 1]
 
-def _date_to_epoch(year, month, day):
+def _days_since_epoch(y, mo, d):
     days = 0
-    for y in range(1970, year):
-        days += 366 if _is_leap(y) else 365
-    for m in range(1, month):
-        days += _dim(m, year)
-    days += day - 1
+    for yr in range(1970, y):
+        days = days + (366 if _is_leap(yr) else 365)
+    for mi in range(1, mo):
+        dim = DAYS_IN_MONTH[mi - 1]
+        if mi == 2 and _is_leap(y):
+            dim = 29
+        days = days + dim
+    days = days + (d - 1)
     return days * 86400
 
-def _parse_date(s):
-    s = str(s)
-    if len(s) >= 10 and s[4] == "-" and s[7] == "-":
-        ys, ms, ds = s[0:4], s[5:7], s[8:10]
-        if ys.isdigit() and ms.isdigit() and ds.isdigit():
-            y, m, d = int(ys), int(ms), int(ds)
-            if (1 <= m) and (m <= 12) and (1 <= d) and (d <= 31):
-                return _date_to_epoch(y, m, d)
-    if len(s) >= 6 and s[0:6].isdigit():
-        y = 2000 + int(s[0:2])
-        m, d = int(s[2:4]), int(s[4:6])
-        if (1 <= m) and (m <= 12) and (1 <= d) and (d <= 31):
-            return _date_to_epoch(y, m, d)
-    return -1
 
-def _int_to_state(n):
-    if n == 2:
-        return "CRIT"
-    if n == 1:
-        return "WARN"
-    if n == 3:
-        return "UNKNOWN"
-    return "OK"
-
-def _worse(a, b):
-    return a if STATE_ORDER.get(a, 0) >= STATE_ORDER.get(b, 0) else b
-
-def _str_val(d, key):
-    v = d.get(key)
-    return str(v) if v != None else ""
-
-def _query_device(ctx, params):
-    host        = params.get("host", "localhost")
-    user        = params.get("user", "")
-    password    = params.get("password", "")
-    port        = str(params.get("port", 443))
-    device_uuid = params.get("device_uuid", "")
-    url = "https://%s:%s/api/v1/device/%s" % (host, port, device_uuid)
-    res = ctx.run([
-        "curl", "-sk", "--max-time", "30",
-        "-u", user + ":" + password,
-        "-H", "Accept: application/json",
-        url,
-    ], mutates=False)
+def _age_from_date(ctx, date_string):
+    s = str(date_string)
+    if len(s) >= 10:
+        parts = s[:10].split("-")
+        if len(parts) != 3:
+            return None
+        y_str, mo_str, d_str = parts
+        if not (y_str.isdigit() and mo_str.isdigit() and d_str.isdigit()):
+            return None
+        start = _days_since_epoch(int(y_str), int(mo_str), int(d_str))
+    else:
+        return None
+    res = ctx.run(["date", "+%s"], mutates=False)
     if res.rc != 0:
         return None
-    body = res.stdout.strip()
-    if not body or not body.startswith("{"):
+    now_s = res.stdout.strip()
+    if not now_s.isdigit():
         return None
-    data = json.decode(body)
-    if data == None:
+    now_epoch = int(now_s)
+    return max(0, now_epoch - start)
+
+
+def _grade_age(age, level_days, unparsable_state):
+    if age == None:
+        return unparsable_state
+    if age >= level_days:
+        return 2
+    return 0
+
+
+def _regex_match(pattern, text):
+    special = False
+    for c in [".", "*", "+", "?", "[", "]", "(", ")", "^", "$", "\\"]:
+        if c in pattern:
+            special = True
+            break
+    if not special:
+        return pattern in text
+    return pattern in text
+
+
+def _os_version_check(section, user_regex):
+    if not user_regex:
+        return (0, "OS version: " + str(section.get("platform_version", "")))
+    pv = str(section.get("platform_version", ""))
+    match = _regex_match(user_regex, pv)
+    if match:
+        return (0, "OS version: " + pv)
+    return (2, "OS version mismatch: " + pv)
+
+
+def _section_from_device(dev):
+    return {
+        "os_build_version": dev.get("osBuildVersion"),
+        "android_security_patch_level": dev.get("androidSecurityPatchLevel"),
+        "platform_version": dev.get("platformVersion"),
+        "client_version": dev.get("clientVersion"),
+        "platform_type": dev.get("platformType"),
+    }
+
+
+def _fetch_devices(ctx, base_url, token):
+    args = ["curl", "-fsSL", "-H", "Accept: application/json"]
+    if token:
+        args = args + ["-H", "Authorization: Bearer " + token]
+    args.append(base_url)
+    res = ctx.run(args, mutates=False)
+    if res.rc != 0 or not res.stdout:
         return None
-    result = data.get("result")
-    if result != None:
-        hits = result.get("searchResults")
-        if hits != None and len(hits) > 0:
-            return hits[0]
-        return result
-    return data
+    data = json.decode(res.stdout)
+    if type(data) == "dict" and "results" in data:
+        return data["results"]
+    if type(data) == "list":
+        return data
+    return None
+
 
 def main(ctx, params):
-    patchlevel_unparsable = params.get("patchlevel_unparsable", 0)
-    patchlevel_age        = params.get("patchlevel_age", 7776000)
-    os_build_unparsable   = params.get("os_build_unparsable", 0)
-    os_age                = params.get("os_age", 7776000)
-    ios_regexp            = params.get("ios_version_regexp", "")
-    android_regexp        = params.get("android_version_regexp", "")
-    os_version_other      = params.get("os_version_other", 0)
+    base_url = params.get("api_url", "")
+    token = params.get("api_token", "")
 
     if params.get("_discover"):
-        dev = _query_device(ctx, params)
-        if dev == None:
-            return {"changed": False, "msg": "discovered 0 items",
+        if not base_url:
+            return {"changed": False, "msg": "no MobileIron API URL configured",
                     "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 items",
-                "data": {"discovery": [{"item": "",
-                    "params": {
-                        "patchlevel_unparsable": 0,
-                        "patchlevel_age": 7776000,
-                        "os_build_unparsable": 0,
-                        "os_age": 7776000,
-                        "ios_version_regexp": "",
-                        "android_version_regexp": "",
-                        "os_version_other": 0,
-                    },
-                    "metrics": ["mobileiron_last_patched", "mobileiron_last_build"],
-                }]}}
+        devices = _fetch_devices(ctx, base_url, token)
+        if devices == None:
+            return {"changed": False, "msg": "MobileIron API unreachable",
+                    "data": {"discovery": []}}
+        out = []
+        for dev in devices:
+            item = dev.get("deviceId") or dev.get("serialNumber") or dev.get("udid") or str(len(out))
+            out.append({
+                "item": str(item),
+                "params": {k: params.get(k, DEFAULTS[k]) for k in DEFAULTS},
+                "metrics": ["mobileiron_last_patched", "mobileiron_last_build"],
+            })
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
 
-    ts_res = ctx.run(["date", "+%s"], mutates=False)
-    now = 0
-    if ts_res.rc == 0:
-        ts = ts_res.stdout.strip()
-        if ts.isdigit():
-            now = int(ts)
-
-    dev = _query_device(ctx, params)
-    if dev == None:
-        return {"changed": False, "msg": "MobileIron device data unavailable",
+    if not base_url:
+        return {"changed": False, "msg": "MobileIron API URL not configured",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    client_version   = _str_val(dev, "clientVersion")
-    android_patch    = _str_val(dev, "androidSecurityPatchLevel")
-    os_build         = _str_val(dev, "osBuildVersion")
-    platform_version = _str_val(dev, "platformVersion")
-    platform_type    = _str_val(dev, "platformType")
+    item = params.get("item", "")
+    devices = _fetch_devices(ctx, base_url, token)
+    if devices == None:
+        return {"changed": False, "msg": "MobileIron API unreachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    state = "OK"
-    summary_parts = ["Client version: " + (client_version if client_version else "unknown")]
-    details_parts = []
+    target = None
+    for dev in devices:
+        cand = dev.get("deviceId") or dev.get("serialNumber") or dev.get("udid")
+        if str(cand) == str(item):
+            target = dev
+            break
+    if target == None:
+        return {"changed": False, "msg": "no such device: " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    section = _section_from_device(target)
     metrics = {}
+    details_parts = []
 
-    if android_patch:
-        epoch = _parse_date(android_patch)
-        if epoch < 0:
-            state = _worse(state, _int_to_state(patchlevel_unparsable))
-            summary_parts.append("Security patch level has an invalid date format: '%s'" % android_patch)
-        else:
-            age = (now - epoch) if now > epoch else 0
-            metrics["mobileiron_last_patched"] = age
-            label = "Security patch level is '%s'" % android_patch
-            if age >= patchlevel_age:
-                state = _worse(state, "CRIT")
-                summary_parts.append(label + " (too old)")
-            else:
-                summary_parts.append(label)
-
-    if os_build:
-        epoch = _parse_date(os_build)
-        if epoch < 0:
-            state = _worse(state, _int_to_state(os_build_unparsable))
-            details_parts.append("OS build version has an invalid date format: '%s'" % os_build)
-        else:
-            age = (now - epoch) if now > epoch else 0
-            metrics["mobileiron_last_build"] = age
-            details_parts.append("OS build version is '%s'" % os_build)
-            if age >= os_age:
-                state = _worse(state, "CRIT")
-
-    if platform_type == "ANDROID":
-        if android_regexp and str(platform_version).find(android_regexp) < 0:
-            state = _worse(state, "CRIT")
-            summary_parts.append("OS version mismatch: " + platform_version)
-        else:
-            details_parts.append("OS version: " + platform_version)
-    elif platform_type == "IOS":
-        if ios_regexp and str(platform_version).find(ios_regexp) < 0:
-            state = _worse(state, "CRIT")
-            summary_parts.append("OS version mismatch: " + platform_version)
-        else:
-            details_parts.append("OS version: " + platform_version)
+    cv = section.get("client_version")
+    if cv:
+        details_parts.append("Client version: " + str(cv))
     else:
-        state = _worse(state, _int_to_state(os_version_other))
-        summary_parts.append("OS version: " + platform_version)
+        details_parts.append("Client version: unknown")
 
-    return {
-        "changed": False,
-        "msg": ", ".join(summary_parts),
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "\n".join(details_parts),
-        },
-    }
+    patchlevel_age = params.get("patchlevel_age", DEFAULTS["patchlevel_age"])
+    patchlevel_unparsable = params.get("patchlevel_unparsable", DEFAULTS["patchlevel_unparsable"])
+    level_days = int(patchlevel_age)
+    aspl = section.get("android_security_patch_level")
+    state_patch = 0
+    if aspl:
+        age = _age_from_date(ctx, aspl)
+        if age == None:
+            state_patch = patchlevel_unparsable
+            details_parts.append("Security patch level has an invalid date format: '" + str(aspl) + "'")
+        else:
+            state_patch = _grade_age(age, level_days, patchlevel_unparsable)
+            metrics["mobileiron_last_patched"] = age
+            details_parts.append("Security patch level is '" + str(aspl) + "'")
+
+    os_age = params.get("os_age", DEFAULTS["os_age"])
+    os_build_unparsable = params.get("os_build_unparsable", DEFAULTS["os_build_unparsable"])
+    ob_level_days = int(os_age)
+    obv = section.get("os_build_version")
+    state_build = 0
+    if obv:
+        age_b = _age_from_date(ctx, obv)
+        if age_b == None:
+            state_build = os_build_unparsable
+            details_parts.append("OS build version has an invalid date format: '" + str(obv) + "'")
+        else:
+            state_build = _grade_age(age_b, ob_level_days, os_build_unparsable)
+            metrics["mobileiron_last_build"] = age_b
+            details_parts.append("OS build version is '" + str(obv) + "'")
+
+    pt = section.get("platform_type")
+    state_os = 0
+    if pt == "ANDROID":
+        regex = params.get("android_version_regexp", DEFAULTS["android_version_regexp"])
+        state_os, msg_os = _os_version_check(section, regex)
+        details_parts.append(msg_os)
+    elif pt == "IOS":
+        regex = params.get("ios_version_regexp", DEFAULTS["ios_version_regexp"])
+        state_os, msg_os = _os_version_check(section, regex)
+        details_parts.append(msg_os)
+    else:
+        state_os = params.get("os_version_other", DEFAULTS["os_version_other"])
+        details_parts.append("OS version: " + str(section.get("platform_version", "")))
+
+    worst = 0
+    if aspl:
+        if state_patch > worst:
+            worst = state_patch
+    if state_build > worst:
+        worst = state_build
+    if state_os > worst:
+        worst = state_os
+
+    msg = "; ".join(details_parts)
+    return {"changed": False, "msg": msg,
+            "data": {"state": STATE_LABELS.get(worst, "UNKNOWN"),
+                     "metrics": metrics,
+                     "details": "\n".join(details_parts)}}

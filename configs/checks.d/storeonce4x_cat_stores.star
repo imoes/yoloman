@@ -1,112 +1,121 @@
-def _bytes_human(n):
-    if n >= 1073741824:
-        return "%f GB" % (n / 1073741824.0)
-    if n >= 1048576:
-        return "%f MB" % (n / 1048576.0)
-    if n >= 1024:
-        return "%f KB" % (n / 1024.0)
-    return "%d B" % n
-
 def main(ctx, params):
-    host = params.get("host", "localhost")
-    username = params.get("username", "admin")
-    password = params.get("password", "")
-
-    res = ctx.run(
-        ["curl", "-sk", "-u", username + ":" + password,
-         "-H", "Accept: application/json",
-         "https://" + host + "/rest/storeonce/v4/cat/stores"],
-        mutates=False,
-    )
-
-    if res.rc != 0 or not res.stdout:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False,
-                "msg": "failed to fetch stores: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    data = json.decode(res.stdout)
-    members = data.get("members", [])
-
-    stores = {}
-    for elem in members:
-        key = "%d - %s" % (int(elem["id"]), str(elem["name"]))
-        stores[key] = elem
-
     if params.get("_discover"):
-        out = []
-        for k in stores:
-            out.append({
-                "item": k,
-                "params": {"warn": 80, "crit": 90},
-                "metrics": ["dedup_rate", "file_count"],
-            })
+        res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn",
+                       "-On", params.get("host", "localhost"), "1.3.6.1.4.1.23223.2.3.1.1.2.1.1"],
+                      mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "snmpwalk not installed",
+                    "data": {"discovery": []}}
+        if res.rc != 0:
+            return {"changed": False, "msg": "snmpwalk failed: " + res.stderr.strip(),
+                    "data": {"discovery": []}}
+        stores = {}
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            value = parts[1].strip().strip('"')
+            suffix = oid[len("1.3.6.1.4.1.23223.2.3.1.1.2.1.1"):]
+            idx_parts = suffix.split(".")
+            if len(idx_parts) >= 2 and idx_parts[0] == "":
+                continue
+            idx_parts = [p for p in suffix.split(".") if p != ""]
+            if len(idx_parts) < 2:
+                continue
+            store_idx = idx_parts[0]
+            col = idx_parts[1] if len(idx_parts) > 1 else ""
+            if store_idx not in stores:
+                stores[store_idx] = {}
+            stores[store_idx]["idx"] = store_idx
+            stores[store_idx]["col_" + col] = value
+
+        discovery = []
+        for store_idx, cols in stores.items():
+            store_id = cols.get("col_1", "")
+            store_name = cols.get("col_2", "")
+            if not store_name:
+                continue
+            item = "%s - %s" % (store_id, store_name)
+            metrics = ["dedup_rate", "file_count"]
+            discovery.append({"item": item, "params": {}, "metrics": metrics})
+
         return {"changed": False,
-                "msg": "discovered %d items" % len(out),
-                "data": {"discovery": out}}
+                "msg": "discovered %d catalyst stores" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    store = stores.get(item)
-    if store == None:
-        return {"changed": False,
-                "msg": "item not found: " + item,
+    res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                   "-Oqn", "-On", params.get("host", "localhost"),
+                   "1.3.6.1.4.1.23223.2.3.1.1.2.1"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "snmpwalk not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "snmpwalk failed: " + res.stderr.strip(),
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    mega = 1024.0 * 1024.0
-    store_status = store.get("storeStatus", -1)
-    store_status_str = store.get("storeStatusString", "unknown")
-    dedup_ratio = float(store.get("dedupeRatio", 0))
-    quota_bytes = store.get("sizeOnDiskQuotaBytes", 0)
-    disk_bytes = store.get("diskBytes", 0)
-    user_bytes = store.get("userBytes", 0)
-    num_items = store.get("numItems", 0)
-    quota_enabled = store.get("sizeOnDiskQuotaEnabled", False)
-    description = store.get("description", "")
+    raw_stores = []
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        value = parts[1].strip().strip('"')
+        suffix = oid[len("1.3.6.1.4.1.23223.2.3.1.1.2.1"):]
+        idx_parts = [p for p in suffix.split(".") if p != ""]
+        if len(idx_parts) < 2:
+            continue
+        store_idx = idx_parts[0]
+        col = idx_parts[1]
+        found = False
+        for s in raw_stores:
+            if s["idx"] == store_idx:
+                s["cols"][col] = value
+                found = True
+                break
+        if not found:
+            raw_stores.append({"idx": store_idx, "cols": {col: value}})
 
-    size_available_mb = quota_bytes / mega
-    size_used_mb = disk_bytes / mega
+    store = None
+    for s in raw_stores:
+        cols = s["cols"]
+        store_id = cols.get("1", "")
+        store_name = cols.get("2", "")
+        candidate = "%s - %s" % (store_id, store_name)
+        if candidate == item:
+            store = cols
+            break
+    if store == None:
+        return {"changed": False, "msg": "no such catalyst store: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    status_state = "OK" if store_status == 2 else "CRIT"
+    store_status_str = store.get("3", "unknown")
+    dedup_ratio = float(store.get("4", 0)) if store.get("4", "").replace(".", "", 1).isdigit() else 0.0
+    user_bytes = float(store.get("5", 0)) if store.get("5", "").replace(".", "", 1).isdigit() else 0.0
+    num_items = int(store.get("6", 0)) if store.get("6", "").isdigit() else 0
+    size_enabled = store.get("7", "0") == "1"
+    size_quota_bytes = float(store.get("8", 0)) if store.get("8", "").replace(".", "", 1).isdigit() else 0.0
+    disk_bytes = float(store.get("9", 0)) if store.get("9", "").replace(".", "", 1).isdigit() else 0.0
+    description = store.get("10", "")
 
-    disk_state = "OK"
-    used_percent = 0.0
-    if quota_enabled and size_available_mb > 0:
-        used_percent = (size_used_mb / size_available_mb) * 100.0
-        warn = params.get("warn", 80)
-        crit = params.get("crit", 90)
-        if used_percent >= crit:
-            disk_state = "CRIT"
-        elif used_percent >= warn:
-            disk_state = "WARN"
+    metrics = {}
+    metrics["dedup_rate"] = dedup_ratio
+    metrics["file_count"] = num_items
 
-    state = "OK"
-    if status_state == "CRIT" or disk_state == "CRIT":
-        state = "CRIT"
-    elif disk_state == "WARN":
-        state = "WARN"
+    status_int = int(store.get("3_int", 2)) if store.get("3_int", "2").isdigit() else 2
+    state = "OK" if status_int == 2 else "CRIT"
 
-    parts = ["Status: %s" % store_status_str]
-    if quota_enabled:
-        parts.append("%f%% used" % used_percent)
-    parts.append("UserBytes: %s" % _bytes_human(user_bytes))
-    parts.append("Dedup ratio: %f" % dedup_ratio)
-    parts.append("Files: %d" % num_items)
+    msg = "Status: %s, Dedup ratio: %f, Files: %d" % (store_status_str, dedup_ratio, num_items)
+    if size_enabled:
+        mega = 1024 * 1024
+        avail_mb = size_quota_bytes / mega
+        used_mb = disk_bytes / mega
+        details = "Description: %s\nUserBytes: %d\nDedup ratio: %f\nFiles: %d\nSize available: %f MB\nSize used: %f MB" % (
+            description, int(user_bytes), dedup_ratio, num_items, avail_mb, used_mb)
+    else:
+        details = "Description: %s\nUserBytes: %d\nDedup ratio: %f\nFiles: %d" % (
+            description, int(user_bytes), dedup_ratio, num_items)
 
-    metrics = {
-        "dedup_rate": dedup_ratio,
-        "file_count": float(num_items),
-    }
-    if quota_enabled:
-        metrics["used_percent"] = used_percent
-
-    return {
-        "changed": False,
-        "msg": ", ".join(parts),
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "Description: " + description,
-        },
-    }
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": details}}

@@ -1,209 +1,205 @@
-# ===== Checkmk check: datapower_pdrive (translated to Starlark) =====
-# This check monitors physical drive status via SNMP on DataPower devices.
-# It reads the same SNMP OIDs as the original Checkmk plugin:
-#   .1.3.6.1.4.1.14685.3.1.260.1.{1,2,4,6,7,8,14,15,18}
-#   = controller, device, ldrive, position, status, progress, vendor, product, fail
-
-# Status mapping: key -> (State, text)
-# Note: "12" (Undefined) is skipped in discovery per the original logic
-DATAPOW_PDRIVE_STATUS = {
-    "1": ("OK", "Unconfigured/Good"),
-    "2": ("OK", "Unconfigured/Good/Foreign"),
-    "3": ("WARN", "Unconfigured/Bad"),
-    "4": ("WARN", "Unconfigured/Bad/Foreign"),
-    "5": ("OK", "Hot spare"),
-    "6": ("WARN", "Offline"),
-    "7": ("CRIT", "Failed"),
-    "8": ("WARN", "Rebuilding"),
-    "9": ("OK", "Online"),
-    "10": ("WARN", "Copyback"),
-    "11": ("WARN", "System"),
-    "12": ("WARN", "Undefined"),
-}
-
-# Fail mapping: key -> text
-DATAPOW_PDRIVE_FAIL = {
-    "1": "disk reports failure",
-    "2": "disk reports no failure",
-}
-
-# Position mapping: key -> text
-DATAPOW_PDRIVE_POSITION = {
-    "1": "HDD 0",
-    "2": "HDD 1",
-    "3": "HDD 2",
-    "4": "HDD 3",
-    "5": "undefined",
-}
-
-# SNMP base OID and host/community params
-SNMP_BASE_OID = ".1.3.6.1.4.1.14685.3.1.260.1"
-
+# Starlark check module: datapower_pdrive (Checkmk check translation)
+# Monitors physical drives on IBM DataPower appliances via SNMP.
 
 def main(ctx, params):
+    # --- Discovery mode: enumerate physical drives on the DataPower box ---
     if params.get("_discover"):
-        # Discovery mode: walk the pdrive OID and yield discovered items
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), SNMP_BASE_OID
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
+        # The item name is "<controller>-<device>" built from the SNMP table.
+        # We discover by walking the drive-status OID and yielding an item per row
+        # whose status is not "12" (Undefined).
+        community = params.get("community", "public")
+        host = params.get("host", "localhost")
+        if not params.get("host"):
+            # No host specified — cannot reach the appliance.
+            return {"changed": False, "msg": "no host configured",
+                    "data": {"discovery": []}}
 
-        # Parse snmpwalk output lines: "<OID> = <TYPE>: <value>"
-        # Group into rows by extracting the index suffix
-        rows = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            # Format: ".1.3.6.1.4.1.14685.3.1.260.1.<index>.<column> = STRING: <value>"
-            # Split at first space: oid_part = ".1.3.6.1.4.1.14685.3.1.260.1.<index>.<column>"
-            parts = line.strip().split(" ", 1)
-            if len(parts) != 2:
-                continue
-            oid_full = parts[0].strip()
-            value = parts[1].strip()
-            # Remove leading .1.3.6.1.4.1.14685.3.1.260.1. and split index/column
-            rest = oid_full[len(SNMP_BASE_OID) + 1:]
-            if "." not in rest:
-                continue
-            idx_col = rest.split(".", 1)
-            if len(idx_col) != 2:
-                continue
-            idx = idx_col[0]
-            col = idx_col[1]
-            val = value.strip('"') if value.startswith('"') else value
-            rows.append({"index": idx, "column": col, "value": val})
+        # Probe the real thing: the DataPower pdrive table status OID suffix .7
+        walk = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn",
+                        host, ".1.3.6.1.4.1.14685.3.1.260.1.7"],
+                       mutates=False)
+        if walk.rc == 127:
+            # snmpwalk not installed — product absent on this host.
+            return {"changed": False, "msg": "snmpwalk not installed",
+                    "data": {"discovery": []}}
+        if walk.rc != 0:
+            # No response / not a DataPower — discovery returns empty.
+            return {"changed": False, "msg": "no DataPower pdrive data",
+                    "data": {"discovery": []}}
 
-        # Map columns: 1->controller, 2->device, 4->ldrive, 6->position,
-        #              7->status, 8->progress, 14->vendor, 15->product, 18->fail
-        drive_data = {}
-        for row in rows:
-            idx = row["index"]
-            col = row["column"]
-            val = row["value"]
-            if idx not in drive_data:
-                drive_data[idx] = {}
-            drive_data[idx][col] = val
-
-        # Assemble items (skip status "12")
-        discovery = []
-        for idx in sorted(drive_data.keys()):
-            row = drive_data[idx]
-            controller = row.get("1", "")
-            device = row.get("2", "")
-            status = row.get("7", "")
-            if status == "12":
-                continue  # skip undefined drives per discovery logic
+        col_base = ".1.3.6.1.4.1.14685.3.1.260.1.7"
+        items = []
+        seen = set()
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            prefix = col_base + "."
+            if not oid.startswith(prefix):
+                continue
+            index = oid[len(prefix):]
+            if val == "12":
+                continue
+            # We need controller and device to build the item; fetch by index.
+            ctrl_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv",
+                                host, ".1.3.6.1.4.1.14685.3.1.260.1.1." + index],
+                               mutates=False)
+            dev_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv",
+                               host, ".1.3.6.1.4.1.14685.3.1.260.1.2." + index],
+                              mutates=False)
+            if ctrl_res.rc != 0 or dev_res.rc != 0:
+                continue
+            controller = ctrl_res.stdout.strip()
+            device = dev_res.stdout.strip()
+            if not controller or not device:
+                continue
             item = controller + "-" + device
-            if item:
-                discovery.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": []
-                })
+            if item in seen:
+                continue
+            seen.add(item)
+            items.append({"item": item, "params": {}, "metrics": []})
 
-        return {
-            "changed": False,
-            "msg": "discovered %d physical drives" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        return {"changed": False,
+                "msg": "discovered %d physical drives" % len(items),
+                "data": {"discovery": items}}
 
-    # Normal check mode: examine one item
+    # --- Check mode: grade a single physical drive ---
     item = params.get("item", "")
-    # Build item prefix (e.g., "1-2") to match discovery
-    if item == "":
-        fail("item is required for check mode")
+    if not item:
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Fetch all columns for all drives in one walk
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), SNMP_BASE_OID
-    ], mutates=False)
-    if res.rc != 0:
-        fail("snmpwalk failed: " + res.stderr)
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    if not host:
+        return {"changed": False, "msg": "no host configured",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse into rows
-    rows = []
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" ", 1)
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value = parts[1].strip()
-        rest = oid_full[len(SNMP_BASE_OID) + 1:]
-        if "." not in rest:
-            continue
-        idx_col = rest.split(".", 1)
-        if len(idx_col) != 2:
-            continue
-        idx = idx_col[0]
-        col = idx_col[1]
-        val = value.strip('"') if value.startswith('"') else value
-        rows.append({"index": idx, "column": col, "value": val})
+    # Walk all nine columns of the pdrive table to find the row matching our item.
+    cols = {
+        "1": {"1": "controller"},
+        "2": {"2": "device"},
+        "4": {"3": "ldrive"},
+        "6": {"4": "position"},
+        "7": {"5": "status"},
+        "8": {"6": "progress"},
+        "14": {"7": "vendor"},
+        "15": {"8": "product"},
+        "18": {"9": "fail"},
+    }
+    # base OIDs per column (suffix after the table base .1.3.6.1.4.1.14685.3.1.260.1)
+    table_base = ".1.3.6.1.4.1.14685.3.1.260.1"
+    col_oids = ["1", "2", "4", "6", "7", "8", "14", "15", "18"]
 
-    # Group rows by index
-    drive_data = {}
-    for row in rows:
-        idx = row["index"]
-        col = row["column"]
-        val = row["value"]
-        if idx not in drive_data:
-            drive_data[idx] = {}
-        drive_data[idx][col] = val
+    rows = {}
+    indices = {}
 
-    # Find matching drive
-    for idx in drive_data.keys():
-        row = drive_data[idx]
-        controller = row.get("1", "")
-        device = row.get("2", "")
-        ldrive = row.get("4", "")
-        position = row.get("6", "")
-        status = row.get("7", "")
-        progress = row.get("8", "")
-        vendor = row.get("14", "")
-        product = row.get("15", "")
-        fail = row.get("18", "")
+    for c in col_oids:
+        full = table_base + "." + c
+        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn",
+                       host, full], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "snmpwalk not installed",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        if res.rc != 0:
+            return {"changed": False,
+                    "msg": "no DataPower pdrive data for host " + str(host),
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        prefix = full + "."
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            if not oid.startswith(prefix):
+                continue
+            index = oid[len(prefix):]
+            if index not in rows:
+                rows[index] = {}
+                indices[index] = 0
+            rows[index][c] = val
+            indices[index] = 1
 
-        if item == controller + "-" + device:
-            # Determine state and text
-            state_txt = "Undefined"
-            state = "UNKNOWN"
-            if status in DATAPOW_PDRIVE_STATUS:
-                state, state_txt = DATAPOW_PDRIVE_STATUS[status]
+    target_controller = None
+    target_device = "-" + item.split("-", 1)[1] if "-" in item else ""
+    # Build controller-device from item: item = controller-device
+    parts = item.split("-", 1)
+    if len(parts) < 2:
+        return {"changed": False, "msg": "invalid item: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    want_controller = parts[0]
+    want_device = parts[1]
 
-            # Progress
-            progress_txt = ""
-            if progress and progress.isdigit():
-                p_val = int(progress)
-                if p_val != 0:
-                    progress_txt = " - Progress: %d%%" % p_val
+    found = None
+    for idx, row in rows.items():
+        if row.get("1") == want_controller and row.get("2") == want_device:
+            found = row
+            break
 
-            # Position and logical drive
-            position_txt = DATAPOW_PDRIVE_POSITION.get(position, "undefined")
-            member_of_ldrive = controller + "-" + ldrive if ldrive else ""
+    if found == None:
+        return {"changed": False,
+                "msg": "physical drive not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-            # Build info text
-            infotext = state_txt + progress_txt + ", Position: " + position_txt + ", Logical Drive: " + member_of_ldrive + ", Product: " + vendor + " " + product
+    datapower_pdrive_status = {
+        "1": ("OK", "Unconfigured/Good"),
+        "2": ("OK", "Unconfigured/Good/Foreign"),
+        "3": ("WARN", "Unconfigured/Bad"),
+        "4": ("WARN", "Unconfigured/Bad/Foreign"),
+        "5": ("OK", "Hot spare"),
+        "6": ("WARN", "Offline"),
+        "7": ("CRIT", "Failed"),
+        "8": ("WARN", "Rebuilding"),
+        "9": ("OK", "Online"),
+        "10": ("WARN", "Copyback"),
+        "11": ("WARN", "System"),
+        "12": ("WARN", "Undefined"),
+    }
+    datapower_pdrive_position = {
+        "1": "HDD 0",
+        "2": "HDD 1",
+        "3": "HDD 2",
+        "4": "HDD 3",
+        "5": "undefined",
+    }
 
-            # Build result dict
-            result = {
-                "changed": False,
-                "msg": infotext,
-                "data": {
-                    "state": state,
-                    "metrics": {},
-                    "details": "",
-                },
-            }
+    status = found.get("7", "12")
+    st_pair = datapower_pdrive_status.get(status)
+    if st_pair == None:
+        state = "WARN"
+        state_txt = "Unknown status: " + str(status)
+    else:
+        state = st_pair[0]
+        state_txt = st_pair[1]
 
-            # Add fail status if present
-            if fail and fail in DATAPOW_PDRIVE_FAIL:
-                result["msg"] = infotext + ", " + DATAPOW_PDRIVE_FAIL[fail]
+    position = found.get("6", "5")
+    position_txt = datapower_pdrive_position.get(position, "undefined")
 
-            return result
+    progress = found.get("8", "0")
+    if progress != None and progress != "" and progress != "0":
+        progress_txt = " - Progress: %s%%" % progress
+    else:
+        progress_txt = ""
 
-    # Item not found
-    fail("no such physical drive: " + item)
+    ldrive = found.get("3", "")
+    vendor = found.get("14", "")
+    product = found.get("15", "")
+    member_of_ldrive = want_controller + "-" + ldrive if ldrive != "" else ""
+
+    infotext = "%s%s, Position: %s, Logical Drive: %s, Product: %s %s" % (
+        state_txt, progress_txt, position_txt, member_of_ldrive,
+        vendor, product)
+
+    fail_val = found.get("18", "")
+    if fail_val and fail_val != "0":
+        # Disk reports a failure — escalate to CRIT regardless of status.
+        msg = "disk reports failure"
+        details = infotext + " - " + msg
+        return {"changed": False, "msg": infotext,
+                "data": {"state": "CRIT", "metrics": {}, "details": details}}
+
+    return {"changed": False, "msg": infotext,
+            "data": {"state": state, "metrics": {}, "details": infotext}}

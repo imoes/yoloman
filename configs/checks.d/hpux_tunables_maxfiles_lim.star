@@ -1,100 +1,62 @@
-TUNABLE = "maxfiles_lim"
-DESCR = "files"
-DEFAULT_WARN = 85.0
-DEFAULT_CRIT = 90.0
-
-def _parse_tunables(stdout):
+def _parse_tunables(output):
     parsed = {}
     key = ""
     usage = 0
-    for line in stdout.splitlines():
-        if ":" not in line:
+    for line in output.splitlines():
+        f = line.split(":")
+        if len(f) < 2:
             continue
-        parts = line.split(":", 1)
-        label = parts[0].strip()
-        value = parts[1].strip() if len(parts) > 1 else ""
-        if label == "Tunable" or label == "Parameter":
+        label = f[0].strip()
+        value = ":".join(f[1:]).strip()
+        if "Tunable" in label or "Parameter" in label:
             key = value
-        elif label == "Usage":
+        elif "Usage" in label:
             usage = int(value) if value.isdigit() else 0
-        elif label == "Setting":
+        elif "Setting" in label:
             threshold = int(value) if value.isdigit() else 0
             if key != "":
                 parsed[key] = (usage, threshold)
     return parsed
 
 def main(ctx, params):
-    res = ctx.run(["cat", "/proc/hpux_tunables"], mutates=False, ok_codes=[0, 1, 2])
-    if res.rc != 0 or not res.stdout:
-        res2 = ctx.run(["kctune"], mutates=False, ok_codes=[0, 1, 2])
-        raw = res2.stdout if res2.rc == 0 else ""
-    else:
-        raw = res.stdout
-
-    if not raw:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {
-            "changed": False,
-            "msg": "hpux_tunables data not available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    parsed = _parse_tunables(raw)
-
     if params.get("_discover"):
-        if TUNABLE in parsed:
-            return {
-                "changed": False,
-                "msg": "discovered 1 items",
+        res = ctx.run(["kconfig", "-u"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "kconfig not available", "data": {"discovery": []}}
+        parsed = _parse_tunables(res.stdout)
+        if "maxfiles_lim" not in parsed:
+            return {"changed": False, "msg": "no maxfiles_lim tunable found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
                 "data": {"discovery": [
-                    {
-                        "item": "",
-                        "params": {"levels": [DEFAULT_WARN, DEFAULT_CRIT]},
-                        "metrics": [DESCR],
-                    }
-                ]},
-            }
-        return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-
-    if TUNABLE not in parsed:
-        return {
-            "changed": False,
-            "msg": TUNABLE + " not found in tunables output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    usage, threshold = parsed[TUNABLE]
+                    {"item": "maxfiles_lim", "params": {"levels": (85.0, 90.0)}, "metrics": ["files"]}
+                ]}}
+    item = params.get("item", "maxfiles_lim")
+    res = ctx.run(["kconfig", "-u"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "kconfig not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    parsed = _parse_tunables(res.stdout)
+    if item not in parsed:
+        return {"changed": False, "msg": "no such tunable: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    usage, threshold = parsed[item]
     if threshold == 0:
-        return {
-            "changed": False,
-            "msg": "threshold is zero, cannot compute percentage",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    levels = params.get("levels", [DEFAULT_WARN, DEFAULT_CRIT])
-    warn = float(levels[0])
-    crit = float(levels[1])
-
-    perc = float(usage) / float(threshold) * 100.0
-
+        return {"changed": False, "msg": "setting is zero",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    perc = float(usage) / float(threshold) * 100
+    levels = params.get("levels", (85.0, 90.0))
+    warn = levels[0]
+    crit = levels[1]
+    warn_perf = float(warn * threshold / 100)
+    crit_perf = float(crit * threshold / 100)
+    state = "OK"
     if perc > crit:
         state = "CRIT"
     elif perc > warn:
         state = "WARN"
-    else:
-        state = "OK"
-
-    msg = "%f%% used (%d/%d %s)" % (perc, usage, threshold, DESCR)
+    msg = "%f%% used (%d/%d files)" % (perc, usage, threshold)
+    summary = msg
     if state != "OK":
-        msg = msg + " (warn/crit at %f/%f)" % (warn, crit)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {DESCR: usage},
-            "details": "",
-        },
-    }
+        summary = msg + " (warn/crit at %s/%s)" % (warn, crit)
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {"files": usage}, "details": ""}}

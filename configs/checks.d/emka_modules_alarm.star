@@ -1,162 +1,216 @@
-def main(ctx, params):
-    # Discovery mode: enumerate alarm items
-    if params.get("_discover"):
-        # SNMP walk for the alarm table: base .1.3.6.1.4.1.13595.2.2.1.1
-        # OIDs: .1=coHandleModuleLink, .2=coAlarmStatus, .3=coAlarmMode
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.13595.2.2.1.1"
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, base_oid
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
+# Checkmk check: checkmk.emka_modules_alarm
+# Translated from the Checkmk emka_modules SNMP check to a read-only Starlark
+# module. This module reproduces the alarm sub-check (discover + check) by
+# querying the Elmarkronic ELM2-MIB over SNMP directly with net-snmp, using the
+# same OID tree the Checkmk SNMPSection fetches.
 
-        # Parse snmpwalk output lines like:
-        # .1.3.6.1.4.1.13595.2.2.1.1.2.1.1 = INTEGER: 2
-        # .1.3.6.1.4.1.13595.2.2.1.1.2.1.2 = INTEGER: 2
-        alarms = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_end_str = parts[0].strip()
-            if not oid_end_str.startswith(base_oid + ".2."):
-                continue
-            # Extract item: e.g., ".1.3.6.1.4.1.13595.2.2.1.1.2.1.1" -> item "1"
-            tail = oid_end_str[len(base_oid) + 1:]
-            # Format: co_index.module_index.component_index
-            # We want module_index as the item (second segment)
-            segments = tail.split(".")
-            if len(segments) < 2:
-                continue
-            item = segments[1]
-            value_str = parts[1].strip()
-            # Value 2 means inactive; we skip those (like the original)
-            if value_str.isdigit() and int(value_str) == 2:
-                continue
-            # Find associated remark (description) from the basic_components table
-            # by matching module index in the first SNMP table
-            # Basic components table OID: .1.3.6.1.4.1.13595.2.1.3.3.1.1
-            # OIDs: .1=oidEnd, .2=basModuleStatus, .3=basModuleType, .4=basModuleInfo, .6=basModuleRemark
-            basic_res = ctx.run([
-                "snmpwalk", "-v2c", "-c", community, "-On",
-                host, ".1.3.6.1.4.1.13595.2.1.3.3.1.1"
-            ], mutates=False)
-            if basic_res.rc != 0:
-                continue  # We can't get remark, but still include the alarm without it
+# SNMP base OIDs (from ELM2-MIB / cmk emka_modules SNMPSection)
+_BASE_ALARMS = ".1.3.6.1.4.1.13595.2.2.3.1"
+_BASE_MODULE_LINK = ".1.3.6.1.4.1.13595.2.1.3.3.1"
 
-            # Build mapping from module index to remark (basModuleRemark)
-            module_to_remark = {}
-            for basic_line in basic_res.stdout.splitlines():
-                if not basic_line.strip():
-                    continue
-                basic_parts = basic_line.strip().split(" = ")
-                if len(basic_parts) != 2:
-                    continue
-                basic_oid_end = basic_parts[0].strip()
-                if not basic_oid_end.startswith(".1.3.6.1.4.1.13595.2.1.3.3.1.1.6."):
-                    continue
-                # Extract module index: OID ends with .module_index
-                basic_tail = basic_oid_end[len(".1.3.6.1.4.1.13595.2.1.3.3.1.1.6."):]
-                # basic_tail is the module index
-                module_idx = basic_tail.strip()
-                remark_raw = basic_parts[1].strip()
-                # Convert octet string: e.g., "STRING: 'Name'" or "OCTET STRING: 'Name'"
-                # Remove quotes if present
-                if remark_raw.startswith("STRING: '") and remark_raw.endswith("'"):
-                    remark_raw = remark_raw[9:-1]
-                elif remark_raw.startswith("OCTET STRING: '") and remark_raw.endswith("'"):
-                    remark_raw = remark_raw[16:-1]
-                elif remark_raw.startswith("STRING: \"") and remark_raw.endswith("\""):
-                    remark_raw = remark_raw[9:-1]
-                elif remark_raw.startswith("OCTET STRING: \"") and remark_raw.endswith("\""):
-                    remark_raw = remark_raw[16:-1]
-                # Handle empty remark
-                if remark_raw == "":
-                    continue
-                module_to_remark[module_idx] = remark_raw
+_MAP_COMPONENT_TYPES = {
+    "1": "alarm",
+    "2": "handle",
+    "3": "sensor",
+    "4": "relay",
+    "5": "keypad",
+    "6": "card_terminal",
+    "7": "phone_modem",
+    "8": "analogous_output",
+}
 
-            # Build item name: if remark exists, use it; otherwise use "Perip <module>"
-            if item in module_to_remark:
-                itemname = module_to_remark[item]
-            else:
-                itemname = "Perip " + item
+_MAP_MODULE_TYPES = {
+    "0": "vacant",
+    "8": "U8, keypad",
+    "9": "U9, card module (proximity)",
+    "10": "U10, phone module (modem)",
+    "11": "U11/U32, up to 8 handles / single point latches",
+    "12": "U12/U33, up to 2 handles / single point latches",
+    "13": "U13, 4 sensors and 4 relays",
+    "14": "U14, communication module",
+    "15": "fultifunction module M15",
+    "16": "fultifunction module M16",
+}
 
-            # Add to alarms list
-            alarms.append({
-                "item": itemname,
-                "params": {},
-                "metrics": []
-            })
+_MAP_ALARM_STATES = {
+    "1": ("UNKNOWN", "unknown"),
+    "2": ("OK", "inactive"),
+    "3": ("CRIT", "active"),
+    "4": ("OK", "latched"),
+}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d alarms" % len(alarms),
-            "data": {"discovery": alarms}
-        }
 
-    # Check mode: single alarm item
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
+def _is_emka(ctx, host, community):
+    descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if descr.rc != 0:
+        return False
+    if descr.stdout.find("emka") == -1:
+        return False
+    sysid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysid.rc != 0:
+        return False
+    return sysid.stdout.startswith(".1.3.6.1.4.1.13595")
 
-    # Fetch alarm status
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.13595.2.2.1.1.2." + item
-    ], mutates=False)
 
+def _walk(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
     if res.rc != 0:
+        return {}
+    out = {}
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        full_oid = line[:sp]
+        val = line[sp + 1:]
+        idx = full_oid[len(oid) + 1:]
+        out[idx] = val
+    return out
+
+
+def _get(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _build_alarms(ctx, host, community):
+    comp_tree = _walk(ctx, host, community, _BASE_MODULE_LINK)
+    instances = {}
+    for full_oid in comp_tree.keys():
+        idx = full_oid[len(_BASE_MODULE_LINK) + 1:]
+        parts = idx.split(".")
+        if len(parts) < 2:
+            continue
+        mo_index = parts[0]
+        co_index = parts[1]
+        instances[idx] = {"mo_index": mo_index, "co_index": co_index}
+
+    col3 = _walk(ctx, host, community, _BASE_MODULE_LINK + ".3")
+    col4 = _walk(ctx, host, community, _BASE_MODULE_LINK + ".4")
+    col5 = _walk(ctx, host, community, _BASE_MODULE_LINK + ".5")
+    col7 = _walk(ctx, host, community, _BASE_MODULE_LINK + ".7")
+
+    basic_components = {}
+    for idx, info in instances.items():
+        ty = col3.get(idx, "")
+        mod_info = col4.get(idx, "")
+        status = col5.get(idx, "")
+        remark = col7.get(idx, "")
+        mo_index = info["mo_index"]
+        co_index = info["co_index"]
+        if mo_index == "0":
+            if mod_info == "":
+                itemname = "Master "
+            else:
+                itemname = "Master " + mod_info.split(",")[0]
+        else:
+            itemname = "Perip " + mo_index + " " + mod_info
+        if co_index == "0":
+            basic_components[itemname.strip()] = {
+                "type": _MAP_MODULE_TYPES.get(co_index, co_index),
+                "activation": status,
+                "_location_": "0." + mo_index,
+            }
+            continue
+        table = _MAP_COMPONENT_TYPES.get(ty, ty)
+        if remark == "":
+            iname = idx
+        else:
+            iname = remark + " " + idx
+        if table == "alarm":
+            if iname not in basic_components:
+                basic_components[iname] = {"_location_": idx}
+
+    alarm_link = _walk(ctx, host, community, _BASE_ALARMS + ".3")
+    alarm_val = _walk(ctx, host, community, _BASE_ALARMS + ".7")
+
+    alarms = {}
+    for full_oid in alarm_link.keys():
+        idx = full_oid[len(_BASE_ALARMS) + 1:]
+        parts = idx.split(".")
+        if len(parts) < 2:
+            continue
+        location = ".".join(parts[-2:])
+        value = alarm_val.get(idx, "")
+        matched = False
+        for entry, attrs in basic_components.items():
+            item_location = attrs.get("_location_", "")
+            if item_location != location:
+                continue
+            if "alarm" not in attrs:
+                continue
+            alarms[entry] = {"value": value, "_location_": idx}
+            matched = True
+            break
+        if not matched:
+            alarms[idx] = {"value": value, "_location_": idx}
+
+    return alarms
+
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    if params.get("_discover"):
+        if not _is_emka(ctx, host, community):
+            return {
+                "changed": False,
+                "msg": "host is not an Emka/ELM2 device",
+                "data": {"discovery": []},
+            }
+        alarms = _build_alarms(ctx, host, community)
+        discovery = []
+        for entry, attrs in alarms.items():
+            if attrs.get("value", "") != "2":
+                discovery.append({
+                    "item": entry,
+                    "params": {},
+                    "metrics": [],
+                })
         return {
             "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d alarm items" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    # Parse snmpget output
-    line = res.stdout.strip()
-    if not line:
+    item = params.get("item", "")
+    if not _is_emka(ctx, host, community):
         return {
             "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no Emka/ELM2 device found at %s" % host,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    parts = line.split(" = ")
-    if len(parts) < 2:
+    alarms = _build_alarms(ctx, host, community)
+    if item not in alarms:
         return {
             "changed": False,
-            "msg": "cannot parse snmpget response",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such alarm: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    value_str = parts[1].strip()
-    # Extract integer value (e.g., "INTEGER: 3" -> "3")
-    if value_str.startswith("INTEGER: "):
-        value_str = value_str[9:]
-    value = int(value_str) if value_str.isdigit() else -1
-
-    map_states = {
-        "1": ("UNKNOWN", "unknown"),
-        "2": ("OK", "inactive"),
-        "3": ("CRIT", "active"),
-        "4": ("OK", "latched"),
-    }
-
-    if str(value) in map_states:
-        state_readable = map_states[str(value)][1]
-        state = map_states[str(value)][0]
-    else:
-        state = "UNKNOWN"
-        state_readable = "unknown"
-
+    value = alarms[item].get("value", "")
+    state_readable = _MAP_ALARM_STATES.get(value, ("UNKNOWN", "unknown"))
+    state, readable = state_readable
     return {
         "changed": False,
-        "msg": "Status: " + state_readable,
-        "data": {"state": state, "metrics": {}, "details": ""}
+        "msg": "Status: %s" % readable,
+        "data": {
+            "state": state,
+            "metrics": {},
+            "details": "",
+        },
     }

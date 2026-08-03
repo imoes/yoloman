@@ -1,63 +1,5 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.6302.2.1.2.1.0"
-        ], mutates=False)
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # Check detection condition: .1.3.6.1.4.1.6302.2.1.1.1.0 == "Emerson Network Power"
-        detect_res = ctx.run([
-            "snmpget", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.6302.2.1.1.1.0"
-        ], mutates=False)
-        if detect_res.rc != 0 or not detect_res.stdout:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # Parse snmpget response: OID = Type: Value
-        line = detect_res.stdout.strip()
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        value = parts[1].strip() if parts[1].strip() else ""
-        if not value.startswith('"Emerson Network Power"') and value != "Emerson Network Power":
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        # Device matches - one service
-        return {"changed": False, "msg": "discovered 1 items",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
-    
-    # Check mode
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.6302.2.1.2.1.0"
-    ], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {"changed": False, "msg": "Status: unknown (no data)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse SNMP response: OID = Type: Value
-    line = res.stdout.strip()
-    parts = line.split(" = ")
-    if len(parts) != 2:
-        return {"changed": False, "msg": "Status: unknown (parse error)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    value_str = parts[1].strip()
-    # Extract integer value - remove quotes if present
-    if value_str.startswith('"') and value_str.endswith('"'):
-        value_str = value_str[1:-1]
-    if not value_str.isdigit():
-        return {"changed": False, "msg": "Status: unknown (invalid value)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    status = int(value_str)
-    status_text = {
+def _status_text():
+    return {
         1: "unknown",
         2: "normal",
         3: "observation",
@@ -69,16 +11,69 @@ def main(ctx, params):
         9: "testing",
         10: "disabled",
     }
-    infotext = "Status: " + status_text.get(status, "unknown")
-    
+
+def main(ctx, params):
+    if params.get("_discover"):
+        # Probe for the Emerson device presence via sysDescr OID
+        sysdescr_oid = ".1.3.6.1.4.1.6302.2.1.1.1.0"
+        community = params.get("community", "public")
+        host = params.get("host", "localhost")
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, sysdescr_oid],
+            mutates=False,
+        )
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "no emerson device found",
+                    "data": {"discovery": []}}
+        # Confirm it is Emerson Network Power
+        text = res.stdout.strip()
+        if not text.startswith("Emerson Network Power"):
+            return {"changed": False, "msg": "not an emerson device",
+                    "data": {"discovery": []}}
+        # Fetch the system status OID
+        stat_oid = ".1.3.6.1.4.1.6302.2.1.2.1.0"
+        sres = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, stat_oid],
+            mutates=False,
+        )
+        if sres.rc != 0:
+            return {"changed": False, "msg": "no emerson status data",
+                    "data": {"discovery": []}}
+        status_val = sres.stdout.strip()
+        if not status_val.isdigit():
+            return {"changed": False, "msg": "invalid emerson status",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": ["status"]}]}}
+    item = params.get("item", "")
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    stat_oid = ".1.3.6.1.4.1.6302.2.1.2.1.0"
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, stat_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "no emerson status data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    raw = res.stdout.strip()
+    if not raw.isdigit():
+        return {"changed": False,
+                "msg": "invalid emerson status value: %s" % raw,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    status = int(raw)
+    texts = _status_text()
+    stext = texts.get(status, "unknown")
+    infotext = "Status: %s" % stext
     if status in [5, 6, 10]:
         state = "CRIT"
     elif status in [1, 3, 4, 7, 8, 9]:
         state = "WARN"
-    elif status in [2]:
-        state = "OK"
     else:
-        state = "UNKNOWN"
-    
-    return {"changed": False, "msg": infotext,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+        state = "OK"
+    return {"changed": False,
+            "msg": infotext,
+            "data": {"state": state, "metrics": {"status": status}, "details": infotext}}

@@ -1,804 +1,105 @@
 def main(ctx, params):
+    # --- IBM SVC systemstats check: Latency %s Total ---
+    # The monitored device is an IBM storage array (SVC). Its stats are not
+    # available locally on the host, so we read the same CSV-style data the
+    # Checkmk agent plugin would emit. When the source is missing we report
+    # absence (empty discovery / UNKNOWN).
+
+    src = params.get("source", "/var/lib/cmk/ibm_svc_systemstats")
+
+    def _read_source():
+        if not ctx.file_exists(src):
+            return None
+        content = ctx.file_read(src)
+        rows = []
+        for line in content.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(line.split(","))
+        return rows
+
+    def _parse(rows):
+        disks = {}
+        cpu_pc = None
+        total_cache_pc = None
+        write_cache_pc = None
+        if rows == None:
+            return disks, cpu_pc, total_cache_pc, write_cache_pc
+        for row in rows:
+            if len(row) < 3:
+                continue
+            stat_name = row[0]
+            stat_current = row[1]
+            if stat_name == "cpu_pc":
+                cpu_pc = int(stat_current) if stat_current.lstrip("-").isdigit() else None
+            elif stat_name == "total_cache_pc":
+                total_cache_pc = int(stat_current) if stat_current.lstrip("-").isdigit() else None
+            elif stat_name == "write_cache_pc":
+                write_cache_pc = int(stat_current) if stat_current.lstrip("-").isdigit() else None
+            elif stat_name.startswith("vdisk_"):
+                short = stat_name.replace("vdisk_", "")
+                disks.setdefault("VDisks", {})[short] = float(stat_current)
+            elif stat_name.startswith("mdisk_"):
+                short = stat_name.replace("mdisk_", "")
+                disks.setdefault("MDisks", {})[short] = float(stat_current)
+            elif stat_name.startswith("drive_"):
+                short = stat_name.replace("drive_", "")
+                disks.setdefault("Drives", {})[short] = float(stat_current)
+        return disks, cpu_pc, total_cache_pc, write_cache_pc
+
     if params.get("_discover"):
-        # Discovery: yield one Service per disk type (VDisks, MDisks, Drives)
-        # with metrics "read_latency", "write_latency"
-        res = ctx.run(["cat", "/proc/diskstats"], mutates=False)
-        # Use a heuristic: we expect the agent section to be populated with
-        # stat_name, stat_current, stat_peak, stat_peak_time columns.
-        # Since the check only handles VDisks, MDisks, Drives, we'll probe
-        # agent output via a dummy run that retrieves agent data.
-        # In practice, we need the actual agent output for this plugin.
-        # The standard way: run the agent section command and parse its output.
-        # Since we can't invoke the agent, we call the generic agent section command:
-        # The Checkmk agent section "ibm_svc_systemstats" is usually retrieved via
-        # a special command, but in Starlark we rely on the agent being available.
-        # We'll assume the agent provides the section via a known command.
-        # For IBM SVC, the typical section is provided via the standard agent.
-        # We'll try to get the section by running the agent section command.
-        # However, in Starlark we don't have access to the raw agent data.
-        # Instead, we'll rely on the fact that the Checkmk agent provides the section.
-        # We'll try to parse it by running a command that returns the section data.
-        # The agent section is provided as a multi-line key-value format.
-        # We'll try to read the agent data from a known location if possible.
-        # But in Starlark, the only way is to use the standard agent.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have direct access, we'll use a heuristic:
-        # We'll run a command that retrieves the agent data for this section.
-        # However, there is no standard command for this.
-        # We'll rely on the agent providing the section in the standard output.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by running the agent section command.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # Since we don't have access, we'll use a different approach.
-        # We'll use the fact that the Checkmk agent provides the section in the standard output.
-        # We'll run the agent section command to get the data.
-        # But there is no standard command for this.
-        # We'll assume the agent provides the section via the standard mechanism.
-        # In practice, the agent provides the section as a multi-line format.
-        # We'll try to get the section by
+        rows = _read_source()
+        if rows == None:
+            return {"changed": False, "msg": "no ibm_svc_systemstats source on host",
+                    "data": {"discovery": [], "host_labels": {}}}
+        disks, cpu_pc, total_cache_pc, write_cache_pc = _parse(rows)
+        out = []
+        for item in disks:
+            out.append({"item": item, "params": {}, "metrics": ["read_latency", "write_latency"]})
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
+
+    item = params.get("item", "")
+    rows = _read_source()
+    if rows == None:
+        return {"changed": False, "msg": "no ibm_svc_systemstats source on host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    disks, cpu_pc, total_cache_pc, write_cache_pc = _parse(rows)
+    if item not in disks or len(item) == 0:
+        return {"changed": False, "msg": "item not found: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    d = disks[item]
+    r_ms = d.get("r_ms", 0)
+    w_ms = d.get("w_ms", 0)
+
+    warn_r = params.get("read", None)
+    crit_r = params.get("crit_read", None)
+    warn_w = params.get("write", None)
+    crit_w = params.get("crit_write", None)
+
+    def _level(value, warn, crit):
+        if crit != None and value >= crit:
+            return "CRIT"
+        if warn != None and value >= warn:
+            return "WARN"
+        return "OK"
+
+    # For Latency %s Total we emit both read and write latencies.
+    # We grade on whichever levels are configured; default to OK if none given.
+    state_r = _level(r_ms, warn_r, crit_r)
+    state_w = _level(w_ms, warn_w, crit_w)
+
+    if state_r == "CRIT" or state_w == "CRIT":
+        state = "CRIT"
+    elif state_r == "WARN" or state_w == "WARN":
+        state = "WARN"
+    else:
+        state = "OK"
+
+    msg = "read latency %f ms, write latency %f ms" % (r_ms, w_ms)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state,
+                     "metrics": {"read_latency": r_ms, "write_latency": w_ms},
+                     "details": ""}}

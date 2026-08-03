@@ -1,138 +1,135 @@
-# Constants for SNMP OIDs
-_VUTLAN_EMS_SMOKE_BASE = ".1.3.6.1.4.1.39052.1.3.1"
-_VUTLAN_EMS_SMOKE_NAME_OID = ".1.3.6.1.4.1.39052.1.3.1.7"
-_VUTLAN_EMS_SMOKE_VALUE_OID = ".1.3.6.1.4.1.39052.1.3.1.9"
+# Translated from Checkmk check: checkmk.vutlan_ems_smoke
+# Vutlan EMS smoke detector sensors (SNMP).
+# Reads the same SNMP table the Checkmk SimpleSNMPSection reads:
+#   base = .1.3.6.1.4.1.39052.1.3.1
+#   OIDEnd()        -> index (full OID suffix identifies the sensor)
+#   "7"  -> ctlUnitElementName (sensor name, user-definable)
+#   "9"  -> ctlUnitElementValue (state: 0 = no smoke, nonzero = smoke)
+# Only sensors whose index OID starts with "106" are smoke-related.
 
-def _parse_snmp_output(output_lines):
-    """Parse snmpwalk output lines into dict: name -> state (int)"""
-    name_map = {}
-    value_map = {}
-    
-    for line in output_lines:
-        stripped = line.strip()
-        if not stripped:
+BASE_OID = ".1.3.6.1.4.1.39052.1.3.1"
+COL_NAME = "7"
+COL_VALUE = "9"
+SMOKE_PREFIX = "106"
+ZERO = "0"
+
+
+def _is_nonneg_int(s):
+    if s == "":
+        return False
+    for ch in s:
+        if ch < "0" or ch > "9":
+            return False
+    return True
+
+
+def _snmp_get(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+
+def _snmp_walk(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        idx = line.find(" ")
+        if idx < 0:
             continue
-        eq_idx = stripped.find("=")
-        if eq_idx == -1:
-            continue
-        oid_part = stripped[:eq_idx].strip()
-        value_part = stripped[eq_idx+1:].strip()
-        
-        # Extract instance number from OID (last numeric component)
-        oid_parts = oid_part.split(".")
-        if len(oid_parts) < 2:
-            continue
-        instance = oid_parts[-1]
-        
-        # Skip base OID entries without instance
-        if not instance.isdigit():
-            continue
-        
-        # Check if this is a name or value OID
-        if oid_part.startswith(_VUTLAN_EMS_SMOKE_NAME_OID):
-            # It's a name entry
-            name_val = value_part.strip('"').strip("'")
-            name_map[instance] = name_val
-        elif oid_part.startswith(_VUTLAN_EMS_SMOKE_VALUE_OID):
-            # It's a value entry
-            val_str = value_part
-            if val_str.startswith("INTEGER:"):
-                val_str = val_str[len("INTEGER:"):].strip()
-            if val_str.isdigit():
-                value_map[instance] = int(val_str)
-    
-    # Build final result by combining name_map and value_map
-    result = {}
-    for instance, name in name_map.items():
-        if instance in value_map:
-            result[name] = value_map[instance]
-    
-    return result
+        oid_part = line[:idx]
+        value_part = line[idx + 1:]
+        rows.append((oid_part, value_part))
+    return rows
+
+
+def _sys_descr(ctx, community, host):
+    return _snmp_get(ctx, community, host, ".1.3.6.1.2.1.1.1.0")
+
 
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        # Run snmpwalk to get both name and value OIDs
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Walk the SNMP subtree
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            _VUTLAN_EMS_SMOKE_BASE
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []}
-            }
-        
-        # Parse output
-        sensors = _parse_snmp_output(res.stdout.splitlines())
-        
-        # Build discovery list
-        discovery_list = []
-        for name, state in sensors.items():
-            discovery_list.append({
-                "item": name,
-                "params": {},
-                "metrics": ["smoke_detected"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d smoke sensors" % len(discovery_list),
-            "data": {"discovery": discovery_list}
-        }
-    
-    # Check mode for a specific item
-    item = params.get("item", "")
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Walk to get all sensors
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        _VUTLAN_EMS_SMOKE_BASE
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed for smoke detector %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse output
-    sensors = _parse_snmp_output(res.stdout.splitlines())
-    
-    # Check if item exists
-    if item not in sensors:
-        return {
-            "changed": False,
-            "msg": "smoke detector not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get sensor state
-    state_val = sensors[item]
-    
-    # Determine state: 1 = smoke detected (CRIT), 0 = no smoke (OK)
-    if state_val == 1:
-        check_state = "CRIT"
-        summary = "Smoke detected"
-    else:
-        check_state = "OK"
-        summary = "No smoke detected"
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": check_state,
-            "metrics": {"smoke_detected": state_val},
-            "details": ""
-        }
-    }
+    discover = params.get("_discover", False)
+
+    sys_descr = _sys_descr(ctx, community, host)
+    if sys_descr == None or sys_descr == "":
+        if discover:
+            return {"changed": False, "msg": "no SNMP response / host unreachable",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "Vutlan EMS not detected (no sysDescr)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if sys_descr.find("vutlan ems") < 0:
+        if discover:
+            return {"changed": False, "msg": "host is not a Vutlan EMS",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "host is not a Vutlan EMS",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    name_rows = _snmp_walk(ctx, community, host, BASE_OID + "." + COL_NAME)
+    sensors = []
+    for oid_part, value_part in name_rows:
+        stem = BASE_OID + "." + COL_NAME
+        if not oid_part.startswith(stem + "."):
+            continue
+        index = oid_part[len(stem) + 1:]
+        if not index.startswith(SMOKE_PREFIX):
+            continue
+        sensors.append((index, value_part))
+
+    if discover:
+        discovery = []
+        for index, name in sensors:
+            discovery.append({
+                "item": name,
+                "params": {},
+                "metrics": [],
+            })
+        return {"changed": False,
+                "msg": "discovered %d smoke sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    target = None
+    for index, name in sensors:
+        if name == item:
+            target = (index, name)
+            break
+
+    if target == None:
+        return {"changed": False,
+                "msg": "no such smoke sensor: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    index, name = target
+    state_oid = BASE_OID + "." + COL_VALUE + "." + index
+    state_val = _snmp_get(ctx, community, host, state_oid)
+    if state_val == None:
+        return {"changed": False,
+                "msg": "could not read smoke sensor state: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # state: 0 = no smoke, nonzero = smoke detected.
+    st = -1
+    if state_val == "":
+        st = -1
+    elif _is_nonneg_int(state_val):
+        st = int(state_val)
+
+    if st != 0:
+        return {"changed": False,
+                "msg": "Smoke detected",
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    return {"changed": False,
+            "msg": "No smoke detected",
+            "data": {"state": "OK", "metrics": {}, "details": ""}}

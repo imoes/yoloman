@@ -1,202 +1,190 @@
-# module: liebert_humidity_air.star
-# Translate check: checkmk.liebert_humidity_air
-
-LIEBERT_HUMIDITY_AIR_DEFAULT_PARAMETERS = {
-    "levels": (50.0, 55.0),
-    "levels_lower": (10.0, 15.0),
-}
-
-def _item_from_key(key):
-    return key.replace(" Humidity", "")
-
-def _get_oid_index(oid):
-    idx = oid.rsplit(".", 1)
-    return idx[-1] if len(idx) > 1 else ""
-
-def _parse_snmp_value(line):
-    if " = " in line:
-        return line.split(" = ", 1)[-1].strip().strip('"')
-    return ""
-
 def main(ctx, params):
-    # Parameters
-    warn_upper = params.get("levels", LIEBERT_HUMIDITY_AIR_DEFAULT_PARAMETERS["levels"])
-    warn_upper_val = 50.0
-    crit_upper_val = 55.0
-    if isinstance(warn_upper, list) and len(warn_upper) >= 2:
-        warn_upper_val = warn_upper[0]
-        crit_upper_val = warn_upper[1]
-    
-    warn_lower = params.get("levels_lower", LIEBERT_HUMIDITY_AIR_DEFAULT_PARAMETERS["levels_lower"])
-    warn_lower_val = 10.0
-    crit_lower_val = 15.0
-    if isinstance(warn_lower, list) and len(warn_lower) >= 2:
-        warn_lower_val = warn_lower[0]
-        crit_lower_val = warn_lower[1]
-    
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Discovery mode
+    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+
+    # Probe for the Liebert device presence via sysObjectID detection.
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    probe = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, sys_oid],
+        mutates=False,
+    )
+    if probe.rc == 127:
+        return {
+            "changed": False,
+            "msg": "snmpget not found: Liebert device not monitored",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "snmpget binary not available",
+            },
+        }
+    if probe.skipped:
+        return {
+            "changed": False,
+            "msg": "would query Liebert device via SNMP",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+    sys_res = probe.stdout.strip()
+    if probe.rc != 0 or not sys_res.startswith(".1.3.6.1.4.1.476.1.42"):
+        return {
+            "changed": False,
+            "msg": "not a Liebert device",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "sysObjectID does not match Liebert enterprise OID",
+            },
+        }
+
+    # Walk the flexible entry table for humidity labels/values/units.
+    walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_oid],
+        mutates=False,
+    )
+    if walk.rc != 0 or walk.skipped:
+        return {
+            "changed": False,
+            "msg": "SNMP walk failed for Liebert humidity table",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "could not retrieve liebert_humidity_air section",
+            },
+        }
+
+    entries = {}
+    for line in walk.stdout.splitlines():
+        space = line.find(" ")
+        if space == -1:
+            continue
+        oid = line[:space]
+        val = line[space + 1:]
+        suffix = oid[len(base_oid) + 1:]
+        parts = suffix.split(".")
+        if len(parts) < 4:
+            continue
+        col = parts[0]
+        instance = parts[3]
+        if instance not in entries:
+            entries[instance] = {}
+        entries[instance][col] = val
+
+    parsed = {}
+    labels = {}
+    values = {}
+    units = {}
+    for instance in sorted(entries.keys()):
+        e = entries[instance]
+        if "10" in e and "20" in e and "30" in e:
+            parsed[e["10"]] = (e["20"], e["30"])
+
+    section = {}
+    used_names = {}
+    for key, (value, unit) in parsed.items():
+        name = key
+        if name in used_names:
+            count = used_names[name] + 1
+            used_names[name] = count
+            name = "%s %d" % (key, count)
+        else:
+            used_names[name] = 0
+        section[name] = (value, unit)
+
+    device_state = None
+
     if params.get("_discover"):
-        # Get humidity labels
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community,
-            "-On", host,
-            ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2"
-        ], mutates=False)
-        
-        discovered_items = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            label = _parse_snmp_value(parts[1])
-            
-            if label and "Humidity" in label:
-                idx = _get_oid_index(oid_part)
-                value_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1." + idx
-                unit_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1.30.1.2.1." + idx
-                
-                # Get value
-                vres = ctx.run([
-                    "snmpget", "-v2c", "-c", community, "-On", host, value_oid
-                ], mutates=False)
-                value_str = ""
-                for vline in vres.stdout.splitlines():
-                    if vline.strip():
-                        value_str = _parse_snmp_value(vline)
-                        break
-                
-                # Determine item
-                item = _item_from_key(label)
-                if "Unavailable" not in value_str:
-                    discovered_items.append({
-                        "item": item,
-                        "params": {
-                            "levels": [warn_upper_val, crit_upper_val],
-                            "levels_lower": [warn_lower_val, crit_lower_val]
-                        },
-                        "metrics": ["humidity"]
-                    })
-        
+        discovery = []
+        for key, (value, _unit) in section.items():
+            if "Unavailable" not in value:
+                item = key.replace(" Humidity", "")
+                discovery.append({
+                    "item": item,
+                    "params": {
+                        "levels": (50.0, 55.0),
+                        "levels_lower": (10.0, 15.0),
+                    },
+                    "metrics": ["humidity"],
+                })
         return {
             "changed": False,
-            "msg": "discovered %d humidities" % len(discovered_items),
-            "data": {"discovery": discovered_items}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode: get one item
+
     item = params.get("item", "")
-    
-    # Get system section (Unit Operating State) for standby detection
-    sys_oid = ".1.3.6.1.4.1.476.1.42.3.9.10.1.2.1.1"
-    sres = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host, sys_oid
-    ], mutates=False)
-    device_state = "Unknown"
-    for line in sres.stdout.splitlines():
-        if line.strip():
-            device_state = _parse_snmp_value(line)
+    full_key = item + " Humidity"
+    value = None
+    unit = ""
+    for key, (v, u) in section.items():
+        if key.replace(" Humidity", "") == item:
+            value = v
+            unit = u
             break
-    
-    # Get humidity data
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1.10.1.2"
-    ], mutates=False)
-    
-    # Build a mapping from item labels to values
-    found = False
-    value = ""
-    unit = "%"
-    
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        label = _parse_snmp_value(parts[1])
-        
-        if label and "Humidity" in label:
-            idx = _get_oid_index(oid_part)
-            value_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1." + idx
-            unit_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1.30.1.2.1." + idx
-            
-            # Get value
-            vres = ctx.run([
-                "snmpget", "-v2c", "-c", community, "-On", host, value_oid
-            ], mutates=False)
-            value_str = ""
-            for vline in vres.stdout.splitlines():
-                if vline.strip():
-                    value_str = _parse_snmp_value(vline)
-                    break
-            
-            # Get unit
-            ures = ctx.run([
-                "snmpget", "-v2c", "-c", community, "-On", host, unit_oid
-            ], mutates=False)
-            unit_str = "%"
-            for uline in ures.stdout.splitlines():
-                if uline.strip():
-                    unit_str = _parse_snmp_value(uline)
-                    break
-            
-            if _item_from_key(label) == item:
-                found = True
-                value = value_str
-                unit = unit_str
-                break
-    
-    # Handle not found
-    if not found:
+
+    if value == None:
         return {
             "changed": False,
-            "msg": "humidity item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such item: %s" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "item '%s' not found in liebert_humidity_air section" % item,
+            },
         }
-    
-    # Check standby condition
-    if "Unavailable" in value and device_state.lower() == "standby":
+
+    if "Unavailable" in value and device_state == "standby":
         return {
             "changed": False,
             "msg": "Unit is in standby (unavailable)",
-            "data": {"state": "OK", "metrics": {"humidity": 0.0}, "details": ""}
+            "data": {
+                "state": "OK",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    # Parse numeric value (guarded instead of try/except)
-    num_value = 0.0
-    if value and value.replace(".", "", 1).replace("-", "", 1).isdigit():
-        num_value = float(value)
-    else:
+
+    if not value.replace(".", "").replace("-", "").isdigit():
         return {
             "changed": False,
-            "msg": "invalid humidity value: " + value,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "cannot parse value: %s" % value,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "value is not numeric",
+            },
         }
-    
-    # Determine state
+
+    fval = float(value)
+    warn_upper = params.get("levels", (50.0, 55.0))
+    crit_upper = warn_upper[1] if len(warn_upper) >= 2 else warn_upper[0]
+    warn_upper_val = warn_upper[0] if len(warn_upper) >= 1 else 50.0
+
+    warn_lower = params.get("levels_lower", (10.0, 15.0))
+    crit_lower = warn_lower[1] if len(warn_lower) >= 2 else warn_lower[0]
+    warn_lower_val = warn_lower[0] if len(warn_lower) >= 1 else 10.0
+
     state = "OK"
-    if num_value >= crit_upper_val:
-        state = "CRIT"
-    elif num_value >= warn_upper_val:
+    if fval >= warn_upper_val:
         state = "WARN"
-    elif num_value <= crit_lower_val:
+    if fval >= crit_upper:
         state = "CRIT"
-    elif num_value <= warn_lower_val:
-        state = "WARN"
-    
-    # Format message
-    msg = "%f %s" % (num_value, unit)
-    
+    if fval <= warn_lower_val:
+        if state == "OK":
+            state = "WARN"
+    if fval <= crit_lower:
+        state = "CRIT"
+
     return {
         "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": {"humidity": num_value}, "details": ""}
+        "msg": "%s %f %s" % (item, fval, unit),
+        "data": {
+            "state": state,
+            "metrics": {"humidity": fval},
+            "details": "",
+        },
     }

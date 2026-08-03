@@ -1,157 +1,123 @@
-# hp_msa_psu.star — HP MSA Power Supply Health Check
-# Translates: cmk/plugins/hp_msa/agent_based/hp_msa_psu.py (health sub-check)
-# Data source: HP MSA HTTP API (JSON), endpoint /api/show/power-supplies
-# Params: host (required), username (default: monitor), password (required),
-#         verify_ssl (default: false), item (check mode), _discover (discovery mode)
-
-HEALTH_STATE = {
-    "0": "OK",
-    "1": "WARN",
-    "2": "CRIT",
-}
-
-def _md5hex(ctx, value):
-    res = ctx.run(
-        ["python3", "-c",
-         "import hashlib, sys; print(hashlib.md5(sys.argv[1].encode()).hexdigest())",
-         value],
-        mutates=False,
-    )
-    if res.rc != 0:
-        fail("md5hex requires python3: " + res.stderr)
-    return res.stdout.strip()
-
-def _msa_get(ctx, host, path, session_key, verify_ssl):
-    if verify_ssl:
-        args = ["curl", "-s", "-m", "30",
-                "-H", "sessionKey: " + session_key,
-                "-H", "dataType: json",
-                "https://" + host + path]
-    else:
-        args = ["curl", "-k", "-s", "-m", "30",
-                "-H", "sessionKey: " + session_key,
-                "-H", "dataType: json",
-                "https://" + host + path]
-    return ctx.run(args, mutates=False)
-
-def _build_session_key(ctx, username, password):
-    md5_pw = _md5hex(ctx, password)
-    return _md5hex(ctx, username + "_" + md5_pw)
-
-def _api_error(raw):
-    status_list = raw.get("status", [])
-    if not status_list:
-        return ""
-    first = status_list[0]
-    rc = first.get("return-code", 0)
-    if rc != 0:
-        return first.get("response", "API error (return-code %s)" % str(rc))
-    return ""
-
 def main(ctx, params):
-    host = params.get("host", "")
-    username = params.get("username", "monitor")
-    password = params.get("password", "")
-    verify_ssl = params.get("verify_ssl", False)
-
-    if host == "":
-        fail("host parameter is required")
-    if password == "":
-        fail("password parameter is required")
-
-    session_key = _build_session_key(ctx, username, password)
-
-    login_res = _msa_get(ctx, host, "/api/login/" + session_key, session_key, verify_ssl)
-    if login_res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "HP MSA API unreachable: " + login_res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    psu_res = _msa_get(ctx, host, "/api/show/power-supplies", session_key, verify_ssl)
-    if psu_res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "Failed to fetch PSU data: " + psu_res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    body = psu_res.stdout.strip() if psu_res.stdout else ""
-    if not body or not body.startswith("{"):
-        return {
-            "changed": False,
-            "msg": "Unexpected response from HP MSA API (not JSON)",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    raw = json.decode(body)
-
-    api_err = _api_error(raw)
-    if api_err != "":
-        return {
-            "changed": False,
-            "msg": "HP MSA API: " + api_err,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    psus = raw.get("power-supplies", [])
-    if type(psus) != "list":
-        psus = []
-
     if params.get("_discover"):
-        found = []
+        res = ctx.run(["hp_msacli", "show", "summary"], mutates=False)
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        data = json.decode(res.stdout) if res.stdout else {}
+        psus = data.get("power-supplies", [])
+        out = []
         for psu in psus:
-            durable_id = psu.get("durable-id", "")
-            if durable_id == "":
-                continue
-            found.append({
-                "item": durable_id,
-                "params": {},
-                "metrics": [],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d power supplies" % len(found),
-            "data": {"discovery": found},
-        }
-
+            name = psu.get("name", "")
+            voltages = 0
+            if psu.get("dc12v", "0") != "0":
+                voltages += 1
+            if psu.get("dc5v", "0") != "0":
+                voltages += 1
+            if psu.get("dc33v", "0") != "0":
+                voltages += 1
+            if voltages > 0:
+                out.append({"item": psu.get("durable-id", name),
+                            "params": {},
+                            "metrics": ["voltage", "temperature"]})
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
     item = params.get("item", "")
+    res = ctx.run(["hp_msacli", "show", "summary"], mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return {"changed": False, "msg": "HP MSA CLI not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = json.decode(res.stdout) if res.stdout else {}
+    psus = data.get("power-supplies", [])
     target = None
     for psu in psus:
         if psu.get("durable-id", "") == item:
             target = psu
             break
-
     if target == None:
-        return {
-            "changed": False,
-            "msg": "Power supply '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    health = target.get("health", "Unknown")
-    health_num = str(target.get("health-numeric", "0"))
-    health_reason = target.get("health-reason", "")
-    health_rec = target.get("health-recommendation", "")
-    status = target.get("status", "")
-    psu_name = target.get("name", item)
-
-    state = HEALTH_STATE.get(health_num, "CRIT")
-
-    parts = [psu_name + ": " + health]
-    if status and status != health:
-        parts.append("Status: " + status)
-    if health_reason:
-        parts.append(health_reason)
-    summary = ", ".join(parts)
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": health_rec,
-        },
-    }
+        return {"changed": False, "msg": "PSU %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    indicators = ("dc12v", "dc5v", "dc33v")
+    val_count = 0
+    for i in indicators:
+        if target.get(i, "0") != "0":
+            val_count += 1
+    if val_count == 0:
+        return {"changed": False, "msg": "PSU %s has no valid voltage data" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    v12_lower = params.get("levels_12v_lower", (11.9, 11.8))
+    v12_upper = params.get("levels_12v_upper", (12.1, 12.2))
+    v5_lower = params.get("levels_5v_lower", (4.9, 4.8))
+    v5_upper = params.get("levels_5v_upper", (5.1, 5.2))
+    v3_lower = params.get("levels_33v_lower", (3.25, 3.20))
+    v3_upper = params.get("levels_33v_upper", (3.4, 3.45))
+    temp_levels = params.get("levels", (40.0, 45.0))
+    temp_warn = temp_levels[0]
+    temp_crit = temp_levels[1]
+    
+    metrics = {}
+    msg_parts = []
+    state = "OK"
+    details = ""
+    
+    psu_configs = [
+        ("dc12v", "12 V", v12_lower, v12_upper),
+        ("dc5v", "5 V", v5_lower, v5_upper),
+        ("dc33v", "3.3 V", v3_lower, v3_upper),
+    ]
+    for config in psu_configs:
+        psu_type = config[0]
+        psu_type_readable = config[1]
+        lower = config[2]
+        upper = config[3]
+        raw = target.get(psu_type, "0")
+        if raw == "0" or raw == "":
+            continue
+        voltage = float(raw) / 100.0
+        metrics[psu_type] = voltage
+        warn_low = lower[0]
+        crit_low = lower[1]
+        warn_high = upper[0]
+        crit_high = upper[1]
+        psu_state = "OK"
+        if voltage <= crit_low or voltage >= crit_high:
+            psu_state = "CRIT"
+        elif voltage <= warn_low or voltage >= warn_high:
+            psu_state = "WARN"
+        if state == "OK" and psu_state == "WARN":
+            state = "WARN"
+        if psu_state == "CRIT":
+            state = "CRIT"
+        msg_parts.append("%s: %f V (%s)" % (psu_type_readable, voltage, psu_state))
+    
+    raw_temp = target.get("dctemp", "0")
+    if raw_temp != "0" and raw_temp != "":
+        temperature = float(raw_temp)
+        metrics["temperature"] = temperature
+        temp_state = "OK"
+        if temperature >= temp_crit:
+            temp_state = "CRIT"
+        elif temperature >= temp_warn:
+            temp_state = "WARN"
+        if state == "OK" and temp_state == "WARN":
+            state = "WARN"
+        if temp_state == "CRIT":
+            state = "CRIT"
+        msg_parts.append("Temp: %f C (%s)" % (temperature, temp_state))
+    
+    health = target.get("health", "unknown")
+    status = target.get("status", "unknown")
+    details = "PSU: %s\nHealth: %s\nStatus: %s\nVoltages:" % (
+        target.get("name", ""), health, status)
+    for config in psu_configs:
+        psu_type = config[0]
+        psu_type_readable = config[1]
+        raw = target.get(psu_type, "0")
+        if raw != "0" and raw != "":
+            details += "\n  %s: %f V" % (psu_type_readable, float(raw) / 100.0)
+    if raw_temp != "0" and raw_temp != "":
+        details += "\n  Temperature: %f C" % float(raw_temp)
+    
+    msg = "%s: %s" % (item, ", ".join(msg_parts)) if msg_parts else "PSU %s" % item
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": details}}

@@ -1,98 +1,96 @@
-# ===== Starlark check: printer_pages =====
+PRINTER_MANUFACTURERS = [
+    ".1.3.6.1.4.1.2435.2.3.9",
+    ".1.3.6.1.4.1.1602",
+    ".1.3.6.1.4.1.5502",
+    ".1.3.6.1.4.1.25278",
+    ".1.3.6.1.4.1.27748",
+    ".1.3.6.1.4.1.11.2.3.9.1",
+    ".1.3.6.1.4.1.18334",
+    ".1.3.6.1.4.1.1347",
+    ".1.3.6.1.4.1.2001.1",
+    ".1.3.6.1.4.1.1129",
+    ".1.3.6.1.4.1.367",
+    ".1.3.6.1.4.1.236",
+    ".1.3.6.1.4.1.253.8.62.1",
+    ".1.3.6.1.4.1.3835",
+    ".1.3.6.1.4.1.683.6",
+    ".1.3.6.1.4.1.10642",
+    ".1.3.6.1.4.1.674",
+    ".1.3.6.1.4.1.345",
+    ".1.3.6.1.4.1.1248",
+    ".1.3.6.1.4.1.641.2",
+    ".1.3.6.1.4.1.641.52",
+    ".1.3.6.1.4.1.641.1",
+    ".1.3.6.1.4.1.641.3",
+    ".1.3.6.1.4.1.641.51",
+    ".1.3.6.1.4.1.396",
+    ".1.3.6.1.4.1.44932",
+    ".1.3.6.1.4.1.1472",
+    ".1.3.6.1.4.1.2385",
+    ".1.3.6.1.4.1.186",
+    ".1.3.6.1.4.1.33241",
+    ".1.3.6.1.4.1.6345",
+    ".1.3.6.1.4.1.2125",
+    ".1.3.6.1.4.1.4228",
+    ".1.3.6.1.4.1.314",
+    ".1.3.6.1.4.1.16653",
+    ".1.3.6.1.4.1.28959",
+    ".1.3.6.1.4.1.28708",
+    ".1.3.6.1.4.1.79",
+    ".1.3.6.1.4.1.211",
+    ".1.3.6.1.4.1.231",
+    ".1.3.6.1.4.1.297",
+    ".1.3.6.1.4.1.3369",
+    ".1.3.6.1.4.1.116",
+    ".1.3.6.1.4.1.2",
+    ".1.3.6.1.4.1.28918",
+    ".1.3.6.1.4.1.3793",
+    ".1.3.6.1.4.1.11369",
+    ".1.3.6.1.4.1.815",
+    ".1.3.6.1.4.1.102",
+    ".1.3.6.1.4.1.1552",
+    ".1.3.6.1.4.1.279",
+    ".1.3.6.1.4.1.10504",
+    ".1.3.6.1.4.1.24807",
+    ".1.3.6.1.4.1.42406",
+    ".1.3.6.1.4.1.263",
+    ".1.3.6.1.4.1.22624",
+    ".1.3.6.1.4.1.25549",
+    ".1.3.6.1.4.1.128",
+    ".1.3.6.1.4.1.294",
+    ".1.3.6.1.4.1.38191",
+    ".1.3.6.1.4.1.950",
+    ".1.3.6.1.4.1.25816",
+    ".1.3.6.1.4.1.28878",
+    ".1.3.6.1.4.1.40463",
+    ".1.3.6.1.4.1.122",
+    ".1.3.6.1.4.1.119",
+]
 
-PRINTER_PAGES_TYPES = {
-    "pages_total": "total prints",
-    "pages_color": "color",
-    "pages_bw": "b/w",
-    "pages_a4": "A4",
-    "pages_a3": "A3",
-    "pages_color_a4": "color A4",
-    "pages_bw_a4": "b/w A4",
-    "pages_color_a3": "color A3",
-    "pages_bw_a3": "b/w A3",
-}
-
-OID_PRINTER_PAGES = ".1.3.6.1.2.1.43.10.2.1.4.1.1"
-
-def _sum_values(values):
-    total = 0
-    for v in values:
-        total = total + v
-    return total
+def _is_printer(community, host, ctx):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", "-t", "5", "-r", "1", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if res.rc != 0:
+        return False
+    sys_oid = res.stdout.strip()
+    if not sys_oid:
+        return False
+    for oid in PRINTER_MANUFACTURERS:
+        if sys_oid.startswith(oid):
+            return True
+    return False
 
 def main(ctx, params):
-    # Discovery mode: always discover a single service
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
     if params.get("_discover"):
-        # Check if the SNMP tree exists by attempting to fetch the OID
-        res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", ctx.facts().get("hostname", "localhost"), OID_PRINTER_PAGES], mutates=False)
-        if res.rc != 0 or not res.stdout.strip():
-            # No printer pages data available
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 items",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["pages_total"]}]}}
-
-    # Check mode: fetch current pages data
-    res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", ctx.facts().get("hostname", "localhost"), OID_PRINTER_PAGES], mutates=False)
+        if not _is_printer(community, host, ctx):
+            return {"changed": False, "msg": "no printer detected", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [{"item": "", "params": {"warn": None, "crit": None}, "metrics": ["pages_total"]}]}}
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", "-t", "5", "-r", "1", host, ".1.3.6.1.2.1.43.10.2.1.4.1"], mutates=False)
     if res.rc != 0:
-        return {"changed": False, "msg": "SNMP query failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    section = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) < 2:
-            continue
-        value_str = parts[1].strip()
-        # Extract numeric value; handle INTEGER: prefix or raw number
-        if ":" in value_str:
-            value_str = value_str.split(":", 1)[1].strip()
-        if not value_str.isdigit():
-            continue
-        value = int(value_str)
-        # Extract OID leaf: last numeric component after the base OID
-        oid_part = parts[0].strip()
-        leaf = oid_part.split(".")[-1] if "." in oid_part else oid_part
-        # Map leaf to metric names; leaf "1" -> "pages_total"
-        if leaf == "1":
-            section["pages_total"] = value
-        elif leaf == "2":
-            section["pages_color"] = value
-        elif leaf == "3":
-            section["pages_bw"] = value
-        elif leaf == "4":
-            section["pages_a4"] = value
-        elif leaf == "5":
-            section["pages_a3"] = value
-        elif leaf == "6":
-            section["pages_color_a4"] = value
-        elif leaf == "7":
-            section["pages_bw_a4"] = value
-        elif leaf == "8":
-            section["pages_color_a3"] = value
-        elif leaf == "9":
-            section["pages_bw_a3"] = value
-
-    if not section:
-        return {"changed": False, "msg": "no pages data found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Compute summary and metrics
-    summaries = []
-    metrics = {}
-
-    # If no pages_total, compute it as sum of all values
-    if "pages_total" not in section:
-        total = _sum_values(section.values())
-        section["pages_total"] = total
-
-    for pages_type, pages in sorted(section.items()):
-        if pages_type in PRINTER_PAGES_TYPES:
-            summaries.append("%s: %s" % (PRINTER_PAGES_TYPES[pages_type], str(pages)))
-            metrics[pages_type] = pages
-
-    summary = ", ".join(summaries)
-    return {"changed": False, "msg": summary,
-            "data": {"state": "OK", "metrics": metrics, "details": ""}}
+        return {"changed": False, "msg": "could not retrieve pages: " + res.stderr.strip(), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    val = res.stdout.strip()
+    if not val.isdigit():
+        return {"changed": False, "msg": "invalid pages value: " + val, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    pages = int(val)
+    return {"changed": False, "msg": "total prints: %d" % pages, "data": {"state": "OK", "metrics": {"pages_total": pages}, "details": ""}}

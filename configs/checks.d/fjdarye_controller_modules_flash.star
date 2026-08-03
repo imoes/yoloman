@@ -1,169 +1,166 @@
-# ===== Starlark check: fjdarye_controller_modules_flash =====
-# Checkmk check plugin: checkmk.fjdarye_controller_modules_flash
-# Short description: Controller Module Flash %s
-# Translated to Starlark for the yolo-man agent (read-only)
+# Translated from Checkmk checkmk.fjdarye_controller_modules_flash.py
+# Monitors Fujitsu storage systems (FJDARY-E60/E100 MIB) controller module flash status via SNMP.
 
-FJDARYE_SUPPORTED_DEVICES = [
-    ".1.3.6.1.4.1.211.1.21.1.60",   # fjdarye60
-    ".1.3.6.1.4.1.211.1.21.1.150",  # fjdarye500
-    ".1.3.6.1.4.1.211.1.21.1.153",  # fjdarye600
-]
+def _snmp_get(ctx, oid, community, host):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
 
-FJDARYE_ITEM_STATUS = {
-    "1": "Normal",
-    "2": "Alarm",
-    "3": "Warning",
-    "4": "Invalid",
-    "5": "Maintenance",
-    "6": "Undefined",
-}
+def _sys_descr_oid(ctx, community, host):
+    # Fetch sysDescr.0 to inspect for Fujitsu storage signature
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
 
-FJDARYE_STATUS_STATE = {
-    "1": "OK",
-    "2": "CRIT",
-    "3": "WARN",
-    "4": "CRIT",
-    "5": "CRIT",
-    "6": "CRIT",
-}
+def _is_fjdarye(ctx, community, host):
+    sys_oid = _sys_descr_oid(ctx, community, host)
+    if sys_oid == None:
+        return False
+    # FJDARY supported devices
+    supported = [
+        ".1.3.6.1.4.1.211.1.21.1.60",
+        ".1.3.6.1.4.1.211.1.21.1.150",
+        ".1.3.6.1.4.1.211.1.21.1.153",
+    ]
+    return sys_oid in supported
 
 def main(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+
     if params.get("_discover"):
-        # Discovery: walk all supported devices and collect controller module flash entries
-        out = []
-        for device_oid in FJDARYE_SUPPORTED_DEVICES:
-            base_oid = device_oid + ".2.4.2.1"
-            # SNMP walk for .1 (Index) and .3 (Status)
-            res = ctx.run([
-                "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), base_oid
-            ], mutates=False)
+        # Check if this is a Fujitsu storage device
+        if not _is_fjdarye(ctx, community, host):
+            return {"changed": False, "msg": "not a FJDARY-E60/E100 device", "data": {"discovery": []}}
+
+        # The table base is .2.4.2.1 under the device enterprise OID
+        # We need to walk to find which device OID is present; try the supported device OIDs
+        discovery = []
+        found_items = []
+        supported_bases = [
+            ".1.3.6.1.4.1.211.1.21.1.60",
+            ".1.3.6.1.4.1.211.1.21.1.150",
+            ".1.3.6.1.4.1.211.1.21.1.153",
+        ]
+
+        for device_oid in supported_bases:
+            table_base = device_oid + ".2.4.2.1"
+            # Column 1: Index, Column 3: Status
+            walk_oid = table_base + ".1"
+            res = ctx.run(
+                ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, walk_oid],
+                mutates=False,
+            )
             if res.rc != 0:
-                continue  # skip device if snmpwalk fails
-            
-            for line in res.stdout.splitlines():
-                parts = line.strip().split()
+                continue
+            lines = res.stdout.splitlines()
+            for line in lines:
+                parts = line.split(None, 1)
                 if len(parts) < 2:
                     continue
-                # Parse: ".OID.1 = INTEGER: 123" or ".OID.1 = 123"
-                oid_part = parts[0]
-                value_part = " ".join(parts[1:])
-                
-                # Extract index (last OID component) and status
-                suffix = oid_part.rsplit(".", 1)[-1] if "." in oid_part else oid_part
-                if suffix != "1":
+                oid_full = parts[0]
+                index_value = parts[1].strip()
+                # The index in the OID is the suffix after the column OID
+                # oid_full looks like <table_base>.1.<index>, we want the index
+                # But the value here is the index value (column 1 = index)
+                # Actually in FJDARY MIB, column 1 is the index, so the OID index part
+                # is what follows .1 from the column OID
+                suffix = oid_full[len(walk_oid) + 1:] if oid_full.startswith(walk_oid) else ""
+                if not suffix:
                     continue
-                # Extract index value (the integer)
-                index_str = value_part.strip().lstrip("INTEGER: ").lstrip()
-                if not index_str.isdigit():
-                    continue
-                index = index_str
-                
-                # Get status from corresponding .3 OID
-                status_oid = oid_part.rsplit(".", 1)[0] + ".3"
-                status_res = ctx.run([
-                    "snmpget", "-v2c", "-c", params.get("community", "public"),
-                    "-On", params.get("host", "localhost"), status_oid
-                ], mutates=False)
-                if status_res.rc != 0:
-                    continue
-                
-                status_line = status_res.stdout.strip()
-                status_parts = status_line.split()
-                if len(status_parts) < 2:
-                    continue
-                status_value = " ".join(status_parts[1:]).strip().lstrip("INTEGER: ").lstrip()
-                if not status_value.isdigit():
-                    continue
-                
-                status = status_value
-                # Only discover if status != "4" (Invalid)
-                if status != "4":
-                    out.append({
-                        "item": index,
-                        "params": {},
-                        "metrics": []
+                # Use the index value as the item
+                if suffix not in found_items:
+                    found_items.append(suffix)
+                    discovery.append({
+                        "item": suffix,
+                        "metrics": [],
                     })
-        
+
         return {
             "changed": False,
-            "msg": "discovered %d controller modules" % len(out),
-            "data": {"discovery": out}
+            "msg": "discovered %d controller module flash items" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode: get status of specific item
+
+    # CHECK MODE
     item = params.get("item", "")
-    if not item:
+
+    if not _is_fjdarye(ctx, community, host):
         return {
             "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "not a FJDARY-E60/E100 device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Build list of all items by walking all devices
-    section = {}
-    for device_oid in FJDARYE_SUPPORTED_DEVICES:
-        base_oid = device_oid + ".2.4.2.1"
-        # First get all indices
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), base_oid + ".1"
-        ], mutates=False)
-        if res.rc != 0:
-            continue
-        
-        indices = {}
-        for line in res.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) < 2:
-                continue
-            oid_part = parts[0]
-            value_part = " ".join(parts[1:]).strip().lstrip("INTEGER: ").lstrip()
-            if not value_part.isdigit():
-                continue
-            index = value_part
-            indices[oid_part.rsplit(".", 1)[-1]] = index
-        
-        # Then get corresponding status for each index
-        for index in indices:
-            status_oid = base_oid + ".3." + index
-            status_res = ctx.run([
-                "snmpget", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), status_oid
-            ], mutates=False)
-            if status_res.rc != 0:
-                continue
-            
-            status_line = status_res.stdout.strip()
-            status_parts = status_line.split()
-            if len(status_parts) < 2:
-                continue
-            status_value = " ".join(status_parts[1:]).strip().lstrip("INTEGER: ").lstrip()
-            if not status_value.isdigit():
-                continue
-            
-            status = status_value
-            if status != "4":
-                section[index] = status
-    
-    # Look up item in section
-    if item not in section:
+
+    # Find the correct device OID by checking which one responds
+    supported_bases = [
+        ".1.3.6.1.4.1.211.1.21.1.60",
+        ".1.3.6.1.4.1.211.1.21.1.150",
+        ".1.3.6.1.4.1.211.1.21.1.153",
+    ]
+
+    table_base = None
+    for device_oid in supported_bases:
+        candidate = device_oid + ".2.4.2.1"
+        # Test if the index column (1) has our item
+        test_oid = candidate + ".1." + item
+        res = _snmp_get(ctx, test_oid, community, host)
+        if res != None:
+            table_base = candidate
+            break
+
+    if table_base == None:
         return {
             "changed": False,
-            "msg": "item %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "item %s not found on any FJDARY device table" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    status = section[item]
-    summary = FJDARYE_ITEM_STATUS.get(status, "Unknown")
-    state = FJDARYE_STATUS_STATE.get(status, "UNKNOWN")
-    
+
+    # Fetch the status (column 3) for this item
+    status_oid = table_base + ".3." + item
+    status_raw = _snmp_get(ctx, status_oid, community, host)
+    if status_raw == None:
+        return {
+            "changed": False,
+            "msg": "unable to fetch flash status for item %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Strip potential quotes from the value
+    status_value = status_raw.strip().strip('"').strip("'")
+
+    # Map status codes (as per FJDARYE_ITEM_STATUS)
+    status_map = {
+        "1": {"summary": "Normal", "state": "OK"},
+        "2": {"summary": "Alarm", "state": "CRIT"},
+        "3": {"summary": "Warning", "state": "WARN"},
+        "4": {"summary": "Invalid", "state": "CRIT"},
+        "5": {"summary": "Maintenance", "state": "CRIT"},
+        "6": {"summary": "Undefined", "state": "CRIT"},
+    }
+
+    entry = status_map.get(status_value)
+    if entry == None:
+        return {
+            "changed": False,
+            "msg": "Unknown status code %s for item %s" % (status_value, item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     return {
         "changed": False,
-        "msg": "Status: %s" % summary,
+        "msg": entry["summary"],
         "data": {
-            "state": state,
+            "state": entry["state"],
             "metrics": {},
-            "details": ""
-        }
+            "details": "",
+        },
     }

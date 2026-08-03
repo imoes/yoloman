@@ -1,115 +1,90 @@
 def main(ctx, params):
-    path = "/tmp/cisco_meraki_org_wireless_device_statuses"
-    if not ctx.file_exists(path):
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "data file not found: " + path,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    raw = ctx.file_read(path)
-    if raw == "" or raw.strip() == "":
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "data file empty",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    if raw.find("[[") != 0:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "unexpected outer JSON format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    data = json.decode(raw) if raw != "" else []
-
-    if type(data) != "list" or len(data) != 1 or type(data[0]) != "list" or len(data[0]) != 1:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "unexpected outer JSON structure",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    payload_str = data[0][0]
-    if type(payload_str) != "string" or payload_str == "":
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "payload is not a non-empty string",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    payload = json.decode(payload_str) if payload_str != "" else []
-
-    if type(payload) != "list" or len(payload) == 0:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "inner JSON payload is empty list",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    device = payload[0]
-    ssids_raw = device.get("basicServiceSets")
-
-    if type(ssids_raw) != "list":
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "basicServiceSets not found or not a list",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    ssid_names = []
-    ssid_map = {}
-    i = 0
-    while i < len(ssids_raw):
-        ssid_obj = ssids_raw[i]
-        if type(ssid_obj) == "dict":
-            ssid_name = ssid_obj.get("ssidName")
-            if ssid_name != None and type(ssid_name) == "string" and ssid_name != "":
-                ssid_names.append(ssid_name)
-                ssid_map[ssid_name] = ssid_obj
-        i = i + 1
-
     if params.get("_discover"):
-        out = []
-        i = 0
-        while i < len(ssid_names):
-            name = ssid_names[i]
-            out.append({"item": name, "params": {"state_if_not_enabled": 1},
-                        "metrics": []})
-            i = i + 1
-        return {"changed": False, "msg": "discovered %d SSIDs" % len(out),
-                "data": {"discovery": out}}
+        # Discovery mode: probe for Meraki API access and enumerate SSIDs
+        token = params.get("token", "")
+        org_id = params.get("org_id", "")
+        host = params.get("host", "api.meraki.com")
+        net_id = params.get("net_id", "")
+
+        if not token or not org_id:
+            return {"changed": False, "msg": "Meraki API token/org_id not configured",
+                    "data": {"discovery": []}}
+
+        # Try to list SSIDs via Meraki API
+        url = "https://api.meraki.com/api/v1/organizations/" + org_id + "/wireless/statuses"
+        res = ctx.run(["curl", "-s", "-H", "X-Cisco-Meraki-API-Key: " + token, url], mutates=False)
+
+        if res.rc != 0:
+            return {"changed": False, "msg": "Meraki API unreachable",
+                    "data": {"discovery": []}}
+
+        payload = json.decode(res.stdout)
+        if payload == None or len(payload) == 0:
+            return {"changed": False, "msg": "no wireless statuses found",
+                    "data": {"discovery": []}}
+
+        # The API returns a list of device status objects, each with basicServiceSets
+        # We look at the first device's SSIDs for discovery
+        device_status = payload[0]
+        ssids = device_status.get("basicServiceSets", [])
+        items = []
+        for ssid in ssids:
+            name = ssid.get("ssidName", "")
+            items.append({"item": name, "params": {"state_if_not_enabled": 1},
+                          "metrics": []})
+        return {"changed": False, "msg": "discovered %d SSIDs" % len(items),
+                "data": {"discovery": items}}
 
     item = params.get("item", "")
-    if item == "":
-        return {"changed": False, "msg": "no item specified",
+    token = params.get("token", "")
+    org_id = params.get("org_id", "")
+    host = params.get("host", "api.meraki.com")
+
+    if not token or not org_id:
+        return {"changed": False, "msg": "Meraki API token/org_id not configured",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    ssid = ssid_map.get(item)
-    if ssid == None:
-        return {"changed": False, "msg": "SSID not found: " + item,
+    url = "https://api.meraki.com/api/v1/organizations/" + org_id + "/wireless/statuses"
+    res = ctx.run(["curl", "-s", "-H", "X-Cisco-Meraki-API-Key: " + token, url], mutates=False)
+
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "Meraki API unreachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    payload = json.decode(res.stdout)
+    if payload == None or len(payload) == 0:
+        return {"changed": False, "msg": "no wireless statuses found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Find the SSID by name across device statuses
+    found_ssid = None
+    for device_status in payload:
+        ssids = device_status.get("basicServiceSets", [])
+        for ssid in ssids:
+            if ssid.get("ssidName", "") == item:
+                found_ssid = ssid
+                break
+        if found_ssid != None:
+            break
+
+    if found_ssid == None:
+        return {"changed": False, "msg": "SSID %s not found" % item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
     state_if_not_enabled = params.get("state_if_not_enabled", 1)
-
-    enabled = ssid.get("enabled")
-    if type(enabled) != "bool":
-        return {"changed": False, "msg": "enabled field missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    enabled = found_ssid.get("enabled", False)
 
     if not enabled:
+        state = "WARN" if state_if_not_enabled == 1 else ("CRIT" if state_if_not_enabled == 2 else "OK")
         return {"changed": False, "msg": "Status: Disabled",
-                "data": {"state": state_if_not_enabled, "metrics": {}, "details": ""}}
+                "data": {"state": state, "metrics": {}, "details": ""}}
 
-    visible = ssid.get("visible", False)
-    ssid_number = ssid.get("ssidNumber")
-    if type(ssid_number) != "int":
-        ssid_number = -1
+    details = []
+    visible = found_ssid.get("visible", False)
+    ssid_number = found_ssid.get("ssidNumber", None)
+    details.append("Visible: %s" % visible)
+    if ssid_number != None:
+        details.append("SSID number: %s" % ssid_number)
 
-    summary = "Status: Enabled"
-    notice_visible = "Visible: " + ("true" if visible else "false")
-    notice_number = "SSID number: %d" % ssid_number
-
-    return {"changed": False, "msg": summary,
-            "data": {"state": 0, "metrics": {}, "details": "", "notice": [notice_visible, notice_number]}}
+    return {"changed": False, "msg": "Status: Enabled",
+            "data": {"state": "OK", "metrics": {}, "details": "\n".join(details)}}

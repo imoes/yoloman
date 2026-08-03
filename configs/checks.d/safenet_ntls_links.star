@@ -1,118 +1,73 @@
 def main(ctx, params):
-    # Discovery mode: yield one service item per host (single service, no items)
     if params.get("_discover"):
-        # Probe SNMP section .1.3.6.1.4.1.12383.3.1.2.1 (operation_status) to detect presence
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.12383.3.1.2.1"
-        ], mutates=False)
-        # If we got any output, the section exists
-        if res.rc == 0 and res.stdout.strip() != "":
-            return {
-                "changed": False,
-                "msg": "discovered NTLS Links service",
-                "data": {
-                    "discovery": [
-                        {"item": "", "params": {}, "metrics": ["connections"]}
-                    ]
-                }
-            }
+        # Probe for the real thing first: check if the device is a Safenet NTLS appliance
+        # Detect via sysObjectID (.1.3.6.1.2.1.1.2.0)
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        sys_oid_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        if sys_oid_res.rc != 0:
+            return {"changed": False, "msg": "not a Safenet NTLS device", "data": {"discovery": []}}
+        sys_oid = sys_oid_res.stdout.strip()
+        if not (sys_oid.startswith(".1.3.6.1.4.1.12383") or sys_oid.startswith(".1.3.6.1.4.1.8072")):
+            return {"changed": False, "msg": "not a Safenet NTLS device", "data": {"discovery": []}}
+        # Fetch the safenet_ntls section - just need the links value to confirm section exists
+        links_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.12383.3.1.2.3"], mutates=False)
+        if links_res.rc != 0:
+            return {"changed": False, "msg": "no NTLS section data", "data": {"discovery": []}}
+        # Single-service check (no item)
+        levels = params.get("levels", ("no_levels", None))
         return {
             "changed": False,
-            "msg": "no NTLS data available",
-            "data": {"discovery": []}
-        }
-
-    # Check mode for item "" (single-service check)
-    # Fetch links OID: .1.3.6.1.4.1.12383.3.1.2.3.0
-    links_oid = ".1.3.6.1.4.1.12383.3.1.2.3.0"
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), links_oid
-    ], mutates=False)
-
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "failed to retrieve links data",
+            "msg": "discovered NTLS Links service",
             "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+                "discovery": [
+                    {"item": "", "params": {"levels": levels}, "metrics": ["connections"]}
+                ]
+            },
         }
 
-    # Parse snmpget output: "<oid> = INTEGER: <value>" or similar
-    line = res.stdout.strip()
-    parts = line.split(":")
-    if len(parts) < 2:
+    # Check mode
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    
+    # Fetch the links value (OID 3 from the safenet_ntls section)
+    links_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.12383.3.1.2.3"], mutates=False)
+    if links_res.rc != 0:
         return {
             "changed": False,
-            "msg": "unexpected snmpget output",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "no NTLS links data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "SNMP query failed for NTLS links"},
         }
-
-    value_str = parts[-1].strip()
-    # Remove trailing spaces and any trailing whitespace
-    value_str = value_str.rstrip()
-    # Extract integer (strip trailing space, possible ' INTEGER:' prefix)
-    value_str = value_str.split()[-1] if value_str.split() else value_str
-
-    # Safely convert to int using guard instead of try/except
-    links = int(value_str) if value_str.isdigit() else -1
-    if links < 0:
+    
+    links_str = links_res.stdout.strip()
+    if not links_str.isdigit():
         return {
             "changed": False,
-            "msg": "cannot parse links value",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "invalid links value: " + links_str,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    # Determine state based on thresholds (warn/crit levels)
-    warn = params.get("levels", ("no_levels", None))
-    crit = params.get("levels", ("no_levels", None))
-
-    # Extract numeric levels if provided as tuple
-    warn_val = None
-    crit_val = None
-    if type(warn) == "list" and len(warn) >= 2:
-        if warn[0] == "levels":
-            warn_val = warn[1]
-        if len(warn) >= 3 and type(warn[2]) == "list":
-            crit_val = warn[2][1] if len(warn[2]) >= 2 else None
-    elif type(params.get("levels")) == "list":
-        # Checkmk default: levels=("no_levels", None) -> no levels
-        lvl = params.get("levels")
-        if type(lvl) == "list" and len(lvl) >= 2:
-            if lvl[0] != "no_levels":
-                warn_val = lvl[1]
-                if len(lvl) >= 3 and type(lvl[2]) == "list" and len(lvl[2]) >= 2:
-                    crit_val = lvl[2][1]
-
-    # Apply levels
+    
+    links = int(links_str)
+    levels = params.get("levels", ("no_levels", None))
+    
     state = "OK"
-    if warn_val != None and links >= warn_val:
-        state = "WARN"
-    if crit_val != None and links >= crit_val:
+    warn = None
+    crit = None
+    if levels != None and levels != "no_levels":
+        # levels is a tuple (warn, crit) for upper levels
+        if len(levels) >= 2:
+            warn = levels[0]
+            crit = levels[1]
+        elif len(levels) >= 1:
+            warn = levels[0]
+    
+    if crit != None and links >= crit:
         state = "CRIT"
-
-    # Build summary
-    summary = "%d links" % links
-
+    elif warn != None and links >= warn:
+        state = "WARN"
+    
     return {
         "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"connections": links},
-            "details": ""
-        }
+        "msg": "%d links" % links,
+        "data": {"state": state, "metrics": {"connections": links}, "details": ""},
     }

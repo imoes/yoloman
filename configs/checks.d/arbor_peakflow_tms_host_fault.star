@@ -1,89 +1,78 @@
-# Module-level constants (metric names, default thresholds, etc.)
-OID_HOST_FAULT = ".1.3.6.1.4.1.9694.1.5.2.1.0"
-OID_PRAVAIL_HOST_FAULT = ".1.3.6.1.4.1.9694.1.6.2.1.0"
-SNMP_COMMUNITY_DEFAULT = "public"
-SNMP_HOST_DEFAULT = "localhost"
-
 def main(ctx, params):
-    # Discovery mode: always yields exactly one service with item ""
+    # Arbor Peakflow TMS / Arbor Pravail host-fault check.
+    # Monitors a single scalar SNMP OID exposing the appliance's host-fault
+    # status string. "No Fault" -> OK, anything else -> CRIT.
+
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("snmp_version", "2c")
+
+    # Discovery path: probe the appliance and report a single service
+    # ("Host Fault") when the host-fault OID is reachable.
     if params.get("_discover"):
+        # Peakflow TMS host-fault OID base: .1.3.6.1.4.1.9694.1.5.2
+        # Pravail host-fault OID base:     .1.3.6.1.4.1.9694.1.6.2
+        oid_pf = "1.3.6.1.4.1.9694.1.5.2.1.0"
+        oid_pr = "1.3.6.1.4.1.9694.1.6.2.1.0"
+
+        found = False
+        # Try Peakflow TMS first, then Pravail.
+        for oid in [oid_pf, oid_pr]:
+            res = ctx.run(
+                ["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid],
+                mutates=False,
+            )
+            if res.rc == 0 and res.stdout.strip() != "":
+                found = True
+                break
+        if not found:
+            return {
+                "changed": False,
+                "msg": "no Arbor host fault reachable",
+                "data": {"discovery": []},
+            }
         return {
             "changed": False,
             "msg": "discovered 1 item",
             "data": {
                 "discovery": [
-                    {
-                        "item": "",
-                        "params": {},
-                        "metrics": []
-                    }
+                    {"item": "", "params": {}, "metrics": []}
                 ]
-            }
+            },
         }
 
-    # Check mode for the single item (item is "" per discovery)
-    # Determine which OID to query based on host facts (os_family/distribution not directly available,
-    # so use a heuristic: try the peakflow OID first; if no data, try pravail)
-    host = params.get("host", SNMP_HOST_DEFAULT)
-    community = params.get("community", SNMP_COMMUNITY_DEFAULT)
+    # Check path: read the host-fault status string.
+    oid_pf = "1.3.6.1.4.1.9694.1.5.2.1.0"
+    oid_pr = "1.3.6.1.4.1.9694.1.6.2.1.0"
 
-    # Try peakflow first (more common for this plugin)
-    res_peakflow = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On", host,
-        OID_HOST_FAULT
-    ], mutates=False)
+    status = None
+    for oid in [oid_pf, oid_pr]:
+        res = ctx.run(
+            ["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid],
+            mutates=False,
+        )
+        if res.rc == 0 and res.stdout.strip() != "":
+            status = res.stdout.strip()
+            break
 
-    if res_peakflow.rc == 0 and res_peakflow.stdout.strip():
-        # Parse output: "<OID> = STRING: <value>"
-        line = res_peakflow.stdout.strip()
-        if ": " in line:
-            value = line.split(": ", 1)[1].strip().strip('"')
-        else:
-            value = line.split(" = ", 1)[-1].strip().strip('"')
-    else:
-        # Fall back to pravail OID
-        res_pravail = ctx.run([
-            "snmpget",
-            "-v2c",
-            "-c", community,
-            "-On", host,
-            OID_PRAVAIL_HOST_FAULT
-        ], mutates=False)
+    if status == None:
+        return {
+            "changed": False,
+            "msg": "host fault OID unreachable",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
 
-        if res_pravail.rc != 0 or not res_pravail.stdout.strip():
-            # No data available
-            return {
-                "changed": False,
-                "msg": "unable to retrieve host fault status",
-                "data": {
-                    "state": "UNKNOWN",
-                    "metrics": {},
-                    "details": ""
-                }
-            }
-
-        # Parse pravail output
-        line = res_pravail.stdout.strip()
-        if ": " in line:
-            value = line.split(": ", 1)[1].strip().strip('"')
-        else:
-            value = line.split(" = ", 1)[-1].strip().strip('"')
-
-    # Check value against OK threshold
-    if value == "No Fault":
-        state = "OK"
-    else:
-        state = "CRIT"
-
+    state = "OK" if status == "No Fault" else "CRIT"
     return {
         "changed": False,
-        "msg": value,
+        "msg": status,
         "data": {
             "state": state,
             "metrics": {},
-            "details": ""
-        }
+            "details": "",
+        },
     }

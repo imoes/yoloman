@@ -1,172 +1,154 @@
 def main(ctx, params):
-    # Read-only SNMP-based check for SuperStack 3 sensors
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
-    # Discovery mode: enumerate all sensors (items) present on host
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.43.43.1.1.7"
-        ], mutates=False)
-        # Also fetch corresponding .10 (sensor state) values to filter "not present"
-        state_res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.43.43.1.1.10"
-        ], mutates=False)
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        probe = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Ovqn", host,
+             ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if probe.rc != 0:
+            return {"changed": False, "msg": "superstack3 not present",
+                    "data": {"discovery": [], "host_labels": {}}}
+        sysdesc = probe.stdout.strip()
+        if "3com superstack 3" not in sysdesc.lower():
+            return {"changed": False, "msg": "superstack3 not present",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-        # Parse snmpwalk output: "<oid> = STRING: \"value\""
-        # Build mapping: index -> (name, state) from OID suffix
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             ".1.3.6.1.4.1.43.43.1.1.7"],
+            mutates=False,
+        )
+        if walk.rc != 0:
+            return {"changed": False, "msg": "superstack3 not present",
+                    "data": {"discovery": [], "host_labels": {}}}
+
         names = {}
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            if oid.startswith(".1.3.6.1.4.1.43.43.1.1.7."):
+                idx = oid[len(".1.3.6.1.4.1.43.43.1.1.7."):]
+                if idx:
+                    names[idx] = val
+
         states = {}
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line or "=" not in line:
-                continue
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, val_part = parts
-            # Extract numeric suffix: .1.3.6.1.4.1.43.43.1.1.7.123 -> 123
-            suffix = oid_part.rsplit(".", 1)[-1]
-            # Strip quotes and whitespace from value
-            val = val_part.strip()
-            if val.startswith("STRING: "):
-                val = val[8:].strip().strip('"')
-            names[suffix] = val
+        w2 = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host,
+             ".1.3.6.1.4.1.43.43.1.1.10"],
+            mutates=False,
+        )
+        if w2.rc == 0:
+            for line in w2.stdout.splitlines():
+                sp = line.find(" ")
+                if sp == -1:
+                    continue
+                oid = line[:sp]
+                val = line[sp + 1:].strip()
+                if oid.startswith(".1.3.6.1.4.1.43.43.1.1.10."):
+                    idx = oid[len(".1.3.6.1.4.1.43.43.1.1.10."):]
+                    if idx:
+                        states[idx] = val
 
-        for line in state_res.stdout.splitlines():
-            line = line.strip()
-            if not line or "=" not in line:
+        rows = []
+        for idx in sorted(names.keys()):
+            rows.append({"name": names[idx], "state": states.get(idx, "")})
+
+        out = []
+        for r in rows:
+            if r["state"] == "not present":
                 continue
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, val_part = parts
-            suffix = oid_part.rsplit(".", 1)[-1]
-            val = val_part.strip()
-            if val.startswith("STRING: "):
-                val = val[8:].strip().strip('"')
-            states[suffix] = val
+            out.append({"item": r["name"], "params": {},
+                        "metrics": ["sensor_state"]})
+        return {"changed": False,
+                "msg": "discovered %d sensors" % len(out),
+                "data": {"discovery": out, "host_labels": {}}}
 
-        # Build list of items: only if state != "not present"
-        items = []
-        for suffix in names:
-            if suffix in states and states[suffix] != "not present":
-                item_name = names[suffix]
-                items.append({
-                    "item": item_name,
-                    "params": {},
-                    "metrics": []
-                })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d sensors" % len(items),
-            "data": {"discovery": items}
-        }
-
-    # Check mode: verify one sensor item
     item = params.get("item", "")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    # Fetch sensor name and state via snmpget for performance
-    # First get sensor name list (to validate)
-    # Since we already have the item, just fetch the corresponding state OID
-    # OID for sensor state at index i: .1.3.6.1.4.1.43.43.1.1.10.i
-    # But we don't know the index from item name directly; instead fetch full table
-    # Using snmpwalk for state OID is acceptable for a single item check
-    state_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.43.43.1.1.10"
-    ], mutates=False)
+    base = ".1.3.6.1.4.1.43.43.1.1"
+    nmib = "%s.7" % base
+    smib = "%s.10" % base
 
-    # Build mapping of name -> state
-    name_to_state = {}
-    for line in state_res.stdout.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, val_part = parts
-        # Extract numeric index from OID suffix
-        suffix = oid_part.rsplit(".", 1)[-1]
-        val = val_part.strip()
-        if val.startswith("STRING: "):
-            val = val[8:].strip().strip('"')
-        # We need to map name -> state, but we don't have name here
-        # Instead, fetch sensor names in parallel
-        pass
+    g = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if g.rc == 127 or (g.rc != 0 and "3com superstack 3" not in g.stdout.lower()):
+        return {"changed": False,
+                "msg": "no superstack3 sensor found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Re-fetch names to match by index
-    name_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.43.43.1.1.7"
-    ], mutates=False)
+    w = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, nmib],
+        mutates=False,
+    )
+    names = {}
+    if w.rc == 0:
+        for line in w.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            if oid.startswith(nmib + "."):
+                idx = oid[len(nmib) + 1:]
+                if idx:
+                    names[idx] = val
 
-    # Parse both tables and build mapping
-    names_list = []
-    states_list = []
+    ws = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, smib],
+        mutates=False,
+    )
+    states = {}
+    if ws.rc == 0:
+        for line in ws.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            if oid.startswith(smib + "."):
+                idx = oid[len(smib) + 1:]
+                if idx:
+                    states[idx] = val
 
-    for line in name_res.stdout.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, val_part = parts
-        suffix = oid_part.rsplit(".", 1)[-1]
-        val = val_part.strip()
-        if val.startswith("STRING: "):
-            val = val[8:].strip().strip('"')
-        names_list.append((suffix, val))
+    target = None
+    for idx in names:
+        if names[idx] == item:
+            target = idx
+            break
 
-    for line in state_res.stdout.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_part, val_part = parts
-        suffix = oid_part.rsplit(".", 1)[-1]
-        val = val_part.strip()
-        if val.startswith("STRING: "):
-            val = val[8:].strip().strip('"')
-        states_list.append((suffix, val))
+    if target == None:
+        return {"changed": False,
+                "msg": "UNKNOWN - sensor not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Build name->state map (index alignment is assumed)
-    name_to_state = {}
-    state_by_index = dict(states_list)
-    for suffix, name in names_list:
-        if suffix in state_by_index:
-            state = state_by_index[suffix]
-            if state != "not present":
-                name_to_state[name] = state
-
-    # Look for the requested item
-    if item not in name_to_state:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    state = name_to_state[item]
+    state = states.get(target, "")
     if state == "failure":
-        state_out = "CRIT"
-        msg = "status is failure"
+        verdict = "CRIT"
     elif state == "operational":
-        state_out = "OK"
-        msg = "status is operational"
+        verdict = "OK"
+    elif state == "":
+        verdict = "UNKNOWN"
     else:
-        state_out = "WARN"
-        msg = "status is " + state
+        verdict = "WARN"
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state_out, "metrics": {}, "details": ""}
-    }
+    metric = 0
+    if state == "operational":
+        metric = 1
+    elif state == "failure":
+        metric = 2
+
+    return {"changed": False,
+            "msg": "status is %s" % (state if state != "" else "unknown"),
+            "data": {"state": verdict,
+                     "metrics": {"sensor_state": metric},
+                     "details": ""}}

@@ -1,283 +1,256 @@
-def _discovery_params(bond):
+def main(ctx, params):
+    if params.get("_discover"):
+        bonds = _discover_bonds(ctx)
+        out = []
+        for bond_name, bond in bonds.items():
+            if bond.get("status") in ("up", "degraded"):
+                dp = _discovery_params(bond, params)
+                out.append({"item": bond_name, "params": dp, "metrics": []})
+        return {"changed": False, "msg": "discovered %d bonding interfaces" % len(out),
+                "data": {"discovery": out}}
+
+    item = params.get("item", "")
+    bonds = _discover_bonds(ctx)
+    if item not in bonds:
+        return {"changed": False, "msg": "no such bonding interface: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    bond = bonds[item]
+    results = _check_bonding(item, params, bond)
+    return results
+
+
+def _discovery_params(bond, params):
     primary = bond.get("primary", "None")
     active = bond.get("active", "None")
     if primary == "None" and active != "None":
         return {"primary": active}
     return {}
 
-def _mode_map_get(current_mode):
-    mode_map = {
-        "mode_0": "round-robin",
-        "mode_1": "active-backup",
-        "mode_2": "xor",
-        "mode_3": "broadcast",
-        "mode_4": "802.3ad",
-        "mode_5": "transmit",
-        "mode_6": "adaptive"
-    }
-    for mode, mode_str in mode_map.items():
-        if mode_str in current_mode.lower():
-            return mode, mode_str
-    return "", current_mode
 
-def main(ctx, params):
-    if params.get("_discover"):
-        # Read bonding info from /proc/net/bonding
-        res = ctx.run(["cat", "/proc/net/bonding"], mutates=False)
-        out = []
-        bonds = res.stdout.split("\n\n")
-        for section in bonds:
-            lines = section.splitlines()
-            if len(lines) < 2:
-                continue
-            # First line is "Bonding Mode: ..."
-            bond_name_line = lines[0]
-            if not bond_name_line.startswith("Bonding Mode"):
-                continue
-            # Extract interface name from previous line (e.g. "Ethernet Device: eth0 (master)")
-            # Instead, use "bond0" pattern: find line with colon and whitespace that looks like bond interface
-            name = ""
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith("bond") and ":" in stripped:
-                    name = stripped.split(":")[0].strip()
-                    break
-            if not name:
-                continue
-            # Parse status: look for "MII Status: up" or similar
-            status = "down"
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith("MII Status"):
-                    status = stripped.split(":")[1].strip().lower()
-                    break
-            if status not in ["up", "down", "unknown", "link fail"]:
-                status = "degraded"
-            if status in ["up", "degraded"]:
-                bond = {"status": status}
-                # Try to extract active interface
-                active = ""
-                for line in lines:
-                    stripped = line.strip()
-                    if stripped.startswith("Active Slave"):
-                        active = stripped.split(":")[1].strip()
-                        break
-                if active:
-                    bond["active"] = active
-                # Try to extract primary
-                primary = ""
-                for line in lines:
-                    stripped = line.strip()
-                    if stripped.startswith("Primary Slave"):
-                        primary = stripped.split(":")[1].strip()
-                        break
-                if primary:
-                    bond["primary"] = primary
-                # Try to extract mode
-                mode = ""
-                for line in lines:
-                    stripped = line.strip()
-                    if stripped.startswith("Bonding Mode"):
-                        mode = stripped.split(":")[1].strip()
-                        break
-                if mode:
-                    bond["mode"] = mode
-                params_for_item = _discovery_params(bond)
-                out.append({"item": name, "params": params_for_item, "metrics": []})
-        return {"changed": False, "msg": "discovered %d bonding interfaces" % len(out),
-                "data": {"discovery": out}}
-    
-    item = params.get("item", "")
-    res = ctx.run(["cat", "/proc/net/bonding"], mutates=False)
-    bonds = res.stdout.split("\n\n")
-    section = {}
-    for section_text in bonds:
-        lines = section_text.splitlines()
-        if len(lines) < 2:
+def _discover_bonds(ctx):
+    res = ctx.run(["ls", "/proc/net/bonding/"], mutates=False)
+    if res.rc != 0:
+        return {}
+    bonds = {}
+    for name in res.stdout.splitlines():
+        name = name.strip()
+        if not name:
             continue
-        name = ""
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("bond") and ":" in stripped:
-                name = stripped.split(":")[0].strip()
-                break
-        if name != item:
+        bond = _parse_bonding_file(ctx, name)
+        if bond != None:
+            bonds[name] = bond
+    return bonds
+
+
+def _parse_bonding_file(ctx, bond_name):
+    path = "/proc/net/bonding/" + bond_name
+    res = ctx.run(["cat", path], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return None
+    bond = {"interfaces": {}, "status": "up"}
+    mode = ""
+    lines = res.stdout.splitlines()
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        i += 1
+        parts = line.split(":")
+        key = parts[0].strip().lower().replace(" ", "_")
+        val = ""
+        if len(parts) > 1:
+            val = parts[1].strip()
+        if key == "ethernet_interface" or key == "interface":
             continue
-        # Parse the bond properties
-        bond = {}
-        status = "down"
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("MII Status"):
-                status = stripped.split(":")[1].strip().lower()
-                if status in ["up", "down", "unknown", "link fail"]:
-                    bond["status"] = status
-                    break
+        elif key == "mode":
+            mode = val
+        elif key == "redundant_power" or key == "active_slave":
+            if key == "active_slave" and val != "none":
+                bond["active"] = val
+        elif key == "primary":
+            if val == "none":
+                bond["primary"] = "None"
+            else:
+                bond["primary"] = val
+        elif key == "mii_status":
+            bond["status"] = val.lower()
+        elif key == "aggregator_id":
+            bond["aggregator_id"] = val if val.isdigit() else None
+        elif key == "speed":
+            bond["speed"] = val
+        elif key == "interfaces" or key == "":
+            pass
+        elif key.startswith("slave_") or key in ("eth2", "eth3", "eth0", "eth1"):
+            if len(parts) >= 2:
+                iface = parts[0].strip()
+                mii = val.lower()
+                if mii == "up":
+                    status = "up"
+                elif mii == "down" or mii == "inactive":
+                    status = "down"
                 else:
-                    status = "degraded"
-                    bond["status"] = "degraded"
-                    break
-        if "status" not in bond:
-            bond["status"] = "down"
-        if bond["status"] not in ["up", "degraded"]:
-            return {"changed": False, "msg": "bond %s status %s" % (item, bond["status"]),
-                    "data": {"state": "CRIT", "metrics": {}, "details": ""}}
-        # Extract active interface
-        active = ""
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("Active Slave"):
-                active = stripped.split(":")[1].strip()
-                break
-        if active:
-            bond["active"] = active
-        # Extract primary interface
-        primary = ""
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("Primary Slave"):
-                primary = stripped.split(":")[1].strip()
-                break
-        if primary:
-            bond["primary"] = primary
-        # Extract mode
-        mode = ""
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("Bonding Mode"):
-                mode = stripped.split(":")[1].strip()
-                break
-        if mode:
-            bond["mode"] = mode
-        # Extract speed if present (rare in /proc/net/bonding)
-        speed = ""
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("MII Speed"):
-                speed = stripped.split(":")[1].strip()
-                break
-        if speed:
-            bond["speed"] = speed
-        # Extract interfaces
-        interfaces = {}
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            if line.startswith("Slave Interface:"):
-                ifname = line.split(":")[1].strip()
-                interface = {"status": "down"}
-                i += 1
-                while i < len(lines):
-                    next_line = lines[i].strip()
-                    if next_line.startswith("Slave Interface:") or next_line == "":
-                        break
-                    if next_line.startswith("Permanent HW addr"):
-                        interface["hwaddr"] = next_line.split(":")[1].strip()
-                    elif next_line.startswith("Link Failure Count") or next_line.startswith("Link Failure count"):
-                        # Extract numeric value if possible
-                        val = next_line.split(":")[1].strip()
-                        if val.isdigit():
-                            interface["failures"] = int(val)
-                    elif next_line.startswith("Current Speed") or next_line.startswith("Speed"):
-                        interface["speed"] = next_line.split(":")[1].strip()
-                    i += 1
-                interfaces[ifname] = interface
+                    status = mii
+                bond["interfaces"][iface] = {"status": status}
+
+    # Parse interfaces section separately
+    bond["interfaces"] = _parse_slaves(ctx, bond_name)
+    if mode:
+        bond["mode"] = mode
+    return bond
+
+
+def _parse_slaves(ctx, bond_name):
+    path = "/sys/class/net/" + bond_name + "/slaves"
+    res = ctx.run(["ls", path], mutates=False)
+    ifaces = {}
+    if res.rc != 0:
+        return ifaces
+    for line in res.stdout.splitlines():
+        iface = line.strip()
+        if not iface:
+            continue
+        # Check oper state
+        op_res = ctx.run(["cat", "/sys/class/net/" + iface + "/operstate"], mutates=False)
+        status = "up"
+        if op_res.rc == 0:
+            s = op_res.stdout.strip().lower()
+            if s == "down" or s == "dormant":
+                status = "down"
+            elif s == "up":
+                status = "up"
             else:
-                i += 1
-        if interfaces:
-            bond["interfaces"] = interfaces
-        section[item] = bond
-        break
-    if not section:
-        return {"changed": False, "msg": "bond %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    properties = section[item]
-    # Build results
-    state = "OK"
-    msg_parts = []
-    status = properties.get("status", "unknown")
-    if status == "up":
-        state = "OK"
-    elif status == "degraded":
-        state = "WARN"
+                status = s
+        ifaces[iface] = {"status": status}
+        # hwaddr
+        hw_res = ctx.run(["cat", "/sys/class/net/" + iface + "/address"], mutates=False)
+        if hw_res.rc == 0 and hw_res.stdout.strip():
+            ifaces[iface]["hwaddr"] = hw_res.stdout.strip()
+    return ifaces
+
+
+def _check_bonding(item, params, bond):
+    status = bond.get("status", "up")
+    summary_parts = []
+    state = _state_from_status(status)
+    summary_parts.append("Status: " + status)
+    if status not in ("up", "degraded"):
+        return {"changed": False, "msg": " ; ".join(summary_parts),
+                "data": {"state": _state_str(state), "metrics": {}, "details": ""}}
+
+    mode = bond.get("mode", "")
+    mode_states = params.get("bonding_mode_states")
+    if mode_states != None:
+        state, msummary = _check_bonding_mode(mode, mode_states)
+        summary_parts.append(msummary)
     else:
-        state = "CRIT"
-    msg_parts.append("Status: " + status)
-    # Bonding mode check
-    mode = properties.get("mode", "")
-    if params.get("bonding_mode_states") != None:
-        mode_config = params["bonding_mode_states"]
-        mode_key, mode_str = _mode_map_get(mode)
-        if mode_key:
-            mode_state = mode_config.get(mode_key, 0)
-            if mode_state != 0:
-                msg_parts.append("Mode: %s (not allowed)" % mode_str)
-            else:
-                msg_parts.append("Mode: %s" % mode_str)
-            if mode_state == 1:
-                state = "WARN"
-            elif mode_state == 2:
-                state = "CRIT"
-        else:
-            msg_parts.append("Mode: " + mode)
-    else:
-        msg_parts.append("Mode: " + mode)
-    # IEEE 802.3ad aggregator ID check
-    if "802.3ad" in mode.lower():
-        master_id = properties.get("aggregator_id")
-        for eth, slave in properties.get("interfaces", {}).items():
+        summary_parts.append("Mode: " + mode)
+
+    if "IEEE 802.3ad" in mode or "802.3ad" in mode.lower():
+        mis_state = params.get("ieee_302_3ad_agg_id_missmatch_state", 1)
+        master_id = bond.get("aggregator_id")
+        if master_id == None:
+            master_id = None
+        for eth, slave in bond["interfaces"].items():
             slave_id = slave.get("aggregator_id")
+            if master_id == None:
+                master_id = slave_id
             if slave_id != None and master_id != None and slave_id != master_id:
-                state = "WARN"
-                msg_parts.append("Mismatching aggregator ID of %s: %s" % (eth, slave_id))
-    # Speed
-    if "speed" in properties:
-        msg_parts.append("Speed: " + str(properties["speed"]))
-    # Primary interface
-    current_primary = properties.get("primary", "None")
-    primary = current_primary if current_primary != "None" else params.get("primary", "None")
+                summary_parts.append("Mismatching aggregator ID of " + eth + ": " + str(slave_id))
+                state = _max_state(state, mis_state)
+
+    speed = bond.get("speed")
+    if speed != None:
+        summary_parts.append("Speed: " + str(speed))
+
+    current_primary = bond.get("primary", "None")
+    if current_primary == "None":
+        primary = params.get("primary", "None")
+    else:
+        primary = current_primary
     if primary != "None":
-        msg_parts.append("Primary: " + primary)
-    # Expected active interface
-    expected_active = params.get("expect_active", "ignore")
-    if expected_active == "primary":
-        expected_active_val = primary if primary != "None" else "None"
-    elif expected_active == "lowest":
-        interfaces = properties.get("interfaces", {})
-        if interfaces:
-            expected_active_val = sorted(interfaces.keys())[0]
-        else:
-            expected_active_val = "None"
-    else:
-        expected_active_val = None
-    active_if = properties.get("active", "None")
-    if expected_active_val == None:
-        for eth, slave in properties.get("interfaces", {}).items():
-            slave_state = "up" if slave.get("status") == "up" else "down"
-            if slave_state == "up":
-                if state == "OK":
-                    state = "OK"
-            else:
-                if state == "OK":
-                    state = "WARN"
-            if "hwaddr" in slave:
-                msg_parts.append("%s/%s %s" % (eth, slave["hwaddr"], slave_state))
-            else:
-                msg_parts.append("%s %s" % (eth, slave_state))
-    elif expected_active_val == active_if:
-        msg_parts.append("Active: " + active_if)
-    else:
-        state = "WARN"
-        msg_parts.append("Active: %s (expected is %s)" % (active_if, expected_active_val))
-    # Expected number of interfaces
-    expected_interfaces = params.get("expected_interfaces")
-    if expected_interfaces != None:
-        actual_number = len(properties.get("interfaces", {}))
-        if actual_number < expected_interfaces.get("expected_number", 0):
-            state = expected_interfaces.get("state", 0)
-            msg_parts.append("Unexpected number of interfaces (expected: %d, got: %d)" % (expected_interfaces["expected_number"], actual_number))
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {"state": state, "metrics": {}, "details": ""}
+        summary_parts.append("Primary: " + primary)
+
+    expect_active = params.get("expect_active", "ignore")
+    active_if = bond.get("active", "None")
+    expected_map = {
+        "primary": primary,
+        "lowest": min(bond["interfaces"].keys()) if bond["interfaces"] else "None",
+        "ignore": None,
     }
+    expected_active = expected_map.get(expect_active, None)
+
+    if expected_active == None:
+        for eth, slave in bond["interfaces"].items():
+            sstat = slave.get("status", "down")
+            s = 0 if sstat == "up" else 1
+            hw = slave.get("hwaddr")
+            if hw != None:
+                summary_parts.append(eth + "/" + hw + " " + sstat)
+            else:
+                summary_parts.append(eth + " " + sstat)
+            state = _max_state(state, s)
+    elif expected_active == active_if:
+        summary_parts.append("Active: " + active_if)
+    else:
+        summary_parts.append("Active: " + active_if + " (expected is " + str(expected_active) + ")")
+        state = _max_state(state, 1)
+
+    expected_ifaces = params.get("expected_interfaces")
+    if expected_ifaces != None:
+        actual = len(bond["interfaces"])
+        exp_num = expected_ifaces.get("expected_number", 2)
+        if actual < exp_num:
+            summary_parts.append("Unexpected number of interfaces (expected: " + str(exp_num) + ", got: " + str(actual) + ")")
+            state = _max_state(state, expected_ifaces.get("state", 0))
+
+    return {"changed": False,
+            "msg": " ; ".join(summary_parts),
+            "data": {"state": _state_str(state), "metrics": {}, "details": ""}}
+
+
+_mode_map = [
+    ("mode_0", "round-robin"),
+    ("mode_1", "active-backup"),
+    ("mode_2", "xor"),
+    ("mode_3", "broadcast"),
+    ("mode_4", "802.3ad"),
+    ("mode_5", "transmit"),
+    ("mode_6", "adaptive"),
+]
+
+
+def _check_bonding_mode(current_mode, config):
+    state = 0
+    summary = "Mode: " + current_mode
+    mode_lower = current_mode.lower()
+    for mode_key, mode_str in _mode_map:
+        if mode_str in mode_lower:
+            summary = "Mode: " + mode_str
+            state = config.get(mode_key, 0)
+            if state != 0:
+                summary += " (not allowed)"
+            break
+    return state, summary
+
+
+def _state_from_status(status):
+    if status == "up":
+        return 0
+    if status == "degraded":
+        return 1
+    return 2
+
+
+_state_map = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+_str_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+
+
+def _state_str(n):
+    return _str_map.get(n, "UNKNOWN")
+
+
+def _max_state(a, b):
+    if a >= b:
+        return a
+    return b

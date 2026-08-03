@@ -1,74 +1,59 @@
 name: smtp
 fqcn: checkmk.smtp
 collection: checkmk
-short_description: SMTP server connectivity check
-description: Connects to an SMTP server via TCP and verifies the greeting banner contains the expected string (default '220'). Optionally tests STARTTLS capability via openssl s_client (with optional SNI via fqdn), monitors TLS certificate expiry days, and enforces response-time warn/crit thresholds.
+short_description:
+description: Checkmk active check 'smtp', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
-        type: string
-        required: true
-        description: Service name — prefixed with 'SMTP ' unless the name starts with '^'
     hostname:
         type: string
-        required: true
-        description: DNS hostname or IP address of the SMTP server
-    port:
-        type: number
-        default: 25
-        description: TCP port the SMTP server listens on (25=SMTP, 465=SMTPS, 587=submission)
-    timeout_s:
-        type: number
-        default: 30
-        description: Connection timeout in seconds
-    expect:
-        type: string
-        default: 220
-        description: Expected string in the first line of the server greeting
+        description: hostname (from the check's parameters).
     address_family:
         type: string
         default: primary
-        enum:
-            - primary
-            - ipv4
-            - ipv6
-        description: IP address family preference when connecting
-    starttls:
-        type: bool
-        default: false
-        description: Upgrade the plain SMTP connection to TLS via STARTTLS
-    fqdn:
+        description: address_family (from the check's parameters).
+    expect:
         type: string
-        description: FQDN sent in EHLO/HELO and used as the TLS SNI server name
+        description: expect (from the check's parameters).
+    port:
+        type: string
+        description: port (from the check's parameters).
+    commands:
+        type: string
+        description: commands (from the check's parameters).
+    command_responses:
+        type: string
+        description: command_responses (from the check's parameters).
     from_address:
         type: string
-        description: Sender address for MAIL FROM (required by some servers such as Exchange)
-    cert_days_warn:
-        type: number
-        description: Warn when the TLS certificate expires within this many days
-    cert_days_crit:
-        type: number
-        description: Critical when the TLS certificate expires within this many days
-    auth_user:
-        type: string
-        description: Username for SMTP AUTH LOGIN
-    auth_password:
-        type: string
-        secret: true
-        description: Password for SMTP AUTH LOGIN
-    response_time_warn_s:
-        type: number
-        description: Warn if the initial server response exceeds this many seconds
-    response_time_crit_s:
-        type: number
-        description: Critical if the initial server response exceeds this many seconds
-    commands:
+        description: from_address (from the check's parameters).
+    response_time:
         type: list
-        description: Additional SMTP commands to send after the greeting
-    command_responses:
+        description: response_time (from the check's parameters).
+    timeout:
+        type: string
+        description: timeout (from the check's parameters).
+    auth:
+        type: string
+        description: auth (from the check's parameters).
+    starttls:
+        type: string
+        description: starttls (from the check's parameters).
+    fqdn:
+        type: string
+        description: fqdn (from the check's parameters).
+    cert_days:
         type: list
-        description: Expected response strings for each additional SMTP command
+        description: cert_days (from the check's parameters).
+    host_config:
+        type: string
+        description: host_config (from the check's parameters).
+    name:
+        type: string
+        default: smtp
+        description: name (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

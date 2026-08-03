@@ -1,95 +1,136 @@
-def main(ctx, params):
-    # Constants from Checkmk lib.df.FILESYSTEM_DEFAULT_PARAMS
-    FILESYSTEM_DEFAULT_PARAMS = {
-        "levels": (80.0, 90.0),
-        "levels_low": (50.0, 60.0),
-        "magic_normsize": 20.0,
-        "show_levels": "onwarn",
-        "show_inodes": "onwarn",
-        "show_reserved": True,
-        "trend_range": 24,
-        "trend_perfdata": False,
-    }
+# Checkmk check plugin: fast_lta_silent_cubes_capacity
+# Translated to a read-only Starlark check module for the yolo-man agent.
+#
+# This check monitors the capacity of Fast LTA Silent Cubes storage nodes
+# via SNMP. It fetches total and used bytes from the enterprise MIB subtree
+# .1.3.6.1.4.1.27417.3 (OIDs .2 = total, .3 = used) using net-snmp and
+# reports a single aggregated "Total" service using the df filesystem
+# ruleset thresholds.
 
-    # Merge provided params with defaults
-    effective_params = dict(FILESYSTEM_DEFAULT_PARAMS)
-    for k in params:
-        effective_params[k] = params[k]
-    warn_percent, crit_percent = effective_params["levels"]
-
-    # Probe Fast LTA Silent Cubes via SNMP (single value: total and used bytes)
-    # SNMP OID base .1.3.6.1.4.1.27417.3 with oids 2 (total) and 3 (used)
-    res = ctx.run([
-        "/usr/bin/snmpget", "-Ovq", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.27417.3.2.0", ".1.3.6.1.4.1.27417.3.3.0"
-    ], mutates=False)
+def fetch_silent_cubes(ctx, host, community, oid_suffix):
+    # Returns the bare scalar value for an OID, or "" on failure.
+    oid = ".1.3.6.1.4.1.27417.3." + oid_suffix
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
     if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+def probe_silent_cubes(ctx, host, community):
+    # Probe the underlying Fast LTA Silent Cubes device.
+    # Returns a list of [total_bytes, used_bytes] rows (mirrors the SNMPTable),
+    # or an empty list if the device is absent / unreadable.
+    detect_oid = ".1.3.6.1.4.1.27417.3.2"
+    # 1. Verify the product is actually present via a scalar GET.
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, detect_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    total = fetch_silent_cubes(ctx, host, community, "2")
+    used = fetch_silent_cubes(ctx, host, community, "3")
+    if total == "" or used == "":
+        return []
+    if not total.isdigit() or not used.isdigit():
+        return []
+    return [[total, used]]
+
+def df_grade(total_mb, free_mb, warn, crit):
+    # Reproduces df_check_filesystem_list threshold grading on a single block.
+    # used_percent = used / total ; warn/crit are percentage levels.
+    if total_mb <= 0:
+        return "UNKNOWN", 0
+    used_mb = total_mb - free_mb
+    pct = (used_mb / total_mb) * 100.0
+    if pct >= crit:
+        return "CRITICAL", pct
+    if pct >= warn:
+        return "WARNING", pct
+    return "OK", pct
+
+def main(ctx, params):
+    if params.get("_discover"):
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        rows = probe_silent_cubes(ctx, host, community)
+        if len(rows) == 0:
+            # Product not present on this host — no services.
+            return {
+                "changed": False,
+                "msg": "no Fast LTA Silent Cubes device found",
+                "data": {"discovery": []},
+            }
+        # Single aggregated service "Total"; exposed metric follows df ruleset.
         return {
             "changed": False,
-            "msg": "SNMP query failed",
+            "msg": "discovered Fast LTA Silent Cubes capacity",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "Total",
+                        "params": {
+                            "warn": params.get("warn", 80),
+                            "crit": params.get("crit", 90),
+                        },
+                        "metrics": ["used_percent"],
+                    }
+                ],
+                "host_labels": {"cmk/vendor": "fast_lta"},
+            },
+        }
+
+    # --- CHECK MODE ---
+    item = params.get("item", "Total")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    if item != "Total":
+        return {
+            "changed": False,
+            "msg": "unknown item: " + str(item),
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    lines = res.stdout.strip().split("\n")
-    if len(lines) != 2:
+    rows = probe_silent_cubes(ctx, host, community)
+    if len(rows) == 0:
         return {
             "changed": False,
-            "msg": "Unexpected SNMP output length",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "no Fast LTA Silent Cubes device found",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "Device not reachable or not present.",
+            },
         }
 
-    total_str = lines[0].strip() if len(lines) > 0 else ""
-    used_str = lines[1].strip() if len(lines) > 1 else ""
-    if total_str == "" or used_str == "":
-        return {
-            "changed": False,
-            "msg": "Missing SNMP values",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    if not total_str.isdigit() or not used_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "Non-numeric SNMP values",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    total_bytes = int(total_str)
-    used_bytes = int(used_str)
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
+    total_mb_acc = {"v": 0}
+    free_mb_acc = {"v": 0}
 
-    # Convert to MiB
-    total_mib = total_bytes / 1048576.0
-    avail_mib = (total_bytes - used_bytes) / 1048576.0
-    used_mib = used_bytes / 1048576.0
+    for total, used in rows:
+        total_bytes = int(total)
+        used_bytes = int(used)
+        total_mb = total_bytes / 1048576.0
+        free_mb = (total_bytes - used_bytes) / 1048576.0
+        total_mb_acc["v"] += total_mb
+        free_mb_acc["v"] += free_mb
 
-    # Compute percentages
-    if total_bytes == 0:
-        used_percent = 0.0
-    else:
-        used_percent = 100.0 * float(used_bytes) / float(total_bytes)
-
-    # Determine state
-    state = "OK"
-    if used_percent >= crit_percent:
-        state = "CRIT"
-    elif used_percent >= warn_percent:
-        state = "WARN"
-
-    # Build message
-    msg = "Size: %f MiB, Used: %f MiB (%f%%)" % (total_mib, used_mib, used_percent)
-
-    # Build metrics dict (perfdata)
-    metrics = {
-        "size": total_mib,
-        "used": used_mib,
-        "avail": avail_mib,
-        "util": used_percent,
-    }
-
+    state, pct = df_grade(total_mb_acc["v"], free_mb_acc["v"], warn, crit)
+    total_mb_acc_v = total_mb_acc["v"]
+    free_mb_acc_v = free_mb_acc["v"]
+    used_mb = total_mb_acc_v - free_mb_acc_v
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Total %f MB used, %f%% full" % (used_mb, pct),
         "data": {
             "state": state,
-            "metrics": metrics,
-            "details": "",
+            "metrics": {"used_percent": pct},
+            "details": "Total: %f MB, Used: %f MB, Free: %f MB" % (
+                total_mb_acc_v, used_mb, free_mb_acc_v,
+            ),
         },
     }

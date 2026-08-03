@@ -1,162 +1,160 @@
-# Module: lnx_thermal
-# Read-only check module for Linux thermal zones
-
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/sys/class/thermal/thermal_zone*/type", "/sys/class/thermal/thermal_zone*/temp", "/sys/class/thermal/thermal_zone*/trip_points/*_temp", "/sys/class/thermal/thermal_zone*/mode"], mutates=False)
-        lines = res.stdout.splitlines()
-        zones = _parse_thermal_sections(lines)
-        discovery_items = []
-        for item, thermal in zones.items():
-            if thermal["enabled"]:
-                discovery_items.append({
-                    "item": item,
-                    "params": {"levels": (70.0, 80.0), "device_levels_handling": "devdefault"},
-                    "metrics": ["temp"]
-                })
-        return {"changed": False, "msg": "discovered %d thermal zones" % len(discovery_items),
-                "data": {"discovery": discovery_items}}
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
+def _discover(ctx, params):
+    zonefiles = _list_thermal_zones(ctx)
+    if len(zonefiles) == 0:
+        return {"changed": False, "msg": "no thermal zones found",
+                "data": {"discovery": []}}
+    out = []
+    for zf in zonefiles:
+        thermal = _read_zone(ctx, zf)
+        if thermal == None:
+            continue
+        if not thermal["enabled"]:
+            continue
+        out.append({"item": "Zone " + _zone_num(zf),
+                    "params": {"levels": (70.0, 80.0)},
+                    "metrics": ["temperature"]})
+    return {"changed": False, "msg": "discovered %d zones" % len(out),
+            "data": {"discovery": out}}
+
+def _check(ctx, params):
     item = params.get("item", "")
-    res = ctx.run(["cat", "/sys/class/thermal/thermal_zone*/type", "/sys/class/thermal/thermal_zone*/temp", "/sys/class/thermal/thermal_zone*/trip_points/*_temp", "/sys/class/thermal/thermal_zone*/mode"], mutates=False)
-    lines = res.stdout.splitlines()
-    zones = _parse_thermal_sections(lines)
-    data = zones.get(item)
-
-    if data == None or not data["enabled"]:
-        return {"changed": False, "msg": "thermal zone not found or disabled: " + item,
+    zonefiles = _list_thermal_zones(ctx)
+    if len(zonefiles) == 0:
+        return {"changed": False, "msg": "no thermal zones found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    temp = data["temp"]
-    warn_level = data.get("passive")
-    crit_level = _get_crit_level(data.get("hot"), data.get("critical"))
-
-    # Determine levels for check_temperature logic
+    target = _zone_num_to_file(item)
+    thermal = _read_zone(ctx, target)
+    if thermal == None or not thermal["enabled"]:
+        return {"changed": False, "msg": "no such thermal zone: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    temp = thermal["temperature"]
+    warn = params.get("warn", 70.0)
+    crit = params.get("crit", 80.0)
     levels = params.get("levels", (70.0, 80.0))
-    dev_levels_handling = params.get("device_levels_handling", "devdefault")
-
-    # Apply device levels when enabled
-    if dev_levels_handling == "devdefault" or dev_levels_handling == "devdefault_warn":
-        if crit_level != None:
-            levels = (levels[0] if levels[0] > crit_level else levels[0], crit_level)
-        if warn_level != None and levels[0] == levels[1]:
-            levels = (warn_level, levels[1])
-        elif warn_level != None:
-            levels = (warn_level, levels[1])
-
-    warn, crit = levels[0], levels[1]
-
-    # Determine state
-    state = "OK"
+    if type(levels) == "list" and len(levels) == 2:
+        warn = levels[0]
+        crit = levels[1]
+    dev_crit = thermal["critical"]
+    dev_hot = thermal["hot"]
+    dev_warn = thermal["passive"]
+    eff_crit = _min_nonzero(dev_crit, dev_hot)
+    if eff_crit != None and crit != None:
+        crit = min(crit, eff_crit)
+    elif eff_crit != None:
+        crit = eff_crit
+    if dev_warn != None and warn != None:
+        warn = min(warn, dev_warn)
+    elif dev_warn != None:
+        warn = dev_warn
     if crit != None and temp >= crit:
         state = "CRIT"
     elif warn != None and temp >= warn:
         state = "WARN"
+    else:
+        state = "OK"
+    details = "Temperature: %f C" % temp
+    if dev_warn != None:
+        details = details + ", Passive: %f C" % dev_warn
+    if dev_crit != None:
+        details = details + ", Critical: %f C" % dev_crit
+    if dev_hot != None:
+        details = details + ", Hot: %f C" % dev_hot
+    return {"changed": False, "msg": "%s %f C" % (item, temp),
+            "data": {"state": state, "metrics": {"temperature": temp}, "details": details}}
 
-    msg_parts = ["Temperature %s: %f °C" % (item, temp)]
-    if warn != None:
-        msg_parts.append("(warn at %f °C)" % warn)
-    if crit != None:
-        msg_parts.append("(crit at %f °C)" % crit)
-    if data.get("passive") != None:
-        msg_parts.append("passive: %f" % data["passive"])
-    if data.get("hot") != None:
-        msg_parts.append("hot: %f" % data["hot"])
-    if data.get("critical") != None:
-        msg_parts.append("critical: %f" % data["critical"])
+def _list_thermal_zones(ctx):
+    res = ctx.run(["ls", "/sys/class/thermal/"], mutates=False)
+    if res.rc != 0:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        s = line.strip()
+        if s.startswith("thermal_zone"):
+            out.append(s)
+    return out
 
-    metrics = {"temp": temp}
-    if warn_level != None:
-        metrics["passive"] = warn_level
-    if data.get("hot") != None:
-        metrics["hot"] = data["hot"]
-    if crit_level != None:
-        metrics["crit"] = crit_level
+def _zone_num(zonename):
+    return zonename[len("thermal_zone"):]
 
-    return {"changed": False, "msg": ", ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+def _zone_num_to_file(item):
+    if item.startswith("Zone "):
+        return "thermal_zone" + item[len("Zone "):]
+    return item
 
+def _min_nonzero(a, b):
+    vals = []
+    if a != None and a > 0:
+        vals.append(a)
+    if b != None and b > 0:
+        vals.append(b)
+    if len(vals) == 0:
+        return None
+    return min(vals)
 
-def _parse_thermal_sections(lines):
-    # Parse /sys/class/thermal/... entries
-    zones = {}
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if not line.startswith("thermal_zone"):
-            i += 1
+def _read_zone(ctx, zonename):
+    base = "/sys/class/thermal/" + zonename + "/"
+    enabled = _read_int(ctx, base, "temp")
+    if enabled < 0:
+        return None
+    enabled_bool = True
+    raw_temp = _read_int(ctx, base, "temp")
+    temp = _to_celsius(ctx, raw_temp)
+    passive = _read_trip(ctx, base, "trip_point0_temp", "trip_point0_type", "passive")
+    critical = _read_trip(ctx, base, "trip_point0_temp", "trip_point0_type", "critical")
+    hot = _read_trip(ctx, base, "trip_point0_temp", "trip_point0_type", "hot")
+    return {"enabled": enabled_bool, "temperature": temp,
+            "passive": passive, "critical": critical, "hot": hot}
+
+def _to_celsius(ctx, raw):
+    if raw >= 100000:
+        return float(raw) / 1000.0
+    return float(raw)
+
+def _read_trip(ctx, base, temp_file, type_file, want_type):
+    for i in range(20):
+        tfile = "trip_point" + str(i) + "_temp"
+        tyfile = "trip_point" + str(i) + "_type"
+        tval = _safe_read_int(ctx, base + tfile)
+        if tval == None or tval <= 0:
             continue
-        # Extract zone name
-        zone_name = line.split("/")[-1]
-        i += 1
-
-        # Next lines: mode, then temp, then trip points
-        mode_line = ""
-        temp_line = ""
-        trip_lines = []
-
-        # Collect all lines for this zone until next zone or EOF
-        while i < len(lines) and not lines[i].startswith("thermal_zone"):
-            line = lines[i].strip()
-            if line.endswith("/mode"):
-                mode_line = lines[i+1].strip() if i+1 < len(lines) else ""
-                i += 2
-                continue
-            elif line.endswith("/temp"):
-                temp_line = lines[i+1].strip() if i+1 < len(lines) else ""
-                i += 2
-                continue
-            elif "trip_points/" in line and line.endswith("_temp"):
-                trip_lines.append(lines[i+1].strip() if i+1 < len(lines) else "")
-                i += 2
-                continue
-            i += 1
-
-        # Parse temp
-        temp = None
-        if temp_line.isdigit():
-            temp = float(temp_line) / 1000.0
-        elif temp_line == "":
-            i += 1
+        ttype = _safe_read_str(ctx, base + tyfile)
+        if ttype == None:
             continue
+        if ttype.strip() == want_type:
+            return float(tval) / 1000.0
+        if want_type == "critical" and ttype.strip() == "critical":
+            return float(tval) / 1000.0
+        if want_type == "hot" and ttype.strip() == "hot":
+            return float(tval) / 1000.0
+        if want_type == "passive" and ttype.strip() == "passive":
+            return float(tval) / 1000.0
+    return None
 
-        # Parse mode
-        enabled = True
-        if mode_line in ["-", "enabled"]:
-            enabled = True
-        elif mode_line == "disabled":
-            enabled = False
+def _read_int(ctx, base, fname):
+    res = ctx.run(["cat", base + fname], mutates=False)
+    if res.rc != 0:
+        return -1
+    s = res.stdout.strip()
+    if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+        return int(s)
+    return -1
 
-        # Parse trip points: pairs of (trip_point_name, value)
-        trip_points = {}
-        for j in range(0, len(trip_lines), 2):
-            if j+1 >= len(trip_lines):
-                break
-            trip_name = trip_lines[j].strip().split("/")[-1].replace("_temp", "")
-            trip_val = trip_lines[j+1].strip()
-            if trip_val.isdigit() and int(trip_val) > 0:
-                trip_points[trip_name] = float(trip_val) / 1000.0
+def _safe_read_int(ctx, path):
+    res = ctx.run(["cat", path], mutates=False)
+    if res.rc != 0 or res.stdout.strip() == "":
+        return None
+    s = res.stdout.strip()
+    if s.isdigit() or (s.startswith("-") and s[1:].isdigit()):
+        return int(s)
+    return None
 
-        # Map zone name
-        formatted_name = _format_item_name(zone_name)
-        zones[formatted_name] = {
-            "enabled": enabled,
-            "temp": temp,
-            "passive": trip_points.get("passive"),
-            "critical": trip_points.get("critical"),
-            "hot": trip_points.get("hot"),
-        }
-
-    return zones
-
-
-def _format_item_name(raw_name):
-    return raw_name.replace("thermal_zone", "Zone ")
-
-
-def _get_crit_level(level0, level1):
-    if level0 == None:
-        return level1
-    if level1 == None:
-        return level0
-    return min(level0, level1)
+def _safe_read_str(ctx, path):
+    res = ctx.run(["cat", path], mutates=False)
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()

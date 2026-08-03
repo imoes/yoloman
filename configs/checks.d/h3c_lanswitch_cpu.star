@@ -1,111 +1,90 @@
-def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    warn, crit = params.get("levels", (50, 75))
+def _genitem(item):
+    cpuid = int(item)
+    if cpuid < 256:
+        switchid = 1
+        cputype = "Slot"
+        cpunum = cpuid
+    elif cpuid >= 65536:
+        switchid = cpuid // 65536
+        cputype = "CPU"
+        cpunum = cpuid % 65536
+    else:
+        switchid = 1
+        cputype = "Unknown"
+        cpunum = cpuid
+    return "Switch %d %s %d" % (switchid, cputype, cpunum)
 
-    # Discovery mode
+
+def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.43.45.1.6.1.1.1.3"
+        sysDescr = ctx.run([
+            "snmpget", "-v2c", "-c", params.get("community", "public"),
+            "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0",
         ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed: " + res.stderr,
+        if sysDescr.rc != 0:
+            return {"changed": False, "msg": "host is not an H3C/3Com device",
+                    "data": {"discovery": [], "host_labels": {}}}
+        descr = sysDescr.stdout.strip()
+        if "3com" not in descr.lower():
+            return {"changed": False, "msg": "host is not an H3C/3Com device",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        walk = ctx.run([
+            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
+            "-Oqn", params.get("host", "localhost"), ".1.3.6.1.4.1.43.45.1.6.1.1.1.3",
+        ], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no CPU data found",
                     "data": {"discovery": []}}
 
         out = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
+        for line in walk.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) < 2:
                 continue
-            oid_end = parts[0].strip().rsplit(".", 1)[-1]
-            value_str = parts[1].strip()
-            if not value_str.startswith("Gauge32:"):
-                continue
-            cpu_val_str = value_str.split(":", 1)[1].strip()
-            if not cpu_val_str.isdigit():
-                continue
-            cpuid = int(cpu_val_str)
-
-            # Apply same item generation logic as in source
-            if cpuid < 256:
-                switchid = 1
-                cputype = "Slot"
-                cpunum = cpuid
-            elif cpuid >= 65536:
-                switchid = cpuid // 65536
-                cputype = "CPU"
-                cpunum = cpuid % 65536
-            else:
-                switchid = 1
-                cputype = "Unknown"
-                cpunum = cpuid
-
-            item_name = "Switch %d %s %d" % (switchid, cputype, cpunum)
-            out.append({
-                "item": item_name,
-                "params": {"levels": [warn, crit]},
-                "metrics": ["usage"]
-            })
-
+            oid = parts[0]
+            base = ".1.3.6.1.4.1.43.45.1.6.1.1.1.3"
+            idx = oid[len(base) + 1:]
+            out.append({"item": _genitem(idx), "params": {"levels": [50, 75]},
+                        "metrics": ["usage"]})
         return {"changed": False, "msg": "discovered %d CPU items" % len(out),
                 "data": {"discovery": out}}
 
-    # Check mode
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.43.45.1.6.1.1.1.3"
-    ], mutates=False)
+    levels = params.get("levels", (50, 75))
+    if type(levels) == "list":
+        warn = int(levels[0])
+        crit = int(levels[1])
+    else:
+        warn = int(levels[0])
+        crit = int(levels[1])
 
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed: " + res.stderr,
+    walk = ctx.run([
+        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
+        "-Oqn", params.get("host", "localhost"), ".1.3.6.1.4.1.43.45.1.6.1.1.1.3",
+    ], mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "no CPU data found on host",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Build mapping from item names to values
-    item_map = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
+    base = ".1.3.6.1.4.1.43.45.1.6.1.1.1.3"
+    util = None
+    for line in walk.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) < 2:
             continue
-        oid_end = parts[0].strip().rsplit(".", 1)[-1]
-        value_str = parts[1].strip()
-        if not value_str.startswith("Gauge32:"):
-            continue
-        cpu_val_str = value_str.split(":", 1)[1].strip()
-        if not cpu_val_str.isdigit():
-            continue
-        cpuid = int(cpu_val_str)
+        oid = parts[0]
+        idx = oid[len(base) + 1:]
+        val = parts[1]
+        if _genitem(idx) == item:
+            util = int(val)
+            break
 
-        # Same item generation logic
-        if cpuid < 256:
-            switchid = 1
-            cputype = "Slot"
-            cpunum = cpuid
-        elif cpuid >= 65536:
-            switchid = cpuid // 65536
-            cputype = "CPU"
-            cpunum = cpuid % 65536
-        else:
-            switchid = 1
-            cputype = "Unknown"
-            cpunum = cpuid
-
-        item_name = "Switch %d %s %d" % (switchid, cputype, cpunum)
-        item_map[item_name] = cpuid
-
-    # Look up the requested item
-    if item not in item_map:
-        return {"changed": False, "msg": "%s not found" % item,
+    if util == None:
+        return {"changed": False, "msg": item + " not found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    util = item_map[item]
     infotext = "average usage was %d%% over last 5 minutes." % util
-
     if util > crit:
         state = "CRIT"
     elif util > warn:

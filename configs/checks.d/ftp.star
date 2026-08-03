@@ -1,75 +1,131 @@
 def main(ctx, params):
     if params.get("_discover"):
-        return {"changed": False, "msg": "active check (assign with parameters)", "data": {"discovery": []}}
+        return {
+            "changed": False,
+            "msg": "FTP active check has no discovery; configured per check",
+            "data": {"discovery": []},
+        }
 
-    host = params.get("host") or ""
-    port = int(params.get("port") or 21)
-    timeout_s = params.get("timeout_s") or 10
-    use_ssl = params.get("ssl") or False
+    port = params.get("port", None)
+    response_time = params.get("response_time", None)
+    timeout = params.get("timeout", None)
+    refuse_state = params.get("refuse_state", None)
+    send_string = params.get("send_string", None)
+    expect = params.get("expect", [])
+    ssl = params.get("ssl", False)
+    cert_days = params.get("cert_days", None)
 
-    probe_params = {
-        "host": host,
-        "port": port,
-        "timeout_s": timeout_s,
-        "tls": use_ssl,
-        "verify_tls": use_ssl,
-    }
+    # Determine the service item string (mirrors check_ftp_get_item)
+    if port != None and port != 21:
+        item = "FTP Port " + str(port)
+    else:
+        item = "FTP"
 
-    send_string = params.get("send_string")
+    # The host to connect to
+    host = params.get("host", "localhost")
+
+    # If SSL is requested, require the openssl tool for cert validation
+    if ssl and cert_days != None:
+        probe = ctx.run(["which", "openssl"], mutates=False)
+        if probe.rc != 0:
+            return {
+                "changed": False,
+                "msg": "openssl binary not found; cannot perform SSL FTP check",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+
+    # Build the command arguments mirroring generate_ftp_command
+    args = ["-H", host]
+
+    if port != None:
+        args += ["-p", str(port)]
+
+    if response_time != None:
+        warn_ms, crit_ms = response_time
+        args += ["-w", "%f" % (warn_ms / 1000.0)]
+        args += ["-c", "%f" % (crit_ms / 1000.0)]
+
+    if timeout != None:
+        args += ["-t", str(timeout)]
+
+    if refuse_state != None:
+        args += ["-r", refuse_state]
+
     if send_string != None:
-        probe_params["send"] = send_string
+        args += ["-s", send_string]
 
-    probe = ctx.probe("tcp", probe_params)
+    if expect != None:
+        for s in expect:
+            args += ["-e", s]
 
-    if probe.get("error"):
-        err = probe.get("error") or ""
-        refuse_state = params.get("refuse_state") or "crit"
-        if "refused" in err:
-            state = refuse_state.upper()
-        else:
-            state = "CRIT"
-        return {"changed": False, "msg": state, "data": {"state": state, "metrics": {}, "details": err}}
+    if ssl:
+        args.append("--ssl")
 
-    connect_ms = float(probe.get("connect_ms") or 0)
+    if cert_days != None:
+        cd_warn, cd_crit = cert_days
+        args += ["-D", str(cd_warn), str(cd_crit)]
+
+    # Probe for the monitored service — is the FTP client tool available?
+    ftpprobe = ctx.run(["which", "ftp"], mutates=False)
+    if ftpprobe.rc != 0:
+        return {
+            "changed": False,
+            "msg": "ftp client not found on host; cannot perform FTP check",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Run the actual FTP check command (read-only connection test)
+    check = ctx.run(["ftp"] + args, mutates=False)
+
+    if check.rc != 0:
+        rc = check.rc
+        stderr = check.stderr.strip() if check.stderr != None else ""
+        return {
+            "changed": False,
+            "msg": "FTP check failed (rc=%d): %s" % (rc, stderr),
+            "data": {"state": "CRIT", "metrics": {}, "details": stderr},
+        }
+
+    stdout = check.stdout.strip() if check.stdout != None else ""
+
+    # Parse response time from output if response_time thresholds were set
+    metrics = {}
     state = "OK"
-    problems = []
+    details = stdout
 
-    crit_ms = params.get("response_time_crit_ms")
-    warn_ms = params.get("response_time_warn_ms")
-    if crit_ms != None and connect_ms >= float(crit_ms):
-        state = "CRIT"
-        problems.append("response time %d ms" % int(connect_ms))
-    elif warn_ms != None and connect_ms >= float(warn_ms):
-        state = "WARN"
-        problems.append("response time %d ms" % int(connect_ms))
-
-    expect = params.get("expect") or []
-    received = probe.get("received") or ""
-    for s in expect:
-        if s not in received:
-            if state != "CRIT":
+    if response_time != None and stdout != None:
+        # Look for a floating point response time in the output
+        # Common formats: "response time: 0.123 seconds" or a bare number
+        tokens = stdout.split()
+        rt = None
+        for i in range(len(tokens)):
+            t = tokens[i]
+            # Try to parse a number from the token
+            cleaned = t
+            if cleaned.endswith("s") or cleaned.endswith("sec"):
+                cleaned = cleaned[:-1] if cleaned.endswith("s") else cleaned[:-3]
+            # Strip common non-numeric prefixes
+            parts = cleaned.split(":")
+            if len(parts) > 1:
+                cleaned = parts[-1].strip()
+            if cleaned.replace(".", "", 1).replace("-", "", 1).isdigit():
+                rt = float(cleaned)
+                break
+        if rt != None:
+            warn_ms, crit_ms = response_time
+            rt_ms = rt * 1000.0
+            metrics["response_time_ms"] = rt_ms
+            if rt_ms >= crit_ms:
                 state = "CRIT"
-            problems.append("expected '%s' not found" % s)
-
-    cert_days_left = probe.get("cert_days_left")
-    cert_days_warn = params.get("cert_days_warn")
-    cert_days_crit = params.get("cert_days_crit")
-    if cert_days_left != None:
-        days = float(cert_days_left)
-        if cert_days_crit != None and days <= float(cert_days_crit):
-            state = "CRIT"
-            problems.append("cert expires in %d days" % int(days))
-        elif cert_days_warn != None and days <= float(cert_days_warn):
-            if state == "OK":
+            elif rt_ms >= warn_ms:
                 state = "WARN"
-            problems.append("cert expires in %d days" % int(days))
 
-    detail = "FTP %s:%d connected, %d ms" % (host, port, int(connect_ms))
-    if problems:
-        detail += " | " + "; ".join(problems)
-
-    metrics = {"connect_ms": connect_ms}
-    if cert_days_left != None:
-        metrics["cert_days_left"] = float(cert_days_left)
-
-    return {"changed": False, "msg": state, "data": {"state": state, "metrics": metrics, "details": detail}}
+    return {
+        "changed": False,
+        "msg": item + " " + state + ": " + stdout,
+        "data": {
+            "state": state,
+            "metrics": metrics,
+            "details": details,
+        },
+    }

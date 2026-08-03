@@ -1,270 +1,240 @@
 def main(ctx, params):
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Discover mode
+    community = params.get("community", "public")
+    version = params.get("snmp_version", "2c")
+    oid_end = params.get("oid_end", "")
+    name = params.get("name", "")
+
+    # Discovery OID base (entity names): .1.3.6.1.2.1.47.1.1.1.1 with OIDEnd + "7"
+    name_base = ".1.3.6.1.2.1.47.1.1.1.1"
+    name_oid_col = "7"
+
+    # Power states/current base: .1.3.6.1.4.1.9.9.117.1.1.2.1 with OIDEnd + "2" + "3"
+    power_base = ".1.3.6.1.4.1.9.9.117.1.1.2.1"
+    state_col = "2"
+    current_col = "3"
+
+    def _snmp_get(oid):
+        res = ctx.run(
+            ["snmpget", "-" + version, "-c", community, "-Oqv", host, oid],
+            mutates=False,
+        )
+        return res
+
+    def _snmp_walk(oid):
+        res = ctx.run(
+            ["snmpwalk", "-" + version, "-c", community, "-Oqn", host, oid],
+            mutates=False,
+        )
+        return res
+
+    def parse_walk(res):
+        rows = {}
+        if res.rc != 0 or not res.stdout:
+            return rows
+        for line in res.stdout.splitlines():
+            idx = line.find(" ")
+            if idx == -1:
+                continue
+            oid_part = line[:idx]
+            rest = line[idx + 1:]
+            # value portion may contain leading type info; -Oqn removes it
+            value = rest.strip()
+            rows[oid_part] = value
+        return rows
+
+    # Discovery mode
     if params.get("_discover"):
-        # Fetch power supply states and currents
-        res_states = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.9.9.117.1.1.2.1.2"
-        ], mutates=False)
-        res_currents = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.9.9.117.1.1.2.1.3"
-        ], mutates=False)
-        res_names = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.2.1.47.1.1.1.1.7"
-        ], mutates=False)
-        
-        # Parse OID values
-        states = {}
-        for line in res_states.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_end = parts[0].strip().split(".")[-1]
-            value = parts[1].strip()
-            if value.startswith("INTEGER: "):
-                value = value[9:]
-            elif value.startswith("Gauge32: "):
-                value = value[9:]
-            if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-                states[oid_end] = int(value)
-        
-        currents = {}
-        for line in res_currents.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_end = parts[0].strip().split(".")[-1]
-            value = parts[1].strip()
-            if value.startswith("INTEGER: "):
-                value = value[9:]
-            elif value.startswith("Gauge32: "):
-                value = value[9:]
-            if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-                currents[oid_end] = int(value)
-        
-        # Parse device names
-        names_map = {}
-        for line in res_names.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            full_oid = parts[0].strip()
-            value = parts[1].strip()
-            if value.startswith("STRING: "):
-                value = value[8:]
-            if value.startswith('"') and value.endswith('"'):
-                value = value[1:-1]
-            oid_end = full_oid.split(".")[-1]
-            names_map[oid_end] = value
-        
-        # Build name map using the logic from the check plugin
-        oid_to_name = {}
-        grouped = {}
-        for oid_end, name in names_map.items():
-            if oid_end in states:
-                if name not in grouped:
-                    grouped[name] = []
-                grouped[name].append(oid_end)
-        
-        for name, oid_ends in grouped.items():
-            if len(oid_ends) == 1:
-                oid_to_name[name] = oid_ends[0]
+        # First verify this is a Cisco device via sysDescr
+        descr_res = ctx.run(
+            ["snmpget", "-" + version, "-c", community, "-Oqv", host,
+             ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        is_cisco = False
+        if descr_res.rc == 0 and descr_res.stdout:
+            if "cisco" in descr_res.stdout.lower():
+                is_cisco = True
+
+        # Check for the entPhysicalModelName existence (not_exists detection in source)
+        # The source uses not_exists(".1.3.6.1.4.1.9.9.13.1.5.1.*") to detect non-Cisco.
+        # We approximate by requiring Cisco sysDescr AND successful power OID.
+        if not is_cisco:
+            return {"changed": False, "msg": "not a cisco device",
+                    "data": {"discovery": []}}
+
+        # Fetch names (entity physical) and power states/currents
+        names_res = _snmp_walk(name_base + "." + name_oid_col)
+        power_res = _snmp_walk(power_base + "." + state_col)
+
+        # Also need currents via a separate column walk
+        current_res = _snmp_walk(power_base + "." + current_col)
+
+        names = parse_walk(names_res)
+        states = parse_walk(power_res)
+        currents = parse_walk(current_res)
+
+        # Build oid_end -> name map and oid_end -> name (for readable names)
+        # name OID lines look like: <base>.<col>.<oidend> <value>
+        # We need the index (oid_end) which is the suffix after the column base.
+        name_entries = []  # list of (oid_end, name_value)
+        for oid_full, val in names.items():
+            suffix = oid_full[len(name_base) + 1:]
+            # suffix is like "7.<index>" or "<col>.<index>"; split on first "."
+            parts = suffix.split(".", 1)
+            if len(parts) == 2:
+                col = parts[0]
+                idx = parts[1]
+                name_entries.append((idx, val))
+
+        # Build name_map: name -> oid_end, handling duplicates (numbered)
+        # Group by name value, assign numbers for duplicates
+        by_name = {}
+        for idx, val in name_entries:
+            by_name.setdefault(val, []).append(idx)
+
+        # We need oid_end -> name for items that have a real PSU (current >= 0, state != 0)
+        # raw_states / raw_currents keyed by oid_end
+        state_map = {}
+        current_map = {}
+        for oid_full, val in states.items():
+            suffix = oid_full[len(power_base) + 1:]
+            parts = suffix.split(".", 1)
+            if len(parts) == 2:
+                idx = parts[1]
+                state_map[idx] = val
+        for oid_full, val in currents.items():
+            suffix = oid_full[len(power_base) + 1:]
+            parts = suffix.split(".", 1)
+            if len(parts) == 2:
+                idx = parts[1]
+                current_map[idx] = val
+
+        # Build name -> oid_end with duplicates numbered
+        name_to_oidend = {}
+        for nm, idxs in by_name.items():
+            if len(idxs) == 1:
+                name_to_oidend[nm] = idxs[0]
             else:
-                for i, oid_end in enumerate(oid_ends):
-                    oid_to_name["%s-%d" % (name, i + 1)] = oid_end
-        
-        # Process each FRU
-        discovery_items = []
-        for name, oid_end in oid_to_name.items():
-            state_val = states.get(oid_end)
-            current_val = currents.get(oid_end)
-            if state_val == None or current_val == None:
-                continue
-            
-            # Check if it's a "real" PSU (state != 0 and current >= 0)
-            if state_val == 0 or current_val < 0:
-                continue
-            
-            # Skip discovery for off env other (1) and off admin (3)
-            if state_val in (1, 3):
-                continue
-            
-            # Build suggested params
-            discovery_items.append({
-                "item": name,
-                "params": {},
-                "metrics": []
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d power supplies" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
+                for num, idx in enumerate(idxs, start=1):
+                    name_to_oidend[nm + "-" + str(num)] = idx
+
+        # Determine real PSUs
+        discovery = []
+        for nm, oid_end_val in name_to_oidend.items():
+            s_raw = state_map.get(oid_end_val, "0")
+            c_raw = current_map.get(oid_end_val, "")
+            s_val = -1
+            c_val = -1
+            if s_raw.lstrip("-").isdigit():
+                s_val = int(s_raw)
+            if c_raw.lstrip("-").isdigit():
+                c_val = int(c_raw)
+            # _is_real_psu: state != 0 and current >= 0
+            if s_val != 0 and c_val >= 0:
+                # discover only if state not in (1, 3) -- off env other, off admin
+                if s_val not in (1, 3):
+                    discovery.append({
+                        "item": nm,
+                        "params": {"warn": 0, "crit": 0},
+                        "metrics": [],
+                    })
+
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
     # Check mode
     item = params.get("item", "")
-    
-    # Fetch all necessary data in one go
-    res_states = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.9.9.117.1.1.2.1.2"
-    ], mutates=False)
-    res_currents = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.9.9.117.1.1.2.1.3"
-    ], mutates=False)
-    res_names = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.2.1.47.1.1.1.1.7"
-    ], mutates=False)
-    
-    # Parse OID values
-    states = {}
-    for line in res_states.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_end = parts[0].strip().split(".")[-1]
-        value = parts[1].strip()
-        if value.startswith("INTEGER: "):
-            value = value[9:]
-        elif value.startswith("Gauge32: "):
-            value = value[9:]
-        if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-            states[oid_end] = int(value)
-    
-    currents = {}
-    for line in res_currents.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_end = parts[0].strip().split(".")[-1]
-        value = parts[1].strip()
-        if value.startswith("INTEGER: "):
-            value = value[9:]
-        elif value.startswith("Gauge32: "):
-            value = value[9:]
-        if value.isdigit() or (value.startswith("-") and value[1:].isdigit()):
-            currents[oid_end] = int(value)
-    
-    # Parse device names
-    names_map = {}
-    for line in res_names.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        full_oid = parts[0].strip()
-        value = parts[1].strip()
-        if value.startswith("STRING: "):
-            value = value[8:]
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        oid_end = full_oid.split(".")[-1]
-        names_map[oid_end] = value
-    
-    # Build name map using the logic from the check plugin
-    oid_to_name = {}
-    grouped = {}
-    for oid_end, name in names_map.items():
-        if oid_end in states:
-            if name not in grouped:
-                grouped[name] = []
-            grouped[name].append(oid_end)
-    
-    for name, oid_ends in grouped.items():
-        if len(oid_ends) == 1:
-            oid_to_name[name] = oid_ends[0]
+    if not item:
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # We need to re-fetch data to find the oid_end for this item
+    names_res = _snmp_walk(name_base + "." + name_oid_col)
+    power_res = _snmp_walk(power_base + "." + state_col)
+    current_res = _snmp_walk(power_base + "." + current_col)
+
+    if names_res.rc != 0 or power_res.rc != 0:
+        return {"changed": False,
+                "msg": "failed to fetch SNMP data: " + (names_res.stderr or power_res.stderr),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    names = parse_walk(names_res)
+    states = parse_walk(power_res)
+    currents = parse_walk(current_res)
+
+    # Build name -> oid_end map
+    name_entries = []
+    for oid_full, val in names.items():
+        suffix = oid_full[len(name_base) + 1:]
+        parts = suffix.split(".", 1)
+        if len(parts) == 2:
+            name_entries.append((parts[1], val))
+
+    by_name = {}
+    for idx, val in name_entries:
+        by_name.setdefault(val, []).append(idx)
+
+    name_to_oidend = {}
+    for nm, idxs in by_name.items():
+        if len(idxs) == 1:
+            name_to_oidend[nm] = idxs[0]
         else:
-            for i, oid_end in enumerate(oid_ends):
-                oid_to_name["%s-%d" % (name, i + 1)] = oid_end
-    
-    # Get item data
-    oid_end = oid_to_name.get(item)
-    if oid_end == None or oid_end not in states or oid_end not in currents:
-        return {
-            "changed": False,
-            "msg": "FRU not found: " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    state_val = states[oid_end]
-    current_val = currents[oid_end]
-    
-    # Check if it's a "real" PSU (state != 0 and current >= 0)
-    if state_val == 0 or current_val < 0:
-        return {
-            "changed": False,
-            "msg": "Not a real PSU: " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Map state to status
-    state_readable = "unexpected (%d)" % state_val
-    state_str = "UNKNOWN"
-    
-    if state_val == 1:
-        state_readable = "off env other"
-        state_str = "WARN"
-    elif state_val == 2:
-        state_readable = "on"
-        state_str = "OK"
-    elif state_val == 3:
-        state_readable = "off admin"
-        state_str = "WARN"
-    elif state_val == 4:
-        state_readable = "off denied"
-        state_str = "CRIT"
-    elif state_val == 5:
-        state_readable = "off env power"
-        state_str = "CRIT"
-    elif state_val == 6:
-        state_readable = "off env temp"
-        state_str = "CRIT"
-    elif state_val == 7:
-        state_readable = "off env fan"
-        state_str = "CRIT"
-    elif state_val == 8:
-        state_readable = "failed"
-        state_str = "CRIT"
-    elif state_val == 9:
-        state_readable = "on but fan fail"
-        state_str = "WARN"
-    elif state_val == 10:
-        state_readable = "off cooling"
-        state_str = "WARN"
-    elif state_val == 11:
-        state_readable = "off connector rating"
-        state_str = "WARN"
-    elif state_val == 12:
-        state_readable = "on but inline power fail"
-        state_str = "CRIT"
-    
-    return {
-        "changed": False,
-        "msg": "Status: " + state_readable,
-        "data": {
-            "state": state_str,
-            "metrics": {"current": current_val},
-            "details": "Current: %d A" % current_val
-        }
+            for num, idx in enumerate(idxs, start=1):
+                name_to_oidend[nm + "-" + str(num)] = idx
+
+    if item not in name_to_oidend:
+        return {"changed": False,
+                "msg": "item not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    oid_end_val = name_to_oidend[item]
+
+    # Build state/current maps
+    state_map = {}
+    current_map = {}
+    for oid_full, val in states.items():
+        suffix = oid_full[len(power_base) + 1:]
+        parts = suffix.split(".", 1)
+        if len(parts) == 2:
+            state_map[parts[1]] = val
+    for oid_full, val in currents.items():
+        suffix = oid_full[len(power_base) + 1:]
+        parts = suffix.split(".", 1)
+        if len(parts) == 2:
+            current_map[parts[1]] = val
+
+    s_raw = state_map.get(oid_end_val, "0")
+    c_raw = current_map.get(oid_end_val, "")
+
+    state_val = -1
+    if s_raw.lstrip("-").isdigit():
+        state_val = int(s_raw)
+
+    # _STATE_MAP
+    state_map_values = {
+        1: ("WARN", "off env other"),
+        2: ("OK", "on"),
+        3: ("WARN", "off admin"),
+        4: ("CRIT", "off denied"),
+        5: ("CRIT", "off env power"),
+        6: ("CRIT", "off env temp"),
+        7: ("CRIT", "off env fan"),
+        8: ("CRIT", "failed"),
+        9: ("WARN", "on but fan fail"),
+        10: ("WARN", "off cooling"),
+        11: ("WARN", "off connector rating"),
+        12: ("CRIT", "on but inline power fail"),
     }
 
-# Define State constants for the check module
-State_OK = "OK"
-State_WARN = "WARN"
-State_CRIT = "CRIT"
-State_UNKNOWN = "UNKNOWN"
+    if state_val == -1:
+        verdict = ("UNKNOWN", "unexpected (%s)" % s_raw)
+    else:
+        verdict = state_map_values.get(state_val,
+                                       ("UNKNOWN", "unexpected (%d)" % state_val))
+
+    return {"changed": False,
+            "msg": "Status: %s" % verdict[1],
+            "data": {"state": verdict[0], "metrics": {},
+                     "details": "Item: %s, Current: %s" % (item, c_raw)}}

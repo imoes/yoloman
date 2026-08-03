@@ -1,124 +1,85 @@
+def _parse_meminfo(content):
+    out = {}
+    for line in content.splitlines():
+        parts = line.split(":")
+        if len(parts) != 2:
+            continue
+        key = parts[0].strip()
+        val_parts = parts[1].strip().split()
+        if len(val_parts) == 0:
+            continue
+        num_str = val_parts[0]
+        if not num_str.isdigit():
+            continue
+        out[key] = int(num_str)
+    return out
+
+
 def main(ctx, params):
     if params.get("_discover"):
-        # Read /proc/meminfo to check for vmalloc data
-        content = ctx.file_read("/proc/meminfo")
-        section = {}
-        for line in content.splitlines():
-            if line.strip() == "":
-                continue
-            parts = line.split()
-            if len(parts) < 2:
-                continue
-            key = parts[0].rstrip(":")
-            # Only collect the fields we need
-            if key in ["VmallocTotal", "VmallocUsed", "VmallocChunk"]:
-                # Value is in kB
-                val_str = parts[1]
-                if val_str.isdigit():
-                    section[key] = int(val_str)
-                else:
-                    section[key] = 0
+        info = ctx.file_read("/proc/meminfo") if ctx.file_exists("/proc/meminfo") else ""
+        if not info:
+            return {"changed": False, "msg": "no /proc/meminfo",
+                    "data": {"discovery": []}}
+        mem = _parse_meminfo(info)
+        if "VmallocTotal" not in mem:
+            return {"changed": False, "msg": "no vmalloc info",
+                    "data": {"discovery": []}}
+        if mem.get("VmallocUsed", 0) == 0 and mem.get("VmallocChunk", 0) == 0:
+            return {"changed": False, "msg": "vmalloc data zero",
+                    "data": {"discovery": []}}
+        if mem.get("VmallocTotal", 0) >= 4 * 1024 * 1024:
+            return {"changed": False, "msg": "64-bit system, skipped",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "",
+                     "params": {"levels_used_perc": (80.0, 90.0),
+                                "levels_lower_chunk_mb": (64, 32)},
+                     "metrics": ["total_mb", "used_mb", "chunk_mb"]}]}}
 
-        # Skip if not Linux (Checkmk section would be "mem" only on Linux)
-        os_family = ctx.facts().get("os_family", "")
-        if os_family != "linux":
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+    info = ctx.file_read("/proc/meminfo") if ctx.file_exists("/proc/meminfo") else ""
+    if not info:
+        return {"changed": False, "msg": "no /proc/meminfo",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    mem = _parse_meminfo(info)
+    if "VmallocTotal" not in mem or "VmallocUsed" not in mem or "VmallocChunk" not in mem:
+        return {"changed": False, "msg": "vmalloc fields missing",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-        # Skip if no vmalloc data
-        if "VmallocTotal" not in section:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+    total_mb = mem["VmallocTotal"] / 1024.0 / 1024.0
+    used_mb = mem["VmallocUsed"] / 1024.0 / 1024.0
+    chunk_mb = mem["VmallocChunk"] / 1024.0 / 1024.0
 
-        # Skip newer kernels reporting wrong data (VmallocUsed=0 AND VmallocChunk=0)
-        vmalloc_used = section.get("VmallocUsed", 0)
-        vmalloc_chunk = section.get("VmallocChunk", 0)
-        vmalloc_total = section.get("VmallocTotal", 0)
-        if vmalloc_used == 0 and vmalloc_chunk == 0:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+    levels = params.get("levels_used_perc", (80.0, 90.0))
+    warn_perc = levels[0]
+    crit_perc = levels[1]
+    warn_abs = total_mb * warn_perc / 100.0
+    crit_abs = total_mb * crit_perc / 100.0
 
-        # Skip 64-bit systems (infinite vmalloc) - check VmallocTotal < 4 GiB
-        if vmalloc_total >= 4 * 1024 * 1024:  # 4*1024^2 in kB = 4 GiB
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-
-        # Single-service check: item is ""
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "", "params": {
-                "levels_used_perc": (80.0, 90.0),
-                "levels_lower_chunk_mb": (64, 32)
-            }, "metrics": ["used", "chunk"]}]}
-        }
-
-    # Check mode
-    content = ctx.file_read("/proc/meminfo")
-    section = {}
-    for line in content.splitlines():
-        if line.strip() == "":
-            continue
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        key = parts[0].rstrip(":")
-        if key in ["VmallocTotal", "VmallocUsed", "VmallocChunk"]:
-            val_str = parts[1]
-            if val_str.isdigit():
-                section[key] = int(val_str)
-            else:
-                section[key] = 0
-
-    # If data missing or invalid, return UNKNOWN
-    if "VmallocTotal" not in section:
-        return {
-            "changed": False,
-            "msg": "no vmalloc data available",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    vmalloc_total_kb = section.get("VmallocTotal", 0)
-    vmalloc_used_kb = section.get("VmallocUsed", 0)
-    vmalloc_chunk_kb = section.get("VmallocChunk", 0)
-
-    # Convert to MB
-    total_mb = float(vmalloc_total_kb) / (1024.0 * 1024.0)
-    used_mb = float(vmalloc_used_kb) / (1024.0 * 1024.0)
-    chunk_mb = float(vmalloc_chunk_kb) / (1024.0 * 1024.0)
-
-    # Extract thresholds with defaults
-    levels_used_perc = params.get("levels_used_perc", (80.0, 90.0))
-    levels_lower_chunk_mb = params.get("levels_lower_chunk_mb", (64, 32))
-    warn_used_perc, crit_used_perc = levels_used_perc
-
-    # Calculate absolute levels
-    warn_used_mb = total_mb * warn_used_perc / 100.0
-    crit_used_mb = total_mb * crit_used_perc / 100.0
-    warn_chunk_mb, crit_chunk_mb = levels_lower_chunk_mb
-
-    # Determine states
-    state = "OK"
-    details_parts = []
-    details_parts.append("Total: %f MB" % total_mb)
-
-    # Used level check (upper levels)
-    if crit_used_mb > 0 and used_mb >= crit_used_mb:
+    if used_mb >= crit_abs:
         state = "CRIT"
-    elif warn_used_mb > 0 and used_mb >= warn_used_mb:
+    elif used_mb >= warn_abs:
         state = "WARN"
+    else:
+        state = "OK"
 
-    # Largest chunk check (lower levels)
-    if crit_chunk_mb > 0 and chunk_mb <= crit_chunk_mb:
-        state = "CRIT"
-    elif warn_chunk_mb > 0 and chunk_mb <= warn_chunk_mb:
-        state = "WARN"
+    lower = params.get("levels_lower_chunk_mb", (64, 32))
+    chunk_warn = lower[0]
+    chunk_crit = lower[1]
+    if chunk_mb <= chunk_crit:
+        chunk_state = "CRIT"
+    elif chunk_mb <= chunk_warn:
+        chunk_state = "WARN"
+    else:
+        chunk_state = "OK"
 
-    # Build message
-    msg = "Total: %f MB, Used: %f MB, Largest chunk: %f MB" % (total_mb, used_mb, chunk_mb)
+    final_state = "CRIT" if (state == "CRIT" or chunk_state == "CRIT") else (
+        "WARN" if (state == "WARN" or chunk_state == "WARN") else "OK")
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"used": used_mb, "chunk": chunk_mb},
-            "details": ""
-        }
-    }
+    msg = "Total: %f MB, Used: %f MB, Chunk: %f MB" % (total_mb, used_mb, chunk_mb)
+    details = msg
+    return {"changed": False, "msg": msg,
+            "data": {"state": final_state,
+                     "metrics": {"total_mb": total_mb, "used_mb": used_mb, "chunk_mb": chunk_mb},
+                     "details": details}}

@@ -1,55 +1,46 @@
 name: sftp
 fqcn: checkmk.sftp
 collection: checkmk
-short_description: SFTP server connectivity
-description: Connects to an SFTP server via SSH and verifies authentication using a username and password (requires sshpass on the agent host). Optionally uploads a local file, downloads a remote file, and reports the modification time of a specified remote path. Returns CRIT if the connection, authentication, or any configured file operation fails.
+short_description:
+description: Checkmk active check 'sftp', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
-        type: string
-        description: Service label shown in monitoring
-        required: true
     host:
         type: string
-        description: SFTP server hostname or IP address
-        required: true
+        default:
+        description: host (from the check's parameters).
     user:
         type: string
-        description: SSH/SFTP username
-        required: true
-    password:
+        default:
+        description: user (from the check's parameters).
+    secret:
         type: string
-        description: SSH/SFTP password
-        required: true
-        secret: true
+        default:
+        description: secret (from the check's parameters).
     port:
-        type: number
-        description: SFTP port number
-        default: 22
-    timeout_s:
-        type: number
-        description: Connection timeout in seconds
-        default: 10
-    look_for_keys:
-        type: bool
-        description: Also attempt SSH key authentication from ~/.ssh (in addition to password)
-        default: false
+        type: string
+        description: port (from the check's parameters).
+    timeout:
+        type: string
+        description: timeout (from the check's parameters).
     timestamp:
         type: string
-        description: Remote file path whose modification time to report (e.g. mydir/testfile)
-    put_local:
+        description: timestamp (from the check's parameters).
+    put:
         type: string
-        description: Local file path to upload; created automatically if absent (e.g. testfile.txt)
-    put_remote:
+        description: put (from the check's parameters).
+    get:
         type: string
-        description: Remote destination directory for the uploaded file (must exist on server)
-    get_remote:
+        description: get (from the check's parameters).
+    look_for_keys:
+        type: bool
+        default: False
+        description: look_for_keys (from the check's parameters).
+    description:
         type: string
-        description: Remote file path to download (relative to user home, e.g. mydir/testfile)
-    get_local:
-        type: string
-        description: Local destination directory for the downloaded file
+        description: description (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

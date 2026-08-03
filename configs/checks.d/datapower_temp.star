@@ -1,200 +1,237 @@
-# ===== module-level constants =====
-DATAPOWER_TEMP_OID_BASE = ".1.3.6.1.4.1.14685.3.1.141.1"
-DATAPOWER_TEMP_STATUS_MAPPING = {
-    "8": "CRIT device status: failure",
-    "9": "UNKNOWN device status: noReading",
-    "10": "CRIT device status: invalid",
-}
-DEFAULT_WARN = 65.0
-DEFAULT_CRIT = 70.0
+# ===== translated check: cmk datapower_temp (SNMP) =====
+
+def _to_float(s):
+    if s == None or s == "":
+        return None
+    neg = False
+    val = s
+    if s.startswith("-"):
+        neg = True
+        val = s[1:]
+    if not val.replace(".", "", 1).isdigit():
+        return None
+    f = float(s)
+    return f
+
+
+def _parse_sensor_row(row):
+    # row: [name, value, warn, status, crit]
+    if len(row) < 5:
+        return None
+    name = row[0]
+    temp = row[1]
+    warn = row[2]
+    status = row[3]
+    crit = row[4]
+    if name == "" or temp == "":
+        return None
+    temp_f = _to_float(temp)
+    warn_f = _to_float(warn)
+    crit_f = _to_float(crit)
+    dev_levels = None
+    if warn_f != None and crit_f != None:
+        dev_levels = (warn_f, crit_f)
+    return {
+        "name": name,
+        "temp": temp_f,
+        "warn": warn_f,
+        "crit": crit_f,
+        "status": status,
+        "dev_levels": dev_levels,
+    }
+
+
+def _sensor_status_result(status):
+    # DATAPOWER_TEMP_STATUS_MAPPING
+    if status == "8":
+        return ("CRIT", "device status: failure")
+    elif status == "9":
+        return ("UNKNOWN", "device status: noReading")
+    elif status == "10":
+        return ("CRIT", "device status: invalid")
+    return None
+
+
+def _eval_temperature(reading, levels, dev_levels):
+    # upper-level semantics: WARN if reading >= warn, CRIT if reading >= crit
+    warn = None
+    crit = None
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+    if warn == None and dev_levels != None:
+        warn = dev_levels[0]
+    if crit == None and dev_levels != None:
+        crit = dev_levels[1]
+    if reading == None or warn == None or crit == None:
+        return "UNKNOWN"
+    if reading >= crit:
+        return "CRIT"
+    if reading >= warn:
+        return "WARN"
+    return "OK"
 
 
 def main(ctx, params):
+    item = params.get("item", "")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_oid = "1.3.6.1.4.1.14685.3.1.141.1"
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), DATAPOWER_TEMP_OID_BASE
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed: " + res.stderr,
-                "data": {"discovery": []}
-            }
+        # --- DISCOVERY ---
+        # Verify the device is a Datapower appliance (DETECT)
+        sysoid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Ovqn", "-O0", host, "1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysoid_res.skipped or sysoid_res.rc != 0:
+            return {"changed": False, "msg": "snmp unreachable", "data": {"discovery": []}}
+        sysoid = sysoid_res.stdout.strip()
+        dp_models = [
+            "1.3.6.1.4.1.14685.1.8",
+            "1.3.6.1.4.1.14685.1.7",
+            "1.3.6.1.4.1.14685.1.3",
+        ]
+        is_datapower = False
+        for m in dp_models:
+            if sysoid == m:
+                is_datapower = True
+                break
+        if not is_datapower:
+            return {"changed": False, "msg": "not a Datapower device", "data": {"discovery": []}}
 
-        # Parse SNMP output: OID = TYPE: value lines
-        entries = {}
+        # Walk the sensor name column
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-O0", host, base_oid + ".1"],
+            mutates=False,
+        )
+        if res.skipped or res.rc != 0:
+            return {"changed": False, "msg": "no temp sensors", "data": {"discovery": []}}
+
+        discovery = []
+        seen_items = set()
+        col_base_name = base_oid + ".1"
         for line in res.stdout.splitlines():
-            if not line.strip():
+            line = line.strip()
+            if line == "":
                 continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
+            sp = line.find(" ")
+            if sp < 0:
                 continue
-            oid, value_part = parts
-            # Extract instance index (last number after last dot)
-            oid_parts = oid.split(".")
-            if len(oid_parts) < 10:
+            line_oid = line[:sp]
+            line_val = line[sp + 1:]
+            if not line_oid.startswith(col_base_name + "."):
                 continue
-            idx_str = oid_parts[-1]
-            idx = int(idx_str) if idx_str.isdigit() else None
-            if idx == None:
+            index = line_oid[len(col_base_name) + 1:]
+            if index == "":
                 continue
-            value = value_part.split(": ", 1)
-            if len(value) != 2:
+            name = line_val
+            if name.startswith("STRING: "):
+                name = name[len("STRING: "):]
+            name = name.strip('"').strip()
+            name = name.strip("Temperature ")
+            if name == "" or name in seen_items:
                 continue
-            val_str = value[1].strip()
-
-            # Group by index
-            if idx not in entries:
-                entries[idx] = {}
-            entries[idx][oid_parts[-2]] = val_str
-
-        # Reconstruct records: name, temp, warn, status, crit
-        discovered = []
-        for idx in entries:
-            e = entries[idx]
-            name_raw = e.get("1", "")
-            temp_str = e.get("2", "")
-            warn_str = e.get("3", "")
-            status_str = e.get("5", "")
-            crit_str = e.get("6", "")
-
-            name = name_raw.strip("Temperature ")
-            # Skip if name is empty or name_raw doesn't start with "Temperature "
-            if not name or not name_raw.startswith("Temperature "):
-                continue
-
-            temp = float(temp_str) if temp_str.replace(".", "").replace("-", "").isdigit() else None
-            warn = float(warn_str) if warn_str.replace(".", "").replace("-", "").isdigit() else None
-            crit = float(crit_str) if crit_str.replace(".", "").replace("-", "").isdigit() else None
-
-            # Use SNMP thresholds if present, otherwise defaults
-            warn = warn if warn != None else DEFAULT_WARN
-            crit = crit if crit != None else DEFAULT_CRIT
-
-            status_msg = DATAPOWER_TEMP_STATUS_MAPPING.get(status_str, None)
-            metrics = ["temperature"]
-
-            discovered.append({
+            seen_items.add(name)
+            discovery.append({
                 "item": name,
-                "params": {"levels": (warn, crit)},
-                "metrics": metrics
+                "params": {"levels": (65.0, 70.0)},
+                "metrics": ["temperature"],
             })
 
         return {
             "changed": False,
-            "msg": "discovered %d temperature sensors" % len(discovered),
-            "data": {"discovery": discovered}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    # Check mode
-    item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), DATAPOWER_TEMP_OID_BASE
-    ], mutates=False)
-
-    if res.rc != 0:
+    # --- CHECK ---
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-O0", host, base_oid + ".1"],
+        mutates=False,
+    )
+    if res.skipped or res.rc != 0:
         return {
             "changed": False,
-            "msg": "SNMP walk failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no temp sensors",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Parse and look for item
-    entries = {}
+    col_base_name = base_oid + ".1"
+    target_index = None
     for line in res.stdout.splitlines():
-        if not line.strip():
+        line = line.strip()
+        if line == "":
             continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
+        sp = line.find(" ")
+        if sp < 0:
             continue
-        oid, value_part = parts
-        oid_parts = oid.split(".")
-        if len(oid_parts) < 10:
+        line_oid = line[:sp]
+        line_val = line[sp + 1:]
+        if not line_oid.startswith(col_base_name + "."):
             continue
-        idx_str = oid_parts[-1]
-        idx = int(idx_str) if idx_str.isdigit() else None
-        if idx == None:
+        index = line_oid[len(col_base_name) + 1:]
+        if index == "":
             continue
-        value = value_part.split(": ", 1)
-        if len(value) != 2:
-            continue
-        val_str = value[1].strip()
-
-        if idx not in entries:
-            entries[idx] = {}
-        entries[idx][oid_parts[-2]] = val_str
-
-    # Find matching sensor
-    found = False
-    temp_val = None
-    status_msg = None
-    warn = DEFAULT_WARN
-    crit = DEFAULT_CRIT
-
-    for idx in entries:
-        e = entries[idx]
-        name_raw = e.get("1", "")
-        temp_str = e.get("2", "")
-        status_str = e.get("5", "")
-        warn_str = e.get("3", "")
-        crit_str = e.get("6", "")
-
-        name = name_raw.strip("Temperature ")
-        if not name or not name_raw.startswith("Temperature "):
-            continue
-
+        name = line_val
+        if name.startswith("STRING: "):
+            name = name[len("STRING: "):]
+        name = name.strip('"').strip()
+        name = name.strip("Temperature ")
         if name == item:
-            found = True
-            temp_val = float(temp_str) if temp_str.replace(".", "").replace("-", "").isdigit() else None
-            if warn_str.replace(".", "").replace("-", "").isdigit():
-                warn = float(warn_str)
-            if crit_str.replace(".", "").replace("-", "").isdigit():
-                crit = float(crit_str)
-            status_msg = DATAPOWER_TEMP_STATUS_MAPPING.get(status_str, None)
+            target_index = index
             break
 
-    # Device not found or item missing
-    if not found or temp_val == None:
+    if target_index == None:
         return {
             "changed": False,
             "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Apply thresholds
-    levels = params.get("levels", (DEFAULT_WARN, DEFAULT_CRIT))
-    warn_threshold = levels[0] if levels[0] != None else DEFAULT_WARN
-    crit_threshold = levels[1] if levels[1] != None else DEFAULT_CRIT
+    # Read value, warn, status, crit columns for target_index via snmpget -Oqv
+    def _get(col):
+        r = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", "-O0", host, base_oid + "." + col + "." + target_index],
+            mutates=False,
+        )
+        if r.skipped or r.rc != 0:
+            return None
+        v = r.stdout.strip()
+        if v.startswith("STRING: "):
+            v = v[len("STRING: "):]
+        v = v.strip('"')
+        return v
 
-    state = "OK"
-    if status_msg:
-        if status_msg.startswith("CRIT"):
-            state = "CRIT"
-            msg = status_msg
-        elif status_msg.startswith("UNKNOWN"):
-            state = "UNKNOWN"
-            msg = status_msg
-        else:
-            state = "OK"
-            msg = "sensor status: ok"
+    temp_str = _get("2")
+    warn_str = _get("3")
+    status_str = _get("5")
+    crit_str = _get("6")
+
+    sensor = _parse_sensor_row([item, temp_str, warn_str, status_str, crit_str])
+    if sensor == None or sensor["temp"] == None:
+        return {
+            "changed": False,
+            "msg": "no temperature reading for " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    levels = params.get("levels", (65.0, 70.0))
+    st = _sensor_status_result(sensor["status"])
+    if st != None:
+        state_name = st[0]
+        detail = st[1] + ", reading: %s" % sensor["temp"]
     else:
-        if temp_val >= crit_threshold:
-            state = "CRIT"
-        elif temp_val >= warn_threshold:
-            state = "WARN"
-        else:
-            state = "OK"
-        msg = "Temperature: %f C" % temp_val
+        state_name = _eval_temperature(sensor["temp"], levels, sensor["dev_levels"])
+        detail = "Temperature %s: %s" % (item, sensor["temp"])
 
-    # Return result
     return {
         "changed": False,
-        "msg": msg,
+        "msg": detail,
         "data": {
-            "state": state,
-            "metrics": {"temperature": temp_val},
-            "details": ""
-        }
+            "state": state_name,
+            "metrics": {"temperature": sensor["temp"]},
+            "details": detail,
+        },
     }

@@ -1,98 +1,103 @@
-# Fan status check for Synology devices via SNMP
-# Translated from checkmk.synology_fans
+# synology_fans.py — translated from Checkmk synology_fans check
+# Monitors Synology NAS fan status via SNMP.
+# Source: cmk/plugins/synology/agent_based/synology_fans.py
 
-FAN_OID_SYSTEM = ".1.3.6.1.4.1.6574.1.4.1"
-FAN_OID_CPU = ".1.3.6.1.4.1.6574.1.4.2"
+# OID base for Synology fan status (1.3.6.1.4.1.6574.1.4)
+# .1 = System fan, .2 = CPU fan
+SYS_BASE = ".1.3.6.1.4.1.6574.1.4"
+SYS_OID_SYSTEM = SYS_BASE + ".1"
+SYS_OID_CPU = SYS_BASE + ".2"
 
-FAN_STATUS_NORMAL = 1
-FAN_STATUS_FAILURE = 2
+# Fan status enum values (from synology FanStatus)
+FAN_NORMAL = 1   # OK
+FAN_FAILURE = 2  # CRIT
+
+# Map each fan item to its numeric SNMP index suffix.
+FAN_OIDS = {
+    "System": SYS_OID_SYSTEM,
+    "CPU": SYS_OID_CPU,
+}
+
+
+def _snmp_get(ctx, host, community, oid):
+    """Fetch a scalar SNMP value, returning the bare numeric string or None."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    # rc == 127 -> snmpget not installed; rc != 0 -> device unreachable / no such OID
+    if res.rc != 0 or res.skipped:
+        return None
+    val = res.stdout.strip()
+    if val == "":
+        return None
+    return val
+
+
+def _probe_fans(ctx, params):
+    """Gather current fan statuses from the device. Returns dict or None."""
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    statuses = {}
+    for item, oid in FAN_OIDS.items():
+        raw = _snmp_get(ctx, host, community, oid)
+        if raw == None:
+            return None
+        # Guard the int conversion (no try/except in Starlark).
+        statuses[item] = int(raw) if raw.lstrip("-").isdigit() else None
+    return statuses
+
 
 def main(ctx, params):
+    # Discovery mode: enumerate items this host actually has.
     if params.get("_discover"):
-        # Discovery: enumerate fans present on this host
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            FAN_OID_SYSTEM, FAN_OID_CPU
-        ], mutates=False)
-        
-        if res.rc != 0:
-            # Cannot discover — skip (Checkmk would not create services)
-            return {"changed": False, "msg": "no fans discovered", "data": {"discovery": []}}
-        
-        # Parse snmpwalk output: lines like ".1.3.6.1.4.1.6574.1.4.1 = INTEGER: 1"
-        fans = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            if " = INTEGER: " not in line:
-                continue
-            parts = line.split(" = INTEGER: ")
-            if len(parts) != 2:
-                continue
-            oid_part = parts[0].strip()
-            val_part = parts[1].strip()
-            # Guard: check if val_part is a digit string before converting
-            if not val_part.isdigit():
-                continue
-            val = int(val_part)
-            
-            if oid_part == FAN_OID_SYSTEM:
-                fans.append({"item": "System", "params": {}, "metrics": []})
-            elif oid_part == FAN_OID_CPU:
-                fans.append({"item": "CPU", "params": {}, "metrics": []})
-        
-        return {"changed": False, "msg": "discovered %d fans" % len(fans),
-                "data": {"discovery": fans}}
-    
-    # Check mode: validate single fan
+        statuses = _probe_fans(ctx, params)
+        if not statuses:
+            return {
+                "changed": False,
+                "msg": "no synology fan status available",
+                "data": {"discovery": []},
+            }
+        discovery = []
+        for item in statuses:
+            discovery.append({
+                "item": item,
+                "params": {},
+                "metrics": [],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d fan items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    # Check mode: evaluate one item.
     item = params.get("item", "")
-    
-    # Fetch fan statuses via snmpget
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        FAN_OID_SYSTEM, FAN_OID_CPU
-    ], mutates=False)
-    
-    if res.rc != 0 or res.stdout == "":
-        return {"changed": False, "msg": "failed to get fan data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Build lookup of OID -> status
-    fan_status_map = {}
-    lines = res.stdout.splitlines()
-    for line in lines:
-        if " = INTEGER: " not in line:
-            continue
-        parts = line.split(" = INTEGER: ")
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        val = parts[1].strip()
-        if not val.isdigit():
-            continue
-        val_int = int(val)
-        if oid == FAN_OID_SYSTEM:
-            fan_status_map["System"] = val_int
-        elif oid == FAN_OID_CPU:
-            fan_status_map["CPU"] = val_int
-    
-    # Lookup requested fan item
-    status_val = fan_status_map.get(item)
-    if status_val == None:
-        return {"changed": False, "msg": "no such fan: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Determine state
-    if status_val == FAN_STATUS_NORMAL:
+    statuses = _probe_fans(ctx, params)
+    if statuses == None:
+        return {
+            "changed": False,
+            "msg": "no synology fan status available for %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    if item not in statuses:
+        return {
+            "changed": False,
+            "msg": "no such fan item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    status = statuses[item]
+    if status == FAN_NORMAL:
         state = "OK"
         summary = "Operating normally"
-    elif status_val == FAN_STATUS_FAILURE:
+    elif status == FAN_FAILURE:
         state = "CRIT"
         summary = "Fan failed"
     else:
         state = "UNKNOWN"
-        summary = "Unknown fan status: %d" % status_val
-    
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+        summary = "Unknown fan status code %s" % str(status)
+    return {
+        "changed": False,
+        "msg": summary,
+        "data": {"state": state, "metrics": {}, "details": ""},
+    }

@@ -1,171 +1,136 @@
-# Constants for SNMP OIDs
-BASE_OID = ".1.3.6.1.4.1.318.1.1.10.2.3.2.1"
-OID_INDEX = "1"
-OID_STATUS = "3"
-OID_TEMP = "4"
-OID_TEMP_UNIT = "5"
-SYS_OID = ".1.3.6.1.2.1.1.2.0"
-APC_OID_PREFIX = ".1.3.6.1.4.1.318"
-
-# Temperature unit constants
-TEMP_UNIT_CELSIUS = "1"
-TEMP_UNIT_FAHRENHEIT = "2"
-
-# Status constants (from SNMP data)
-STATUS_ACTIVE = "2"
-
-
 def main(ctx, params):
-    # Discovery mode: enumerate all external temperature sensors that are active
     if params.get("_discover"):
-        # Fetch SNMP data: index, status, temp, temp_unit
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            BASE_OID
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", 
+        community = params.get("community", "public")
+        host = params.get("host", "localhost")
+        version = params.get("version", "2c")
+        ver_arg = "-v" + version
+
+        sys = ctx.run(
+            ["snmpget", ver_arg, "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False)
+        if sys.rc == 127:
+            return {"changed": False, "msg": "not installed",
                     "data": {"discovery": []}}
-        
-        # Parse the output into lines
-        lines = res.stdout.splitlines()
-        items = []
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            # Check if this line matches one of our OIDs (base OID prefix)
-            if line.startswith(BASE_OID + "."):
-                # Collect the four consecutive values for one entry
-                values = []
-                while i < len(lines) and len(values) < 4:
-                    l = lines[i].strip()
-                    if l.startswith(BASE_OID + "."):
-                        # Extract value after '='
-                        eq_pos = l.find("=")
-                        if eq_pos != -1:
-                            val = l[eq_pos+1:].strip()
-                            # Remove type prefix (e.g., "Gauge32:", "INTEGER:", etc.)
-                            if ":" in val:
-                                val = val.split(":", 1)[1].strip()
-                            values.append(val)
-                        i += 1
-                    else:
-                        break
-                
-                if len(values) >= 4:
-                    index, status, temp, temp_unit = values[0], values[1], values[2], values[3]
-                    # Only include if status == "2" (active)
-                    if status == STATUS_ACTIVE:
-                        # Extract numeric index (last OID component)
-                        idx = index.rsplit(".", 1)[-1]
-                        items.append({
-                            "item": idx,
-                            "params": {"levels": (30.0, 35.0)},
-                            "metrics": ["temp"]
-                        })
-            else:
-                i += 1
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d sensors" % len(items),
-            "data": {"discovery": items}
-        }
+        if sys.rc != 0 or not sys.stdout:
+            return {"changed": False, "msg": "no sysOID",
+                    "data": {"discovery": []}}
+        sysval = sys.stdout.strip()
+        if not sysval.startswith(".1.3.6.1.4.1.318"):
+            return {"changed": False, "msg": "not APC",
+                    "data": {"discovery": []}}
 
-    # Check mode: verify one specific sensor (item is the index)
+        base = ".1.3.6.1.4.1.318.1.1.10.2.3.2.1"
+        idx_res = ctx.run(
+            ["snmpwalk", ver_arg, "-c", community, "-Oqn", "-On", host, base + ".1"],
+            mutates=False)
+        if idx_res.rc == 127:
+            return {"changed": False, "msg": "not installed",
+                    "data": {"discovery": []}}
+        if idx_res.rc != 0:
+            return {"changed": False, "msg": "snmpwalk idx failed",
+                    "data": {"discovery": []}}
+
+        st_res = ctx.run(
+            ["snmpwalk", ver_arg, "-c", community, "-Oqn", "-On", host, base + ".3"],
+            mutates=False)
+        if st_res.rc != 0:
+            return {"changed": False, "msg": "snmpwalk status failed",
+                    "data": {"discovery": []}}
+
+        idx_to_status = {}
+        for line in idx_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            idx = oid[len(base) + 1:]
+            if idx == "":
+                continue
+            idx_to_status[idx] = ""
+
+        for line in st_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            oid = parts[0]
+            val = parts[1].strip()
+            idx = oid[len(base) + 1:]
+            idx_to_status[idx] = val
+
+        discovery = []
+        warn = params.get("warn", 30.0)
+        crit = params.get("crit", 35.0)
+        for idx, status in idx_to_status.items():
+            if status == "2":
+                discovery.append({
+                    "item": idx,
+                    "params": {"levels": (warn, crit)},
+                    "metrics": ["temperature"],
+                })
+        return {"changed": False,
+                "msg": "discovered %d external temperature sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    if item == None:
-        item = ""
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    version = params.get("version", "2c")
+    ver_arg = "-v" + version
+    base = ".1.3.6.1.4.1.318.1.1.10.2.3.2.1"
 
-    # Fetch SNMP data for the specific sensor item
-    # We'll fetch all and filter in code since snmpget with index-specific OID may vary
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        BASE_OID
-    ], mutates=False)
+    st_res = ctx.run(
+        ["snmpget", ver_arg, "-c", community, "-Oqv", "-On", host, base + ".3." + item],
+        mutates=False)
+    tp_res = ctx.run(
+        ["snmpget", ver_arg, "-c", community, "-Oqv", "-On", host, base + ".4." + item],
+        mutates=False)
+    un_res = ctx.run(
+        ["snmpget", ver_arg, "-c", community, "-Oqv", "-On", host, base + ".5." + item],
+        mutates=False)
 
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    if st_res.rc == 127:
+        return {"changed": False, "msg": "snmpget not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if st_res.rc != 0:
+        return {"changed": False, "msg": "sensor %s not found in SNMP data" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse section into list of entries
-    section = []
-    lines = res.stdout.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i].strip()
-        if line.startswith(BASE_OID + "."):
-            values = []
-            while i < len(lines) and len(values) < 4:
-                l = lines[i].strip()
-                if l.startswith(BASE_OID + "."):
-                    eq_pos = l.find("=")
-                    if eq_pos != -1:
-                        val = l[eq_pos+1:].strip()
-                        if ":" in val:
-                            val = val.split(":", 1)[1].strip()
-                        values.append(val)
-                    i += 1
-                else:
-                    break
+    status = st_res.stdout.strip()
+    temp_raw = tp_res.stdout.strip()
+    unit_raw = un_res.stdout.strip()
 
-            if len(values) >= 4:
-                idx = values[0].rsplit(".", 1)[-1]
-                status, temp, temp_unit = values[1], values[2], values[3]
-                section.append((idx, status, temp, temp_unit))
-        else:
-            i += 1
+    if not temp_raw.isdigit():
+        return {"changed": False, "msg": "cannot parse temperature",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    temp = int(temp_raw)
 
-    # Find matching item
-    reading = None
-    dev_unit = "c"
-    for idx, status, temp, temp_unit in section:
-        if idx == item:
-            if status == STATUS_ACTIVE:
-                # Guard before parsing integer
-                if temp.isdigit() or (temp.startswith("-") and temp[1:].isdigit()):
-                    reading = int(temp)
-                dev_unit = "f" if temp_unit == TEMP_UNIT_FAHRENHEIT else "c"
-            break
+    if status != "2":
+        return {"changed": False,
+                "msg": "sensor %s not active (status %s)" % (item, status),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # If sensor not found or not active -> UNKNOWN
-    if reading == None:
-        return {
-            "changed": False,
-            "msg": "Sensor not found in SNMP data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    unit = "c"
+    if unit_raw == "2":
+        unit = "f"
+        temp = int((temp - 32) * 5 / 9)
 
-    # Extract thresholds from params with Checkmk defaults
     levels = params.get("levels", (30.0, 35.0))
-    warn, crit = levels[0], levels[1]
+    if type(levels) == "list":
+        warn = levels[0] if len(levels) > 0 else 30.0
+        crit = levels[1] if len(levels) > 1 else 35.0
+    else:
+        warn = params.get("warn", 30.0)
+        crit = params.get("crit", 35.0)
 
-    # Determine state
-    # Use integer comparison (readings are integer per the source)
-    if reading >= crit:
+    if temp >= crit:
         state = "CRIT"
-    elif reading >= warn:
+    elif temp >= warn:
         state = "WARN"
     else:
         state = "OK"
 
-    # Format message
-    unit_str = "F" if dev_unit == "f" else "C"
-    return {
-        "changed": False,
-        "msg": "Temperature: %d.%d °%s" % (reading // 1, abs(reading % 1) * 10, unit_str),
-        "data": {
-            "state": state,
-            "metrics": {"temp": float(reading)},
-            "details": ""
-        }
-    }
+    return {"changed": False,
+            "msg": "Temperature External %s: %d%s" % (item, temp, unit),
+            "data": {"state": state,
+                     "metrics": {"temperature": temp},
+                     "details": ""}}

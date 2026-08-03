@@ -1,7 +1,4 @@
-# hp_psu starlark check module for yolo-man agent
-# Read-only: only gathers data, never mutates the system
-
-# PSU status mapping: status code -> (state_str, summary)
+# Mapping of PSU status codes to (state, summary)
 _PSU_STATE_MAP = {
     "1": ("CRIT", "Not present"),
     "2": ("CRIT", "Not plugged"),
@@ -13,176 +10,136 @@ _PSU_STATE_MAP = {
     "9": ("CRIT", "Aux not powered"),
 }
 
+# SNMP base OID for the PSU table
+_BASE_OID = ".1.3.6.1.4.1.11.2.14.11.5.1.1.1"
+# Column OIDs (relative to base)
+_COL_STATUS = _BASE_OID + ".2"
+_COL_TEMP = _BASE_OID + ".4"
+
+def _walk_psu_table(ctx, params):
+    """Walk the SNMP table and return a dict mapping index -> {temp, status}."""
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Walk the status column to get all indices and their status values
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, _COL_STATUS],
+        mutates=False
+    )
+    if res.rc != 0:
+        return None
+
+    items = {}
+    for line in res.stdout.splitlines():
+        # Each line: "<OID> <value>", split on first space
+        idx = line.find(" ")
+        if idx < 0:
+            continue
+        oid = line[:idx]
+        value = line[idx + 1:].strip().strip('"')
+
+        # Extract the index from the OID suffix
+        suffix = oid[len(_COL_STATUS) + 1:]
+        if not suffix:
+            continue
+
+        # Strip surrounding quotes from value if present
+        status_val = value.strip('"') if value.startswith('"') and value.endswith('"') else value
+
+        items[suffix] = {"status": status_val, "temp": 0}
+
+    if not items:
+        return None
+
+    # Now fetch the temperature column for each index
+    for index in items:
+        get_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, _COL_TEMP + "." + index],
+            mutates=False
+        )
+        if get_res.rc == 0:
+            temp_str = get_res.stdout.strip().strip('"')
+            if temp_str and temp_str != "0":
+                items[index]["temp"] = int(temp_str) if temp_str.lstrip("-").isdigit() else 0
+
+    return items
+
+
 def main(ctx, params):
-    # Discovery mode: enumerate all power supply items
     if params.get("_discover"):
-        # Fetch: base OID .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1 with OIDEnd(), "2", "4"
-        # Map to item name (OIDEnd), status (oid 2), temp (oid 4)
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1"
-        ], mutates=False)
-        
-        items = []
-        # Parse snmpwalk output lines: "<oid>.<end> = STRING: <status>" and "<oid>.<end> = INTEGER: <temp>"
-        # We need to correlate status and temp per item index (the OID end value)
-        # Strategy: scan for both status and temp per OID end segment
-        # snmpwalk line format: OID = TYPE: VALUE
-        lines = res.stdout.splitlines()
-        status_map = {}
-        temp_map = {}
-        
-        # Walk all lines; look for status (STRING) and temp (INTEGER) entries
-        for line in lines:
-            if not line:
-                continue
-            # Split on " = " to separate OID from value part
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_part, value_part = parts
-            # Extract base OID and end segment
-            base = ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1"
-            if not oid_part.startswith(base + "."):
-                continue
-            end = oid_part[len(base)+1:]
-            # Parse value: TYPE: VALUE
-            if ": " in value_part:
-                type_val = value_part.split(": ", 1)
-                if len(type_val) == 2:
-                    val_type, val = type_val
-                    val = val.strip()
-                    # Status is STRING (type 2), temp is INTEGER (type 3)
-                    if val_type == "STRING" or val_type == "octet string":
-                        status_map[end] = val
-                    elif val_type == "INTEGER":
-                        temp_map[end] = val
-        
-        # Now build list of items by iterating over common ends
-        # Use ends present in status_map (required), and include temp if present
-        for item in sorted(status_map.keys()):
-            state_str = status_map[item]
-            temp_str = temp_map.get(item, "")
-            # Only add item if status is defined
-            if state_str != "":
-                metrics = ["temp"] if temp_str != "" else []
-                # Suggest default temperature levels
-                params_suggested = {"levels": [70.0, 80.0]}
-                items.append({
-                    "item": item,
-                    "params": params_suggested,
-                    "metrics": metrics
-                })
-        
+        section = _walk_psu_table(ctx, params)
+        if section == None or len(section) == 0:
+            return {
+                "changed": False,
+                "msg": "discovered 0 items",
+                "data": {"discovery": []},
+            }
+
+        # Discover temperature services for each PSU index
+        discovery = []
+        for index in section:
+            discovery.append({
+                "item": index,
+                "params": {"levels": (70.0, 80.0)},
+                "metrics": ["temperature"],
+            })
+
         return {
             "changed": False,
-            "msg": "discovered %d power supplies" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d temperature items" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    # Check mode: check one item
+    # Check mode
     item = params.get("item", "")
-    if item == "":
+    section = _walk_psu_table(ctx, params)
+    if section == None:
         return {
             "changed": False,
-            "msg": "no item provided",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no SNMP data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Fetch status and temp for this item using snmpget for speed
-    # Query status: .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1.<item>.2
-    # Query temp:   .1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1.<item>.4
-    status_oid = ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1." + item + ".2"
-    temp_oid = ".1.3.6.1.4.1.11.2.14.11.5.1.55.1.1.1." + item + ".4"
-    
-    # Run both snmpget in one call for efficiency (snmpget can handle multiple OIDs)
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        status_oid,
-        temp_oid
-    ], mutates=False)
-    
-    lines = res.stdout.splitlines()
-    if len(lines) < 1:
+
+    if item not in section:
         return {
             "changed": False,
-            "msg": "no data for PSU " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such power supply: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Parse status first (first line)
-    status_line = lines[0]
-    status_val = ""
-    if " = " in status_line:
-        _, value_part = status_line.split(" = ", 1)
-        if ": " in value_part:
-            type_val = value_part.split(": ", 1)
-            if len(type_val) == 2:
-                val_type, val = type_val
-                status_val = val.strip()
-    
-    # Parse temp (second line if present)
-    temp_val = 0.0
-    if len(lines) >= 2:
-        temp_line = lines[1]
-        if " = " in temp_line:
-            _, value_part = temp_line.split(" = ", 1)
-            if ": " in value_part:
-                type_val = value_part.split(": ", 1)
-                if len(type_val) == 2 and type_val[0] == "INTEGER":
-                    val_str = type_val[1].strip()
-                    if val_str.isdigit():
-                        temp_val = float(val_str)
-    
-    # Determine state and message from status
-    status_entry = _PSU_STATE_MAP.get(status_val)
-    if status_entry == None:
-        return {
-            "changed": False,
-            "msg": "Unknown status code for PSU " + item + ": " + status_val,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    state, summary = status_entry
-    
-    # Special case: status "8" and temp 0 -> "No temperature data available"
-    if status_val == "8" and temp_val == 0:
-        return {
-            "changed": False,
-            "msg": "No temperature data available for PSU " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Temperature check: get levels from params
-    warn_temp = 70.0
-    crit_temp = 80.0
-    levels = params.get("levels", [warn_temp, crit_temp])
-    if type(levels) == "list" and len(levels) >= 2:
-        warn_temp = float(levels[0])
-        crit_temp = float(levels[1])
-    
-    # Apply temperature levels (upper thresholds)
-    if temp_val >= crit_temp:
-        state = "CRIT"
-        summary = "Temperature %f°C (critical threshold exceeded)" % temp_val
-    elif temp_val >= warn_temp:
-        state = "WARN"
-        summary = "Temperature %f°C (warning threshold exceeded)" % temp_val
-    
-    # Build final message and metrics
-    msg = summary
-    metrics = {"temp": temp_val} if temp_val != 0 else {}
-    
+
+    data = section[item]
+    status = data["status"]
+    temp = data["temp"]
+
+    # Determine state from status code
+    mapped = _PSU_STATE_MAP.get(status)
+    if mapped == None:
+        state = "UNKNOWN"
+        summary = "Unknown status code sent by device"
+    else:
+        state = mapped[0]
+        summary = mapped[1]
+
+    # Build metric: temperature value (use 0 if not available)
+    metrics = {}
+    if temp > 0:
+        metrics["temperature"] = temp
+
+    # Apply temperature thresholds if in OK/WARN state
+    warn = params.get("warn", 70)
+    crit = params.get("crit", 80)
+    if temp > 0 and (state == "OK" or state == "UNKNOWN"):
+        if temp >= crit:
+            state = "CRIT"
+            summary = "Temperature: %d°C (critical)" % temp
+        elif temp >= warn:
+            state = "WARN"
+            summary = "Temperature: %d°C (warning)" % temp
+        else:
+            summary = "Temperature: %d°C" % temp
+
     return {
         "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": ""}
+        "msg": summary,
+        "data": {"state": state, "metrics": metrics, "details": ""},
     }

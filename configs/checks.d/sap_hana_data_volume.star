@@ -1,151 +1,159 @@
-_DEFAULT_WARN = 80.0
-_DEFAULT_CRIT = 90.0
-_MB = 1048576.0
+# Check: sap_hana_data_volume
+# Source: cmk/plugins/sap_hana/agent_based/sap_hana_data_volume.py
+# Reads SAP HANA data volume usage via hdbsql CLI tool
 
-_VOLUMES_QUERY = "SELECT v.VOLUME_TYPE, v.SERVICE_NAME, CAST(v.VOLUME_ID AS NVARCHAR), v.USED_SIZE, v.TOTAL_SIZE FROM M_VOLUMES v WHERE v.VOLUME_TYPE NOT IN ('TRACE') ORDER BY v.VOLUME_TYPE, v.SERVICE_NAME, v.VOLUME_ID"
+def _to_float(s):
+    """Safely convert string to float, return 0 on failure."""
+    if s == None or s == "":
+        return 0
+    # Check if it looks numeric (allow digits, ., and -)
+    cleaned = s
+    is_num = True
+    has_digit = False
+    for ch in cleaned:
+        if ch.isdigit():
+            has_digit = True
+        elif ch == "." or ch == "-":
+            pass
+        else:
+            is_num = False
+            break
+    if not is_num or not has_digit:
+        return 0
+    return float(cleaned)
 
-_ITEM_SUFFIXES = ["", " Disk", " Disk Net Data"]
-
-def _hdbsql(ctx, params, query):
-    hdbsql_bin = params.get("hdbsql", "hdbsql")
-    host = params.get("host", "localhost")
-    port = str(params.get("port", 30015))
-    user = params.get("user", "SYSTEM")
-    pw = params.get("password", "")
-    return ctx.run(
-        [hdbsql_bin, "-n", host + ":" + port, "-u", user, "-p", pw,
-         "-a", "-x", "-F", "\t", query],
-        mutates=False,
-    )
-
-def _sid_inst(ctx, params):
-    res = _hdbsql(ctx, params, "SELECT SYSTEM_ID FROM M_DATABASE")
-    sid = "SAP"
-    if res.rc == 0 and res.stdout.strip():
-        lines = res.stdout.strip().splitlines()
-        if len(lines) > 0:
-            sid = lines[0].strip().strip('"')
-    port = int(params.get("port", 30015))
-    inst_num = port // 100 - 300
-    if (inst_num >= 0) and (inst_num <= 99):
-        inst = "%d" % inst_num
-    else:
-        inst = "00"
-    return sid + "/" + inst
-
-def _parse_tsv(stdout, min_cols):
-    rows = []
-    for line in stdout.splitlines():
-        line = line.strip()
-        if not line:
+def _discover_volumes(ctx, sid_instance):
+    """Discover data volumes for a given SID:INSTANCE via hdbsql."""
+    section = {}
+    MB = 1024 * 1024
+    
+    # Query M_VOLUME_STATUS for volume info
+    res = ctx.run([
+        "hdbsql", "-t", "-i", sid_instance,
+        "SELECT SERVICE_NAME, PATH, TOTAL_SIZE, USED_SIZE FROM M_VOLUME_STATUS"
+    ], mutates=False)
+    if res.rc != 0:
+        return section
+    
+    lines = res.stdout.splitlines()
+    for line in lines:
+        parts = line.split()
+        if len(parts) < 4:
             continue
-        parts = [p.strip().strip('"') for p in line.split("\t")]
-        if len(parts) >= min_cols:
-            rows.append(parts)
-    return rows
+        
+        service = parts[0]
+        path = parts[1]
+        total = _to_float(parts[2])
+        used = _to_float(parts[3])
+        
+        key = "%s - %s %s" % (sid_instance, service, path)
+        inst = section.setdefault(key, {"service": service, "path": path})
+        inst["size"] = total / MB
+        inst["used"] = used / MB
+    
+    return section
 
-def _safe_float(s):
-    s = s.strip()
-    if not s or s in ("NULL", "null", "?"):
-        return 0.0
-    pos = s[1:] if s.startswith("-") else s
-    dot_count = pos.count(".")
-    if dot_count > 1:
-        return 0.0
-    clean = pos.replace(".", "")
-    if not clean or not clean.isdigit():
-        return 0.0
-    return float(s)
-
-def _state_for_pct(pct, params):
-    warn = params.get("warn", _DEFAULT_WARN)
-    crit = params.get("crit", _DEFAULT_CRIT)
+def _check_volume(ctx, item, params, section):
+    """Check a single data volume item."""
+    item_data = section.get(item)
+    if not item_data:
+        return {"state": "UNKNOWN", "msg": "no data volume found for item: " + item, "metrics": {}, "details": ""}
+    
+    size = item_data["size"]
+    used = item_data["used"]
+    avail = size - used
+    
+    if size <= 0:
+        pct = 0
+    else:
+        pct = (used / size) * 100
+    
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
+    
     if pct >= crit:
-        return "CRIT"
-    if pct >= warn:
-        return "WARN"
-    return "OK"
+        state = "CRIT"
+    elif pct >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+    
+    msg_parts = ["%s: %f%% used (%f MB of %f MB)" % (item, pct, used, size - used, size)]
+    
+    service = item_data.get("service")
+    if service:
+        msg_parts.append("Service: %s" % service)
+    path = item_data.get("path")
+    if path:
+        msg_parts.append("Path: %s" % path)
+    
+    return {
+        "state": state,
+        "msg": ", ".join(msg_parts),
+        "metrics": {"used_percent": pct, "size": size, "used": used, "avail": avail},
+        "details": ""
+    }
 
 def main(ctx, params):
     if params.get("_discover"):
-        prefix = _sid_inst(ctx, params)
-        res = _hdbsql(ctx, params, _VOLUMES_QUERY)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "hdbsql failed: " + res.stderr,
-                "data": {"discovery": []},
-            }
-        rows = _parse_tsv(res.stdout, 5)
+        # Discovery mode: find all SAP HANA instances and their volumes
+        hdbsql_res = ctx.run(["which", "hdbsql"], mutates=False)
+        if hdbsql_res.rc != 0:
+            return {"changed": False, "msg": "no SAP HANA found (hdbsql not installed)", "data": {"discovery": []}}
+        
+        # Find SAP HANA instances
+        inst_res = ctx.run([
+            "hdbsql", "-t",
+            "SELECT INSTANCE_NAME FROM M_DATABASES"
+        ], mutates=False)
+        
+        instances = []
+        if inst_res.rc == 0:
+            for line in inst_res.stdout.splitlines():
+                line = line.strip()
+                if line and line != "INSTANCE_NAME":
+                    instances.append(line)
+        
+        # If no SID:INSTANCE found, try default
+        if not instances:
+            instances = ["00"]
+        
         discovery = []
-        for row in rows:
-            base = prefix + " - " + row[0] + " " + row[2]
-            for suffix in _ITEM_SUFFIXES:
+        for sid_instance in instances:
+            section = _discover_volumes(ctx, sid_instance)
+            for item in section:
                 discovery.append({
-                    "item": base + suffix,
-                    "params": {"warn": _DEFAULT_WARN, "crit": _DEFAULT_CRIT},
-                    "metrics": ["used_percent", "used_mb", "avail_mb", "total_mb"],
+                    "item": item,
+                    "params": {"warn": 80, "crit": 90},
+                    "metrics": ["used_percent", "size", "used", "avail"]
                 })
+        
         return {
             "changed": False,
-            "msg": "discovered %d items" % len(discovery),
-            "data": {"discovery": discovery},
+            "msg": "discovered %d SAP HANA data volumes" % len(discovery),
+            "data": {"discovery": discovery}
         }
-
+    
+    # Check mode: check one specific item
     item = params.get("item", "")
-    prefix = _sid_inst(ctx, params)
-    res = _hdbsql(ctx, params, _VOLUMES_QUERY)
-    if res.rc != 0:
+    
+    # Determine which instance this item belongs to
+    sid_instance = "00"
+    if ":" in item:
+        sid_instance = item.split(":")[0]
+    
+    section = _discover_volumes(ctx, sid_instance)
+    
+    if not section:
         return {
             "changed": False,
-            "msg": "hdbsql failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "no SAP HANA data volume found for item: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "no SAP HANA data volume found for item: " + item}
         }
-
-    rows = _parse_tsv(res.stdout, 5)
-    found_row = None
-    for row in rows:
-        if found_row != None:
-            break
-        base = prefix + " - " + row[0] + " " + row[2]
-        for suffix in _ITEM_SUFFIXES:
-            if item == base + suffix:
-                found_row = row
-                break
-
-    if found_row == None:
-        return {
-            "changed": False,
-            "msg": "Volume not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    svc = found_row[1]
-    used_mb = _safe_float(found_row[3]) / _MB
-    total_mb = _safe_float(found_row[4]) / _MB
-
-    if total_mb <= 0.0:
-        return {
-            "changed": False,
-            "msg": item + ": total size is zero",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": "Service: " + svc},
-        }
-
-    avail_mb = total_mb - used_mb
-    pct = used_mb / total_mb * 100.0
-    state = _state_for_pct(pct, params)
-
+    
+    result = _check_volume(ctx, item, params, section)
     return {
         "changed": False,
-        "msg": "%f%% used (%f of %f MB), Service: %s" % (pct, used_mb, total_mb, svc),
-        "data": {
-            "state": state,
-            "metrics": {
-                "used_percent": pct,
-                "used_mb": used_mb,
-                "avail_mb": avail_mb,
-                "total_mb": total_mb,
-            },
-            "details": "Service: " + svc,
-        },
+        "msg": result["msg"],
+        "data": {"state": result["state"], "metrics": result["metrics"], "details": result["details"]}
     }

@@ -1,57 +1,40 @@
-# ===== Starlark check module: liebert_chiller_status =====
+def _snmpget_oid(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return None
+    val = res.stdout.strip()
+    if val == "":
+        return None
+    return val
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    base_oid = ".1.3.6.1.4.1.476.1.42.4.3.20"
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    status_oid = base_oid + ".1.1.20.2"
+
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
+        sys_id = _snmpget_oid(ctx, host, community, sys_oid)
+        if sys_id == None:
+            return {"changed": False, "msg": "no Liebert device detected", "data": {"discovery": []}}
+        if not sys_id.startswith(".1.3.6.1.4.1.476.1.42.4.3.20"):
+            return {"changed": False, "msg": "no Liebert chiller detected", "data": {"discovery": []}}
+        discovery = [{"item": "", "params": {}, "metrics": ["status"]}]
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": discovery}}
 
-    # Read-only SNMP probe: fetch the chiller status OID
-    # Base OID: .1.3.6.1.4.1.476.1.42.4.3.20.1.1.20.2
-    res = ctx.run([
-        "snmpget", "-On", "-v2c", "-c", "public", "localhost",
-        "1.3.6.1.4.1.476.1.42.4.3.20.1.1.20.2"
-    ], mutates=False)
+    status_val = _snmpget_oid(ctx, host, community, status_oid)
+    if status_val == None:
+        return {"changed": False, "msg": "no Liebert chiller status available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to query SNMP (device not reachable or credentials wrong)",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    line = res.stdout.strip()
-    # Parse output like: .1.3.6.1.4.1.476.1.42.4.3.20.1.1.20.2 = INTEGER: 5
-    status_str = ""
-    idx = line.rfind(": ")
-    if idx != -1:
-        status_str = line[idx+2:].strip()
+    metric_val = int(status_val) if status_val.isdigit() else 0
+    if status_val in ["5", "7"]:
+        return {"changed": False, "msg": "Device is in an OK state", "data": {"state": "OK", "metrics": {"status": metric_val}, "details": ""}}
     else:
-        # Alternative format: "value" or raw number
-        parts = line.split()
-        status_str = parts[len(parts)-1] if len(parts) > 0 else ""
-
-    # Extract integer from the string (guard instead of try/except)
-    status = 0
-    if status_str.isdigit():
-        status = int(status_str)
-
-    # Checkmk logic: OK if status in [5, 7], else CRIT
-    if status == 5 or status == 7:
-        summary = "Device is in a OK state"
-        state = "OK"
-    else:
-        summary = "Device is in a non OK state"
-        state = "CRIT"
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+        return {"changed": False, "msg": "Device is in a non OK state", "data": {"state": "CRIT", "metrics": {"status": metric_val}, "details": ""}}

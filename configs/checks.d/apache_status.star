@@ -1,9 +1,49 @@
-_SCOREBOARD_LABELS = [
-    "Waiting", "StartingUp", "ReadingRequest", "SendingReply",
-    "Keepalive", "DNS", "Closing", "Logging", "Finishing", "IdleCleanup",
+# checkmk.apache_status -> read-only Starlark check module (yolo-man agent)
+# Apache server-status monitor.
+# READ-ONLY: never mutates, always changed=False.
+
+_FIELD_CASTER = {
+    "Uptime": "int",
+    "IdleWorkers": "int",
+    "BusyWorkers": "int",
+    "OpenSlots": "int",
+    "TotalSlots": "int",
+    "Total Accesses": "int",
+    "CPULoad": "float",
+    "Total kBytes": "float",
+    "ReqPerSec": "float",
+    "BytesPerReq": "float",
+    "BytesPerSec": "float",
+    "Scoreboard": "str",
+    "ConnsTotal": "int",
+    "ConnsAsyncWriting": "int",
+    "ConnsAsyncKeepAlive": "int",
+    "ConnsAsyncClosing": "int",
+    "BusyServers": "int",
+    "IdleServers": "int",
+}
+
+_CHECK_LEVEL_ENTRIES = [
+    ("Uptime", "Uptime"),
+    ("IdleWorkers", "Idle workers"),
+    ("BusyWorkers", "Busy workers"),
+    ("TotalSlots", "Total slots"),
+    ("OpenSlots", "Open slots"),
+    ("Total Accesses", "Total access"),
+    ("CPULoad", "CPU load"),
+    ("Total kBytes", "Total kB"),
+    ("ReqPerSec", "Requests per second"),
+    ("BytesPerReq", "Bytes per request"),
+    ("BytesPerSec", "Bytes per second"),
+    ("ConnsTotal", "Total connections"),
+    ("ConnsAsyncWriting", "Async writing connections"),
+    ("ConnsAsyncKeepAlive", "Async keep alive connections"),
+    ("ConnsAsyncClosing", "Async closing connections"),
+    ("BusyServers", "Busy servers"),
+    ("IdleServers", "Idle servers"),
 ]
 
-_SCOREBOARD_CHARS = {
+_SCOREBOARD_LABEL_MAP = {
     "Waiting": "_",
     "StartingUp": "S",
     "ReadingRequest": "R",
@@ -16,227 +56,290 @@ _SCOREBOARD_CHARS = {
     "IdleCleanup": "O",
 }
 
-_INT_FIELDS = [
-    "Uptime", "IdleWorkers", "BusyWorkers", "OpenSlots", "TotalSlots",
-    "Total Accesses", "ConnsTotal", "ConnsAsyncWriting", "ConnsAsyncKeepAlive",
-    "ConnsAsyncClosing", "BusyServers", "IdleServers",
-]
 
-_FLOAT_FIELDS = ["CPULoad", "Total kBytes", "ReqPerSec", "BytesPerReq", "BytesPerSec"]
-
-_CHECK_LEVEL_ENTRIES = [
-    ("Uptime", "Uptime"),
-    ("IdleWorkers", "Idle workers"),
-    ("BusyWorkers", "Busy workers"),
-    ("TotalSlots", "Total slots"),
-    ("OpenSlots", "Open slots"),
-    ("ReqPerSec", "Requests per second"),
-    ("BytesPerReq", "Bytes per request"),
-    ("BytesPerSec", "Bytes per second"),
-    ("CPULoad", "CPU load"),
-    ("ConnsTotal", "Total connections"),
-    ("ConnsAsyncWriting", "Async writing connections"),
-    ("ConnsAsyncKeepAlive", "Async keep alive connections"),
-    ("ConnsAsyncClosing", "Async closing connections"),
-    ("BusyServers", "Busy servers"),
-    ("IdleServers", "Idle servers"),
-]
-
-# Matches Checkmk notice_only=False keys — shown in summary line
-_SUMMARY_KEYS = ["Uptime", "IdleWorkers", "BusyWorkers", "TotalSlots"]
-
-# Thresholds are lower-bound (WARN/CRIT when value drops below)
-_LOWER_LEVEL_KEYS = ["OpenSlots"]
+def _to_int(value):
+    if value == "" or value == None:
+        return None
+    neg = ""
+    s = value
+    if s.startswith("-"):
+        neg = "-"
+        s = s[1:]
+    if not s.isdigit():
+        return None
+    return int(neg + s) if neg == "-" else int(s)
 
 
-def _is_number(s):
-    if not s:
-        return False
-    start = 1 if s[0] == "-" else 0
-    if start >= len(s):
-        return False
-    has_dot = False
-    for i in range(start, len(s)):
-        c = s[i]
-        if c == ".":
-            if has_dot:
-                return False
-            has_dot = True
-        elif c < "0" or c > "9":
-            return False
-    return True
+def _to_float(value):
+    if value == "" or value == None:
+        return None
+    # Manual parse: optional sign, digits, optional .digits
+    s = value
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    elif s.startswith("+"):
+        s = s[1:]
+    if s == "":
+        return None
+    dot = s.find(".")
+    if dot < 0:
+        if not s.isdigit():
+            return None
+        f = int(s)
+        if neg:
+            f = -f
+        return float(f)
+    intpart = s[:dot]
+    fracpart = s[dot + 1:]
+    if intpart == "" and fracpart == "":
+        return None
+    ok = True
+    if intpart != "":
+        for ch in intpart:
+            if not (("0" <= ch) and (ch <= "9")):
+                ok = False
+                break
+    if not ok:
+        return None
+    if fracpart != "":
+        for ch in fracpart:
+            if not (("0" <= ch) and (ch <= "9")):
+                ok = False
+                break
+    if not ok:
+        return None
+    # Build float via string since we have json.encode/decode available
+    sign = "-" if neg else ""
+    # Use int multiplication to avoid float string issues; fallback to 0
+    ip = int(intpart) if intpart != "" else 0
+    fp = 0
+    fdiv = 1
+    for ch in fracpart:
+        fp = fp * 10 + (ord(ch) - ord("0"))
+        fdiv = fdiv * 10
+    result = float(ip) + float(fp) / float(fdiv)
+    if neg:
+        result = -result
+    return result
 
 
-def _parse_status(content):
+def _cast(label, value):
+    caster = _FIELD_CASTER.get(label)
+    if caster == None:
+        return None, False
+    if caster == "int":
+        v = _to_int(value)
+        if v == None:
+            return None, False
+        return v, True
+    if caster == "float":
+        v = _to_float(value)
+        if v == None:
+            return None, False
+        return v, True
+    if caster == "str":
+        return value, True
+    return None, False
+
+
+def _parse_status(text):
     data = {}
-    for line in content.splitlines():
-        line = line.strip()
+    item = None
+    scoreboard = None
+    for raw in text.splitlines():
+        line = raw.strip()
         if not line:
+            continue
+        if line.startswith("Scoreboard:"):
+            scoreboard = line[len("Scoreboard:"):].strip()
+            continue
+        if line.startswith("ServerVersion") or line.startswith("ServerMPM"):
             continue
         idx = line.find(":")
         if idx < 0:
             continue
-        key = line[:idx].strip()
-        val = line[idx + 1:].strip()
-
-        if key in _INT_FIELDS:
-            data[key] = int(float(val)) if _is_number(val) else 0
-        elif key in _FLOAT_FIELDS:
-            data[key] = float(val) if _is_number(val) else 0.0
-        elif key == "Scoreboard":
-            data["Scoreboard"] = val
-            for label in _SCOREBOARD_LABELS:
-                data["State_" + label] = val.count(_SCOREBOARD_CHARS[label])
-            data["OpenSlots"] = val.count(".")
-
-    if "OpenSlots" in data and "IdleWorkers" in data and "BusyWorkers" in data:
-        if "TotalSlots" not in data:
-            data["TotalSlots"] = (
-                data["OpenSlots"] + data["IdleWorkers"] + data["BusyWorkers"]
-            )
-
-    return data
-
-
-def _format_uptime(seconds):
-    s = int(seconds)
-    h = s // 3600
-    m = (s % 3600) // 60
-    sec = s % 60
-    if h > 0:
-        return "%dh %dm %ds" % (h, m, sec)
-    if m > 0:
-        return "%dm %ds" % (m, sec)
-    return "%ds" % sec
+        label = line[:idx].strip()
+        value = line[idx + 1:].strip()
+        casted, ok = _cast(label, value)
+        if not ok:
+            continue
+        if label == "Scoreboard":
+            scoreboard = value
+            item = "localhost"
+            continue
+        data[label] = casted
+        item = "localhost"
+    if scoreboard != None:
+        sb = scoreboard
+        st = data
+        for stat_label, key in _SCOREBOARD_LABEL_MAP.items():
+            st["State_" + stat_label] = sb.count(key)
+        st["OpenSlots"] = sb.count(".")
+        if "OpenSlots" in st and "IdleWorkers" in st and "BusyWorkers" in st:
+            st["TotalSlots"] = st["OpenSlots"] + st["IdleWorkers"] + st["BusyWorkers"]
+    return data, item, scoreboard
 
 
-def _format_value(key, value):
-    if key == "Uptime":
-        return _format_uptime(value)
-    if key in _FLOAT_FIELDS:
-        return "%f" % value
-    return "%d" % int(value)
-
-
-def _apply_levels(state, value, levels, lower):
+def _grade_upper(value, levels):
     if levels == None:
-        return state
-    warn = levels[0]
-    crit = levels[1]
-    if lower:
-        if value <= crit:
-            return "CRIT"
-        if value <= warn and state != "CRIT":
-            return "WARN"
-    else:
-        if value >= crit:
-            return "CRIT"
-        if value >= warn and state != "CRIT":
-            return "WARN"
-    return state
+        return "OK"
+    warn = levels[0] if len(levels) >= 1 else None
+    crit = levels[1] if len(levels) >= 2 else None
+    if crit != None and value >= crit:
+        return "CRIT"
+    if warn != None and value >= warn:
+        return "WARN"
+    return "OK"
 
 
-def _build_argv(scheme, host, port, path, user, password):
-    url = "%s://%s:%d%s?auto" % (scheme, host, int(port), path)
-    argv = ["curl", "-s", "--max-time", "10", "--insecure", url]
-    if user != None and password != None:
-        argv = argv + ["--user", user + ":" + password]
-    return argv
+def _grade_lower(value, levels):
+    if levels == None:
+        return "OK"
+    warn = levels[0] if len(levels) >= 1 else None
+    crit = levels[1] if len(levels) >= 2 else None
+    if crit != None and value <= crit:
+        return "CRIT"
+    if warn != None and value <= warn:
+        return "WARN"
+    return "OK"
+
+
+def _levels_for(key, params):
+    if key in params:
+        return params[key]
+    return None
+
+
+def _scoreboard_notice(data):
+    states = []
+    for stat_label in _SCOREBOARD_LABEL_MAP:
+        key = "State_" + stat_label
+        value = data.get(key, 0)
+        if value > 0:
+            states.append(stat_label + ": " + str(value))
+    if states:
+        return "Scoreboard states:\n  " + "\n  ".join(states)
+    return "Scoreboard states: (none)"
+
+
+def _format_timespan(seconds):
+    s = int(seconds)
+    days = s // 86400
+    hours = (s % 86400) // 3600
+    minutes = (s % 3600) // 60
+    secs = s % 60
+    parts = []
+    if days > 0:
+        parts.append(str(days) + "d")
+    if hours > 0:
+        parts.append(str(hours) + "h")
+    if minutes > 0:
+        parts.append(str(minutes) + "m")
+    parts.append(str(secs) + "s")
+    return " ".join(parts)
+
+
+def _is_tool_available(ctx, names):
+    for n in names:
+        res = ctx.run([n, "--version"], mutates=False)
+        if res.rc == 0:
+            return True
+    return False
+
+
+def _fetch_status(ctx, status_url):
+    res = ctx.run(["curl", "-fsS", status_url], mutates=False)
+    if res.rc != 0:
+        res2 = ctx.run(["wget", "-q", "-O", "-", status_url], mutates=False)
+        if res2.rc == 0:
+            return res2.stdout
+        return None
+    return res.stdout
 
 
 def main(ctx, params):
-    host = params.get("host", "localhost")
-    port = params.get("port", 80)
-    path = params.get("path", "/server-status")
-    use_ssl = params.get("use_ssl", False)
-    user = params.get("user", None)
-    password = params.get("password", None)
-    scheme = "https" if use_ssl else "http"
-
     if params.get("_discover"):
-        argv = _build_argv(scheme, host, port, path, user, password)
-        res = ctx.run(argv, mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "apache status not available",
+        if not _is_tool_available(ctx, ["apachectl", "httpd", "apache2ctl", "curl", "wget"]):
+            return {"changed": False, "msg": "Apache/curl not found",
                     "data": {"discovery": []}}
-        data = _parse_status(res.stdout)
-        if not data:
-            return {"changed": False, "msg": "no data parsed",
+        status_url = params.get("status_url", "http://localhost/server-status?auto")
+        out = _fetch_status(ctx, status_url)
+        if out == None or out == "":
+            return {"changed": False, "msg": "Apache status not reachable",
                     "data": {"discovery": []}}
-        item = "%s:%d" % (host, int(port))
+        data, item, scoreboard = _parse_status(out)
+        if item == None and scoreboard == None and len(data) == 0:
+            return {"changed": False, "msg": "Apache status empty",
+                    "data": {"discovery": []}}
         metrics = []
-        for key in _INT_FIELDS:
-            if key in data:
-                metrics.append(key.replace(" ", "_"))
-        for key in _FLOAT_FIELDS:
-            if key in data:
-                metrics.append(key.replace(" ", "_"))
-        for label in _SCOREBOARD_LABELS:
-            metrics.append("State_" + label)
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": item, "params": {}, "metrics": metrics}]},
-        }
+        for key, _label in _CHECK_LEVEL_ENTRIES:
+            metrics.append(key.replace(" ", "_"))
+        for stat_label in _SCOREBOARD_LABEL_MAP:
+            metrics.append("State_" + stat_label)
+        return {"changed": False, "msg": "discovered apache_status",
+                "data": {"discovery": [
+                    {"item": item if item != None else "localhost",
+                     "params": {}, "metrics": metrics},
+                ]}}
 
-    # Check mode
     item = params.get("item", "")
-    if item != "" and ":" in item:
-        parts = item.rsplit(":", 1)
-        check_host = parts[0]
-        check_port = int(parts[1]) if parts[1].isdigit() else int(port)
-    elif item != "":
-        check_host = item
-        check_port = int(port)
-    else:
-        check_host = host
-        check_port = int(port)
-
-    display_item = item if item != "" else ("%s:%d" % (host, int(port)))
-    argv = _build_argv(scheme, check_host, check_port, path, user, password)
-    res = ctx.run(argv, mutates=False)
-
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to fetch status from " + display_item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr}}
-    if not res.stdout:
-        return {"changed": False, "msg": "empty response from " + display_item,
+    status_url = params.get("status_url", "http://localhost/server-status?auto")
+    out = _fetch_status(ctx, status_url)
+    if out == None or out == "":
+        return {"changed": False, "msg": "Apache status not reachable",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    data = _parse_status(res.stdout)
-    if not data:
-        return {"changed": False, "msg": "could not parse apache status from " + display_item,
+    data, parse_item, scoreboard = _parse_status(out)
+    if item == None or item == "":
+        item = parse_item if parse_item != None else "localhost"
+    if item.endswith(":None"):
+        item = item[:-5]
+    if len(data) == 0 and scoreboard == None:
+        return {"changed": False, "msg": "no Apache status data for " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
     metrics = {}
-    for key, _label in _CHECK_LEVEL_ENTRIES:
-        if key in data:
-            metrics[key.replace(" ", "_")] = data[key]
-    for label in _SCOREBOARD_LABELS:
-        metrics["State_" + label] = data.get("State_" + label, 0)
-
-    state = "OK"
-    msg_parts = []
+    max_state = "OK"
+    summary_parts = []
+    notices = []
 
     for key, label in _CHECK_LEVEL_ENTRIES:
         if key not in data:
             continue
         value = data[key]
-        is_lower = key in _LOWER_LEVEL_KEYS
-        state = _apply_levels(state, value, params.get(key), is_lower)
-        if key in _SUMMARY_KEYS:
-            msg_parts.append("%s: %s" % (label, _format_value(key, value)))
+        levels = _levels_for(key, params)
+        if key == "OpenSlots":
+            state = _grade_lower(value, levels)
+        else:
+            state = _grade_upper(value, levels)
+        if state == "WARN" and max_state == "OK":
+            max_state = "WARN"
+        if state == "CRIT":
+            max_state = "CRIT"
+        metric_name = key.replace(" ", "_")
+        if type(value) == "int" or type(value) == "float":
+            metrics[metric_name] = value
+        if key == "Uptime":
+            summary_parts.append(label + ": " + _format_timespan(value))
+        elif type(value) == "int":
+            summary_parts.append(label + ": " + str(int(value)))
+        elif type(value) == "float":
+            summary_parts.append(label + ": " + str(value))
+        else:
+            summary_parts.append(label + ": " + str(value))
 
-    scoreboard_parts = []
-    for sb_label in _SCOREBOARD_LABELS:
-        count = data.get("State_" + sb_label, 0)
-        if count > 0:
-            scoreboard_parts.append("%s: %d" % (sb_label, int(count)))
-    details = ("Scoreboard: " + ", ".join(scoreboard_parts)) if scoreboard_parts else ""
+    for stat_label in _SCOREBOARD_LABEL_MAP:
+        skey = "State_" + stat_label
+        value = data.get(skey, 0)
+        metrics[skey] = value
+    notices.append(_scoreboard_notice(data))
 
-    msg = ", ".join(msg_parts) if msg_parts else "Apache status OK"
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": details},
-    }
+    summary = "; ".join(summary_parts)
+    if scoreboard != None:
+        summary = summary + " | Scoreboard: " + scoreboard
+
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": max_state, "metrics": metrics,
+                     "details": "\n".join(notices)}}

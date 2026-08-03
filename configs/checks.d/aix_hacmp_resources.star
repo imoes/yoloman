@@ -1,668 +1,80 @@
+def _parse_resources(output):
+    parsed = {}
+    for line in output.splitlines():
+        if "There is no cluster definition" in line or "Status of the RSCT subsystems" in line:
+            continue
+        parts = line.split(":")
+        if len(parts) < 3:
+            continue
+        rg = parts[0]
+        state = parts[1].lower()
+        node = parts[2]
+        parsed.setdefault(rg, []).append((node, state))
+    return parsed
+
+def _gather_hacmp_raw(ctx, params):
+    res = ctx.run(["lssrc", "-a", "-g", "cluster"], mutates=False)
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return None
+    raw = res.stdout
+    if "There is no cluster definition" in raw or "inoperative" in raw.lower() or "not running" in raw.lower():
+        res2 = ctx.run(["cl_showcluster"], mutates=False)
+        if res2.rc == 0:
+            return res2.stdout
+        return None
+    if "There is no cluster definition" in raw:
+        return None
+    return raw
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/var/mmfs/etc/cluster.conf"], mutates=False)
-        # The actual data is typically fetched via the Checkmk agent section,
-        # but in Starlark we simulate the raw agent output parsing.
-        # Since the agent section data isn't available directly, we use the
-        # agent section name and assume the raw agent output would be fetched
-        # by reading a file or calling a command. For AIX HACMP, the raw data
-        # comes from <<<aix_hacmp_resources:sep(58)>>>
-        # We'll simulate reading the agent section data by calling the agent
-        # plugin directly if available, or using a fallback.
-        # In Checkmk, the agent section is named 'aix_hacmp_resources'.
-        # Since Starlark doesn't have direct access to agent sections, we simulate
-        # by assuming the raw data is available via a command that mimics the agent output.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most reliable way is to assume the agent section data is already parsed
-        # and available via some mechanism, but in Starlark we have to simulate.
-        # For this translation, we'll assume the raw agent data can be fetched by
-        # calling a command that outputs the same format as the agent section.
-        # Since no direct command is specified, we'll assume the agent section
-        # data is stored in a standard location or can be retrieved via a command.
-        # Given the constraints, we'll use the raw agent output format and simulate parsing.
-        # In practice, Checkmk agents provide this data, but in Starlark we simulate
-        # by assuming the data is available via a specific command.
-        # Since the agent section is named 'aix_hacmp_resources', we assume the raw
-        # data is available via a command that outputs the same format.
-        # For AIX HACMP, the data comes from clstat or similar, but the agent section
-        # uses <<<aix_hacmp_resources:sep(58)>>>, which is a custom section.
-        # Given the lack of direct access, we assume the raw data is available via
-        # a command that outputs the same format as the agent section.
-        # Since this is a translation of a Checkmk check, and the agent section
-        # is part of Checkmk, we assume the data is available via the agent.
-        # For Starlark, we'll simulate by assuming the raw data is available via
-        # a command that outputs the same format.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the agent section data is stored
-        # in a file or can be retrieved via a command.
-        # Since no specific command is given, we assume the raw agent output
-        # can be fetched by calling a command that mimics the agent section output.
-        # Given the constraints, we'll assume the raw data is available via
-        # a command that outputs the same format as <<<aix_hacmp_resources:sep(58)>>>
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll simulate by assuming the raw data is available via
-        # a command that outputs the same format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
-        # data can be fetched by calling a command that outputs the same format.
-        # For AIX HACMP, the data is typically from clstat or similar, but the
-        # agent section uses a custom format.
-        # Given the lack of direct access, we'll use a simulated approach.
-        # Since the agent section is named 'aix_hacmp_resources', and the raw
-        # data is in the format 'pdb213rg:ONLINE:pasv0450:non-concurrent:OHN:FNPN:NFB:ignore::: : :::', we'll simulate parsing that.
-        # However, per the contract, we must use ctx.* builtins.
-        # The most realistic way is to assume the raw data is available via
-        # a command that outputs the same format.
-        # Since this is a translation, and the agent section is part of Checkmk,
-        # we assume the data is available via the Checkmk agent.
-        # For Starlark, we'll assume the raw data is available via a command
-        # that outputs the same format as the agent section.
-        # Given the constraints, we'll use a simulated approach where we assume
-        # the raw data is available via a command that outputs the same format.
-        # Since the agent section is 'aix_hacmp_resources', we'll assume the raw
+        raw = _gather_hacmp_raw(ctx, params)
+        if raw == None:
+            return {"changed": False, "msg": "no HACMP found",
+                    "data": {"discovery": []}}
+        parsed = _parse_resources(raw)
+        discovery = []
+        for rg in parsed:
+            discovery.append({"item": rg, "params": {"expect_online_on": "first"},
+                              "metrics": []})
+        return {"changed": False,
+                "msg": "discovered %d HACMP resource groups" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+    raw = _gather_hacmp_raw(ctx, params)
+    if raw == None:
+        return {"changed": False, "msg": "no HACMP cluster source found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    parsed = _parse_resources(raw)
+    data = parsed.get(item)
+    if not data:
+        return {"changed": False, "msg": "resource group %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    expected_behaviour = params.get("expect_online_on", "first")
+    resource_states = []
+    infotext = []
+    for pair in data:
+        node_name = pair[0]
+        resource_state = pair[1]
+        resource_states.append(resource_state)
+        infotext.append("%s on node %s" % (resource_state, node_name))
+
+    state = "OK"
+    if expected_behaviour == "first":
+        if resource_states[0] != "online":
+            state = "CRIT"
+    elif expected_behaviour == "any":
+        found_online = False
+        for resource_state in resource_states:
+            if resource_state == "online":
+                found_online = True
+                break
+        if not found_online:
+            state = "CRIT"
+
+    return {"changed": False, "msg": ", ".join(infotext),
+            "data": {"state": state, "metrics": {}, "details": ""}}

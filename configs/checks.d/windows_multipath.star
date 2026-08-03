@@ -1,116 +1,90 @@
-def _get_multipath_count(ctx):
-    res = ctx.run([
-        "powershell", "-Command",
-        "(Get-WmiObject -Class MPIO_DISK_SETTINGS -Namespace root\\WMI | Measure-Object).Count"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return None
-    
-    output = res.stdout.strip()
-    if output == "":
-        return None
-    
-    # Guard: only convert if output is digits (possibly negative)
-    is_valid = True
-    for c in output:
-        if not (c >= "0" and c <= "9") and c != "-":
-            is_valid = False
-            break
-    
-    if not is_valid:
-        return None
-    
-    return int(output)
-
 def main(ctx, params):
-    num_active = _get_multipath_count(ctx)
-    
-    if num_active == None:
-        return {
-            "changed": False,
-            "msg": "multipath data unavailable",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "Failed to query MPIO devices"
-            }
-        }
-    
-    # Default parameters from Checkmk source: active_paths=4
-    active_paths_param = params.get("active_paths", 4)
-    
-    # DISCOVERY MODE
     if params.get("_discover"):
+        # windows_multipath is a Windows-only check; data comes from the
+        # Windows MPIO subsystem (active path count) which has no
+        # Linux equivalent. Probe for the real source first.
+        probe = ctx.run(["powershell", "-NoProfile", "-Command",
+                         "Get-WinEvent -LogName 'Microsoft-Windows-MPIO/Operational' -MaxEvents 1 -ErrorAction SilentlyContinue"],
+                        mutates=False)
+        # rc == 127 => not Windows / MPIO absent
+        if probe.rc == 127 or not probe.stdout:
+            return {"changed": False, "msg": "no windows multipath data available",
+                    "data": {"discovery": [], "host_labels": {}}}
+        # If we got data, try to get the active path count via a
+        # Windows-style source. The Checkmk source reads a single integer
+        # (active path count) from the windows_multipath agent section.
+        # Without the Checkmk agent on Windows we cannot reproduce this
+        # reliably on Linux; if not Windows, treat as absent.
+        facts = ctx.facts()
+        if facts.get("os_family") != "windows":
+            return {"changed": False, "msg": "no windows multipath data available",
+                    "data": {"discovery": [], "host_labels": {}}}
+        # On Windows: attempt to read active paths count via WMI
+        wmi = ctx.run(["powershell", "-NoProfile", "-Command",
+                       "(Get-WmiObject -Namespace root\\microsoft\\windows\\mpio -Class MSFT_PhysicalDisk -ErrorAction SilentlyContinue | Where-Object {$_.IsMultipathed -eq $true} | Measure-Object).Count"],
+                      mutates=False)
+        if wmi.rc != 0 or not wmi.stdout.strip():
+            return {"changed": False, "msg": "no windows multipath data available",
+                    "data": {"discovery": [], "host_labels": {}}}
+        count_str = wmi.stdout.strip()
+        if not count_str.isdigit():
+            return {"changed": False, "msg": "no windows multipath data available",
+                    "data": {"discovery": [], "host_labels": {}}}
+        num_active = int(count_str)
         if num_active > 0:
-            return {
-                "changed": False,
-                "msg": "discovered 1 multipath device(s)",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {"active_paths": 4},
-                            "metrics": []
-                        }
-                    ]
-                }
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no multipath devices found",
-                "data": {"discovery": []}
-            }
-    
+            return {"changed": False,
+                    "msg": "discovered 1 item",
+                    "data": {"discovery": [
+                        {"item": "", "params": {"active_paths": num_active},
+                         "metrics": ["active_paths"]}
+                    ], "host_labels": {}}}
+        return {"changed": False, "msg": "no active multipath paths",
+                "data": {"discovery": [], "host_labels": {}}}
+
     # CHECK MODE
-    # Handle two cases: list (tuple) or integer
-    if type(active_paths_param) == "list":
-        if len(active_paths_param) != 3:
-            return {
-                "changed": False,
-                "msg": "invalid multipath levels",
-                "data": {
-                    "state": "UNKNOWN",
-                    "metrics": {},
-                    "details": "Expected a tuple of 3 values for active_paths"
-                }
-            }
-        
-        num_paths = int(active_paths_param[0])
-        warn_pct = float(active_paths_param[1])
-        crit_pct = float(active_paths_param[2])
-        
-        warn_num = (warn_pct / 100.0) * num_paths
-        crit_num = (crit_pct / 100.0) * num_paths
-        
-        if num_active < crit_num:
-            state = "CRIT"
-            summary = "Paths active: %d (warn/crit below %f/%f)" % (num_active, warn_num, crit_num)
-        elif num_active < warn_num:
-            state = "WARN"
-            summary = "Paths active: %d (warn/crit below %f/%f)" % (num_active, warn_num, crit_num)
+    facts = ctx.facts()
+    if facts.get("os_family") != "windows":
+        return {"changed": False, "msg": "windows multipath not available on this host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "host is not Windows or MPIO is not installed"}}
+
+    item = params.get("item", "")
+    wmi = ctx.run(["powershell", "-NoProfile", "-Command",
+                   "(Get-WmiObject -Namespace root\\microsoft\\windows\\mpio -Class MSFT_PhysicalDisk -ErrorAction SilentlyContinue | Where-Object {$_.IsMultipathed -eq $true} | Measure-Object).Count"],
+                  mutates=False)
+    if wmi.rc != 0 or not wmi.stdout.strip():
+        return {"changed": False, "msg": "windows multipath data not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "could not query Windows MPIO active paths"}}
+
+    count_str = wmi.stdout.strip()
+    num_active = int(count_str) if count_str.isdigit() else 0
+
+    levels = params.get("active_paths", 4)
+    if type(levels) == "list":
+        # tuple form: (num_paths, warn_pct, crit_pct) - translated as list
+        if len(levels) == 3:
+            _num_paths, warn_pct, crit_pct = levels[0], levels[1], levels[2]
+            warn_num = float(warn_pct) / 100.0 * num_active
+            crit_num = float(crit_pct) / 100.0 * num_active
+            if num_active < crit_num:
+                state = "CRIT"
+            elif num_active < warn_num:
+                state = "WARN"
+            else:
+                state = "OK"
+            extra = " (warn/crit below %d/%d)" % (int(warn_num), int(crit_num))
         else:
             state = "OK"
-            summary = "Paths active: %d" % num_active
+            extra = ""
     else:
-        expected = int(active_paths_param)
+        expected = int(levels) if str(levels).isdigit() else 4
         if num_active < expected:
             state = "CRIT"
-            summary = "Paths active: %d (crit below %d)" % (num_active, expected)
         elif num_active > expected:
             state = "WARN"
-            summary = "Paths active: %d (warn at %d)" % (num_active, expected)
         else:
             state = "OK"
-            summary = "Paths active: %d (expected: %d)" % (num_active, expected)
-    
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+        extra = " Expected: %d" % expected
+
+    return {"changed": False,
+            "msg": "Paths active: %d%s" % (num_active, extra),
+            "data": {"state": state, "metrics": {"active_paths": num_active}, "details": ""}}

@@ -1,104 +1,65 @@
-# Module for checkmk.pulse_secure_users - read-only SNMP-based Checkmk check
-# Parses .1.3.6.1.4.1.12532.2 (signedInWebUsers) and reports current user count
+# Checkmk: checkmk.pulse_secure_users -> read-only Starlark check module
+# Monitors Pulse Secure signed-in web users via SNMP (OID .1.3.6.1.4.1.12532.2).
+
+def _fetch_signed_in_users(ctx, host, community):
+    # -Oqv: bare scalar value, no type tag, no "= " prefix.
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.12532.2"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
 
 def main(ctx, params):
-    # Discovery mode: one service per host
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": ["current_users"]}]}
-        }
-
-    # Check mode: fetch SNMP data for signedInWebUsers
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.12532.2"
+    community = params.get("community", "public")
 
-    # Use snmpget for the single scalar OID (we only need one value)
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host, base_oid
-    ], mutates=False)
+    if params.get("_discover"):
+        # Detection: probe for the Pulse Secure SNMP scalar.
+        val = _fetch_signed_in_users(ctx, host, community)
+        if val == None:
+            return {"changed": False,
+                    "msg": "no Pulse Secure users data found",
+                    "data": {"discovery": []}}
+        # Single-service check: one item per host.
+        return {"changed": False,
+                "msg": "discovered Pulse Secure users service",
+                "data": {"discovery": [
+                    {"item": "",
+                     "params": {"upper_number_of_users": None},
+                     "metrics": ["current_users"]}
+                ]}}
 
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Check mode: grade the single item.
+    val = _fetch_signed_in_users(ctx, host, community)
+    if val == None:
+        return {"changed": False,
+                "msg": "no Pulse Secure device responding for SNMP scalar .1.3.6.1.4.1.12532.2",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse snmpget output: "OID = STRING: value"
-    line = res.stdout.strip()
-    if not line:
-        return {
-            "changed": False,
-            "msg": "empty SNMP response",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    # Coerce to int; non-numeric -> UNKNOWN (no fabricated default).
+    if not val.lstrip("-").isdigit():
+        return {"changed": False,
+                "msg": "Pulse Secure users value not numeric: %s" % val,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Extract value from format like ".1.3.6.1.4.1.12532.2 = INTEGER: 42"
-    idx = line.rfind(": ")
-    if idx == -1:
-        return {
-            "changed": False,
-            "msg": "cannot parse SNMP value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    n_users = int(val)
 
-    value_str = line[idx + 2:].strip()
-    n_users = int(value_str) if value_str.isdigit() else -1
-    if n_users < 0:
-        return {
-            "changed": False,
-            "msg": "invalid user count value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Extract levels from params (default None as in Checkmk plugin)
-    warn = params.get("upper_number_of_users")
-
-    # Apply levels: warn and crit are either None or (warn_level, crit_level) tuple
-    # But Checkmk plugin passes single integer for upper bound or None
-    # The actual Checkmk rule may be a tuple (warn, crit) or just an int (crit)
-    # We follow the Checkmk v1 check_levels logic:
-    # - If warn/crit == None -> no levels applied
-    # - If warn/crit is int -> treat as upper bound
-    # - If warn/crit is tuple -> warn is first, crit is second
-    # Since params["upper_number_of_users"] is passed directly from default {upper_number_of_users: None},
-    # we check type to distinguish.
+    # Levels: params["upper_number_of_users"] defaults to None (no levels).
+    levels = params.get("upper_number_of_users", None)
+    warn = levels[0] if levels != None and len(levels) >= 1 and levels[0] != None else None
+    crit = levels[1] if levels != None and len(levels) >= 2 and levels[1] != None else None
 
     state = "OK"
-    msg_parts = ["Pulse Secure users: %d" % n_users]
-
-    if warn != None:
-        if type(warn) == "int":
-            # Only one level provided: treat as crit
-            crit_level = warn
-            warn_level = None
-        elif type(warn) == "list" and len(warn) == 2:
-            warn_level = warn[0]
-            crit_level = warn[1]
-        else:
-            warn_level = None
-            crit_level = None
-    else:
-        warn_level = None
-        crit_level = None
-
-    # Apply upper levels
-    if crit_level != None and n_users >= crit_level:
+    if crit != None and n_users >= crit:
         state = "CRIT"
-        msg_parts.append(">= %d (crit at %d)" % (n_users, crit_level))
-    elif warn_level != None and n_users >= warn_level:
+    elif warn != None and n_users >= warn:
         state = "WARN"
-        msg_parts.append(">= %d (warn at %d)" % (n_users, warn_level))
 
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": state,
-            "metrics": {"current_users": n_users},
-            "details": ""
-        }
-    }
+    return {"changed": False,
+            "msg": "Pulse Secure users: %d" % n_users,
+            "data": {"state": state,
+                     "metrics": {"current_users": n_users},
+                     "details": "signedInWebUsers=%d" % n_users}}

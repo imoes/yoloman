@@ -1,109 +1,91 @@
-MAP_DB_STATUS = {"OK": "OK", "WARNING": "WARN"}
-DB_STATUS_VALUES = ["OK", "WARNING", "ERROR", "STARTING", "STOPPING"]
-REPL_ROLE_VALUES = ["PRIMARY", "SECONDARY", "NONE"]
-
-def _run_hdbsql(ctx, sid, instance_num, user, password, key_user_store, query):
-    if key_user_store != "":
-        auth = "-U " + key_user_store
-    else:
-        auth = "-u " + user + " -p " + password
-    cmd_str = "hdbsql -i " + instance_num + " -d SYSTEMDB " + auth + " -x \"" + query + "\""
-    return ctx.run(
-        ["su", "-", sid.lower() + "adm", "-c", cmd_str],
-        mutates=False,
-        ok_codes=[0, 1, 2, 3, 4, 127, 255],
-    )
-
-def _extract_value(output, valid_values):
-    for line in output.splitlines():
-        val = line.strip().strip('"')
-        if val in valid_values:
-            return val
-    return ""
-
-def _find_instances(ctx):
-    instances = []
-    if not ctx.file_exists("/usr/sap"):
-        return instances
-    res = ctx.run(
-        ["find", "/usr/sap", "-maxdepth", "2", "-mindepth", "2", "-type", "d"],
-        mutates=False,
-        ok_codes=[0, 1],
-    )
-    for line in res.stdout.splitlines():
-        parts = line.strip().split("/")
-        if len(parts) < 5:
-            continue
-        sid = parts[3]
-        hdb_dir = parts[4]
-        if len(sid) == 3 and hdb_dir.startswith("HDB") and len(hdb_dir) == 5:
-            inst = hdb_dir[3:]
-            if inst.isdigit():
-                instances.append((sid, inst))
-    return instances
-
 def main(ctx, params):
-    user = params.get("user", "SYSTEM")
-    password = params.get("password", "")
-    key_user_store = params.get("key_user_store", "")
-
     if params.get("_discover"):
-        instances = _find_instances(ctx)
-        discovery = [
-            {"item": pair[0] + " " + pair[1], "params": {}, "metrics": []}
-            for pair in instances
-        ]
-        return {
-            "changed": False,
-            "msg": "discovered %d SAP HANA instances" % len(discovery),
-            "data": {"discovery": discovery},
-        }
-
+        res = ctx.run(["which", "hdbsql"], mutates=False)
+        if res.rc != 0 or res.skipped:
+            return {"changed": False, "msg": "discovery: no SAP HANA found", "data": {"discovery": []}}
+        
+        hdb_client = ctx.run(["hdbsql", "-v"], mutates=False)
+        if hdb_client.rc != 0 and res.rc == 127:
+            return {"changed": False, "msg": "no SAP HANA found", "data": {"discovery": []}}
+        
+        proc_res = ctx.run(["ls", "/usr/sap"], mutates=False)
+        if proc_res.rc != 0:
+            return {"changed": False, "msg": "no SAP HANA installations found", "data": {"discovery": []}}
+        
+        out = []
+        sids = []
+        for line in proc_res.stdout.splitlines():
+            stripped = line.strip()
+            if len(stripped) == 3 and stripped.isupper() and stripped != "tmp" and stripped != "data":
+                sids.append(stripped)
+        
+        for sid in sids:
+            inst_res = ctx.run(["ls", "/usr/sap/" + sid], mutates=False)
+            if inst_res.rc != 0:
+                continue
+            for line in inst_res.stdout.splitlines():
+                inst_name = line.strip()
+                if inst_name.startswith("HDB") or inst_name.startswith("SR") or inst_name[0:1].isdigit():
+                    item = sid.lower() + " - " + sid + "HDB" + inst_name
+                    out.append({"item": item, "params": {}, "metrics": []})
+        
+        return {"changed": False, "msg": "discovered %d SAP HANA databases" % len(out), "data": {"discovery": out}}
+    
     item = params.get("item", "")
-    parts = item.split(" ")
+    
+    parts = item.split(" - ")
     if len(parts) < 2:
-        return {
-            "changed": False,
-            "msg": "invalid item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    sid = parts[0]
-    instance_num = parts[1]
-
-    res = _run_hdbsql(ctx, sid, instance_num, user, password, key_user_store,
-                      "SELECT STATUS FROM SYS.M_DATABASE")
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "Login into database failed.",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
-        }
-
-    status = _extract_value(res.stdout, DB_STATUS_VALUES)
-    if not status:
-        return {
-            "changed": False,
-            "msg": "Login into database failed.",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    state = MAP_DB_STATUS.get(status, "CRIT")
-
-    if state == "CRIT":
-        repl_res = _run_hdbsql(ctx, sid, instance_num, user, password, key_user_store,
-                               "SELECT SYSTEM_REPLICATION_ROLE FROM SYS.M_DATABASE")
-        if repl_res.rc == 0 and repl_res.stdout.strip():
-            role = _extract_value(repl_res.stdout, REPL_ROLE_VALUES)
-            if role == "SECONDARY":
-                return {
-                    "changed": False,
-                    "msg": "System is in passive mode",
-                    "data": {"state": "OK", "metrics": {}, "details": ""},
-                }
-
-    return {
-        "changed": False,
-        "msg": status,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+        return {"changed": False, "msg": "invalid item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    sql_res = ctx.run(["hdbsql", "-j", "-U", "SYSTEMDB"], mutates=False)
+    
+    if sql_res.rc != 0:
+        return {"changed": False, "msg": "cannot connect to SAP HANA database: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": sql_res.stderr}}
+    
+    query_res = ctx.run(["hdbsql", "-j", "-U", "SYSTEMDB", "SELECT STATUS_NAME, STATUS_VALUE FROM M_DATABASE"], mutates=False)
+    
+    if query_res.rc != 0:
+        return {"changed": False, "msg": "query failed for SAP HANA database: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": query_res.stderr}}
+    
+    if not query_res.stdout:
+        return {"changed": False, "msg": "no data from SAP HANA database: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    parsed = json.decode(query_res.stdout)
+    
+    db_status = ""
+    for row in parsed:
+        if type(row) == "dict":
+            status_name = ""
+            status_value = ""
+            for k in row.keys():
+                kl = k.lower()
+                if kl == "status_name":
+                    status_name = row[k]
+                if kl == "status_value":
+                    status_value = row[k]
+            if status_name == "database_status":
+                db_status = status_value
+    
+    if not db_status:
+        return {"changed": False, "msg": "Login into database failed for: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    _MAP_DB_STATUS = {"OK": "OK", "WARNING": "WARN"}
+    
+    repl_res = ctx.run(["hdbsql", "-j", "-U", "SYSTEMDB", "SELECT SIDE, SYS_REPL_STATUS FROM M_SERVICE_RESOURCES"], mutates=False)
+    
+    repl_state = None
+    if repl_res.rc == 0 and repl_res.stdout:
+        repl_parsed = json.decode(repl_res.stdout)
+        for row in repl_parsed:
+            if type(row) == "dict":
+                for k in row.keys():
+                    if k.lower() == "sys_repl_status":
+                        repl_state = row[k]
+    
+    db_state = _MAP_DB_STATUS.get(db_status, "CRIT")
+    
+    if db_state == "CRIT" and repl_state != None and str(repl_state).lower() == "passive":
+        return {"changed": False, "msg": "System is in passive mode", "data": {"state": "OK", "metrics": {}, "details": ""}}
+    
+    state = _MAP_DB_STATUS.get(db_status, "CRIT")
+    return {"changed": False, "msg": db_status, "data": {"state": state, "metrics": {}, "details": ""}}

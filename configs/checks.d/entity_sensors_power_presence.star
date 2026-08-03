@@ -1,157 +1,192 @@
+def _is_int(s):
+    if s == None or s == "":
+        return False
+    sign = 0
+    body = s
+    if body[0] == "-" or body[0] == "+":
+        sign = 1
+        body = body[1:]
+    if body == "":
+        return False
+    for ch in body:
+        if ch < "0" or ch > "9":
+            return False
+    return True
+
 def main(ctx, params):
-    # === Constants ===
-    SNMP_COMMUNITY = params.get("community", "public")
-    SNMP_HOST = params.get("host", "localhost")
-    OID_BASE_ENT_PHYS_NAME = ".1.3.6.1.2.1.47.1.1.1.1.7"
-    OID_BASE_ENT_PHY_SENSOR_TYPE = ".1.3.6.1.2.1.99.1.1.1.1.2"
-    OID_BASE_ENT_PHY_SENSOR_VALUE = ".1.3.6.1.2.1.99.1.1.1.1.4"
-    OID_BASE_ENT_PHY_SENSOR_OPER_STATUS = ".1.3.6.1.2.1.99.1.1.1.1.5"
-    OID_BASE_ENT_PHY_SENSOR_UNITS = ".1.3.6.1.2.1.99.1.1.1.1.6"
-    OID_SYSDESCR = ".1.3.6.1.2.1.1.1.0"
-
-    # Power presence sensor type value per SNMP Vendors MIBs (typically 6 = powerSupply)
-    POWER_PRESENCE_TYPE = 6
-
-    # === Discovery mode ===
     if params.get("_discover"):
-        # Detect target device by sysDescr
-        res_sysdesc = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, OID_SYSDESCR], mutates=False)
-        sysdesc = ""
-        for line in res_sysdesc.stdout.splitlines():
-            if line.startswith(OID_SYSDESCR):
-                sysdesc = line.split(" = STRING: ", 1)[-1].strip('"')
-                break
-        detected = sysdesc.lower().startswith("palo alto networks") or \
-                   sysdesc.lower().startswith("cisco adaptive security appliance") or \
-                   sysdesc.lower().startswith("arista networks")
-
-        if not detected:
-            return {"changed": False, "msg": "discovered 0 items (device not matched)",
-                    "data": {"discovery": []}}
-
-        # Fetch all power presence sensors: type=6 and value in {0,1}
-        res_type = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, OID_BASE_ENT_PHY_SENSOR_TYPE], mutates=False)
-        res_value = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, OID_BASE_ENT_PHY_SENSOR_VALUE], mutates=False)
-        res_status = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, OID_BASE_ENT_PHY_SENSOR_OPER_STATUS], mutates=False)
-
-        # Map OID end to value for each OID set
-        def parse_snmp_walk(output):
-            mapping = {}
-            for line in output.splitlines():
-                parts = line.strip().split(" = ", 1)
-                if len(parts) != 2:
+        discovery = []
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        names = {}
+        names_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.2.1.47.1.1.1.1.7"],
+            mutates=False,
+        )
+        if names_res.rc == 0 and names_res.stdout != "":
+            for line in names_res.stdout.splitlines():
+                sp = line.find(" ")
+                if sp <= 0:
                     continue
-                oid_full, value_raw = parts
-                oid_end = oid_full.rsplit(".", 1)[-1]
-                value = value_raw.split(": ", 1)[-1].strip()
-                # Extract numeric value for integers
-                if value.isdigit():
-                    mapping[oid_end] = int(value)
-                elif value == "integer: " + str(value):
-                    mapping[oid_end] = int(value.split(" ")[-1])
+                oid = line[:sp]
+                val = line[sp + 1:]
+                names[oid] = val
+
+        sensor_type_oid = ".1.3.6.1.2.1.99.1.1.1.1.1"
+        sensor_type_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, sensor_type_oid],
+            mutates=False,
+        )
+        if sensor_type_res.rc == 0 and sensor_type_res.stdout != "":
+            for line in sensor_type_res.stdout.splitlines():
+                sp = line.find(" ")
+                if sp <= 0:
+                    continue
+                oid = line[:sp]
+                val = line[sp + 1:]
+                idx = oid[len(sensor_type_oid) + 1:]
+                if idx == "":
+                    continue
+
+                power_oid = ".1.3.6.1.2.1.99.1.1.1.2." + idx
+                power_res = ctx.run(
+                    ["snmpget", "-v2c", "-c", community, "-Oqv", host, power_oid],
+                    mutates=False,
+                )
+                if power_res.rc != 0 or power_res.stdout == "":
+                    continue
+
+                type_body = power_res.stdout.strip()
+                t = type_body.split(":")
+                rtype = ""
+                if len(t) > 1:
+                    rtype = t[1].strip()
                 else:
-                    mapping[oid_end] = value
-            return mapping
+                    rtype = type_body
+                rtype = rtype.strip().strip('"')
 
-        type_map = parse_snmp_walk(res_type.stdout)
-        value_map = parse_snmp_walk(res_value.stdout)
-        status_map = parse_snmp_walk(res_status.stdout)
+                if rtype != "5":
+                    continue
 
-        # Collect power presence items (type == 6 and value in [0,1])
-        items = []
-        for oid_end in type_map:
-            if type_map.get(oid_end) == POWER_PRESENCE_TYPE and value_map.get(oid_end) in (0, 1):
-                # Get item name from ENTITY-MIB entPhysicalName
-                name_oid = OID_BASE_ENT_PHYS_NAME + "." + oid_end
-                res_name = ctx.run(["snmpget", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, name_oid], mutates=False)
-                name = ""
-                for ln in res_name.stdout.splitlines():
-                    if ln.startswith(name_oid):
-                        name = ln.split(" = STRING: ", 1)[-1].strip('"')
-                        break
-                if not name:
-                    name = "Power " + oid_end
-                items.append({
-                    "item": name,
-                    "params": {"power_off_criticality": 1},
-                    "metrics": []
-                })
+                value_oid = ".1.3.6.1.2.1.99.1.1.1.4." + idx
+                value_res = ctx.run(
+                    ["snmpget", "-v2c", "-c", community, "-Oqv", host, value_oid],
+                    mutates=False,
+                )
+                if value_res.rc != 0 or value_res.stdout == "":
+                    continue
+                reading = value_res.stdout.strip().strip('"')
 
-        return {"changed": False, "msg": "discovered %d power presence sensors" % len(items),
-                "data": {"discovery": items}}
+                if _is_int(reading) and int(reading) == 1:
+                    item_name = names.get(oid, "")
+                    if item_name == "":
+                        item_name = idx
+                    discovery.append({
+                        "item": item_name,
+                        "params": {"power_off_criticality": params.get("power_off_criticality", 1)},
+                        "metrics": [],
+                    })
 
-    # === Check mode ===
+        return {
+            "changed": False,
+            "msg": "discovered %d power presence sensors" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
     item = params.get("item", "")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    value_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.2.1.99.1.1.1.4"],
+        mutates=False,
+    )
+    if value_res.rc != 0 or value_res.stdout == "":
+        return {
+            "changed": False,
+            "msg": "no entity sensor data on host " + host,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    names = {}
+    names_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.2.1.47.1.1.1.1.7"],
+        mutates=False,
+    )
+    if names_res.rc == 0 and names_res.stdout != "":
+        for line in names_res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp > 0:
+                oid = line[:sp]
+                val = line[sp + 1:]
+                names[oid] = val.strip('"')
+
+    matched_item = None
+    matched_idx = None
+    matched_reading = None
+    for line in value_res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp <= 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:].strip().strip('"')
+        idx = oid[len(".1.3.6.1.2.1.99.1.1.1.4") + 1:]
+        if idx == "":
+            continue
+
+        type_oid = ".1.3.6.1.2.1.99.1.1.1.1." + idx
+        type_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, type_oid],
+            mutates=False,
+        )
+        if type_res.rc != 0 or type_res.stdout == "":
+            continue
+        t = type_res.stdout.strip()
+        type_parts = t.split(":")
+        rtype = ""
+        if len(type_parts) > 1:
+            rtype = type_parts[1].strip().strip('"')
+        else:
+            rtype = t.strip().strip('"')
+
+        if rtype != "5":
+            continue
+
+        candidate_name = names.get(oid, idx)
+        if candidate_name == item or idx == item:
+            matched_item = candidate_name
+            matched_idx = idx
+            matched_reading = val
+            break
+
+    if matched_item == None:
+        return {
+            "changed": False,
+            "msg": "no power presence sensor found for item " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    reading = matched_reading.strip()
+    if not _is_int(reading):
+        return {
+            "changed": False,
+            "msg": "could not parse reading for power presence sensor " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    reading_int = int(reading)
     power_off_criticality = params.get("power_off_criticality", 1)
 
-    # Fetch all power presence sensors to find the requested item
-    res_type = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, OID_BASE_ENT_PHY_SENSOR_TYPE], mutates=False)
-    res_value = ctx.run(["snmpwalk", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, OID_BASE_ENT_PHY_SENSOR_VALUE], mutates=False)
+    if reading_int == 1:
+        return {
+            "changed": False,
+            "msg": "Power " + item + " Powered on",
+            "data": {"state": "OK", "metrics": {}, "details": "Powered on"},
+        }
 
-    type_map = {}
-    value_map = {}
-    for line in res_type.stdout.splitlines():
-        parts = line.strip().split(" = ", 1)
-        if len(parts) == 2:
-            oid_full, value_raw = parts
-            oid_end = oid_full.rsplit(".", 1)[-1]
-            if value_raw.endswith("integer: "):
-                type_map[oid_end] = int(value_raw.split("integer: ")[-1])
-            elif value_raw.split(": ")[-1].strip().isdigit():
-                type_map[oid_end] = int(value_raw.split(": ")[-1].strip())
-    for line in res_value.stdout.splitlines():
-        parts = line.strip().split(" = ", 1)
-        if len(parts) == 2:
-            oid_full, value_raw = parts
-            oid_end = oid_full.rsplit(".", 1)[-1]
-            if value_raw.endswith("integer: "):
-                value_map[oid_end] = int(value_raw.split("integer: ")[-1])
-            elif value_raw.split(": ")[-1].strip().isdigit():
-                value_map[oid_end] = int(value_raw.split(": ")[-1].strip())
-
-    # Find matching OID by item name via entPhysicalName
-    found = False
-    for oid_end in type_map:
-        if type_map.get(oid_end) != POWER_PRESENCE_TYPE or value_map.get(oid_end) not in (0, 1):
-            continue
-        name_oid = OID_BASE_ENT_PHYS_NAME + "." + oid_end
-        res_name = ctx.run(["snmpget", "-v2c", "-c", SNMP_COMMUNITY, "-On", SNMP_HOST, name_oid], mutates=False)
-        for ln in res_name.stdout.splitlines():
-            if ln.startswith(name_oid):
-                name = ln.split(" = STRING: ", 1)[-1].strip('"')
-                if name == item:
-                    found = True
-                    value = value_map.get(oid_end)
-                    # Map reading: 1 = powered on (OK), 0 = powered off
-                    if value == 1:
-                        return {
-                            "changed": False,
-                            "msg": "Powered on",
-                            "data": {
-                                "state": "OK",
-                                "metrics": {},
-                                "details": ""
-                            }
-                        }
-                    # powered off
-                    state_str = "CRIT" if power_off_criticality == 2 else "WARN"
-                    return {
-                        "changed": False,
-                        "msg": "Powered off",
-                        "data": {
-                            "state": state_str,
-                            "metrics": {},
-                            "details": ""
-                        }
-                    }
-
-    # Not found
+    state = "CRIT" if power_off_criticality == 2 else "WARN"
     return {
         "changed": False,
-        "msg": "Power presence sensor not found: " + item,
-        "data": {
-            "state": "UNKNOWN",
-            "metrics": {},
-            "details": ""
-        }
+        "msg": "Power " + item + " Powered off",
+        "data": {"state": state, "metrics": {}, "details": "Powered off"},
     }

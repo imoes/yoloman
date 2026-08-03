@@ -1,148 +1,156 @@
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+
+    oid_base = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+    oid_suffix = "1.2.1.5077"
+    oid_name = oid_base + ".10." + oid_suffix
+    oid_value = oid_base + ".20." + oid_suffix
+    oid_unit = oid_base + ".30." + oid_suffix
+
+    # Parse levels with defaults
+    lvls = params.get("levels", None)
+    if lvls == None:
+        warn_default = 80.0
+        crit_default = 90.0
+    elif type(lvls) == "list" and len(lvls) >= 2:
+        warn_default = float(lvls[0])
+        crit_default = float(lvls[1])
+    elif type(lvls) == "list" and len(lvls) == 1:
+        warn_default = float(lvls[0])
+        crit_default = 90.0
+    else:
+        warn_default = 80.0
+        crit_default = 90.0
+
     if params.get("_discover"):
-        return _discover(ctx, params)
+        sys_res = ctx.run(
+            ["snmpget", "-v" + version, "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sys_res.rc != 0:
+            return {"changed": False, "msg": "no SNMP response", "data": {"discovery": []}}
+
+        sys_oid = sys_res.stdout.strip()
+        if not sys_oid.startswith(".1.3.6.1.4.1.476.1.42"):
+            return {"changed": False, "msg": "not a Liebert device", "data": {"discovery": []}}
+
+        name_res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid_name], mutates=False)
+        if name_res.rc != 0:
+            return {"changed": False, "msg": "no Liebert fan data found", "data": {"discovery": []}}
+
+        fan_name = name_res.stdout.strip()
+        if fan_name.startswith('"') and fan_name.endswith('"') and len(fan_name) >= 2:
+            fan_name = fan_name[1:-1]
+
+        if not fan_name:
+            return {"changed": False, "msg": "empty fan name", "data": {"discovery": []}}
+
+        discovery = [{
+            "item": fan_name,
+            "params": {"levels": [warn_default, crit_default]},
+            "metrics": ["fan_perc"],
+            "service_labels": {"snmp_device": host},
+        }]
+        return {"changed": False, "msg": "discovered 1 fan", "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    warn_lower, crit_lower = params.get("levels_lower", (None, None))
-    warn_upper, crit_upper = params.get("levels", (80.0, 90.0))
 
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    ], mutates=False)
+    name_res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid_name], mutates=False)
+    value_res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid_value], mutates=False)
+    unit_res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host, oid_unit], mutates=False)
 
-    lines = res.stdout.splitlines()
-    parsed = {}
-    last_name = ""
-
-    for line in lines:
-        stripped = line.strip()
-        if stripped == "":
-            continue
-        parts = stripped.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value_str = parts[1].strip()
-
-        base_prefix = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-        if not oid_full.startswith(base_prefix + "."):
-            continue
-        suffix = oid_full[len(base_prefix):]
-
-        if suffix.startswith(".10.1.2.1.5077"):
-            if value_str.startswith('"') and value_str.endswith('"'):
-                name = value_str[1:-1]
-            else:
-                name = value_str
-            last_name = name
-            if last_name not in parsed:
-                parsed[last_name] = (0.0, "")
-        elif suffix.startswith(".20.1.2.1.5077"):
-            val = 0.0
-            if value_str != "":
-                # Guard instead of try: only convert if looks like float
-                # Remove non-numeric chars (., -, +) and check remaining digits
-                temp = value_str.replace(".", "").replace("-", "").replace("+", "")
-                if temp.isdigit() or (temp == "" and value_str.replace(".", "").replace("-", "").replace("+", "") == "."):
-                    val = float(value_str)
-                elif value_str.replace(".", "").replace("-", "").replace("+", "").isdigit():
-                    val = float(value_str)
-            if last_name in parsed:
-                current = parsed[last_name]
-                parsed[last_name] = (val, current[1])
-        elif suffix.startswith(".30.1.2.1.5077"):
-            if value_str.startswith('"') and value_str.endswith('"'):
-                unit = value_str[1:-1]
-            else:
-                unit = value_str
-            if last_name in parsed:
-                current = parsed[last_name]
-                parsed[last_name] = (current[0], unit)
-
-    if item not in parsed:
+    if name_res.rc != 0 or value_res.rc != 0 or unit_res.rc != 0:
         return {
             "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no Liebert fan data available (SNMP error)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    value, unit = parsed[item]
+    fan_name = name_res.stdout.strip()
+    if fan_name.startswith('"') and fan_name.endswith('"') and len(fan_name) >= 2:
+        fan_name = fan_name[1:-1]
 
-    state = "OK"
-    msg_parts = []
-    msg_parts.append("Speed: %f %s" % (value, unit))
+    fan_value_str = value_res.stdout.strip()
+    fan_unit = unit_res.stdout.strip()
 
-    if crit_upper != None and value >= crit_upper:
+    if fan_name.startswith('"') and fan_name.endswith('"') and len(fan_name) >= 2:
+        fan_name = fan_name[1:-1]
+
+    if item != "" and fan_name != item:
+        return {
+            "changed": False,
+            "msg": "item '" + item + "' not found, got '" + fan_name + "'",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    if not fan_value_str:
+        return {
+            "changed": False,
+            "msg": "no fan value returned",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Strip potential SNMP type prefix (shouldn't happen with -Oqv)
+    clean_val = fan_value_str.strip()
+    colon_idx = clean_val.find(": ")
+    if colon_idx >= 0:
+        clean_val = clean_val[colon_idx + 2:]
+
+    clean_val = clean_val.strip()
+
+    # Parse numeric value
+    parsed_ok = True
+    numeric_value = 0.0
+    if clean_val.lstrip("-").isdigit():
+        numeric_value = float(int(clean_val))
+    else:
+        parts = clean_val.lstrip("-").split(".")
+        is_float = False
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            is_float = True
+        elif len(parts) == 1 and parts[0].isdigit():
+            is_float = True
+        elif len(parts) == 1 and parts[0] == "":
+            is_float = False
+        if is_float:
+            numeric_value = float(clean_val)
+        else:
+            parsed_ok = False
+
+    if not parsed_ok:
+        return {
+            "changed": False,
+            "msg": "could not parse fan value: '" + fan_value_str + "'",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Use params levels if provided, otherwise defaults
+    params_levels = params.get("levels", None)
+    if params_levels != None and type(params_levels) == "list" and len(params_levels) >= 2:
+        warn = float(params_levels[0])
+        crit = float(params_levels[1])
+    else:
+        warn = warn_default
+        crit = crit_default
+
+    if numeric_value >= crit:
         state = "CRIT"
-        msg_parts.append("(crit at %f%%)" % crit_upper)
-    elif warn_upper != None and value >= warn_upper:
+    elif numeric_value >= warn:
         state = "WARN"
-        msg_parts.append("(warn at %f%%)" % warn_upper)
+    else:
+        state = "OK"
 
-    if crit_lower != None and value <= crit_lower:
-        state = "CRIT"
-        msg_parts.append("(crit at %f%%)" % crit_lower)
-    elif warn_lower != None and value <= warn_lower:
-        state = "WARN"
-        msg_parts.append("(warn at %f%%)" % warn_lower)
+    rendered_val = "%f" % numeric_value
+    summary = rendered_val + " " + fan_unit
 
     return {
         "changed": False,
-        "msg": ", ".join(msg_parts),
+        "msg": fan_name + " " + summary,
         "data": {
             "state": state,
-            "metrics": {"fan_perc": value},
-            "details": ""
-        }
-    }
-
-
-def _discover(ctx, params):
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    ], mutates=False)
-
-    lines = res.stdout.splitlines()
-    items = []
-    last_name = ""
-
-    for line in lines:
-        stripped = line.strip()
-        if stripped == "":
-            continue
-        parts = stripped.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value_str = parts[1].strip()
-
-        base_prefix = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-        if not oid_full.startswith(base_prefix + "."):
-            continue
-        suffix = oid_full[len(base_prefix):]
-
-        if suffix.startswith(".10.1.2.1.5077"):
-            if value_str.startswith('"') and value_str.endswith('"'):
-                name = value_str[1:-1]
-            else:
-                name = value_str
-            if name != "":
-                items.append(name)
-
-    discovery = []
-    for item in items:
-        discovery.append({
-            "item": item,
-            "params": {"levels": (80.0, 90.0)},
-            "metrics": ["fan_perc"]
-        })
-
-    return {
-        "changed": False,
-        "msg": "discovered %d fans" % len(discovery),
-        "data": {"discovery": discovery}
+            "metrics": {"fan_perc": numeric_value},
+            "details": fan_name + " at " + summary,
+        },
     }

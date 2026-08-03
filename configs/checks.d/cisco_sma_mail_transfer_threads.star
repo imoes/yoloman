@@ -1,83 +1,57 @@
-# Module-level constants for SNMP OID and defaults
-SNMP_BASE_OID = ".1.3.6.1.4.1.15497.1.1.1"
-SNMP_THREAD_OID = SNMP_BASE_OID + ".20"
-DEFAULT_WARN = 500
-DEFAULT_CRIT = 1000
-
 def main(ctx, params):
-    # Discovery mode: always yield one service with no per-item items
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [
-                {"item": "", "params": {
-                    "levels_upper_total_threads": ("fixed", (DEFAULT_WARN, DEFAULT_CRIT)),
-                    "levels_lower_total_threads": ("no_levels", None)
-                }, "metrics": ["cisco_sma_mail_transfer_threads"]}
-            ]}
-        }
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        base = ".1.3.6.1.4.1.15497.1.1.1"
+        col = base + ".20"
+        sys_descr = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"], mutates=False)
+        if sys_descr.rc == 127:
+            return {"changed": False, "msg": "snmp not installed", "data": {"discovery": []}}
+        if sys_descr.rc != 0:
+            return {"changed": False, "msg": "snmp unavailable", "data": {"discovery": []}}
+        descr = sys_descr.stdout
+        if "Cisco SMA" not in descr and "sma" not in descr.lower():
+            return {"changed": False, "msg": "not a Cisco SMA", "data": {"discovery": []}}
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "mail transfer threads unavailable", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [
+            {"item": "", "params": {
+                "levels_upper_total_threads": (500, 1000),
+                "levels_lower_total_threads": (),
+            }, "metrics": ["cisco_sma_mail_transfer_threads"]}]}}
 
-    # Check mode: gather thread count via SNMP
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host, SNMP_THREAD_OID
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    community = params.get("community", "public")
+    col = ".1.3.6.1.4.1.15497.1.1.1.20"
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, col], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "snmp not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "no mail transfer threads data", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    val = res.stdout.strip()
+    if not val.isdigit():
+        return {"changed": False, "msg": "invalid value: " + val, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    value = int(val)
+    levels = params.get("levels_upper_total_threads", (500, 1000))
+    warn = levels[0] if len(levels) > 0 and levels[0] != None else None
+    crit = levels[1] if len(levels) >= 2 and levels[1] != None else None
+    llevels = params.get("levels_lower_total_threads", None)
+    lwarn = llevels[0] if llevels and len(llevels) > 0 and llevels[0] != None else None
+    lcrit = llevels[1] if llevels and len(llevels) >= 2 and llevels[1] != None else None
 
-    # Parse SNMP response: expected format "OID = INTEGER: <value>"
-    line = res.stdout.strip()
-    if not line or line.find("=") == -1:
-        return {
-            "changed": False,
-            "msg": "malformed SNMP response",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    value_str = line.rsplit(":", 1)[-1].strip()
-    if not value_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "non-numeric thread count",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    threads = int(value_str)
-    
-    # Extract levels from params (handle Checkmk tuple format)
-    levels_upper = params.get("levels_upper_total_threads", ("fixed", (DEFAULT_WARN, DEFAULT_CRIT)))
-    levels_lower = params.get("levels_lower_total_threads", ("no_levels", None))
-
-    # Extract warn/crit from upper tuple format: ("fixed", (warn, crit))
-    warn = None
-    crit = None
-    if levels_upper[0] == "fixed":
-        warn, crit = levels_upper[1]
-    
-    # Determine state based on upper levels only (lower levels not implemented in source)
     state = "OK"
-    if crit != None and threads >= crit:
+    if crit != None and value >= crit:
         state = "CRIT"
-    elif warn != None and threads >= warn:
+    elif lwarn != None and value <= lwarn:
         state = "WARN"
-    
-    # Checkmk-style message
-    msg = "Total: %d" % threads
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"cisco_sma_mail_transfer_threads": threads},
-            "details": ""
-        }
-    }
+    elif warn != None and value >= warn:
+        state = "WARN"
+    elif lcrit != None and value <= lcrit:
+        state = "CRIT"
+
+    return {"changed": False,
+            "msg": "Total: %d mail transfer threads" % value,
+            "data": {"state": state,
+                     "metrics": {"cisco_sma_mail_transfer_threads": value},
+                     "details": ""}}

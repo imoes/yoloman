@@ -1,82 +1,72 @@
+# Checkmk's tsm_paths agent plugin runs dsmadmc queries
+# Each line: [server, path_name, online_status]
+# line[2] == "YES" means path is online/OK
+
 def main(ctx, params):
-    # Try to run dsmpath to get path information
-    res = ctx.run(["dsmpath"], mutates=False)
-    
-    # If dsmpath is not found or fails, try alternative approach
-    if res.rc != 0:
-        # Try to use dsmc query path as fallback
-        res = ctx.run(["dsmc", "query", "path"], mutates=False)
-        if res.rc != 0:
-            # If both fail, we return UNKNOWN
-            return {
-                "changed": False,
-                "msg": "Cannot gather TSM paths data (dsmpath and dsmc query path failed)",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-            }
-    
-    # Parse the output: expect lines with path name, status, active status
-    lines = res.stdout.splitlines()
-    
-    # Skip header lines
-    data_lines = []
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        # Check if it looks like a header
-        if stripped.lower().find("path name") >= 0 or stripped.lower().find("status") >= 0 or stripped.lower().find("active") >= 0:
-            continue
-        # Check if it's a separator line (dashes)
-        if stripped.startswith("-"):
-            continue
-        data_lines.append(stripped)
-    
-    section = []
-    for line in data_lines:
-        parts = line.split()
-        if len(parts) >= 3:
-            path_name = parts[0]
-            status = parts[1]
-            active = parts[2]
-            section.append([path_name, status, active])
-    
     if params.get("_discover"):
-        if len(section) > 0:
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-            }
-        return {
-            "changed": False,
-            "msg": "discovered no services",
-            "data": {"discovery": []},
-        }
-    
-    # Check mode
+        # Probe for TSM client presence — dsmadmc is the TSM admin client
+        probe = ctx.run(["dsmadmc", "-version"], mutates=False)
+        # rc == 127 means binary not found — TSM not installed
+        has_tsm = probe.rc == 0 and len(probe.stdout.strip()) > 0
+        if not has_tsm:
+            return {"changed": False, "msg": "no TSM client found",
+                    "data": {"discovery": []}}
+
+        # Gather path data via dsmadmc — this is what Checkmk's agent plugin queries
+        # The agent plugin runs something producing server/path/status lines
+        res = ctx.run(["dsmadmc", "-dataonly=f", "q path"], mutates=False)
+        lines = res.stdout.splitlines()
+        if res.rc != 0 or len(lines) == 0:
+            return {"changed": False, "msg": "could not query TSM paths",
+                    "data": {"discovery": []}}
+
+        # Each non-empty line from dsmadmc output represents a path entry
+        # Checkmk formats these as [server, path_name, status] rows
+        # We have at least one path, so discover the service
+        return {"changed": False, "msg": "discovered TSM Paths service",
+                "data": {"discovery": [
+                    {"item": "", "params": {},
+                     "metrics": []}
+                ]}}
+
+    item = params.get("item", "")
+    # Re-probe for TSM presence in check mode
+    probe = ctx.run(["dsmadmc", "-version"], mutates=False)
+    has_tsm = probe.rc == 0 and len(probe.stdout.strip()) > 0
+    if not has_tsm:
+        return {"changed": False, "msg": "TSM client (dsmadmc) not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    res = ctx.run(["dsmadmc", "-dataonly=f", "q path"], mutates=False)
+    lines = res.stdout.splitlines()
+    if res.rc != 0:
+        return {"changed": False, "msg": "dsmadmc query failed: " + res.stderr.strip(),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if len(lines) == 0:
+        return {"changed": False, "msg": "no TSM paths returned",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Parse the section — each line is [server, path_name, status]
+    # Reproduce Checkmk's string_table handling
+    section = []
+    for line in lines:
+        cols = line.split()
+        if len(cols) >= 3:
+            section.append(cols)
+
     error_paths = []
-    for item in section:
-        if len(item) >= 3 and item[2].upper() == "YES":
-            continue
-        if len(item) >= 3:
-            error_paths.append(item[0])
-    
+    for row in section:
+        if len(row) >= 3 and row[2] != "YES":
+            error_paths.append(row[1])
+
     if len(error_paths) > 0:
-        return {
-            "changed": False,
-            "msg": "Paths with errors: %s" % ", ".join(error_paths),
-            "data": {"state": "CRIT", "metrics": {}, "details": ""},
-        }
-    
-    if len(section) == 0:
-        return {
-            "changed": False,
-            "msg": "No paths found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    return {
-        "changed": False,
-        "msg": "%d paths OK" % len(section),
-        "data": {"state": "OK", "metrics": {}, "details": ""},
-    }
+        summary = "Paths with errors: " + ", ".join(error_paths)
+        return {"changed": False, "msg": summary,
+                "data": {"state": "CRIT", "metrics": {},
+                         "details": summary}}
+
+    summary = "%d paths OK" % len(section)
+    return {"changed": False, "msg": summary,
+            "data": {"state": "OK", "metrics": {},
+                     "details": summary}}

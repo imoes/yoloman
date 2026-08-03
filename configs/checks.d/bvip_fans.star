@@ -1,103 +1,130 @@
+# Checkmk bvip_fans check translated to read-only Starlark for the yolo-man agent.
+# Monitors Bosch VIP/BGFan tray fan speeds (RPM) via SNMP.
+
+# OID base for the BVIP fan table.
+BVIP_FANS_BASE_OID = ".1.3.6.1.4.1.3967.1.1.8.1"
+
+
+def _is_int(s):
+    stripped = s.strip()
+    if stripped == "":
+        return False
+    if stripped[0] in "+-":
+        return stripped[1:].isdigit() and len(stripped) > 1
+    return stripped.isdigit()
+
+
+def _snmp_get_fans(ctx, host, community):
+    """Walk the BVIP fan table. Returns list of [index_name, rpm] or None."""
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, BVIP_FANS_BASE_OID + ".1"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) != 2:
+            continue
+        oid = sp[0]
+        value = sp[1].strip()
+        idx = oid[len(BVIP_FANS_BASE_OID + ".1") + 1:]
+        if idx == "":
+            continue
+        if not _is_int(value):
+            continue
+        rpm = int(value)
+        rows.append([idx, rpm])
+    return rows
+
+
+def _sys_descr(ctx, host, community):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _is_bvip(ctx, host, community):
+    descr = _sys_descr(ctx, host, community)
+    lower = descr.lower()
+    for marker in ["flexidome", "vip-x", "dinion", "autodome"]:
+        if marker in lower:
+            return True
+    return False
+
+
 def main(ctx, params):
-    # Constants for SNMP OIDs
-    BASE_OID = ".1.3.6.1.4.1.3967.1.1.8.1"
-    OID_END = BASE_OID + ".0"
-    OID_RPM = BASE_OID + ".1.0"
-
-    # Helper: discover mode
     if params.get("_discover"):
-        res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                      "-On", params.get("host", "localhost"), BASE_OID], mutates=False)
-        items = []
-        # Parse snmpwalk output: "OID = STRING: value" or "OID = INTEGER: value"
-        for line in res.stdout.splitlines():
-            if not line.strip():
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        if not _is_bvip(ctx, host, community):
+            return {"changed": False, "msg": "host is not a BVIP device", "data": {"discovery": []}}
+        rows = _snmp_get_fans(ctx, host, community)
+        if rows == None or len(rows) == 0:
+            return {"changed": False, "msg": "no fan entries found", "data": {"discovery": []}}
+        out = []
+        for row in rows:
+            idx = row[0]
+            rpm = row[1]
+            if rpm == 0:
                 continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) < 2:
-                continue
-            oid_part, value_part = parts
-            # Only process items (end OID) and their RPM
-            # Format: .1.3.6.1.4.1.3967.1.1.8.1.<index> = INTEGER: <value>
-            # The first part is the item name (index), second is RPM
-            if oid_part.startswith(BASE_OID + ".") and not oid_part == BASE_OID + ".1":
-                # Extract index (item name) from OID
-                index = oid_part[len(BASE_OID + "."):]
-                # Parse value (integer)
-                if value_part.strip().startswith("INTEGER: "):
-                    value_str = value_part.strip().split(": ", 1)[1]
-                    if value_str.isdigit():
-                        rpm = int(value_str)
-                        if rpm != 0:
-                            # Compute default lower thresholds: (90% rpm, 80% rpm)
-                            warn_lower = rpm * 0.9
-                            crit_lower = rpm * 0.8
-                            items.append({
-                                "item": index,
-                                "params": {"lower": [warn_lower, crit_lower]},
-                                "metrics": ["rpm"]
-                            })
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(items),
-            "data": {"discovery": items}
-        }
+            suggested_lower = (rpm * 0.9, rpm * 0.8)
+            out.append({
+                "item": idx,
+                "params": {"lower": suggested_lower},
+                "metrics": ["fan_rpm"],
+            })
+        return {"changed": False, "msg": "discovered %d fans" % len(out), "data": {"discovery": out}}
 
-    # Check mode: single item
     item = params.get("item", "")
-    warn_lower, crit_lower = params.get("lower", [80.0, 70.0])
-
-    # Query only the specific fan's RPM
-    # snmpget -v2c -c <community> <host> <oid>
-    fan_oid = BASE_OID + "." + item
-    res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                  "-On", params.get("host", "localhost"), fan_oid], mutates=False)
-
-    if not res.stdout.strip():
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    if not _is_bvip(ctx, host, community):
         return {
             "changed": False,
-            "msg": "no data for fan %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "host is not a BVIP device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    # Parse snmpget output: ".1.3.6.1.4.1.3967.1.1.8.1.<index> = INTEGER: <value>"
-    line = res.stdout.strip()
-    parts = line.split(" = ", 1)
-    if len(parts) < 2:
+    rows = _snmp_get_fans(ctx, host, community)
+    if rows == None or len(rows) == 0:
         return {
             "changed": False,
-            "msg": "unexpected output format",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no fan entries found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    value_part = parts[1].strip()
-    if not value_part.startswith("INTEGER: "):
+    rpm = None
+    for row in rows:
+        if row[0] == item:
+            rpm = row[1]
+            break
+    if rpm == None:
         return {
             "changed": False,
-            "msg": "value is not an integer",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "fan not found: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    value_str = value_part.split(": ", 1)[1]
-    if not value_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "failed to parse RPM value",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    rpm = int(value_str)
-
-    # Determine state based on lower thresholds (WARN if <= warn_lower, CRIT if <= crit_lower)
-    # Checkmk's check_fan uses lower thresholds
-    state = "OK"
-    if rpm <= crit_lower:
+    lower = params.get("lower")
+    if lower == None:
+        lower = (0, 0)
+    warn = lower[0]
+    crit = lower[1]
+    if rpm <= crit:
         state = "CRIT"
-    elif rpm <= warn_lower:
+    elif rpm <= warn:
         state = "WARN"
-
+    else:
+        state = "OK"
     return {
         "changed": False,
-        "msg": "%s: %d RPM" % (item, rpm),
-        "data": {"state": state, "metrics": {"rpm": rpm}, "details": ""}
+        "msg": "%s %d RPM" % (item, rpm),
+        "data": {
+            "state": state,
+            "metrics": {"fan_rpm": rpm},
+            "details": "%s: %d RPM (warn <= %d, crit <= %d)" % (item, rpm, warn, crit),
+        },
     }

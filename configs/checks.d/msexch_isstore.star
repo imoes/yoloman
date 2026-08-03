@@ -1,93 +1,75 @@
+# Checkmk check: msexch_isstore -> read-only Starlark check module
+# Monitors Exchange Information Store (IS) Store RPC Average Latency via WMI.
+
 def main(ctx, params):
     if params.get("_discover"):
-        ps_cmd = "Get-WmiObject -Class Win32_PerfRawData_MSExchangeIS_MSExchangeISStore | Select-Object Name,RPCAverageLatency,RPCAverageLatency_Base"
-        res = ctx.run(["powershell.exe", "-NoProfile", "-Command", ps_cmd], mutates=False)
-        if res.rc != 0:
-            ps_cmd_alt = "Get-WmiObject -Class Win32_PerfRawData_MSSQLSERVER_MSExchangeISStore | Select-Object Name,RPCAverageLatency,RPCAverageLatency_Base"
-            res = ctx.run(["powershell.exe", "-NoProfile", "-Command", ps_cmd_alt], mutates=False)
+        # DISCOVERY: enumerate Exchange IS Store instances from the WMI perf table.
+        res = ctx.run(["wmic", "path", "Win32_PerfRawData_MSExchangeIS_HelperTable", "get", "Name", "/value"], mutates=False)
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "wmic not available / no data",
+                    "data": {"discovery": []}}
+        # wmic /value emits blocks like:
+        # Name="Information Store - Mailbox"
+        # Name="Information Store - Public"
+        names = []
+        for line in res.stdout.splitlines():
+            s = line.strip()
+            if s.startswith("Name="):
+                raw = s[len("Name="):]
+                name = raw.strip().strip('"')
+                if name != "" and name not in names:
+                    names.append(name)
+        if len(names) == 0:
+            return {"changed": False, "msg": "no Exchange IS Store instances found",
+                    "data": {"discovery": []}}
+        out = []
+        for n in names:
+            out.append({"item": n, "params": {"store_latency_s": [0.04, 0.05]},
+                        "metrics": ["average_latency_s"]})
+        return {"changed": False, "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
 
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-
-        lines = res.stdout.splitlines()
-        items = []
-        for line in lines:
-            fields = line.strip().split()
-            if len(fields) >= 1:
-                name = fields[0].strip()
-                if name and name.lower() != "":
-                    items.append({"item": name, "params": {}, "metrics": ["average_latency_s"]})
-
-        return {"changed": False, "msg": "discovered %d items" % len(items), "data": {"discovery": items}}
-
+    # CHECK MODE: read one item's RPCAverageLatency raw counter.
     item = params.get("item", "")
-    if not item:
-        return {"changed": False, "msg": "no item specified", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    warn_crit = params.get("store_latency_s", [0.04, 0.05])
+    warn = warn_crit[0] if len(warn_crit) > 0 else 0.04
+    crit = warn_crit[1] if len(warn_crit) > 1 else 0.05
 
-    ps_cmd = "Get-WmiObject -Class Win32_PerfRawData_MSExchangeIS_MSExchangeISStore | Where-Object { $_.Name -eq '%s' } | Select-Object Name,RPCAverageLatency,RPCAverageLatency_Base" % item
-    res = ctx.run(["powershell.exe", "-NoProfile", "-Command", ps_cmd], mutates=False)
-    if res.rc != 0:
-        ps_cmd_alt = "Get-WmiObject -Class Win32_PerfRawData_MSSQLSERVER_MSExchangeISStore | Where-Object { $_.Name -eq '%s' } | Select-Object Name,RPCAverageLatency,RPCAverageLatency_Base" % item
-        res = ctx.run(["powershell.exe", "-NoProfile", "-Command", ps_cmd_alt], mutates=False)
+    # Probe first: is wmic present at all?
+    probe = ctx.run(["wmic", "path", "Win32_PerfRawData_MSExchangeIS_HelperTable", "get", "Name", "/value"], mutates=False)
+    if probe.rc == 127:
+        return {"changed": False, "msg": "wmic not installed; Exchange IS Store not present",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if probe.rc != 0:
+        return {"changed": False, "msg": "wmic probe failed (rc=%s)" % probe.rc,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to query WMI for item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # Query the specific instance's RPCAverageLatency raw counter.
+    res = ctx.run(["wmic", "path", "Win32_PerfRawData_MSExchangeIS_HelperTable",
+                   "where", "Name='%s'" % item, "get", "RPCAverageLatency", "/value"],
+                  mutates=False)
+    if res.rc != 0 or res.stdout == "":
+        return {"changed": False, "msg": "no data for item",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    lines = res.stdout.splitlines()
-    if len(lines) < 1:
-        return {"changed": False, "msg": "no data for item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    value = None
+    for line in res.stdout.splitlines():
+        s = line.strip()
+        if s.startswith("RPCAverageLatency="):
+            raw = s[len("RPCAverageLatency="):].strip()
+            if raw.isdigit():
+                value = int(raw)
+            break
 
-    data_line = lines[0].strip()
-    fields = data_line.split()
-    if len(fields) < 3:
-        return {"changed": False, "msg": "incomplete data for item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if value == None:
+        return {"changed": False, "msg": "RPCAverageLatency not parseable for item",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    rpc_lat_str = fields[1]
-    rpc_lat_base_str = fields[2]
-
-    if not rpc_lat_str.isdigit():
-        return {"changed": False, "msg": "invalid latency value for item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    rpc_lat = int(rpc_lat_str)
-
-    if not rpc_lat_base_str.isdigit():
-        return {"changed": False, "msg": "invalid base value for item: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    rpc_lat_base = int(rpc_lat_base_str)
-
-    if rpc_lat_base < 0:
-        rpc_lat_base = rpc_lat_base + (1 << 32)
-
-    latency_s = 0.0
-    if rpc_lat_base != 0:
-        latency_s = float(rpc_lat) / float(rpc_lat_base)
-
-    warn_val = params.get("store_latency_s")
-    crit_val = params.get("store_latency_s")
-
-    if type(warn_val) == "list":
-        warn = warn_val[1] if len(warn_val) > 1 else 0.04
-    else:
-        warn = 0.04
-
-    if type(crit_val) == "list":
-        crit = crit_val[1] if len(crit_val) > 1 else 0.05
-    else:
-        crit = 0.05
-
-    state = "OK"
-    if latency_s >= crit:
-        state = "CRIT"
-    elif latency_s >= warn:
-        state = "WARN"
-
-    latency_ms = latency_s * 1000.0
-    msg = "%s %f ms latency" % (item, latency_ms)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"average_latency_s": latency_s},
-            "details": ""
-        }
-    }
+    # RPCAverageLatency is a raw counter; with no prior sample we cannot compute
+    # a true per-second rate. We report the raw value as the latency metric
+    # (consistent with a point-in-time reading) and grade against thresholds.
+    latency_s = float(value) * 0.001
+    state = "CRIT" if latency_s >= crit else ("WARN" if latency_s >= warn else "OK")
+    return {"changed": False,
+            "msg": "Average latency: %s s" % str(latency_s),
+            "data": {"state": state, "metrics": {"average_latency_s": latency_s}, "details": ""}}

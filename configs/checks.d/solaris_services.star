@@ -1,87 +1,98 @@
 def main(ctx, params):
-    # Discovery mode: enumerate SMF services and yield one item per service
     if params.get("_discover"):
-        res = ctx.run(["svcs", "-H", "-a"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to list services: " + res.stderr,
-                    "data": {"discovery": []}}
-        
-        items = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split(None, 2)  # Split into at most 3 fields
-            if len(parts) < 3:
-                continue
-            state, stime, fmri = parts[0], parts[1], parts[2]
-            items.append({
-                "item": fmri,
-                "params": {},
-                "metrics": []
-            })
-        
-        return {"changed": False, "msg": "discovered %d services" % len(items),
-                "data": {"discovery": items}}
-    
-    # Check mode: verify one service item
-    item = params.get("item", "")
-    res = ctx.run(["svcs", "-H", item], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        # Service not found
-        return {"changed": False,
-                "msg": "Service not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse service status line
-    parts = res.stdout.split(None, 2)
-    if len(parts) < 3:
-        return {"changed": False,
-                "msg": "Unable to parse service status",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    svc_state, svc_stime, svc_name = parts[0], parts[1], parts[2]
-    
-    # Determine service state from configuration
-    # Checkmk default: online->OK, disabled->CRIT, legacy_run->OK, maintenance->OK
-    default_states = {
-        "online": 0,
-        "disabled": 2,
-        "legacy_run": 0,
-        "maintenance": 0,
-    }
-    
-    # Apply explicit rule overrides if present in params
-    states = params.get("states", [])
-    check_state = default_states.get(svc_state, 2)  # Unknown states default to CRIT (2)
-    
-    for state_tuple in states:
-        if len(state_tuple) >= 3 and state_tuple[0] == svc_state:
-            # state_tuple format: (state, stime_match, result_state)
-            rule_stime = state_tuple[1]
-            if rule_stime == None:
-                check_state = state_tuple[2]
-            else:
-                # stime format: check if restarted in last 24h (2 colons)
-                has_changed = svc_stime.count(":") == 2
-                if has_changed == rule_stime:
-                    check_state = state_tuple[2]
-                    break
-    
-    # Build message
-    if svc_stime.count(":") == 2:
-        info_stime = "Restarted in the last 24h (client's localtime: %s)" % svc_stime
-    else:
-        info_stime = "Started on %s" % svc_stime.replace("_", " ")
-    
-    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-    state = state_map.get(check_state, "UNKNOWN")
-    
+        return _discover(ctx, params)
+    return _check(ctx, params)
+
+
+def _discover(ctx, params):
+    res = ctx.run(["svcs", "-H", "-o", "state,stime,fmri"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "svcs not installed", "data": {"discovery": []}}
+
+    discovery = []
+    seen = set()
+    for line in res.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 3:
+            continue
+        if fields[0] == "STATE":
+            continue
+        fmri = fields[2]
+        if fmri in seen:
+            continue
+        seen.add(fmri)
+        discovery.append({
+            "item": fmri,
+            "params": {},
+            "metrics": [],
+        })
+
     return {
         "changed": False,
-        "msg": "Status: %s, %s" % (svc_state, info_stime),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": "",
-        },
+        "msg": "discovered %d services" % len(discovery),
+        "data": {"discovery": discovery},
+    }
+
+
+def _check(ctx, params):
+    item = params.get("item", "")
+    res = ctx.run(["svcs", "-H", "-o", "state,stime,fmri"], mutates=False)
+    if res.rc == 127:
+        return _unknown("svcs not installed")
+
+    states = params.get("states", [
+        ("online", None, 0),
+        ("disabled", None, 2),
+        ("legacy_run", None, 0),
+        ("maintenance", None, 0),
+    ])
+    else_state = params.get("else", 2)
+    additional = params.get("additional_servicenames", [])
+
+    for line in res.stdout.splitlines():
+        fields = line.split()
+        if len(fields) < 3:
+            continue
+        if fields[0] == "STATE":
+            continue
+        svc_state = fields[0]
+        svc_stime = fields[1]
+        svc_descr = fields[2]
+
+        if item in svc_descr or svc_descr in additional:
+            has_changed = svc_stime.count(":") == 2
+            if has_changed:
+                info_stime = "Restarted in the last 24h (client's localtime: %s)" % svc_stime
+            else:
+                info_stime = "Started on %s" % svc_stime.replace("_", " ")
+
+            check_state = 0
+            for s in states:
+                s_state = s[0]
+                s_p_stime = s[1]
+                s_p_state = s[2]
+                if s_state == svc_state:
+                    if s_p_stime != None:
+                        if has_changed == s_p_stime:
+                            check_state = s_p_state
+                            break
+                    else:
+                        check_state = s_p_state
+                        break
+
+            verdict = ["OK", "WARN", "CRIT", "UNKNOWN"][check_state] if (0 <= check_state) and (check_state < 4) else "UNKNOWN"
+            return {
+                "changed": False,
+                "msg": "Status: %s, %s" % (svc_state, info_stime),
+                "data": {"state": verdict, "metrics": {}, "details": ""},
+            }
+
+    return _unknown("Service not found")
+
+
+def _unknown(msg):
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
     }

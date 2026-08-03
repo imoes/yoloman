@@ -1,211 +1,291 @@
-# ===== Starlark translation of Checkmk nimble_latency check =====
-# Reads latency data via SNMP for a single volume, computes percentage
-# of I/O operations in latency ranges >= range_reference, and compares
-# against warn/crit levels.
+# Range keys in order: (key, title). First is "total".
+_NIMBLE_RANGE_KEYS = [
+    ("total", "Total"),
+    ("0.1", "0-0.1 ms"),
+    ("0.2", "0.1-0.2 ms"),
+    ("0.5", "0.2-0.5 ms"),
+    ("1", "0.5-1.0 ms"),
+    ("2", "1-2 ms"),
+    ("5", "2-5 ms"),
+    ("10", "5-10 ms"),
+    ("20", "10-20 ms"),
+    ("50", "20-50 ms"),
+    ("100", "50-100 ms"),
+    ("200", "100-200 ms"),
+    ("500", "200-500 ms"),
+    ("1000", "500+ ms"),
+]
+
+_NIMBLE_READ_START = 1
+_NIMBLE_WRITE_START = 15
+_NIMBLE_NUM_VALUES = 14
+_NIMBLE_OID_COLS = [
+    "3", "13", "21", "22", "23", "24", "25", "26", "27", "28", "29",
+    "30", "31", "32", "33", "34", "39", "40", "41", "42", "43", "44",
+    "45", "46", "47", "48", "49", "50", "51",
+]
+
+_DEC_POWERS = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1000000.0, 10000000.0]
+
+
+def _dec_power(n):
+    """Return 10**n without using ** operator, for non-negative n up to 7."""
+    if n < 0 or n > 7:
+        return 10.0
+    return _DEC_POWERS[n]
+
+
+def _is_int_str(s):
+    if not s:
+        return False
+    if s[0] == "-":
+        return len(s) > 1 and s[1:].isdigit()
+    return s.isdigit()
+
+
+def _safe_int(s):
+    if s and s.lstrip("-").isdigit():
+        return int(s)
+    return None
+
+
+def _safe_float(s):
+    if not s:
+        return None
+    neg = False
+    rest = s
+    if rest[0] == "-":
+        neg = True
+        rest = rest[1:]
+    if rest == "":
+        return None
+    if "." in rest:
+        whole, frac = rest.split(".", 1)
+        if not whole and not frac:
+            return None
+        if whole and not whole.isdigit():
+            return None
+        if frac and not frac.isdigit():
+            return None
+        val = 0.0
+        if whole:
+            val = float(int(whole))
+        if frac:
+            val += float(int(frac)) / _dec_power(len(frac))
+        return -val if neg else val
+    else:
+        if not rest.isdigit():
+            return None
+        return float(-int(rest)) if neg else float(int(rest))
+
+
+def _parse_nimble_latency(string_table):
+    """Parse the SNMP string table into {vol_name: {type: LatencyData}}.
+
+    LatencyData = {"total": int, "ranges": {key: [title, value], ...}}
+    """
+    parsed = {}
+    for line in string_table:
+        if len(line) < 1:
+            continue
+        vol_name = line[0]
+        for ty, start_idx in [
+            ("read", _NIMBLE_READ_START),
+            ("write", _NIMBLE_WRITE_START),
+        ]:
+            end_idx = start_idx + _NIMBLE_NUM_VALUES
+            values = line[start_idx:end_idx]
+            latencies = {}
+            ranges = {}
+            for (key, title), value_str in zip(_NIMBLE_RANGE_KEYS, values):
+                if not _is_int_str(value_str):
+                    continue
+                value = _safe_int(value_str)
+                if value == None:
+                    continue
+                if key == "total":
+                    latencies["total"] = value
+                else:
+                    ranges[key] = [title, value]
+            if "total" in latencies:
+                latencies["ranges"] = ranges
+                parsed.setdefault(vol_name, {})[ty] = latencies
+    return parsed
+
+
+def _walk_snmp_rows(ctx, host, community):
+    """Walk the Nimble latency base OID and return the string table.
+
+    Returns a list of rows; each row is [vol_name, col3, col13, col21, ...].
+    Returns None on SNMP failure.
+    """
+    base_oid = "1.3.6.1.4.1.37447.1.2.1"
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", "-OQ", host, base_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    rows = {}
+    for line in res.stdout.splitlines():
+        if not line.strip():
+            continue
+        space_idx = line.find(" ")
+        if space_idx == -1:
+            continue
+        oid = line[:space_idx]
+        val = line[space_idx + 1:].strip()
+        suffix = oid[len(base_oid) + 1:]
+        parts = suffix.split(".")
+        if len(parts) < 2:
+            continue
+        col = parts[0]
+        vol_index = ".".join(parts[1:])
+        rows.setdefault(vol_index, {})[col] = val
+
+    string_table = []
+    for vol_index in sorted(rows.keys()):
+        row_data = rows[vol_index]
+        vol_name = row_data.get("3", "")
+        row = [vol_name]
+        for c in _NIMBLE_OID_COLS:
+            row.append(row_data.get(c, ""))
+        string_table.append(row)
+    return string_table
+
+
+def _grade_levels(value, levels):
+    """Grade a numeric value against (warn, crit) levels (upper levels)."""
+    if levels == None:
+        return "OK"
+    warn = levels[0]
+    crit = levels[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
 
 def main(ctx, params):
-    # Discovery mode: enumerate volume items via SNMP
+    """Checkmk nimble_latency check translated to read-only Starlark.
+
+    Supports discovery (params['_discover']=True) and per-item check for both
+    read and write IO latency.
+    """
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.37447.1.2.1.3"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-        items = []
-        lines = res.stdout.splitlines()
-        for line in lines:
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                # Extract volume name from last column of value (after =)
-                val = parts[1]
-                # The value is a string like "VOL1", strip quotes if present
-                vol = val.strip('"').strip("'")
-                if vol:
-                    items.append({
-                        "item": vol,
-                        "params": {
-                            "range_reference": "20",
-                            "read": [10.0, 20.0],
-                            "write": [10.0, 20.0]
-                        },
-                        "metrics": ["nimble_read_latency_20", "nimble_read_latency_50", "nimble_read_latency_100"]
-                    })
-        return {
-            "changed": False,
-            "msg": "discovered %d volumes" % len(items),
-            "data": {"discovery": items}
-        }
+        host = params.get("host", "")
+        community = params.get("community", "public")
+        rows = _walk_snmp_rows(ctx, host, community)
+        if rows == None:
+            return {"changed": False,
+                    "msg": "SNMP walk to Nimble device failed; no latencies found",
+                    "data": {"discovery": [],
+                             "host_labels": {"cmk/os_family": "linux"}}}
 
-    # Check mode for one volume item
+        if len(rows) == 0:
+            return {"changed": False,
+                    "msg": "No Nimble latency data found on host",
+                    "data": {"discovery": [],
+                             "host_labels": {"cmk/os_family": "linux"}}}
+
+        parsed = _parse_nimble_latency(rows)
+        out = []
+        for vol_name, vol_attrs in parsed.items():
+            if vol_attrs.get("read") != None:
+                out.append({"item": vol_name,
+                            "params": {"direction": "read",
+                                       "warn": 10.0, "crit": 20.0,
+                                       "range_reference": "20"},
+                            "metrics": ["nimble_read_latency_10",
+                                        "nimble_read_latency_20",
+                                        "nimble_read_latency_50",
+                                        "nimble_read_latency_100",
+                                        "nimble_read_latency_200",
+                                        "nimble_read_latency_500",
+                                        "nimble_read_latency_1000"]})
+            if vol_attrs.get("write") != None:
+                out.append({"item": vol_name,
+                            "params": {"direction": "write",
+                                       "warn": 10.0, "crit": 20.0,
+                                       "range_reference": "20"},
+                            "metrics": ["nimble_write_latency_10",
+                                        "nimble_write_latency_20",
+                                        "nimble_write_latency_50",
+                                        "nimble_write_latency_100",
+                                        "nimble_write_latency_200",
+                                        "nimble_write_latency_500",
+                                        "nimble_write_latency_1000"]})
+        msg = "discovered %d Nimble latency services" % len(out)
+        return {"changed": False, "msg": msg,
+                "data": {"discovery": out,
+                         "host_labels": {"cmk/os_family": "linux"}}}
+
+    # Check mode
+    host = params.get("host", "")
+    community = params.get("community", "public")
+    direction = params.get("direction", "read")
     item = params.get("item", "")
-    if item == "":
-        fail("item is required for check mode")
 
-    # Fetch latency SNMP data
-    # OIDs: base + offsets for read (13..26) and write (39..52)
-    base_oid = ".1.3.6.1.4.1.37447.1.2.1."
-    read_oids = [str(base_oid + o) for o in ["13", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33", "34"]]
-    write_oids = [str(base_oid + o) for o in ["39", "40", "41", "42", "43", "44", "45", "46", "47", "48", "49", "50", "51", "52", "53"]]
+    rows = _walk_snmp_rows(ctx, host, community)
+    if rows == None:
+        return {"changed": False,
+                "msg": "SNMP walk to Nimble device failed; cannot check latency",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Gather both read and write data
-    read_values = []
-    write_values = []
-    for oid_list, val_list in [(read_oids, read_values), (write_oids, write_values)]:
-        for oid in oid_list:
-            res = ctx.run([
-                "snmpget",
-                "-v2c",
-                "-c", params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                oid
-            ], mutates=False)
-            if res.rc != 0:
-                fail("SNMP get failed for " + oid + ": " + res.stderr)
-            # Parse "OID = STRING: value"
-            line = res.stdout.strip()
-            if "=" in line:
-                parts = line.split("=", 1)
-                if len(parts) == 2:
-                    v = parts[1].strip()
-                    # Extract numeric value from strings like "INTEGER: 123" or just "123"
-                    for prefix in ["INTEGER: ", "Counter32: ", "Gauge32: "]:
-                        if v.startswith(prefix):
-                            v = v[len(prefix):].strip()
-                    # Guard instead of try/except
-                    if v.isdigit():
-                        val_list.append(int(v))
-                    else:
-                        val_list.append(0)
-            else:
-                val_list.append(0)
+    parsed = _parse_nimble_latency(rows)
+    vol_data = parsed.get(item, {})
+    ty_data = vol_data.get(direction, {})
+    if ty_data == None:
+        return {"changed": False,
+                "msg": "No %s latency data for volume '%s'" % (direction, item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Range keys in order (total is first, then ranges)
-    range_keys = [
-        ("total", "Total"),
-        ("0.1", "0-0.1 ms"),
-        ("0.2", "0.1-0.2 ms"),
-        ("0.5", "0.2-0.5 ms"),
-        ("1", "0.5-1.0 ms"),
-        ("2", "1-2 ms"),
-        ("5", "2-5 ms"),
-        ("10", "5-10 ms"),
-        ("20", "10-20 ms"),
-        ("50", "20-50 ms"),
-        ("100", "50-100 ms"),
-        ("200", "100-200 ms"),
-        ("500", "200-500 ms"),
-        ("1000", "500+ ms"),
-    ]
-
-    # Build read data section (14 values: total + 13 ranges)
-    read_data = build_latency_section(read_values, range_keys)
-    write_data = build_latency_section(write_values, range_keys)
-
-    # Decide type based on item suffix if needed; default to reads
-    ty = "read"
-    if item.endswith("_write") or params.get("type") == "write":
-        ty = "write"
-
-    # Choose data
-    data = read_data
-    if ty == "write":
-        data = write_data
-
-    # Check logic
-    if not data.get("total"):
-        return {
-            "changed": False,
-            "msg": "no data for volume " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    total_value = data.get("total", 0)
+    total_value = ty_data.get("total", 0)
     if total_value == 0:
-        return {
-            "changed": False,
-            "msg": "No current " + ty + " operations",
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
+        return {"changed": False,
+                "msg": "No current %s operations" % direction,
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
 
-    range_reference = float(params.get("range_reference", "20"))
-    warn_pct = float(params.get(ty, [10.0, 20.0])[0])
-    crit_pct = float(params.get(ty, [10.0, 20.0])[1])
+    range_reference = params.get("range_reference", "20")
+    ref_float = _safe_float(range_reference)
+    if ref_float == None:
+        ref_float = 20.0
 
-    running_total_percent = 0.0
+    running_total = 0.0
     metrics = {}
-    details_parts = []
-    first = True
-    for key in data.get("ranges", {}).keys():
-        title, value = data["ranges"][key]
-        metric_name = "nimble_" + ty + "_latency_" + key.replace(".", "")
-        percent_value = (float(value) / float(total_value)) * 100.0
-        metrics[metric_name] = percent_value
+    breakdown_lines = []
+    for key, kv in ty_data["ranges"].items():
+        title = kv[0]
+        value = kv[1]
+        key_nodot = key.replace(".", "")
+        metric_name = "nimble_%s_latency_%s" % (direction, key_nodot)
+        percent = value / total_value * 100
+        metrics[metric_name] = percent
+        key_float = _safe_float(key)
+        if key_float != None and key_float >= ref_float:
+            running_total += percent
+        breakdown_lines.append("%s: %d ops (%f%%)" % (title, value, percent))
 
-        if float(key) >= range_reference:
-            running_total_percent += percent_value
+    levels = (10.0, 20.0)
+    warn_p = params.get("warn", None)
+    crit_p = params.get("crit", None)
+    if warn_p != None and crit_p != None:
+        levels = (warn_p, crit_p)
+    dir_levels = params.get(direction, None)
+    if dir_levels != None:
+        levels = dir_levels
 
-        if not first:
-            details_parts.append("\n")
-        details_parts.append(title + ": " + str(value) + " ops (" + "%f%%" % percent_value + ")")
-        first = False
+    state = _grade_levels(running_total, levels)
 
-    # Compute aggregate state for the tail (>= range_reference)
-    if running_total_percent >= crit_pct:
-        state = "CRIT"
-    elif running_total_percent >= warn_pct:
-        state = "WARN"
-    else:
-        state = "OK"
+    ref_title = "10-20 ms"
+    ranges = ty_data.get("ranges", {})
+    if range_reference in ranges:
+        ref_title = ranges[range_reference][0]
 
-    # Build summary
-    ref_title = ""
-    ref_val = data["ranges"].get(str(range_reference), ("", ""))
-    if ref_val and ref_val[0]:
-        ref_title = ref_val[0]
-    else:
-        # fallback: map to closest range
-        ref_title = "%s ms" % str(range_reference)
+    msg = "%s at or above %s: %f%%" % (direction, ref_title, running_total)
+    details = "Latency breakdown:\n" + "\n".join(breakdown_lines)
 
-    summary = "%s operations at or above %s: %f%%" % (ty, ref_title, running_total_percent)
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "".join(details_parts)
-        }
-    }
-
-
-def build_latency_section(values, range_keys):
-    # values[0] is total, values[1:] are 13 ranges
-    if not values or len(values) < len(range_keys):
-        return {}
-    data = {}
-    # total
-    if values[0] >= 0 if type(values[0]) == "int" else False:
-        data["total"] = int(values[0])
-    else:
-        data["total"] = 0
-
-    # ranges (skip total)
-    ranges = {}
-    for i in range(1, len(range_keys)):
-        key, title = range_keys[i]
-        v = values[i]
-        if v >= 0 if type(v) == "int" else False:
-            data_val = int(v)
-        else:
-            data_val = 0
-        ranges[key] = (title, data_val)
-    if ranges:
-        data["ranges"] = ranges
-    return data
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": details}}

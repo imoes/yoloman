@@ -1,177 +1,123 @@
-# ===== Starlark check module for emerson_temp =====
-
-# Module-level constants (no imports, no classes, no lambdas)
-_DISCOVER_MAX_ITEMS = 2
-_OFFLINE_THRESHOLD = -273000
-
 def main(ctx, params):
-    if params.get("_discover"):
-        # Discovery mode: walk the SNMP tree for Emerson temperature sensors
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Walk base OID .1.3.6.1.4.1.6302.2.1.2.7 (temperature table)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.6302.2.1.2.7"
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        discovery = []
-        lines = res.stdout.splitlines() if res.stdout else []
-        
-        # Process each line: OID = STRING: <value>
-        for line in lines:
-            if not line.strip():
-                continue
-            
-            # Split on " = " to separate OID and value
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            
-            oid_val = parts[1]
-            
-            # Extract numeric value (format: STRING: "-123456" or similar)
-            # Look for a quoted string or bare number after " = "
-            val_str = oid_val.strip()
-            
-            # Handle cases like "INTEGER: 25000", "STRING: 25000", etc.
-            # Extract the numeric part
-            idx = val_str.find(": ")
-            if idx >= 0:
-                val_str = val_str[idx+2:].strip()
-            
-            # Remove quotes if present
-            if val_str.startswith('"') and val_str.endswith('"'):
-                val_str = val_str[1:-1]
-            
-            # Skip if not a valid integer
-            if not val_str.lstrip('-').isdigit():
-                continue
-            
-            temp_millidegree = int(val_str)
-            
-            # Only include sensors with temperature >= -273000 (not offline)
-            if temp_millidegree >= _OFFLINE_THRESHOLD:
-                idx = len(discovery)
-                if idx >= _DISCOVER_MAX_ITEMS:
-                    break
-                # Default params: levels from Checkmk default
-                discovery.append({
-                    "item": str(idx),
-                    "params": {"levels": (40.0, 50.0)},
-                    "metrics": ["temperature"]
-                })
-        
-        msg = "discovered %d sensors" % len(discovery)
-        return {"changed": False, "msg": msg, "data": {"discovery": discovery}}
-    
-    # Check mode: single item check
-    item = params.get("item", "")
-    if not item.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    item_index = int(item)
-    
-    # Gather data via SNMP (read only)
-    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.6302.2.1.2"
+    temp_col_oid = base_oid + ".7"
     host = params.get("host", "localhost")
-    
-    # Get specific OID: base + .7 + .(item_index+1)
-    # Note: Checkmk uses 0-based indices but SNMP is 1-based (1.0, 2.0, etc.)
-    # So we use index item_index+1 in the SNMP tree
-    base_oid = ".1.3.6.1.4.1.6302.2.1.2.7"
-    oid = base_oid + "." + str(item_index + 1)
-    
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, oid
-    ], mutates=False)
-    
-    # If SNMP fails or returns no data, report UNKNOWN
-    if res.rc != 0 or not res.stdout.strip():
+    community = params.get("community", "public")
+
+    # Probe whether this is an Emerson device by reading the sysDescr OID
+    descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.6302.2.1.1.1.0"],
+        mutates=False,
+    )
+    if descr.rc != 0:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "Emerson device not reachable via SNMP",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no emerson_temp sensor found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    descr_val = descr.stdout
+    if not descr_val.startswith("Emerson Network Power"):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not an Emerson device",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no emerson_temp sensor found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if params.get("_discover"):
+        # Walk the temperature column OID to discover sensors
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, temp_col_oid],
+            mutates=False,
+        )
+        sensors = []
+        if walk.rc == 0:
+            for line in walk.stdout.splitlines():
+                if not line.strip():
+                    continue
+                parts = line.split(" ", 1)
+                if len(parts) < 2:
+                    continue
+                oid = parts[0]
+                val_str = parts[1]
+                idx = oid[len(temp_col_oid) + 1:]
+                if not idx:
+                    continue
+                val = _parse_int(val_str)
+                if val == None:
+                    continue
+                if val >= -273000:
+                    sensors.append({
+                        "item": idx,
+                        "params": {"warn": 40.0, "crit": 50.0},
+                        "metrics": ["temperature"],
+                    })
         return {
             "changed": False,
-            "msg": "sensor %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered %d temperature sensors" % len(sensors),
+            "data": {"discovery": sensors},
         }
-    
-    # Parse SNMP result
-    line = res.stdout.strip()
-    parts = line.split(" = ", 1)
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "cannot parse SNMP response for sensor %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    val_str = parts[1].strip()
-    
-    # Extract numeric value
-    idx = val_str.find(": ")
-    if idx >= 0:
-        val_str = val_str[idx+2:].strip()
-    
-    # Remove quotes if present
-    if val_str.startswith('"') and val_str.endswith('"'):
-        val_str = val_str[1:-1]
-    
-    # Validate and convert to integer
-    if not val_str.lstrip('-').isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid temperature value for sensor %s: %s" % (item, val_str),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    temp_millidegree = int(val_str)
-    
-    # Check offline condition
-    if temp_millidegree < _OFFLINE_THRESHOLD:
-        return {
-            "changed": False,
-            "msg": "Sensor offline",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Convert to degrees Celsius
-    temp = float(temp_millidegree) / 1000.0
-    
-    # Get thresholds
-    # Default from Checkmk: levels=(40.0, 50.0)
-    levels = params.get("levels", (40.0, 50.0))
-    if isinstance(levels, (list, tuple)) and len(levels) >= 2:
-        warn = float(levels[0])
-        crit = float(levels[1])
-    else:
-        warn = 40.0
-        crit = 50.0
-    
-    # Determine state (Checkmk's check_temperature uses upper bounds)
+
+    # Check mode: check a specific sensor
+    item = params.get("item", "")
+    warn = params.get("warn", 40.0)
+    if type(params).get("params") == "dict":
+        levels = params.get("levels")
+        if levels != None:
+            warn = levels[0]
+            crit = levels[1]
+    crit = params.get("crit", 50.0)
+
+    full_oid = temp_col_oid + "." + item
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, full_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False, "msg": "no emersion_temp sensor found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    raw = _parse_int(res.stdout)
+    if raw == None:
+        return {"changed": False, "msg": "invalid temperature value for sensor " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if raw < -273000:
+        return {"changed": False, "msg": "Temperature " + item + ": Sensor offline",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "sensor offline"}}
+
+    temp = float(raw) / 1000.0
+    state = "OK"
     if temp >= crit:
         state = "CRIT"
     elif temp >= warn:
         state = "WARN"
-    else:
-        state = "OK"
-    
-    # Build message (Checkmk style)
-    msg = "Temperature: %f C" % temp
-    
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Temperature %s: %f C" % (item, temp),
         "data": {
             "state": state,
             "metrics": {"temperature": temp},
-            "details": ""
-        }
+            "details": "",
+        },
     }
+
+
+def _parse_int(s):
+    s = s.strip()
+    if not s:
+        return None
+    neg = False
+    body = s
+    if s[0] == "-":
+        neg = True
+        body = s[1:]
+    elif s[0] == "+":
+        body = s[1:]
+    if not body or not body.isdigit():
+        return None
+    v = 0
+    for ch in body:
+        v = v * 10 + (ord(ch) - ord("0"))
+    return v if not neg else -v

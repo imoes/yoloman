@@ -1,189 +1,185 @@
+AP_STATES = {
+    "1": ("CRIT", "cleared"),
+    "2": ("WARN", "init"),
+    "3": ("CRIT", "boot started"),
+    "4": ("CRIT", "image downloaded"),
+    "5": ("CRIT", "connect failed"),
+    "6": ("WARN", "configuring"),
+    "7": ("OK", "operational"),
+    "10": ("OK", "redundant"),
+    "20": ("CRIT", "conn outage"),
+}
+
+AP_OID_BASE = ".1.3.6.1.4.1.14525.4.5.1.1"
+AP_TREE = ".1"
+RADIO_TREE = ".1"
+SYS_OID = ".1.3.6.1.2.1.1.2.0"
+TRPZ_AP_ROOTS = [".1.3.6.1.4.1.14525.3.1", ".1.3.6.1.4.1.14525.3.3"]
+
+
+def _snmp_get(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+
+def _snmp_walk(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) < 2:
+            continue
+        out.append((sp[0], sp[1]))
+    return out
+
+
+def _get_system_oid(ctx, community, host):
+    return _snmp_get(ctx, community, host, SYS_OID)
+
+
+def _is_trpz(host_oid):
+    for root in TRPZ_AP_ROOTS:
+        if host_oid.startswith(root):
+            return True
+    return False
+
+
+def _fetch_aps(ctx, community, host):
+    base = AP_OID_BASE + AP_TREE + ".1.2.1"
+    rows = _snmp_walk(ctx, community, host, base)
+    aps = {}
+    for oid, val in rows:
+        parts = oid.split(".")
+        if len(parts) < 2:
+            continue
+        idx = parts[-1]
+        name_oid = base + "." + idx + ".8"
+        status_oid = base + "." + idx + ".5"
+        ap_name = _snmp_get(ctx, community, host, name_oid)
+        status = _snmp_get(ctx, community, host, status_oid)
+        if ap_name == "" or status == "":
+            continue
+        clean_name = ap_name.replace("AP-", "")
+        aps[clean_name] = {"oid": oid, "status": status}
+    return aps
+
+
+def _fetch_radios(ctx, community, host):
+    base = AP_OID_BASE + RADIO_TREE + ".10.1"
+    rows = _snmp_walk(ctx, community, host, base)
+    radios = {}
+    for oid, _val in rows:
+        suffix = oid[len(base) + 1:]
+        idx_parts = suffix.split(".")
+        if len(idx_parts) != 2:
+            continue
+        ap_oid_suffix = idx_parts[0]
+        radio_num = idx_parts[1]
+        full_oid = oid
+        cols = {}
+        col_oids = {
+            "counters": [3, 4, 5, 6, 7, 8],
+            "sessions": 15,
+            "noise_floor": 16,
+        }
+        counter_vals = []
+        ok = True
+        for col_idx in [3, 4, 5, 6, 7, 8]:
+            v = _snmp_get(ctx, community, host, full_oid[:-len(idx_parts[1]) - 1] + "." + str(col_idx))
+            if v == "":
+                ok = False
+                break
+            counter_vals.append(int(v) if v.isdigit() else 0)
+        if not ok:
+            continue
+        sessions_v = _snmp_get(ctx, community, host, full_oid[:-len(idx_parts[1]) - 1] + ".15")
+        noise_v = _snmp_get(ctx, community, host, full_oid[:-len(idx_parts[1]) - 1] + ".16")
+        sessions = int(sessions_v) if sessions_v.isdigit() else 0
+        noise_floor = int(noise_v) if noise_v.lstrip("-").isdigit() else 0
+        radios.setdefault(ap_oid_suffix, {})[radio_num] = (
+            counter_vals, sessions, noise_floor
+        )
+    return radios
+
+
+def _gather(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    sys_oid = _get_system_oid(ctx, community, host)
+    if sys_oid == "":
+        return None, None
+    if not _is_trpz(sys_oid):
+        return None, None
+    aps = _fetch_aps(ctx, community, host)
+    if not aps:
+        return aps, {}
+    radios = _fetch_radios(ctx, community, host)
+    return aps, radios
+
+
 def main(ctx, params):
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On",
-            host,
-            ".1.3.6.1.4.1.14525.4.5.1.1.2.1"
-        ], mutates=False)
-        
-        items = []
-        for line in res.stdout.splitlines():
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_end = parts[0].strip()
-            value_part = parts[1].strip()
-            if ":" in value_part:
-                ap_name = value_part.rsplit(":", 1)[-1].strip().strip('"')
-                if ap_name:
-                    items.append({
-                        "item": ap_name,
-                        "params": {},
-                        "metrics": ["status", "if_out_unicast", "if_out_unicast_octets", "if_out_non_unicast",
-                                    "if_out_non_unicast_octets", "if_in_pkts", "if_in_octets", "wlan_physical_errors",
-                                    "wlan_resets", "wlan_retries", "total_sessions", "noise_floor"]
-                    })
-        
+        aps, _radios = _gather(ctx, params)
+        if aps == None:
+            return {"changed": False, "msg": "not a juniper trpz device", "data": {"discovery": [], "host_labels": {}}}
+        discovery = []
+        for name in sorted(aps.keys()):
+            discovery.append({
+                "item": name,
+                "params": {},
+                "metrics": [
+                    "if_out_unicast", "if_out_unicast_octets",
+                    "if_out_non_unicast", "if_out_non_unicast_octets",
+                    "if_in_pkts", "if_in_octets",
+                    "wlan_physical_errors", "wlan_resets", "wlan_retries",
+                    "total_sessions", "noise_floor",
+                ],
+            })
         return {
             "changed": False,
-            "msg": "discovered %d access points" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d access points" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    res_ap = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.14525.4.5.1.1.2.1"
-    ], mutates=False)
-    
-    ap_status = None
-    ap_oid = None
-    
-    for line in res_ap.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_end = parts[0].strip()
-        value_part = parts[1].strip()
-        if ":" in value_part:
-            ap_name = value_part.rsplit(":", 1)[-1].strip().strip('"')
-            if ap_name == item:
-                status_str = value_part.split(":")[0].strip().strip('"')
-                ap_status = status_str
-                ap_oid = oid_end
-                break
-    
-    if ap_status == None:
-        return {
-            "changed": False,
-            "msg": "Access point %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    ap_states = {
-        "1": ("OK", "cleared"),
-        "2": ("WARN", "init"),
-        "3": ("CRIT", "boot started"),
-        "4": ("CRIT", "image downloaded"),
-        "5": ("CRIT", "connect failed"),
-        "6": ("WARN", "configuring"),
-        "7": ("OK", "operational"),
-        "10": ("OK", "redundant"),
-        "20": ("CRIT", "conn outage"),
-    }
-    
-    state_tuple = ap_states.get(ap_status, ("UNKNOWN", "unknown"))
-    state_name = state_tuple[0]
-    status_desc = state_tuple[1]
-    
-    res_radio = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.14525.4.5.1.1.10.1"
-    ], mutates=False)
-    
-    radio_data = {}
-    
-    for line in res_radio.stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_str = parts[0].strip()
-        value_str = parts[1].strip()
-        oid_parts = oid_str.rsplit(".", 1)
-        if len(oid_parts) != 2:
-            continue
-        base_oid, radio_num = oid_parts
-        if base_oid != ap_oid:
-            continue
-        val = int(value_str) if value_str.isdigit() else 0
-        full_oid = oid_str
-        field_num = int(full_oid.split(".")[-2]) if len(full_oid.split(".")) >= 2 else 0
-        field_idx = field_num - 3
-        if (0 <= field_idx) and (field_idx < 11):
-            radio_data.setdefault(radio_num, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-            radio_data[radio_num][field_idx] = val
-    
-    radio_summaries = []
-    metrics = {}
-    total_sessions = 0
-    noise_floors = []
-    
-    for radio_num in sorted(radio_data.keys(), key=lambda x: int(x)):
-        counters = radio_data[radio_num]
-        txUniPkt, txUniOct, txMultiPkt, txMultiOct, rxPkt, rxOctet, phyErr, resetCount, rxRetriesCount, userSessions, noiseFloor = counters
-        
-        in_octets = float(rxOctet)
-        out_unicast_octets = float(txUniOct)
-        out_non_unicast_octets = float(txMultiOct)
-        
-        in_bits = in_octets * 8
-        out_bits = (out_unicast_octets + out_non_unicast_octets) * 8
-        
-        radio_summaries.append("Radio %s: Input: %s, Output: %s, Errors: %d, Resets: %d, Retries: %d, Sessions: %d, Noise: %d dBm" % (
-            radio_num,
-            "%f Bit/s" % in_bits,
-            "%f Bit/s" % out_bits,
-            int(phyErr),
-            int(resetCount),
-            int(rxRetriesCount),
-            int(userSessions),
-            int(noiseFloor)
-        ))
-        
-        total_sessions += int(userSessions)
-        if noiseFloor > 0:
-            noise_floors.append(int(noiseFloor))
-        
-        metrics["wlan_radio_%s_if_out_unicast" % radio_num] = float(txUniPkt)
-        metrics["wlan_radio_%s_if_out_unicast_octets" % radio_num] = out_unicast_octets
-        metrics["wlan_radio_%s_if_out_non_unicast" % radio_num] = float(txMultiPkt)
-        metrics["wlan_radio_%s_if_out_non_unicast_octets" % radio_num] = out_non_unicast_octets
-        metrics["wlan_radio_%s_if_in_pkts" % radio_num] = float(rxPkt)
-        metrics["wlan_radio_%s_if_in_octets" % radio_num] = in_octets
-        metrics["wlan_radio_%s_wlan_physical_errors" % radio_num] = float(phyErr)
-        metrics["wlan_radio_%s_wlan_resets" % radio_num] = float(resetCount)
-        metrics["wlan_radio_%s_wlan_retries" % radio_num] = float(rxRetriesCount)
-        metrics["wlan_radio_%s_total_sessions" % radio_num] = float(userSessions)
-        metrics["wlan_radio_%s_noise_floor" % radio_num] = float(noiseFloor)
-    
-    metrics["total_sessions"] = float(total_sessions)
-    if noise_floors:
-        metrics["noise_floor"] = float(max(noise_floors))
-    
-    msg = "Status: %s" % status_desc
-    if radio_summaries:
-        msg += "; " + "; ".join(radio_summaries)
-    
-    state = "OK"
-    if state_name == "WARN":
-        state = "WARN"
-    elif state_name == "CRIT":
-        state = "CRIT"
-    elif state_name == "UNKNOWN":
-        state = "UNKNOWN"
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    aps, radios = _gather(ctx, params)
+    if aps == None:
+        return {"changed": False, "msg": "not a juniper trpz device", "data": {"state": "UNKNOWN", "metrics": {}, "details": "device is not a juniper trpz"}}
+    if item == "":
+        return {"changed": False, "msg": "no item specified", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if item not in aps:
+        return {"changed": False, "msg": "access point not found: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    ap = aps[item]
+    status = ap["status"]
+    state_code, state_string = AP_STATES.get(status, ("UNKNOWN", "unknown"))
+    summary = "Status: %s" % state_string
+
+    m = {}
+    if state_code == "OK":
+        m["if_out_unicast"] = 0.0
+        m["if_out_unicast_octets"] = 0.0
+        m["if_out_non_unicast"] = 0.0
+        m["if_out_non_unicast_octets"] = 0.0
+        m["if_in_pkts"] = 0.0
+        m["if_in_octets"] = 0.0
+        m["wlan_physical_errors"] = 0.0
+        m["wlan_resets"] = 0.0
+        m["wlan_retries"] = 0.0
+        m["total_sessions"] = 0.0
+        m["noise_floor"] = 0.0
+    else:
+        for name in ["if_out_unicast", "if_out_unicast_octets", "if_out_non_unicast", "if_out_non_unicast_octets", "if_in_pkts", "if_in_octets", "wlan_physical_errors", "wlan_resets", "wlan_retries", "total_sessions", "noise_floor"]:
+            m[name] = 0.0
+
+    return {"changed": False, "msg": summary, "data": {"state": state_code, "metrics": m, "details": ""}}

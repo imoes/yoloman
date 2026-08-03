@@ -1,5 +1,56 @@
-# Mapping dicts must be defined at module top level (Starlark requirement)
-LDRIVE_STATUS = {
+def _snmp_get(ctx, community, host, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc == 0:
+        return res.stdout.strip()
+    return ""
+
+def _snmp_walk_table(ctx, community, host, column_oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid], mutates=False)
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        space_idx = line.find(" ")
+        if space_idx < 0:
+            continue
+        oid_full = line[:space_idx]
+        value = line[space_idx + 1:]
+        index = oid_full[len(column_oid) + 1:] if oid_full.startswith(column_oid + ".") else ""
+        rows.append({"index": index, "value": value})
+    return rows
+
+def _detect_datapower(ctx, community, host):
+    sys_oid = _snmp_get(ctx, community, host, ".1.3.6.1.2.1.1.2.0")
+    if not sys_oid:
+        return False
+    valid = [
+        ".1.3.6.1.4.1.14685.1.3",
+        ".1.3.6.1.4.1.14685.1.7",
+        ".1.3.6.1.4.1.14685.1.8",
+    ]
+    return sys_oid in valid
+
+def _fetch_ldrive_table(ctx, community, host):
+    base = ".1.3.6.1.4.1.14685.3.1.259.1"
+    col_controller = base + ".1"
+    col_ldrive = base + ".2"
+    col_raid = base + ".4"
+    col_num_drives = base + ".5"
+    col_status = base + ".6"
+    controllers = _snmp_walk_table(ctx, community, host, col_controller)
+    table = {}
+    for entry in controllers:
+        idx = entry["index"]
+        table[idx] = {
+            "controller": entry["value"],
+            "ldrive": _snmp_get(ctx, community, host, col_ldrive + "." + idx) if idx else "",
+            "raid_level": _snmp_get(ctx, community, host, col_raid + "." + idx) if idx else "",
+            "num_drives": _snmp_get(ctx, community, host, col_num_drives + "." + idx) if idx else "",
+            "status": _snmp_get(ctx, community, host, col_status + "." + idx) if idx else "",
+        }
+    return table
+
+LDEAVE_STATUS = {
     "1": ("CRIT", "offline"),
     "2": ("CRIT", "partially degraded"),
     "3": ("CRIT", "degraded"),
@@ -7,7 +58,7 @@ LDRIVE_STATUS = {
     "5": ("WARN", "unknown"),
 }
 
-LDRIVE_RAID = {
+RAID_LEVEL = {
     "1": "0",
     "2": "1",
     "3": "1E",
@@ -19,262 +70,43 @@ LDRIVE_RAID = {
     "9": "undefined",
 }
 
-
 def main(ctx, params):
-    # Discover mode: enumerate logical drives
     if params.get("_discover"):
-        res = ctx.run(
-            [
-                "snmpwalk",
-                "-v2c",
-                "-c",
-                params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                ".1.3.6.1.4.1.14685.3.1.259.1",
-            ],
-            mutates=False,
-        )
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []},
-            }
-
-        lines = res.stdout.splitlines()
-        items = []
-        for line in lines:
-            # Format: .1.3.6.1.4.1.14685.3.1.259.1.<index> = INTEGER: <value>
-            idx = line.find(" = INTEGER: ")
-            if idx == -1:
+        community = params.get("community", "public")
+        host = params.get("host", "localhost")
+        if not _detect_datapower(ctx, community, host):
+            return {"changed": False, "msg": "no IBM Datapower device detected", "data": {"discovery": []}}
+        table = _fetch_ldrive_table(ctx, community, host)
+        discovery = []
+        count = 0
+        for idx in sorted(table.keys()):
+            entry = table[idx]
+            if entry["controller"] == "" or entry["ldrive"] == "":
                 continue
-            oid_part = line[:idx]
-            value_part = line[idx + len(" = INTEGER: "):]
-            if not oid_part.endswith(".1"):
-                continue  # we only want .1 (controller) entries to pair with later indices
-            base_oid = oid_part.rsplit(".", 1)[0]
-            controller = value_part.strip()
-            # Read related fields: ldrive (.2), raid_level (.4), num_drives (.5), status (.6)
-            ldrive_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".2",
-                ],
-                mutates=False,
-            )
-            if ldrive_res.rc != 0 or ldrive_res.stdout.find(" = INTEGER: ") == -1:
-                continue
-            ldrive = ldrive_res.stdout.split(" = INTEGER: ")[1].strip()
-
-            raid_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".4",
-                ],
-                mutates=False,
-            )
-            if raid_res.rc != 0 or raid_res.stdout.find(" = INTEGER: ") == -1:
-                continue
-            raid_level = raid_res.stdout.split(" = INTEGER: ")[1].strip()
-
-            drives_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".5",
-                ],
-                mutates=False,
-            )
-            if drives_res.rc != 0 or drives_res.stdout.find(" = INTEGER: ") == -1:
-                continue
-                continue
-            num_drives = drives_res.stdout.split(" = INTEGER: ")[1].strip()
-
-            status_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".6",
-                ],
-                mutates=False,
-            )
-            if status_res.rc != 0 or status_res.stdout.find(" = INTEGER: ") == -1:
-                continue
-            status = status_res.stdout.split(" = INTEGER: ")[1].strip()
-
-            item_name = controller + "-" + ldrive
-            items.append(
-                {
-                    "item": item_name,
-                    "params": {},
-                    "metrics": [],
-                }
-            )
-
-        return {
-            "changed": False,
-            "msg": "discovered %d logical drives" % len(items),
-            "data": {"discovery": items},
-        }
-
-    # Check mode: examine one logical drive
+            item = entry["controller"] + "-" + entry["ldrive"]
+            discovery.append({"item": item, "params": {}, "metrics": []})
+            count = count + 1
+        return {"changed": False, "msg": "discovered %d logical drives" % count, "data": {"discovery": discovery, "host_labels": {"cmk/devicename": "datapower"}}}
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Parse item to extract controller and ldrive
-    parts = item.split("-", 1)
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "invalid item format: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    controller = parts[0]
-    ldrive = parts[1]
-
-    # Use snmpwalk to find the matching entry
-    res = ctx.run(
-        [
-            "snmpwalk",
-            "-v2c",
-            "-c",
-            params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.14685.3.1.259.1",
-        ],
-        mutates=False,
-    )
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    found = False
-    state_txt = "unknown"
-    raid_level = "undefined"
-    num_drives = "unknown"
-    status = "5"  # default to 'unknown' status if not found
-    lines = res.stdout.splitlines()
-    for line in lines:
-        idx = line.find(" = INTEGER: ")
-        if idx == -1:
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    if not _detect_datapower(ctx, community, host):
+        return {"changed": False, "msg": "no IBM Datapower device found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    table = _fetch_ldrive_table(ctx, community, host)
+    for idx in sorted(table.keys()):
+        entry = table[idx]
+        if entry["controller"] == "" or entry["ldrive"] == "":
             continue
-        oid_part = line[:idx]
-        value_part = line[idx + len(" = INTEGER: "):]
-        if not oid_part.endswith(".1"):
-            continue
-        base_oid = oid_part.rsplit(".", 1)[0]
-        current_controller = value_part.strip()
-
-        ldrive_res = ctx.run(
-            [
-                "snmpget",
-                "-v2c",
-                "-c",
-                params.get("community", "public"),
-                "-On",
-                params.get("host", "localhost"),
-                base_oid + ".2",
-            ],
-            mutates=False,
-        )
-        if ldrive_res.rc != 0 or ldrive_res.stdout.find(" = INTEGER: ") == -1:
-            continue
-        current_ldrive = ldrive_res.stdout.split(" = INTEGER: ")[1].strip()
-
-        if current_controller == controller and current_ldrive == ldrive:
-            raid_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".4",
-                ],
-                mutates=False,
-            )
-            if raid_res.rc == 0 and raid_res.stdout.find(" = INTEGER: ") != -1:
-                raid_level = LDRIVE_RAID.get(raid_res.stdout.split(" = INTEGER: ")[1].strip(), "undefined")
-
-            drives_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".5",
-                ],
-                mutates=False,
-            )
-            if drives_res.rc == 0 and drives_res.stdout.find(" = INTEGER: ") != -1:
-                num_drives = drives_res.stdout.split(" = INTEGER: ")[1].strip()
-
-            status_res = ctx.run(
-                [
-                    "snmpget",
-                    "-v2c",
-                    "-c",
-                    params.get("community", "public"),
-                    "-On",
-                    params.get("host", "localhost"),
-                    base_oid + ".6",
-                ],
-                mutates=False,
-            )
-            if status_res.rc == 0 and status_res.stdout.find(" = INTEGER: ") != -1:
-                status = status_res.stdout.split(" = INTEGER: ")[1].strip()
-            found = True
-            break
-
-    if not found:
-        return {
-            "changed": False,
-            "msg": "logical drive not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Look up status
-    status_tuple = LDRIVE_STATUS.get(status, ("WARN", "unknown"))
-    state, state_txt = status_tuple
-    infotext = "Status: " + state_txt + ", RAID Level: " + raid_level + ", Number of Drives: " + num_drives
-
-    return {
-        "changed": False,
-        "msg": infotext,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": infotext,
-        },
-    }
+        check_item = entry["controller"] + "-" + entry["ldrive"]
+        if check_item == item:
+            status_code = entry["status"]
+            state_txt = "unknown"
+            state = "UNKNOWN"
+            if status_code in LDEAVE_STATUS:
+                state, state_txt = LDEAVE_STATUS[status_code]
+            raid = entry["raid_level"]
+            raid_level = RAID_LEVEL.get(raid, raid)
+            num_drives = entry["num_drives"]
+            infotext = "Status: %s, RAID Level: %s, Number of Drives: %s" % (state_txt, raid_level, num_drives)
+            return {"changed": False, "msg": infotext, "data": {"state": state, "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": "logical drive not found: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

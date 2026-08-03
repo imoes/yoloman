@@ -1,87 +1,85 @@
+def _run_sftp_check(ctx, params):
+    """Run the SFTP active check and return (rc, stdout, stderr)."""
+    host = params.get("host", "")
+    user = params.get("user", "")
+    secret = params.get("secret", "")
+
+    if not host or not user or not secret:
+        fail("host, user, and secret are required parameters")
+
+    argv = ["sftp"]
+    argv = argv + ["--host", host, "--user", user, "--secret-reference", secret]
+
+    port = params.get("port", None)
+    if port != None:
+        argv = argv + ["--port", str(port)]
+
+    timeout = params.get("timeout", None)
+    if timeout != None:
+        argv = argv + ["--timeout", str(timeout)]
+
+    timestamp = params.get("timestamp", None)
+    if timestamp != None:
+        argv = argv + ["--get-timestamp", timestamp]
+
+    put_op = params.get("put", None)
+    if put_op != None:
+        argv = argv + ["--put-local", put_op.get("local", ""), "--put-remote", put_op.get("remote", "")]
+
+    get_op = params.get("get", None)
+    if get_op != None:
+        argv = argv + ["--get-local", get_op.get("local", ""), "--get-remote", get_op.get("remote", "")]
+
+    look_for_keys = params.get("look_for_keys", False)
+    if look_for_keys:
+        argv = argv + ["--look-for-keys"]
+
+    res = ctx.run(argv, mutates=False)
+    return res
+
+
 def main(ctx, params):
     if params.get("_discover"):
-        return {"changed": False, "msg": "active check (assign with parameters)", "data": {"discovery": []}}
+        host = params.get("host", "")
+        user = params.get("user", "")
+        secret = params.get("secret", "")
 
-    host = params.get("host") or ""
-    user = params.get("user") or ""
-    password = params.get("password") or ""
-    port = int(params.get("port") or 22)
-    timeout_s = int(params.get("timeout_s") or 10)
-    put_local = params.get("put_local") or ""
-    put_remote = params.get("put_remote") or ""
-    get_remote = params.get("get_remote") or ""
-    get_local = params.get("get_local") or ""
-    timestamp = params.get("timestamp") or ""
-    look_for_keys = params.get("look_for_keys") or False
+        # This is an operator-configured active check. We only discover
+        # if the required parameters are present.
+        if not host or not user or not secret:
+            return {"changed": False, "msg": "no SFTP check configured",
+                    "data": {"discovery": []}}
 
-    cmds = []
-    if put_local != "" and put_remote != "":
-        cmds.append("put " + put_local + " " + put_remote)
-    if get_remote != "" and get_local != "":
-        cmds.append("get " + get_remote + " " + get_local)
-    if timestamp != "":
-        cmds.append("ls -la " + timestamp)
-    cmds.append("quit")
-    batch = "\n".join(cmds)
+        description = params.get("description", None)
+        item = description if description != None else ("SFTP " + host)
 
-    batch_safe = batch.replace("'", "'\\''")
-    pass_safe = password.replace("'", "'\\''")
+        discovery = [{"item": item, "params": {}, "metrics": ["status"]}]
+        return {"changed": False, "msg": "discovered 1 SFTP service",
+                "data": {"discovery": discovery}}
 
-    id_opts = ""
-    if not look_for_keys:
-        id_opts = " -o IdentitiesOnly=yes -o PubkeyAuthentication=no"
+    item = params.get("item", "")
+    res = _run_sftp_check(ctx, params)
 
-    shell = (
-        "echo '" + batch_safe + "' | " +
-        "sshpass -p '" + pass_safe + "' " +
-        "sftp" +
-        " -P " + str(port) +
-        " -o StrictHostKeyChecking=no" +
-        " -o ConnectTimeout=" + str(timeout_s) +
-        id_opts +
-        " -b /dev/stdin" +
-        " '" + user + "@" + host + "'"
-    )
-
-    r = ctx.run(["bash", "-c", shell])
-
-    state = "OK"
-    problems = []
-    info = ["SFTP " + host + ":" + str(port)]
-
-    if r.rc != 0:
-        state = "CRIT"
-        stderr = (r.stderr or "").strip()
-        if stderr != "":
-            problems.append(stderr[:200])
+    if res.rc == 0:
+        state = "OK"
+        # Try to extract a meaningful message from stdout
+        stdout = res.stdout.strip()
+        if stdout:
+            msg = stdout
         else:
-            problems.append("exit code %d" % r.rc)
+            host = params.get("host", "")
+            msg = "SFTP check for %s succeeded" % host
     else:
-        if put_local != "":
-            info.append("put OK")
-        if get_remote != "":
-            info.append("get OK")
-        if timestamp != "":
-            stdout = r.stdout or ""
-            fname = timestamp.split("/")[-1]
-            for line in stdout.splitlines():
-                if fname in line:
-                    fields = line.split()
-                    if len(fields) >= 8:
-                        ts = fields[5] + " " + fields[6] + " " + fields[7]
-                        info.append("mtime: " + ts)
-                    break
+        state = "CRIT"
+        stderr = res.stderr.strip()
+        stdout = res.stdout.strip()
+        host = params.get("host", "")
+        if stderr:
+            msg = "SFTP check for %s failed (rc=%d): %s" % (host, res.rc, stderr)
+        elif stdout:
+            msg = "SFTP check for %s failed (rc=%d): %s" % (host, res.rc, stdout)
+        else:
+            msg = "SFTP check for %s failed with exit code %d" % (host, res.rc)
 
-    detail = "; ".join(info)
-    if len(problems) > 0:
-        detail = detail + " | " + "; ".join(problems)
-
-    return {
-        "changed": False,
-        "msg": state,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": detail,
-        },
-    }
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {"status": res.rc}, "details": res.stdout + "\n" + res.stderr}}

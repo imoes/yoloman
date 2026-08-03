@@ -1,148 +1,81 @@
-# Module-level constants for SNMP OIDs
-JUNIPER_SCREENOS_CPU_BASE_OID = ".1.3.6.1.4.1.3224.16.1"
-JUNIPER_SCREENOS_OID_UTIL1 = "2"
-JUNIPER_SCREENOS_OID_UTIL15 = "4"
+# Juniper ScreenOS CPU utilization check — SNMP translation
+# Reads 1-min and 15-min CPU utilization from Juniper ScreenOS devices via SNMP
 
-# Default thresholds from Checkmk plugin
-DEFAULT_UTIL_WARN = 80.0
-DEFAULT_UTIL_CRIT = 90.0
+SCREENOS_UTIL1_OID = ".1.3.6.1.4.1.3224.16.1.2"
+SCREENOS_UTIL15_OID = ".1.3.6.1.4.1.3224.16.1.4"
+SYS_OBJECT_ID_OID = ".1.3.6.1.2.1.1.2.0"
+SCREENOS_ENTERPRISE_PREFIX = ".1.3.6.1.4.1.3224.1"
 
-
-def _get_snmp_value(ctx, host, community, oid):
-    """Fetch a single SNMP OID value using snmpget."""
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host, oid
-    ], mutates=False)
-    
+def _is_screenos(ctx, host, community):
+    """Detect Juniper ScreenOS by sysObjectID enterprise prefix."""
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, SYS_OBJECT_ID_OID],
+        mutates=False,
+    )
     if res.rc != 0:
-        return None
-    
-    # Parse snmpget output: "<oid> = <type>: <value>"
-    line = res.stdout.strip()
-    if not line or line.find(" = ") == -1:
-        return None
-    
-    # Extract value part after " = "
-    value_part = line.split(" = ", 1)[1].strip()
-    # Extract numeric value (e.g., "Gauge32: 25.4" -> "25.4")
-    if ":" in value_part:
-        value_str = value_part.split(":", 1)[1].strip()
-    else:
-        value_str = value_part
-    
-    # Guard: only convert if value_str looks like a number
-    clean_str = value_str.rstrip("%").strip()
-    if clean_str == "":
-        return None
-    
-    # Check if it's a valid number (integer or float)
-    is_float = False
-    for c in clean_str:
-        if c == '.':
-            is_float = True
-            break
-    
-    if is_float:
-        parts = clean_str.split(".")
-        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
-            return float(clean_str)
-        else:
-            return None
-    else:
-        if clean_str.isdigit():
-            return float(clean_str)
-        else:
-            return None
+        return False
+    return res.stdout.strip().startswith(SCREENOS_ENTERPRISE_PREFIX)
 
+def _get_levels(params):
+    """Return (warn, crit) warn/crit tuple from params.util or defaults."""
+    levels = params.get("util")
+    if levels != None and type(levels) == "list" and len(levels) >= 2:
+        return (float(levels[0]), float(levels[1]))
+    if levels != None and type(levels) == "tuple" and len(levels) >= 2:
+        return (float(levels[0]), float(levels[1]))
+    return (80.0, 90.0)
+
+def _grade(value, warn, crit):
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout.strip() == "":
+        return None
+    return res.stdout.strip()
 
 def main(ctx, params):
-    # Get SNMP connection parameters from params or use defaults
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    # Fetch CPU utilization values from SNMP
-    util1 = _get_snmp_value(ctx, host, community, JUNIPER_SCREENOS_CPU_BASE_OID + "." + JUNIPER_SCREENOS_OID_UTIL1)
-    util15 = _get_snmp_value(ctx, host, community, JUNIPER_SCREENOS_CPU_BASE_OID + "." + JUNIPER_SCREENOS_OID_UTIL15)
-    
-    # Check if we got valid data
-    if util1 == None or util15 == None:
-        return {
-            "changed": False,
-            "msg": "Unable to retrieve CPU utilization values from SNMP",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Handle discovery mode
+
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 items",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {
-                            "util": [DEFAULT_UTIL_WARN, DEFAULT_UTIL_CRIT]
-                        },
-                        "metrics": ["util1", "util15"]
-                    }
-                ]
-            }
-        }
-    
-    # Normal check mode
+        if not _is_screenos(ctx, host, community):
+            return {"changed": False, "msg": "not a Juniper ScreenOS device",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "",
+                     "params": {"util": [80.0, 90.0]},
+                     "metrics": ["util1", "util15"]},
+                ]}}
+
     item = params.get("item", "")
-    if item != "":
-        # This check only supports single-service (item=""), but we handle any item gracefully
-        return {
-            "changed": False,
-            "msg": "CPU utilization (single-service check only)",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "This check only supports item ''"
-            }
-        }
-    
-    # Extract threshold parameters
-    # Checkmk stores thresholds as tuple in params.get("util") or as dict
-    util_levels = params.get("util", [DEFAULT_UTIL_WARN, DEFAULT_UTIL_CRIT])
-    if type(util_levels) == "list" and len(util_levels) == 2:
-        warn_val = float(util_levels[0])
-        crit_val = float(util_levels[1])
-    else:
-        # Fallback to defaults
-        warn_val = DEFAULT_UTIL_WARN
-        crit_val = DEFAULT_UTIL_CRIT
-    
-    # Determine state based on thresholds (upper levels)
-    # util1 is always OK since no levels provided for 1-minute (per source)
-    # util15 uses levels
-    state_util1 = "OK"
-    state_util15 = "CRIT" if util15 >= crit_val else ("WARN" if util15 >= warn_val else "OK")
-    
-    # Overall state: CRIT if any component is CRIT, else WARN if any is WARN, else OK
-    state = state_util15  # util1 has no levels in source, so overall state depends on util15
-    
-    # Build message
-    msg = "CPU utilization: 1min %s%%, 15min %s%%" % (int(util1), int(util15))
-    
-    # Build metrics dict
-    metrics = {
-        "util1": util1,
-        "util15": util15
-    }
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    util1_raw = _snmp_get(ctx, host, community, SCREENOS_UTIL1_OID)
+    util15_raw = _snmp_get(ctx, host, community, SCREENOS_UTIL15_OID)
+    if util1_raw == None or util15_raw == None:
+        return {"changed": False,
+                "msg": "could not read CPU utilization from host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    util1 = float(util1_raw)
+    util15 = float(util15_raw)
+    warn, crit = _get_levels(params)
+    state15 = _grade(util15, warn, crit)
+
+    metrics = {"util1": util1, "util15": util15}
+    details = "1min: %s%%, 15min: %s%%" % (util1_raw, util15_raw)
+    msg = "CPU utilization 1min: %s%%, 15min: %s%% (%s)" % (
+        util1_raw, util15_raw, state15)
+
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": state15,
+                     "metrics": metrics,
+                     "details": details}}

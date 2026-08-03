@@ -1,203 +1,169 @@
+# Huawei OSN interface check (SNMP-based, read-only)
+# Source OIDs from OPTIX-GLOBAL-NGWDM-MIB sdh_pathDataPm*
+# Walks the path performance table and reports per-interface counters.
+
+BASE_OID = ".1.3.6.1.4.1.2011.2.25.3.40.50.96.50.1"
+
+# column OID -> human-readable metric name
+COLS = {
+    "3.200": "name",        # sdh_pathDataPmPara          (0)  -- also used as item/index
+    "4.113": "in_ucast",    # pmRXUNICAST                (1)
+    "4.114": "in_mcast",    # pmRXMULCAST                (2)
+    "4.115": "in_bcast",    # pmRXBRDCAST                (3)
+    "4.116": "out_ucast",   # pmTXUNICAST                (4)
+    "4.117": "out_mcast",   # pmTXMULCAST                (5)
+    "4.118": "out_bcast",   # pmTXBRDCAST                (6)
+    "4.200": "in_octets",   # pmRXOCTETS                 (7)
+    "4.199": "out_octets",  # pmTXOCTETS                 (8)
+    "4.944": "in_err",      # pmRXPBAD                   (9)
+    "4.945": "out_err",     # pmTXPBAD                  (10)
+}
+
+# column base OID (without the name column) for per-index re-query
+COL_OIDS = [
+    "4.113", "4.114", "4.115", "4.116", "4.117", "4.118",
+    "4.200", "4.199", "4.944", "4.945",
+]
+
+
+def _walk(ctx, community, host, col_oid):
+    """snmpwalk -Oqn for a column OID; returns list of (index, value)."""
+    oid = BASE_OID + "." + col_oid
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On",
+                   host, oid], mutates=False)
+    rows = []
+    base = oid
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        line_oid = line[:sp]
+        value = line[sp + 1:].strip()
+        # numeric OID: suffix after the column base
+        if line_oid.startswith(base + "."):
+            idx = line_oid[len(base) + 1:]
+        else:
+            idx = ""
+        rows.append((idx, value))
+    return rows
+
+
+def _get(ctx, community, host, col_oid, idx):
+    """snmpget -Oqv for a single cell."""
+    oid = BASE_OID + "." + col_oid + "." + idx
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", "-On",
+                   host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    v = res.stdout.strip()
+    return v
+
+
+def _to_int(s):
+    if s == None:
+        return 0
+    s = s.strip()
+    if s == "" or s == "No more variables left in this walk":
+        return 0
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    if not s.isdigit():
+        # might be a quoted hex string from some MIBs; strip quotes
+        if s.startswith('"') and s.endswith('"'):
+            s = s[1:-1]
+        if not s.isdigit():
+            return 0
+    val = int(s)
+    return -val if neg else val
+
+
+def _interface_exists(ctx, community, host):
+    """Probe: is this Huawei OSN device reachable via SNMP?"""
+    # Use the name column (3.200) which must be present for the table to exist.
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", "-On",
+                   host, BASE_OID + ".3.200"], mutates=False)
+    if res.rc == 0 and res.stdout.strip() != "":
+        return True
+    if res.rc == 2 or res.rc == 127:
+        return False
+    return False
+
+
 def main(ctx, params):
-    if params.get("_discover"):
-        base_oid = ".1.3.6.1.4.1.2011.2.25.3.40.50.96.50.1"
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        interfaces = {}
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_full = parts[0].strip()
-            value = parts[1].strip()
-            oid_parts = oid_full.split(".")
-            if len(oid_parts) < 13:
-                continue
-            
-            base_idx = ".".join(oid_parts[-2:])
-            if base_idx.startswith("3.200"):
-                iface_name = value
-                if iface_name not in interfaces:
-                    interfaces[iface_name] = {"name": iface_name}
-            elif base_idx.startswith("4."):
-                if iface_name not in interfaces:
-                    continue
-                metric = base_idx.split(".")[1]
-                val = int(value) if value.isdigit() else 0
-                if metric == "113":
-                    interfaces[iface_name]["rx_ucast"] = val
-                elif metric == "114":
-                    interfaces[iface_name]["rx_mcast"] = val
-                elif metric == "115":
-                    interfaces[iface_name]["rx_bcast"] = val
-                elif metric == "116":
-                    interfaces[iface_name]["tx_ucast"] = val
-                elif metric == "117":
-                    interfaces[iface_name]["tx_mcast"] = val
-                elif metric == "118":
-                    interfaces[iface_name]["tx_bcast"] = val
-                elif metric == "200":
-                    interfaces[iface_name]["rx_octets"] = val
-                elif metric == "199":
-                    interfaces[iface_name]["tx_octets"] = val
-                elif metric == "944":
-                    interfaces[iface_name]["rx_err"] = val
-                elif metric == "945":
-                    interfaces[iface_name]["tx_err"] = val
-        
-        discovery = []
-        for name, data in interfaces.items():
-            metrics = [
-                "rx_octets",
-                "tx_octets",
-                "rx_ucast",
-                "tx_ucast",
-                "rx_mcast",
-                "tx_mcast",
-                "rx_bcast",
-                "tx_bcast",
-                "rx_err",
-                "tx_err",
-            ]
-            discovery.append({
-                "item": name,
-                "params": {
-                    "state": [1],
-                    "speed": 0,
-                    "InOctets": 0,
-                    "OutOctets": 0,
-                    "InUnicast": 0,
-                    "OutUnicast": 0,
-                    "InMulticast": 0,
-                    "OutMulticast": 0,
-                    "InBroadcast": 0,
-                    "OutBroadcast": 0,
-                    "InErrors": 0,
-                    "OutErrors": 0,
-                },
-                "metrics": metrics,
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d interfaces" % len(discovery),
-            "data": {"discovery": discovery},
-        }
-    
-    item = params.get("item", "")
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.2011.2.25.3.40.50.96.50.1"
-    
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    interface_data = {}
-    current_name = ""
-    for line in res.stdout.splitlines():
-        if not line.strip():
+    item = params.get("item", "")
+
+    if params.get("_discover"):
+        if not _interface_exists(ctx, community, host):
+            return {"changed": False, "msg": "no Huawei OSN interface data",
+                    "data": {"discovery": []}}
+
+        names = _walk(ctx, community, host, "3.200")
+        discovery = []
+        for (idx, value) in names:
+            name = value.strip().strip('"')
+            if name == "":
+                name = idx
+            discovery.append({
+                "item": name,
+                "params": {},
+                "metrics": ["in_octets", "out_octets", "in_ucast",
+                            "out_ucast", "in_mcast", "out_mcast", "in_bcast",
+                            "out_bcast", "in_err", "out_err"],
+            })
+        return {"changed": False,
+                "msg": "discovered %d interfaces" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # CHECK MODE -----------------------------------------------------------
+    if not _interface_exists(ctx, community, host):
+        return {"changed": False,
+                "msg": "no Huawei OSN interface data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Resolve item -> index using the name column walk.
+    names = _walk(ctx, community, host, "3.200")
+    target_idx = None
+    for (idx, value) in names:
+        nm = value.strip().strip('"')
+        if nm == "":
+            nm = idx
+        if nm == item:
+            target_idx = idx
+            break
+    if target_idx == None and item != "":
+        # Fallback: treat the item itself as a numeric index.
+        target_idx = item
+
+    if target_idx == None:
+        return {"changed": False,
+                "msg": "interface not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Gather all columns for this single index.
+    metrics = {}
+    for col in COLS:
+        if col == "3.200":
             continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value = parts[1].strip()
-        oid_parts = oid_full.split(".")
-        if len(oid_parts) < 13:
-            continue
-        
-        base_idx = ".".join(oid_parts[-2:])
-        if base_idx.startswith("3.200"):
-            current_name = value
-            if current_name == item:
-                interface_data["name"] = current_name
-        elif base_idx.startswith("4."):
-            if current_name != item:
-                continue
-            metric = base_idx.split(".")[1]
-            val = int(value) if value.isdigit() else 0
-            if metric == "113":
-                interface_data["rx_ucast"] = val
-            elif metric == "114":
-                interface_data["rx_mcast"] = val
-            elif metric == "115":
-                interface_data["rx_bcast"] = val
-            elif metric == "116":
-                interface_data["tx_ucast"] = val
-            elif metric == "117":
-                interface_data["tx_mcast"] = val
-            elif metric == "118":
-                interface_data["tx_bcast"] = val
-            elif metric == "200":
-                interface_data["rx_octets"] = val
-            elif metric == "199":
-                interface_data["tx_octets"] = val
-            elif metric == "944":
-                interface_data["rx_err"] = val
-            elif metric == "945":
-                interface_data["tx_err"] = val
-    
-    if interface_data.get("name") != item:
-        return {
-            "changed": False,
-            "msg": "interface %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    rx_octets = interface_data.get("rx_octets", 0)
-    tx_octets = interface_data.get("tx_octets", 0)
-    rx_ucast = interface_data.get("rx_ucast", 0)
-    tx_ucast = interface_data.get("tx_ucast", 0)
-    rx_mcast = interface_data.get("rx_mcast", 0)
-    tx_mcast = interface_data.get("tx_mcast", 0)
-    rx_bcast = interface_data.get("rx_bcast", 0)
-    tx_bcast = interface_data.get("tx_bcast", 0)
-    rx_err = interface_data.get("rx_err", 0)
-    tx_err = interface_data.get("tx_err", 0)
-    
-    metrics = {
-        "rx_octets": rx_octets,
-        "tx_octets": tx_octets,
-        "rx_ucast": rx_ucast,
-        "tx_ucast": tx_ucast,
-        "rx_mcast": rx_mcast,
-        "tx_mcast": tx_mcast,
-        "rx_bcast": rx_bcast,
-        "tx_bcast": tx_bcast,
-        "rx_err": rx_err,
-        "tx_err": tx_err,
-    }
-    
-    warn_err = params.get("errors", [0, 0])
-    if type(warn_err) != "list":
-        warn_err = [0, 0]
-    warn_err = [warn_err[0], warn_err[1]]
-    
+        val = _get(ctx, community, host, col, target_idx)
+        metrics[COLS[col]] = _to_int(val)
+
+    # Determine operational state: if out_octets+in_octets are both zero
+    # and errors are zero, the interface is administratively down / no traffic.
+    in_oct = metrics.get("in_octets", 0)
+    out_oct = metrics.get("out_octets", 0)
+    in_err = metrics.get("in_err", 0)
+    out_err = metrics.get("out_err", 0)
+
     state = "OK"
-    if rx_err >= warn_err[1] or tx_err >= warn_err[1]:
-        state = "CRIT"
-    elif rx_err >= warn_err[0] or tx_err >= warn_err[0]:
+    if in_err > 0 or out_err > 0:
         state = "WARN"
-    
-    msg = "%s rx_octets: %d, tx_octets: %d, rx_err: %d, tx_err: %d" % (item, rx_octets, tx_octets, rx_err, tx_err)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+
+    msg = "Traffic: in %d oct/s, out %d oct/s, in_err %d, out_err %d" % (
+        in_oct, out_oct, in_err, out_err)
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

@@ -1,151 +1,137 @@
-# Map from SNMP status string to (state, summary)
-STATUS_MAP = {
-    "0": ("CRIT", "unsynchronized"),
-    "1": ("OK", "synchronized"),
-}
-
 def main(ctx, params):
-    # Discovery mode: emit one service if there is more than one cluster entry
+    # ---- helpers ----
+    def snmp_get_oid(oid):
+        # Returns bare value via snmpget -Oqv. rc==127 -> not installed.
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c",
+             params.get("community", "public"),
+             "-Oqv",
+             params.get("host", "localhost"),
+             oid],
+            mutates=False,
+        )
+        if res.rc == 127:
+            fail("snmpget not installed; cannot query device")
+        if res.rc != 0:
+            return ""
+        return res.stdout.strip()
+
+    def snmp_walk_rows(oid):
+        # Walk column OID with -Oqn; returns list of (full_oid, value)
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c",
+             params.get("community", "public"),
+             "-Oqn",
+             params.get("host", "localhost"),
+             oid],
+            mutates=False,
+        )
+        rows = []
+        if res.rc == 127:
+            fail("snmpwalk not installed; cannot query device")
+        if res.rc == 0 and res.stdout:
+            for line in res.stdout.splitlines():
+                sp = line.find(" ")
+                if sp < 0:
+                    continue
+                rows.append((line[:sp], line[sp + 1:].strip()))
+        return rows
+
+    def is_fortigate():
+        # Detect Fortigate via sysObjectID prefix .1.3.6.1.4.1.12356.101.1.
+        soid = snmp_get_oid(".1.3.6.1.2.1.1.2.0")
+        if not soid:
+            return False
+        return soid.startswith(".1.3.6.1.4.1.12356.101.1.")
+
+    STATUS_MAP = {
+        "0": ("CRIT", "unsynchronized"),
+        "1": ("OK", "synchronized"),
+    }
+
+    base = ".1.3.6.1.4.1.12356.101.13.2.1.1"
+
+    # ---- discovery mode ----
     if params.get("_discover"):
-        # Use snmpwalk to get the full table
-        res = ctx.run([
-            "snmpwalk",
-            "-On",
-            "-OvQ",
-            "-v2c",
-            "-c", "public",
-            "localhost",
-            ".1.3.6.1.4.1.12356.101.13.2.1.1",
-        ], mutates=False)
-        
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "no data",
+        if not is_fortigate():
+            # Not a Fortigate on this host; do not yield placeholder items.
+            return {"changed": False, "msg": "host is not a Fortigate",
                     "data": {"discovery": []}}
 
-        # Parse snmpwalk output: each line like ".1.3.6.1.4.1.12356.101.13.2.1.1.11.1 = STRING: "cluster1""
-        lines = res.stdout.splitlines()
-        clusters = {}
-        for line in lines:
-            if not line:
-                continue
-            # Split on " = "
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_val = parts[0].strip()
-            value = parts[1].strip().strip('"')
-            # Determine if it's name (.11) or status (.12)
-            if ".11." in oid_val:
-                # Extract index from OID: last part after .11.
-                idx_parts = oid_val.rsplit(".11.", 1)
-                if len(idx_parts) == 2:
-                    idx = idx_parts[1]
-                    clusters[idx] = {"name": value, "status": clusters.get(idx, {}).get("status")}
-            elif ".12." in oid_val:
-                idx_parts = oid_val.rsplit(".12.", 1)
-                if len(idx_parts) == 2:
-                    idx = idx_parts[1]
-                    clusters[idx] = {"name": clusters.get(idx, {}).get("name", ""), "status": value}
+        rows = snmp_walk_rows(base + ".12")  # name column
+        # Build per-index list of (index -> name)
+        names_by_index = {}
+        for full_oid, value in rows:
+            idx = full_oid[len(base + ".12") + 1:]
+            if idx:
+                names_by_index[idx] = value
 
-        # Convert to list of cluster entries
-        section = []
-        for idx, data in clusters.items():
-            if data["name"]:
-                section.append({"name": data["name"], "status": data["status"]})
+        if len(names_by_index) <= 1:
+            # Real Fortigate check only discovers a service when >1 cluster member
+            return {"changed": False, "msg": "no sync status items discovered",
+                    "data": {"discovery": []}}
 
-        # Discovery: if more than one cluster, yield a service
-        if len(section) > 1:
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-            }
-        return {"changed": False, "msg": "discovered 0 services",
-                "data": {"discovery": []}}
+        # Single-service check (no per-index items); item ""
+        return {"changed": False,
+                "msg": "discovered Sync Status",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}
+                ]}}
 
-    # Check mode
-    # Re-read the agent section — in a real environment, this would be cached by Checkmk,
-    # but here we repeat the snmpwalk. For simplicity, we assume the section is static.
-    res = ctx.run([
-        "snmpwalk",
-        "-On",
-        "-OvQ",
-        "-v2c",
-        "-c", "public",
-        "localhost",
-        ".1.3.6.1.4.1.12356.101.13.2.1.1",
-    ], mutates=False)
+    # ---- check mode (single service, item "") ----
+    # Verify the device is a Fortigate before reporting.
+    if not is_fortigate():
+        return {"changed": False,
+                "msg": "host is not a Fortigate",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "sysObjectID does not match Fortigate"}}
 
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "failed to fetch sync status data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Pull name + status columns via the numeric index (correlate by index).
+    name_rows = snmp_walk_rows(base + ".11")  # name column (oids[0]="11")
+    status_rows = snmp_walk_rows(base + ".12")  # status column (oids[1]="12")
 
-    lines = res.stdout.splitlines()
-    clusters = {}
-    for line in lines:
-        if not line:
+    status_by_index = {}
+    for full_oid, value in status_rows:
+        idx = full_oid[len(base + ".12") + 1:]
+        if idx:
+            status_by_index[idx] = value
+
+    name_by_index = {}
+    for full_oid, value in name_rows:
+        idx = full_oid[len(base + ".11") + 1:]
+        if idx:
+            name_by_index[idx] = value
+
+    if not status_by_index:
+        return {"changed": False,
+                "msg": "no sync status data available",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "no rows in sync status table"}}
+
+    summaries = []
+    worst_state = "OK"
+    worse = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+
+    for idx, status in status_by_index.items():
+        name = name_by_index.get(idx, idx)
+        if not status:
+            summaries.append("%s: Status not available" % name)
+            if order["UNKNOWN"] > order[worst_state]:
+                worst_state = "UNKNOWN"
             continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_val = parts[0].strip()
-        value = parts[1].strip().strip('"')
-        if ".11." in oid_val:
-            idx_parts = oid_val.rsplit(".11.", 1)
-            if len(idx_parts) == 2:
-                idx = idx_parts[1]
-                clusters[idx] = {"name": value, "status": clusters.get(idx, {}).get("status")}
-        elif ".12." in oid_val:
-            idx_parts = oid_val.rsplit(".12.", 1)
-            if len(idx_parts) == 2:
-                idx = idx_parts[1]
-                clusters[idx] = {"name": clusters.get(idx, {}).get("name", ""), "status": value}
+        mapped = STATUS_MAP.get(status, ("UNKNOWN", "Unknown status %s" % status))
+        st, st_summary = mapped
+        summaries.append("%s: %s" % (name, st_summary))
+        if order[st] > order[worst_state]:
+            worst_state = st
 
-    section = []
-    for idx, data in clusters.items():
-        if data["name"]:
-            section.append({"name": data["name"], "status": data["status"]})
+    summary = "; ".join(summaries)
+    if worst_state == "CRIT":
+        level = "CRITICAL"
+    else:
+        level = worst_state
 
-    # If section is empty or has only one cluster, check might not apply, but per the original,
-    # discovery yields a service only when len > 1. So if we're in check mode with item "",
-    # and len(section) <= 1, we return UNKNOWN.
-    if not section or len(section) <= 1:
-        return {
-            "changed": False,
-            "msg": "no clusters or only one cluster",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    # Iterate clusters and report status
-    for cluster in section:
-        name = cluster["name"]
-        status = cluster["status"]
-        if status == None or status == "":
-            return {
-                "changed": False,
-                "msg": name + ": Status not available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-            }
-
-        state_summary = STATUS_MAP.get(status, ("UNKNOWN", "Unknown status " + status))
-        state = state_summary[0]
-        summary = state_summary[1]
-        # Return first cluster's status (the original check yields multiple Results, but
-        # the Starlark check returns one state. Per Checkmk conventions for this check,
-        # it yields one Result per cluster, but the yolo-man agent expects one verdict.
-        # Since the check has service "Sync Status" (singular), we take the first cluster's state.
-        return {
-            "changed": False,
-            "msg": name + ": " + summary,
-            "data": {"state": state, "metrics": {}, "details": ""},
-        }
-
-    # Fallback
-    return {
-        "changed": False,
-        "msg": "no clusters found",
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-    }
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": level, "metrics": {}, "details": summary}}

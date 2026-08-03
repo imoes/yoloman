@@ -1,194 +1,177 @@
+# Checkmk check: checkmk.liebert_cooling_position
+# Translated to read-only Starlark for the yolo-man agent.
+# Monitors Liebert cooling position (Free Cooling valve position, %) via SNMP.
+# This is an SNMP-based check: it reads the same OIDs the Checkmk SNMP
+# section (.1.3.6.1.4.1.476.1.42.3.9.20.1) uses, but talks net-snmp directly
+# because the yolo-man runtime has no Checkmk agent installed.
+
+# Column OIDs under the base .1.3.6.1.4.1.476.1.42.3.9.20.1
+# From the agent plugin's SNMPTree: oids ["10.1.2.1.5303", "20.1.2.1.5303", "30.1.2.1.5303"]
+# These are three columns sharing the same index. The index is the trailing
+# numeric suffix after ".5303" in the walked OID.
+# Column .10 = name, .20 = value, .30 = unit.
+
+# Detection: the Checkmk plugin uses DETECT_LIEBERT = startswith(
+#   ".1.3.6.1.2.1.1.2.0", ".1.3.6.1.4.1.476.1.42"), i.e. the sysObjectID must
+# start with .1.3.6.1.4.1.476.1.42 (Emerson/Liebert enterprise OID).
+
+def _walk_column(ctx, host, community, column_oid):
+    # Use snmpwalk -Oqn: one line per row "<full-oid> <value>", numeric OID,
+    # no type tag, no '='. Value may be quoted for strings.
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, column_oid],
+        mutates=False,
+    )
+    rows = {}
+    if res.rc != 0:
+        return rows
+    for line in res.stdout.splitlines():
+        # Split on the FIRST space: left = OID, right = value.
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        rows[oid] = val
+    return rows
+
+def _parse_value(val):
+    # snmpwalk -Oqn may quote string values; strip surrounding quotes.
+    if len(val) >= 2 and val[0] == '"' and val[-1] == '"':
+        val = val[1:-1]
+    return val
+
 def main(ctx, params):
     if params.get("_discover"):
-        community = params.get("community", "public")
         host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-        
-        # Fetch name branch
-        name_res = ctx.run([
-            "snmpget", "-v2c", "-c", community, "-On",
-            host,
-            base_oid + ".10.1.2.1.5303"
-        ], mutates=False)
-        
-        # Fetch value branch
-        value_res = ctx.run([
-            "snmpget", "-v2c", "-c", community, "-On",
-            host,
-            base_oid + ".20.1.2.1.5303"
-        ], mutates=False)
-        
-        # Fetch unit branch
-        unit_res = ctx.run([
-            "snmpget", "-v2c", "-c", community, "-On",
-            host,
-            base_oid + ".30.1.2.1.5303"
-        ], mutates=False)
-        
-        # Extract position index from name OID
-        position_index = None
-        item_name = ""
-        for line in name_res.stdout.splitlines():
-            if "=" not in line:
+        community = params.get("community", "public")
+
+        # PROBE FOR THE REAL THING FIRST. Liebert gear is identified by its
+        # sysObjectID starting with .1.3.6.1.4.1.476.1.42. Verify the device
+        # is actually a Liebert unit before offering any service. A rc==127
+        # means snmp tools aren't even installed -> not applicable.
+        sysid = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysid.rc != 0:
+            # Not present / not reachable / not installed -> no services.
+            return {"changed": False, "msg": "no Liebert device found",
+                    "data": {"discovery": []}}
+
+        base = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+        names = _walk_column(ctx, host, community, base + ".10.1.2.1.5303")
+        if len(names) == 0:
+            # No cooling-position rows at all -> Liebert present but this
+            # particular cooling table empty. Still no services to offer.
+            return {"changed": False, "msg": "no Liebert cooling position items",
+                    "data": {"discovery": []}}
+
+        discovery = []
+        # The value/unit columns are queried per index. Index = the OID suffix
+        # after ".5303".
+        suffix_len = len(base + ".10.1.2.1.5303.")
+        for oid, name in names.items():
+            if len(oid) <= suffix_len:
                 continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
+            index = oid[suffix_len:]
+            if index == "":
                 continue
-            oid_str = parts[0].strip()
-            name_val = parts[1].strip().strip('"')
-            suffix = oid_str[len(base_oid + ".10.1.2."):]
-            if "." in suffix:
-                parts_suffix = suffix.split(".")
-                if len(parts_suffix) > 0 and parts_suffix[0].isdigit():
-                    position_index = int(parts_suffix[0])
-                    item_name = name_val
-                    break
-        
-        # Build discovery list if Free Cooling item exists
-        discovered = []
-        if item_name.startswith("Free Cooling"):
-            # Try to get value and unit
-            value = None
-            unit = ""
-            
-            for line in value_res.stdout.splitlines():
-                if "=" not in line:
-                    continue
-                parts = line.strip().split(" = ", 1)
-                if len(parts) != 2:
-                    continue
-                val_str = parts[1].strip()
-                if val_str.replace(".", "").replace("-", "").isdigit():
-                    value = float(val_str) if "." in val_str else int(val_str)
-                    break
-            
-            for line in unit_res.stdout.splitlines():
-                if "=" not in line:
-                    continue
-                parts = line.strip().split(" = ", 1)
-                if len(parts) != 2:
-                    continue
-                unit = parts[1].strip().strip('"')
-                break
-            
-            discovered.append({
-                "item": item_name,
-                "params": {"min_capacity": (90.0, 80.0)},
-                "metrics": ["capacity_perc"]
+            dname = _parse_value(name)
+            # Only Free Cooling items are discovered (matches the plugin).
+            if not dname.startswith("Free Cooling"):
+                continue
+            discovery.append({
+                "item": dname,
+                "params": {"warn": 90.0, "crit": 80.0},
+                "metrics": ["capacity_perc"],
             })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d Free Cooling items" % len(discovered),
-            "data": {"discovery": discovered}
-        }
-    
-    # Check mode: single item
+
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # ---- CHECK MODE (one item) ----
     item = params.get("item", "")
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    
-    # Get name to find position index
-    name_res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host,
-        base_oid + ".10.1.2.1.5303"
-    ], mutates=False)
-    
-    position_index = None
-    for line in name_res.stdout.splitlines():
-        if "=" not in line:
+    community = params.get("community", "public")
+
+    # Re-probe for the real device first (absence is an answer).
+    sysid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysid.rc != 0:
+        return {"changed": False,
+                "msg": "no Liebert device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    base = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+    # Walk the name column to find the index for this item.
+    names = _walk_column(ctx, host, community, base + ".10.1.2.1.5303")
+    suffix_len = len(base + ".10.1.2.1.5303.")
+    target_index = None
+    for oid, name in names.items():
+        if len(oid) <= suffix_len:
             continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_str = parts[0].strip()
-        name_val = parts[1].strip().strip('"')
-        if name_val == item:
-            suffix = oid_str[len(base_oid + ".10.1.2."):]
-            if "." in suffix:
-                parts_suffix = suffix.split(".")
-                if len(parts_suffix) > 0 and parts_suffix[0].isdigit():
-                    position_index = int(parts_suffix[0])
-                    break
-    
-    if position_index == None:
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get value and unit for this position
-    value_oid = base_oid + ".20.1.2." + str(position_index)
-    unit_oid = base_oid + ".30.1.2." + str(position_index)
-    
-    value_res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host,
-        value_oid
-    ], mutates=False)
-    
-    unit_res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host,
-        unit_oid
-    ], mutates=False)
-    
-    # Extract value
-    value = None
-    for line in value_res.stdout.splitlines():
-        if "=" not in line:
-            continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        val_str = parts[1].strip()
-        if val_str.replace(".", "").replace("-", "").isdigit():
-            value = float(val_str) if "." in val_str else int(val_str)
+        index = oid[suffix_len:]
+        if _parse_value(name) == item:
+            target_index = index
             break
-    
-    # Extract unit
-    unit = ""
-    for line in unit_res.stdout.splitlines():
-        if "=" not in line:
-            continue
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        unit = parts[1].strip().strip('"')
-        break
-    
-    if value == None:
-        return {
-            "changed": False,
-            "msg": "unable to retrieve value for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get thresholds
-    min_capacity = params.get("min_capacity")
+
+    if target_index == None:
+        return {"changed": False,
+                "msg": "item not found: " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Read the value and unit for this index directly by index.
+    val_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         base + ".20.1.2.1.5303." + target_index],
+        mutates=False,
+    )
+    unit_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         base + ".30.1.2.1.5303." + target_index],
+        mutates=False,
+    )
+
+    if val_res.rc != 0 or unit_res.rc != 0 or val_res.stdout == "" or unit_res.stdout == "":
+        return {"changed": False,
+                "msg": "could not read cooling position for " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    raw_val = _parse_value(val_res.stdout)
+    unit = _parse_value(unit_res.stdout)
+    if not raw_val.lstrip("-").replace(".", "", 1).isdigit():
+        return {"changed": False,
+                "msg": "non-numeric cooling position value for " + str(item),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    value = float(raw_val)
+
+    # Thresholds: Checkmk default is min_capacity (90.0, 80.0) i.e. levels_lower.
+    # min_capacity = (warn_lower, crit_lower). Warn/CRIT if value FALLS BELOW.
+    warn = params.get("warn")
+    crit = params.get("crit")
+    if warn == None or crit == None:
+        mc = params.get("min_capacity", (90.0, 80.0))
+        if type(mc) == "list" or type(mc) == "tuple":
+            warn = mc[0]
+            crit = mc[1]
+        else:
+            warn = 90.0
+            crit = 80.0
+
+    # levels_lower: value <= crit -> CRIT, value <= warn -> WARN, else OK.
+    # (warn > crit by Checkmk convention; the default (90,80) is a percentage.)
     state = "OK"
-    if min_capacity != None:
-        if isinstance(min_capacity, tuple) and len(min_capacity) >= 2:
-            warn_val = min_capacity[0]
-            crit_val = min_capacity[1]
-            if value <= crit_val:
-                state = "CRIT"
-            elif value <= warn_val:
-                state = "WARN"
-    
-    # Format output
-    render_val = "%f %s" % (value, unit) if unit else "%f" % value
-    msg = "%s %s" % (item, render_val)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"capacity_perc": value},
-            "details": ""
-        }
-    }
+    if value <= crit:
+        state = "CRIT"
+    elif value <= warn:
+        state = "WARN"
+
+    return {"changed": False,
+            "msg": "%s: %f %s" % (item, value, unit),
+            "data": {"state": state,
+                     "metrics": {"capacity_perc": value},
+                     "details": ""}}

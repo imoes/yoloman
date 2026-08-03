@@ -1,123 +1,101 @@
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: single-service check for memory system
-        return {
-            "changed": False,
-            "msg": "discovered 1 memory system",
-            "data": {"discovery": [{"item": "", "params": {"levels": ("perc_used", (80.0, 90.0))}, "metrics": ["memory_used"]}]},
-        }
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "no checkpoint device found",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-    # Check mode: get memory usage via SNMP
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
-    
-    # FETCH .1.3.6.1.4.1.2620.1.6.7.4.3.0 (memTotalReal) and .1.3.6.1.4.1.2620.1.6.7.4.4.0 (memAvailReal)
-    # Use snmpwalk with base OID and specific sub-OID
-    base_oid = ".1.3.6.1.4.1.2620.1.6.7.4"
-    total_oid = base_oid + ".3.0"
-    avail_oid = base_oid + ".4.0"
-    
-    # Walk both OIDs separately (snmpwalk returns one line per OID)
-    res_total = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, total_oid], mutates=False)
-    res_avail = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, avail_oid], mutates=False)
-    
-    # Parse total memory
-    mem_total_bytes = None
-    for line in res_total.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        # Format: OID = INTEGER: value
-        if ": INTEGER: " in line:
-            parts = line.split(": INTEGER: ", 1)
-            if len(parts) == 2 and parts[1].strip().isdigit():
-                mem_total_bytes = int(parts[1].strip())
-                break
-    
-    # Parse available memory
-    mem_avail_bytes = None
-    for line in res_avail.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        if ": INTEGER: " in line:
-            parts = line.split(": INTEGER: ", 1)
-            if len(parts) == 2 and parts[1].strip().isdigit():
-                mem_avail_bytes = int(parts[1].strip())
-                break
-    
-    # Check data availability
-    if mem_total_bytes == None or mem_avail_bytes == None:
-        return {
-            "changed": False,
-            "msg": "Unable to retrieve memory data via SNMP",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    # Calculate used memory
-    mem_used_bytes = mem_total_bytes - mem_avail_bytes
-    
-    # Get levels from params (Checkmk default: ("perc_used", (80.0, 90.0)))
-    levels_tuple = params.get("levels", ("perc_used", (80.0, 90.0)))
-    if not isinstance(levels_tuple, (list, tuple)) or len(levels_tuple) != 2:
-        return {
-            "changed": False,
-            "msg": "Invalid levels format",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    levels_type = levels_tuple[0]
-    if levels_type != "perc_used":
-        return {
-            "changed": False,
-            "msg": "Unsupported levels type: " + str(levels_type),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    warn_percent, crit_percent = levels_tuple[1]
-    if not isinstance(warn_percent, (int, float)) or not isinstance(crit_percent, (int, float)):
-        return {
-            "changed": False,
-            "msg": "Invalid level values",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    # Calculate usage percentage
-    if mem_total_bytes == 0:
-        usage_percent = 0.0
-    else:
-        usage_percent = (mem_used_bytes * 100.0) / mem_total_bytes
-    
-    # Determine state
-    if usage_percent >= crit_percent:
-        state = "CRIT"
-    elif usage_percent >= warn_percent:
-        state = "WARN"
-    else:
-        state = "OK"
-    
-    # Format summary message
-    # Convert bytes to human-readable units
-    def format_bytes(b):
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if abs(b) < 1024.0:
-                return "%f %s" % (b, unit)
-            b /= 1024.0
-        return "%f %s" % (b, "PB")
-    
-    msg = "Usage: %f%%, Total: %s, Used: %s" % (
-        usage_percent,
-        format_bytes(mem_total_bytes),
-        format_bytes(mem_used_bytes),
+        sys_oid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        sys_oid = sys_oid_res.stdout.strip() if sys_oid_res.rc == 0 else ""
+        sys_desc_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        sys_desc = sys_desc_res.stdout.strip() if sys_desc_res.rc == 0 else ""
+
+        is_checkpoint = (sys_oid.startswith(".1.3.6.1.4.1.2620") or
+                         ("cp" in sys_desc) or sys_desc.startswith("IPSO ") or
+                         ("cpx" in sys_desc and "Linux" in sys_desc))
+
+        fw_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.2620.1.1.21.0"],
+            mutates=False,
+        )
+        fw_name = fw_res.stdout.strip() if fw_res.rc == 0 else ""
+        gaia_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.2620.1.6.5.1.0"],
+            mutates=False,
+        )
+        gaia_name = gaia_res.stdout.strip() if gaia_res.rc == 0 else ""
+
+        is_detected = is_checkpoint and (fw_name == "firewall" or gaia_name == "Gaia")
+        if not is_detected:
+            return {"changed": False, "msg": "no checkpoint device found",
+                    "data": {"discovery": [], "host_labels": {}}}
+
+        return {"changed": False,
+                "msg": "discovered 1 Memory System service",
+                "data": {"discovery": [
+                    {"item": "", "params": {"levels": ("perc_used", (80.0, 90.0))},
+                     "metrics": ["memory_used"]},
+                ], "host_labels": {"cmk/os_family": "checkpoint"}}}
+
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+         "-Oqn", params.get("host", "localhost"), ".1.3.6.1.4.1.2620.1.6.7.4.3"],
+        mutates=False,
     )
-    
-    # Return check result
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"memory_used": mem_used_bytes},
-            "details": "",
-        },
-    }
+    if res.rc == 127 or res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "no checkpoint memory data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    total_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.2620.1.6.7.4.3.0"],
+        mutates=False,
+    )
+    avail_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), ".1.3.6.1.4.1.2620.1.6.7.4.4.0"],
+        mutates=False,
+    )
+
+    if total_res.rc != 0 or avail_res.rc != 0:
+        return {"changed": False, "msg": "could not fetch checkpoint memory values",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    mem_total = int(total_res.stdout.strip())
+    mem_avail = int(avail_res.stdout.strip())
+    mem_used = mem_total - mem_avail
+
+    levels = params.get("levels")
+    if levels != None and len(levels) >= 2:
+        warn = levels[1]
+        crit = levels[2] if len(levels) > 2 else levels[1]
+    else:
+        warn = 80.0
+        crit = 90.0
+
+    used_perc = (float(mem_used) / float(mem_total) * 100.0) if mem_total > 0 else 0.0
+    state = "OK"
+    if used_perc >= crit:
+        state = "CRIT"
+    elif used_perc >= warn:
+        state = "WARN"
+
+    return {"changed": False,
+            "msg": "Usage: %f%%" % used_perc,
+            "data": {"state": state,
+                     "metrics": {"memory_used": mem_used},
+                     "details": ""}}

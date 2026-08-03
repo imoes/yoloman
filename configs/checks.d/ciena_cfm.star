@@ -1,144 +1,125 @@
 def main(ctx, params):
-    base_oid = ".1.3.6.1.4.1.1271.2.1.4.1.2.1.1"
-    
-    # Discovery mode
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        # Fetch CFM service data via SNMP
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, base_oid, ".6", ".5"
-        ], mutates=False)
-        
+    # ----- helpers -----
+    OID_SYSDESC = ".1.3.6.1.2.1.1.1.0"
+    OID_SYSOBJ = ".1.3.6.1.2.1.1.2.0"
+    BASE = ".1.3.6.1.4.1.1271.2.1.4.1.2.1.1"
+
+    OPER_STATE = {
+        "1": "enabled",
+        "2": "disabled",
+    }
+
+    def snmp_get(community, host, oid):
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+            mutates=False,
+        )
         if res.rc != 0:
-            fail("SNMP query failed: " + res.stderr)
-        
-        # Parse snmpwalk output: each line is "OID = TYPE: value"
-        section = {}
-        lines = res.stdout.splitlines()
-        
-        # Process snmpwalk output
-        i = 0
-        while i < len(lines):
-            # Expect two consecutive lines for service name (oid 6) and oper state (oid 5)
-            if i + 1 < len(lines):
-                line1 = lines[i]
-                line2 = lines[i + 1]
-                
-                # Check for expected format and parse safely
-                if " = STRING: " in line1 and " = INTEGER: " in line2:
-                    # Extract name and state using string operations only
-                    parts1 = line1.split(" = STRING: ")
-                    parts2 = line2.split(" = INTEGER: ")
-                    
-                    if len(parts1) == 2 and len(parts2) == 2:
-                        name = parts1[1].strip().strip('"')
-                        state_val = parts2[1].strip()
-                        
-                        # Only include if we have valid data
-                        if name != "" and name != None and state_val != "":
-                            # Map state: '1' -> enabled, '2' -> disabled
-                            if state_val == "1":
-                                oper_state = "enabled"
-                            elif state_val == "2":
-                                oper_state = "disabled"
-                            else:
-                                oper_state = "unknown"
-                            
-                            if oper_state in ["enabled", "disabled"]:
-                                section[name] = oper_state
-                i += 2
-            else:
-                i += 1
-        
-        # Build discovery result
-        out = []
-        for item, state in section.items():
-            out.append({
-                "item": item,
-                "params": {"discovered_oper_state": state},
-                "metrics": []
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d CFM services" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # Check mode
-    item = params.get("item", "")
+            return None
+        return res.stdout.strip()
+
+    def snmp_walk(host, community, oid):
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {}
+        rows = {}
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) < 2:
+                continue
+            oid_full, value = parts[0], parts[1]
+            rows[oid_full] = value
+        return rows
+
+    def ciena_present(community, host):
+        sysdesc = snmp_get(community, host, OID_SYSDESC)
+        sysid = snmp_get(community, host, OID_SYSOBJ)
+        if sysid == None or sysdesc == None:
+            return False
+        valid_sysid = (
+            sysid.startswith(".1.3.6.1.4.1.1271.1.2.11")
+            or sysid.startswith(".1.3.6.1.4.1.6141.1.96")
+        )
+        if not valid_sysid:
+            return False
+        return "5171" in sysdesc
+
+    def fetch_services(community, host):
+        name_oid = BASE + ".6"
+        state_oid = BASE + ".5"
+        names = snmp_walk(host, community, name_oid)
+        states = snmp_walk(host, community, state_oid)
+        result = {}
+        for oid_full, name_val in names.items():
+            idx = oid_full[len(name_oid) + 1:]
+            state_val = states.get(state_oid + "." + idx)
+            if state_val == None or state_val == "" or state_val == "0":
+                continue
+            result[name_val] = OPER_STATE.get(state_val, "unknown")
+        return result
+
+    # ----- body -----
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Fetch all data (same as discovery to get current item's state)
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, base_oid, ".6", ".5"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        fail("SNMP query failed: " + res.stderr)
-    
-    lines = res.stdout.splitlines()
-    section = {}
-    i = 0
-    while i < len(lines):
-        if i + 1 < len(lines):
-            line1 = lines[i]
-            line2 = lines[i + 1]
-            
-            if " = STRING: " in line1 and " = INTEGER: " in line2:
-                parts1 = line1.split(" = STRING: ")
-                parts2 = line2.split(" = INTEGER: ")
-                
-                if len(parts1) == 2 and len(parts2) == 2:
-                    name = parts1[1].strip().strip('"')
-                    state_val = parts2[1].strip()
-                    
-                    if name != "" and name != None and state_val != "":
-                        if state_val == "1":
-                            oper_state = "enabled"
-                        elif state_val == "2":
-                            oper_state = "disabled"
-                        else:
-                            oper_state = "unknown"
-                        
-                        if oper_state in ["enabled", "disabled"]:
-                            section[name] = oper_state
-            i += 2
-        else:
-            i += 1
-    
-    # Check if item exists in section
-    if item not in section:
+
+    if params.get("_discover"):
+        if not ciena_present(community, host):
+            return {
+                "changed": False,
+                "msg": "not a Ciena 5171 device",
+                "data": {"discovery": [], "host_labels": {}},
+            }
+        services = fetch_services(community, host)
+        discovery = []
+        for item, oper_state in services.items():
+            discovery.append({
+                "item": item,
+                "params": {"discovered_oper_state": oper_state},
+                "metrics": [],
+            })
         return {
             "changed": False,
-            "msg": "CFM-Service instance not found",
+            "msg": "discovered %d ciena cfm services" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
+        }
+
+    item = params.get("item", "")
+    if not ciena_present(community, host):
+        return {
+            "changed": False,
+            "msg": "not a Ciena 5171 device",
             "data": {
                 "state": "UNKNOWN",
                 "metrics": {},
-                "details": ""
-            }
+                "details": "",
+            },
         }
-    
-    current_state = section[item]
-    expected_state = params.get("discovered_oper_state", "")
-    
-    # State comparison logic: OK if match, CRIT otherwise
-    if current_state == expected_state:
+    services = fetch_services(community, host)
+    if item == "" or item not in services:
+        return {
+            "changed": False,
+            "msg": "no such ciena cfm service: %s" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+    current = services[item]
+    expected = params.get("discovered_oper_state", current)
+    if current == expected:
         state = "OK"
     else:
         state = "CRIT"
-    
     return {
         "changed": False,
-        "msg": "CFM-Service instance is %s" % current_state,
+        "msg": "CFM-Service instance is %s" % current,
         "data": {
             "state": state,
             "metrics": {},
-            "details": ""
-        }
+            "details": "",
+        },
     }

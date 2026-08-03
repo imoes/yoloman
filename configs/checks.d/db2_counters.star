@@ -1,109 +1,76 @@
-# db2_counters: deadlocks and lockwaits per DB2 database (cumulative snapshot values)
-
-COUNTER_LABELS = {
-    "Deadlocks detected": "deadlocks",
-    "Lock waits": "lockwaits",
-}
-
-def _db2_run(ctx, instance, cmd_str):
-    if instance != None and instance != "":
-        return ctx.run(["su", "-", instance, "-c", "db2 " + cmd_str], mutates=False)
-    return ctx.run(["db2"] + cmd_str.split(), mutates=False)
-
-def _parse_snapshot(output):
-    counters = {}
-    for line in output.splitlines():
-        stripped = line.strip()
-        for label, key in COUNTER_LABELS.items():
-            if stripped.startswith(label) and "=" in stripped:
-                parts = stripped.split("=", 1)
-                val = parts[1].strip()
-                if val.isdigit():
-                    counters[key] = int(val)
-    return counters
-
-def _apply_levels(state, value, levels, label, msgs):
-    if levels == None:
-        msgs.append("%s: %d" % (label, value))
-        return state
-    warn = levels[0]
-    crit = levels[1]
-    if value >= crit:
-        msgs.append("%s: %d (>= %d!!)" % (label, value, crit))
-        return "CRIT"
-    if value >= warn:
-        msgs.append("%s: %d (>= %d!)" % (label, value, warn))
-        if state == "OK":
-            return "WARN"
-        return state
-    msgs.append("%s: %d" % (label, value))
-    return state
-
 def main(ctx, params):
-    instance = params.get("instance", None)
-
     if params.get("_discover"):
-        res = _db2_run(ctx, instance, "list active databases")
-        databases = []
-        if res.rc == 0:
-            for line in res.stdout.splitlines():
-                stripped = line.strip()
-                if stripped.startswith("Database name") and "=" in stripped:
-                    parts = stripped.split("=", 1)
-                    dbname = parts[1].strip()
-                    if dbname:
-                        databases.append({
-                            "item": dbname,
-                            "params": {},
-                            "metrics": ["deadlocks", "lockwaits"],
-                        })
-        return {
-            "changed": False,
-            "msg": "discovered %d databases" % len(databases),
-            "data": {"discovery": databases},
-        }
-
+        res = ctx.run(["db2level"], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "db2 not installed", "data": {"discovery": []}}
+        dbs = _discover_dbs(ctx)
+        if not dbs:
+            return {"changed": False, "msg": "no db2 databases found", "data": {"discovery": []}}
+        discovery = []
+        for db in dbs:
+            discovery.append({"item": db, "params": {}, "metrics": ["deadlocks", "lockwaits"]})
+        return {"changed": False, "msg": "discovered %d db2 databases" % len(discovery), "data": {"discovery": discovery}}
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no database item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    return _check_db2_counters(ctx, params, item)
 
-    res = _db2_run(ctx, instance, "get snapshot for database on " + item)
+
+def _discover_dbs(ctx):
+    dbs = []
+    res = ctx.run(["db2", "list", "database", "directory"], mutates=False)
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "db2 snapshot failed for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr[:200]},
-        }
+        return dbs
+    for line in res.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Database name"):
+            parts = stripped.split("=")
+            if len(parts) >= 2:
+                name = parts[1].strip()
+                if name and name not in dbs:
+                    dbs.append(name)
+    return dbs
 
-    counters = _parse_snapshot(res.stdout)
-    if not counters:
-        return {
-            "changed": False,
-            "msg": "no counter data for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
 
-    deadlocks = counters.get("deadlocks", 0)
-    lockwaits = counters.get("lockwaits", 0)
-
-    deadlock_levels = params.get("deadlocks", None)
-    lockwait_levels = params.get("lockwaits", None)
-
+def _check_db2_counters(ctx, params, item):
+    metrics = {}
     state = "OK"
-    msgs = []
-    state = _apply_levels(state, deadlocks, deadlock_levels, "Deadlocks", msgs)
-    state = _apply_levels(state, lockwaits, lockwait_levels, "Lockwaits", msgs)
+    msg_parts = []
+    has_data = False
+    for counter in ["deadlocks", "lockwaits"]:
+        rate = _get_counter_rate(ctx, item, counter)
+        if rate == None:
+            continue
+        has_data = True
+        metrics[counter] = rate
+        warn = params.get(counter + "_warn", None)
+        crit = params.get(counter + "_crit", None)
+        if warn != None and rate >= float(warn):
+            if crit != None and rate >= float(crit):
+                state = "CRIT"
+            else:
+                if state != "CRIT":
+                    state = "WARN"
+        msg_parts.append(counter + ": %f/s" % rate)
+    if not has_data:
+        return {"changed": False, "msg": "no db2 database found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": ", ".join(msg_parts), "data": {"state": state, "metrics": metrics, "details": ""}}
 
-    return {
-        "changed": False,
-        "msg": ", ".join(msgs),
-        "data": {
-            "state": state,
-            "metrics": {"deadlocks": deadlocks, "lockwaits": lockwaits},
-            "details": "",
-        },
-    }
+
+def _get_counter_rate(ctx, item, counter):
+    res = ctx.run(["db2", "list", "monitor", "reports", "database", item], mutates=False)
+    if res.rc != 0:
+        return None
+    if counter == "deadlocks":
+        col = "deadlocks"
+    else:
+        col = "lockwaits_total"
+    for line in res.stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(col):
+            parts = stripped.split()
+            for i, p in enumerate(parts):
+                if p == col and i + 1 < len(parts):
+                    val = parts[i + 1]
+                    if val.replace(".", "").isdigit() or (val.startswith("-") and val.replace(".", "").replace("-", "").isdigit()):
+                        return float(val)
+                    return None
+    return None

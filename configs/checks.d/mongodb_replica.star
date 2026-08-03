@@ -1,98 +1,70 @@
 def main(ctx, params):
-    # Discovery mode: always yield one service (no items)
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
+        res = ctx.run(["which", "mongo"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "mongo not found",
+                    "data": {"discovery": []}}
+        res = ctx.run(["mongo", "--quiet", "--eval",
+                       "JSON.stringify(rs.status())"], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "cannot get replica set status",
+                    "data": {"discovery": []}}
+        d = json.decode(res.stdout)
+        if d == None or not d.get("ok") == 1:
+            return {"changed": False, "msg": "replica set not initialized",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 items",
+                "data": {"discovery": [
+                    {"item": "", "params": {},
+                     "metrics": []}]}}
 
-    # Check mode: get replica status via mongosh
-    mongosh_cmd = ["mongosh", "--quiet", "--eval", "JSON.stringify(rs.status())"]
-    res = ctx.run(mongosh_cmd, mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "mongosh failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    item = params.get("item", "")
+    res = ctx.run(["mongo", "--quiet", "--eval",
+                   "JSON.stringify(rs.status())"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "cannot get replica set status",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    d = json.decode(res.stdout)
+    if d == None or not d.get("ok") == 1:
+        return {"changed": False, "msg": "replica set not initialized",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    stdout = res.stdout.strip()
-    if not stdout:
-        return {
-            "changed": False,
-            "msg": "no MongoDB replica set data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Guard: only decode if output looks like JSON
-    if stdout.find("{") != 0 and stdout.find("[") != 0:
-        return {
-            "changed": False,
-            "msg": "invalid MongoDB status output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Safe decode: use json.decode only when output appears valid
-    # Starlark json.decode raises no exception; it fails on bad input.
-    # But in practice, the agent context may have error text.
-    # We rely on the agent to provide valid JSON; if not, report UNKNOWN.
-    # Checkmk's source uses json.loads which fails on non-JSON — here we must guard.
-    # Since json.decode in Starlark aborts the script on error, we avoid calling it directly on unknown input.
-    # Instead, we assume mongosh always outputs valid JSON on success.
-    status = json.decode(stdout)
-
-    # Extract primary and members
+    members = d.get("members", [])
     primary = None
-    secondaries_active = []
-    secondaries_passive = []
+    active = []
+    passive = []
     arbiters = []
+    for m in members:
+        state = m.get("stateStr")
+        name = m.get("name")
+        if state == "PRIMARY":
+            primary = name
+        elif state in ("SECONDARY", "SECONDARY PENDING"):
+            active.append(name)
+        elif state == "ARBITER":
+            arbiters.append(name)
+        elif state == "PASSIVE":
+            passive.append(name)
 
-    members = status.get("members")
-    if members != None and type(members) == "list":
-        for member in members:
-            if type(member) != "dict":
-                continue
-            state = member.get("stateStr", "")
-            host = member.get("name", "")
-            if state == "PRIMARY":
-                primary = host
-            elif state == "SECONDARY":
-                secondaries_active.append(host)
-            elif state == "ARBITER":
-                arbiters.append(host)
-
-    # Build verdict
-    if primary == None:
-        state = "CRIT"
-        summary = "Replica set does not have a primary node"
+    msgs = []
+    if primary != None:
+        msgs.append("Primary: %s" % primary)
     else:
-        state = "OK"
-        summary = "Primary: " + str(primary)
-
-    # Append secondary and arbiter info
-    details_parts = []
-    if secondaries_active:
-        details_parts.append("Active secondaries: " + ", ".join(secondaries_active))
+        msgs.append("Replica set does not have a primary node")
+        return {"changed": False, "msg": "CRIT - Replica set does not have a primary node",
+                "data": {"state": "CRIT", "metrics": {}, "details": "\n".join(msgs)}}
+    if active:
+        msgs.append("Active secondaries: %s" % ", ".join(active))
     else:
-        details_parts.append("No active secondaries")
-
-    if secondaries_passive:
-        details_parts.append("Passive secondaries: " + ", ".join(secondaries_passive))
-
+        msgs.append("No active secondaries")
+    if passive:
+        msgs.append("Passive secondaries: %s" % ", ".join(passive))
+    else:
+        msgs.append("No passive secondaries")
     if arbiters:
-        details_parts.append("Arbiters: " + ", ".join(arbiters))
+        msgs.append("Arbiters: %s" % ", ".join(arbiters))
     else:
-        details_parts.append("No arbiters")
+        msgs.append("No arbiters")
 
-    details = "; ".join(details_parts)
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": details
-        }
-    }
+    return {"changed": False, "msg": "OK - %s" % "; ".join(msgs),
+            "data": {"state": "OK", "metrics": {}, "details": "\n".join(msgs)}}

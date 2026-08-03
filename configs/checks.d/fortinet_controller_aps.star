@@ -1,3 +1,15 @@
+# Starlark translation of checkmk.fortinet_controller_aps — READ-ONLY
+
+# SNMP base + column OIDs (mirrors the Checkmk SNMPSection fetch)
+AP_BASE = ".1.3.6.1.4.1.15983.1.1.4.2.1.1"
+AP_COLS = ["2", "4", "8", "17", "26", "27"]  # descr, id, location, uptime, oper_state, availability
+CLIENT_BASE = ".1.3.6.1.4.1.15983.1.1.3.1.7.1"
+CLIENT_COLS = ["5", "9"]                      # client(2.4/5), id
+
+# SysObjectID used for detection
+SYS_OBJ_OID = ".1.3.6.1.2.1.1.2.0"
+FORTINET_PREFIX = ".1.3.6.1.4.1.15983"
+
 MAP_OPER_STATE = {
     "0": "unknown",
     "1": "enabled",
@@ -16,163 +28,227 @@ MAP_AVAILABILITY = {
     "6": "not installed",
 }
 
-STATE_RANK = {"OK": 0, "UNKNOWN": 1, "WARN": 2, "CRIT": 3}
 
-def _snmp_walk(ctx, host, community, oid):
-    res = ctx.run(
-        ["snmpwalk", "-v2c", "-c", community, "-On", host, oid],
-        mutates=False,
-        ok_codes=[0, 1],
-    )
-    rows = {}
-    for line in res.stdout.splitlines():
-        eq = line.find(" = ")
-        if eq < 0:
-            continue
-        full_oid = line[:eq].strip()
-        val_part = line[eq + 3:].strip()
-        idx = full_oid.rsplit(".", 1)[-1]
-        colon = val_part.find(": ")
-        if colon >= 0:
-            type_name = val_part[:colon]
-            raw_val = val_part[colon + 2:].strip()
-            if type_name == "Timeticks":
-                paren_end = raw_val.find(")")
-                if raw_val.startswith("(") and (paren_end >= 0):
-                    val = raw_val[1:paren_end]
-                else:
-                    val = raw_val
-            elif type_name == "INTEGER":
-                paren = raw_val.find("(")
-                if paren >= 0:
-                    paren_end = raw_val.find(")", paren)
-                    val = raw_val[paren + 1:paren_end] if paren_end >= 0 else raw_val
-                else:
-                    val = raw_val
-            elif (type_name == "STRING") or (type_name == "OCTET STRING"):
-                val = raw_val.strip('"')
-            else:
-                val = raw_val.strip('"')
-        else:
-            val = val_part.strip().strip('"')
-        rows[idx] = val
-    return rows
+def _snmpget_str(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
 
-def _worst_state(s1, s2):
-    r1 = STATE_RANK.get(s1, 0)
-    r2 = STATE_RANK.get(s2, 0)
-    return s1 if r1 >= r2 else s2
 
-def main(ctx, params):
+def _snmpwalk_table(ctx, host, community, base, cols):
+    """Walk a table via snmpwalk -Oqn for the first column and return rows.
+
+    Each row: {col_index: value} keyed by the OID suffix after the column base.
+    """
+    # Walk every column; -Oqn prints: <OID>.<index> <value>
+    col_data = []  # list of dicts: index -> value
+    ok = True
+    for col in cols:
+        full_oid = base + "." + col
+        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, full_oid], mutates=False)
+        if res.rc != 0 and res.rc != 2:
+            # rc 2 from net-snmp means end-of-mib / no more vars — acceptable
+            ok = False
+            break
+        rows = {}
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid_part = line[:sp]
+            val_part = line[sp + 1:]
+            idx = oid_part[len(full_oid) + 1:]
+            if idx != "":
+                rows[idx] = val_part
+        col_data.append(rows)
+    if not ok or len(col_data) == 0:
+        return []
+    # Correlate by index across columns
+    indices = []
+    for rows in col_data:
+        for idx in rows.keys():
+            if idx not in indices:
+                indices.append(idx)
+    result = []
+    for idx in indices:
+        row = {}
+        good = True
+        for i, rows in enumerate(col_data):
+            v = rows.get(idx)
+            if v == None:
+                good = False
+                break
+            row[i] = v
+        if good:
+            result.append(row)
+    return result
+
+
+def _get_uptime(value):
+    v = value.strip()
+    if v == "" or v == '""':
+        return None
+    if v.isdigit():
+        return int(v)
+    # strip surrounding quotes if present
+    if v.startswith('"') and v.endswith('"'):
+        inner = v[1:-1]
+        if inner.isdigit():
+            return int(inner)
+    return None
+
+
+def _build_uptime_str(uptime):
+    if uptime == None:
+        return ""
+    if uptime <= 0:
+        return "0s"
+    days = uptime // 86400
+    hours = (uptime % 86400) // 3600
+    minutes = (uptime % 3600) // 60
+    seconds = uptime % 60
+    if days > 0:
+        return "%dd %dh %dm" % (days, hours, minutes)
+    if hours > 0:
+        return "%dh %dm %ds" % (hours, minutes, seconds)
+    if minutes > 0:
+        return "%dm %ds" % (minutes, seconds)
+    return "%ds" % seconds
+
+
+def _is_fortinet(ctx, params):
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    base_ap = ".1.3.6.1.4.1.15983.1.1.4.2.1.1"
-    base_cl = ".1.3.6.1.4.1.15983.1.1.3.1.7.1"
+    val = _snmpget_str(ctx, host, community, SYS_OBJ_OID)
+    if val == None:
+        return False
+    if val.endswith(FORTINET_PREFIX):
+        return True
+    return False
 
-    if params.get("_discover"):
-        id_map = _snmp_walk(ctx, host, community, base_ap + ".4")
-        avail_map = _snmp_walk(ctx, host, community, base_ap + ".27")
-        discovery = []
-        for idx in id_map:
-            ap_id = id_map[idx]
-            avail_code = avail_map.get(idx, "6")
-            avail = MAP_AVAILABILITY.get(avail_code, "not installed")
-            if avail != "not installed":
-                discovery.append({
-                    "item": ap_id,
-                    "params": {},
-                    "metrics": ["5ghz_clients", "24ghz_clients", "uptime"],
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d APs" % len(discovery),
-            "data": {"discovery": discovery},
+
+def _gather_aps(ctx, params):
+    """Gather AP data. Returns list of AP dicts or None if not a Fortinet device."""
+    if not _is_fortinet(ctx, params):
+        return None
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    ap_rows = _snmpwalk_table(ctx, host, community, AP_BASE, AP_COLS)
+    client_rows = _snmpwalk_table(ctx, host, community, CLIENT_BASE, CLIENT_COLS)
+    if len(ap_rows) == 0 and len(client_rows) == 0:
+        return None
+
+    parsed = {}
+    for r in ap_rows:
+        descr = r.get(0, "")
+        ap_id = r.get(1, "")
+        location = r.get(2, "")
+        uptime = _get_uptime(r.get(3, ""))
+        oper_state = MAP_OPER_STATE.get(r.get(4, ""), "unknown")
+        availability = MAP_AVAILABILITY.get(r.get(5, ""), "not installed")
+        parsed[ap_id] = {
+            "descr": descr,
+            "location": location,
+            "uptime": uptime,
+            "operational": oper_state,
+            "availability": availability,
+            "clients_count_24": 0,
+            "clients_count_5": 0,
         }
 
+    for r in client_rows:
+        client = r.get(0, "")
+        ap_id = r.get(1, "")
+        inst = parsed.get(ap_id)
+        if inst == None:
+            continue
+        if client == "1":
+            inst["clients_count_24"] = inst["clients_count_24"] + 1
+        elif client == "2":
+            inst["clients_count_5"] = inst["clients_count_5"] + 1
+    return parsed
+
+
+def _discover(ctx, params):
+    if not _is_fortinet(ctx, params):
+        return {"changed": False, "msg": "no Fortinet device detected", "data": {"discovery": []}}
+    parsed = _gather_aps(ctx, params)
+    if parsed == None:
+        return {"changed": False, "msg": "no Fortinet device detected", "data": {"discovery": []}}
+    out = []
+    for ap_id, values in parsed.items():
+        if values["availability"] != "not installed":
+            out.append({"item": ap_id, "params": {}, "metrics": ["5ghz_clients", "24ghz_clients", "uptime"]})
+    return {"changed": False, "msg": "discovered %d APs" % len(out), "data": {"discovery": out}}
+
+
+def _check(ctx, params):
     item = params.get("item", "")
+    if not _is_fortinet(ctx, params):
+        return {"changed": False, "msg": "no Fortinet device detected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "Fortinet device not reachable"}}
+    parsed = _gather_aps(ctx, params)
+    if parsed == None:
+        return {"changed": False, "msg": "no Fortinet device detected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "Fortinet device not reachable"}}
+    data = parsed.get(item)
+    if data == None:
+        return {"changed": False, "msg": "AP %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "AP not found on device"}}
 
-    descr_map = _snmp_walk(ctx, host, community, base_ap + ".2")
-    id_map = _snmp_walk(ctx, host, community, base_ap + ".4")
-    loc_map = _snmp_walk(ctx, host, community, base_ap + ".8")
-    uptime_map = _snmp_walk(ctx, host, community, base_ap + ".17")
-    oper_map = _snmp_walk(ctx, host, community, base_ap + ".26")
-    avail_map = _snmp_walk(ctx, host, community, base_ap + ".27")
+    metrics = {}
+    details_lines = []
 
-    row_idx = None
-    for idx in id_map:
-        if id_map[idx] == item:
-            row_idx = idx
-            break
-
-    if row_idx == None:
-        return {
-            "changed": False,
-            "msg": "AP not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    descr = descr_map.get(row_idx, "")
-    location = loc_map.get(row_idx, "")
-    uptime_str = uptime_map.get(row_idx, "")
-    oper_code = oper_map.get(row_idx, "0")
-    avail_code = avail_map.get(row_idx, "2")
-
-    oper_state = MAP_OPER_STATE.get(oper_code, "unknown")
-    avail_state = MAP_AVAILABILITY.get(avail_code, "offline")
-    uptime = int(uptime_str) if uptime_str.isdigit() else 0
-
-    band_map = _snmp_walk(ctx, host, community, base_cl + ".5")
-    apid_map = _snmp_walk(ctx, host, community, base_cl + ".9")
-
-    clients_24 = 0
-    clients_5 = 0
-    for cidx in apid_map:
-        if apid_map[cidx] == item:
-            band = band_map.get(cidx, "")
-            if band == "1":
-                clients_24 += 1
-            elif band == "2":
-                clients_5 += 1
-
+    # Operational state
+    oper_state = data["operational"]
+    state = "OK"
     if oper_state == "unknown":
-        oper_check = "UNKNOWN"
+        state = "UNKNOWN"
     elif oper_state in ["disabled", "no license", "power down"]:
-        oper_check = "WARN"
-    else:
-        oper_check = "OK"
+        state = "WARN"
+    details_lines.append("[%s] Operational: %s" % (data["descr"], oper_state))
 
+    # Availability
+    avail_state = data["availability"]
+    avail_state_val = "OK"
     if avail_state == "failed":
-        avail_check = "CRIT"
+        avail_state_val = "CRIT"
     elif avail_state in ["power off", "offline", "in test", "not installed"]:
-        avail_check = "WARN"
-    else:
-        avail_check = "OK"
+        avail_state_val = "WARN"
+    details_lines.append("Availability: %s" % avail_state)
 
-    final_state = _worst_state(oper_check, avail_check)
+    # Clients
+    client_count_24 = data["clients_count_24"]
+    client_count_5 = data["clients_count_5"]
+    details_lines.append("Connected clients (2.4 ghz/5 ghz): %d/%d" % (client_count_24, client_count_5))
+    metrics["5ghz_clients"] = client_count_5
+    metrics["24ghz_clients"] = client_count_24
 
-    parts = [
-        "[%s] Operational: %s" % (descr, oper_state),
-        "Availability: %s" % avail_state,
-        "Connected clients (2,4 ghz/5 ghz): %d/%d" % (clients_24, clients_5),
-    ]
-    if uptime > 0:
-        parts.append("Uptime: %d s" % uptime)
-    if location:
-        parts.append("Located at %s" % location)
-
-    metrics = {
-        "5ghz_clients": clients_5,
-        "24ghz_clients": clients_24,
-    }
-    if uptime > 0:
+    # Uptime
+    uptime = data["uptime"]
+    if uptime != None and uptime > 0:
+        details_lines.append("Up since " + _build_uptime_str(uptime))
         metrics["uptime"] = uptime
 
-    return {
-        "changed": False,
-        "msg": ", ".join(parts),
-        "data": {
-            "state": final_state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    # Location
+    location = data.get("location", "")
+    if location != None and location != "":
+        details_lines.append("Located at " + location)
+
+    # Combine states: if any is not OK, escalate
+    state_priority = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    combined = "OK"
+    for s in [state, avail_state_val]:
+        if state_priority.get(s, 0) > state_priority.get(combined, 0):
+            combined = s
+
+    summary = "; ".join(details_lines)
+    return {"changed": False, "msg": summary,
+            "data": {"state": combined, "metrics": metrics, "details": "\n".join(details_lines)}}
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        return _discover(ctx, params)
+    return _check(ctx, params)

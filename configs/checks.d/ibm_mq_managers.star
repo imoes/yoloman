@@ -1,4 +1,56 @@
-_STATUS_MAP = {
+# Checkmk check: ibm_mq_managers
+# Translated to a read-only Starlark check module for the yolo-man agent.
+
+def _tokenize(version):
+    _map_chars = {"p": 2, "b": 1, "i": 0}
+    allowed = "0123456789.pbi"
+    for ch in version:
+        if not ch in allowed:
+            return None
+    tokens = []
+    current = ""
+    for ch in version:
+        if ch == ".":
+            if current != "":
+                tokens.append(current)
+                current = ""
+            continue
+        current += ch
+    if current != "":
+        tokens.append(current)
+    parts = []
+    for g in tokens:
+        if g in _map_chars:
+            parts.append(_map_chars[g])
+        else:
+            if not g.isdigit():
+                return None
+            parts.append(int(g))
+    return parts
+
+
+def _ibm_mq_check_version(actual_version, params, label):
+    info = "%s: %s" % (label, actual_version)
+    if actual_version == None:
+        return 3, info + " (no agent info)"
+    if not "version" in params:
+        return 0, info
+    version_param = params["version"]
+    comp_type = version_param[0]
+    expected_version = version_param[1]
+    state = version_param[2]
+    parts_actual = _tokenize(actual_version)
+    parts_expected = _tokenize(expected_version)
+    if parts_actual == None or parts_expected == None:
+        return 3, ("Cannot compare %s and %s. Only numbers separated by characters 'b', 'i', 'p', or '.' are allowed for a version." % (actual_version, expected_version))
+    if comp_type == "at_least" and parts_actual < parts_expected:
+        return state, info + " (should be at least %s)" % expected_version
+    if comp_type == "specific" and parts_actual != parts_expected:
+        return state, info + " (should be %s)" % expected_version
+    return 0, info
+
+
+_DEFAULT_STATUS_MAP = {
     "STARTING": ("starting", 0),
     "RUNNING": ("running", 0),
     "RUNNING AS STANDBY": ("running_as_standby", 0),
@@ -16,204 +68,171 @@ _STATUS_MAP = {
     "STATUS NOT AVAILABLE": ("status_not_available", 0),
 }
 
-_DIGITS = "0123456789"
-_VER_CHARS = {"p": 2, "b": 1, "i": 0}
-
-def _is_digit(ch):
-    return ch in _DIGITS
-
-def _tokenize_version(v):
-    result = []
-    num = ""
-    for ch in v:
-        if _is_digit(ch):
-            num = num + ch
-        else:
-            if num != "":
-                result.append(int(num))
-                num = ""
-            if ch in _VER_CHARS:
-                result.append(_VER_CHARS[ch])
-    if num != "":
-        result.append(int(num))
-    return result
-
-def _check_version(instver, params):
-    info = "Version: " + instver
-    if "version" not in params:
-        return 0, info
-    version_param = params["version"]
-    comp_info = version_param[0]
-    ver_state = version_param[1]
-    comp_type = comp_info[0]
-    expected = comp_info[1]
-    actual_toks = _tokenize_version(instver)
-    expected_toks = _tokenize_version(expected)
-    if comp_type == "at_least" and actual_toks < expected_toks:
-        return ver_state, info + " (should be at least %s)" % expected
-    if comp_type == "specific" and actual_toks != expected_toks:
-        return ver_state, info + " (should be %s)" % expected
-    return 0, info
-
-def _parse_kv_line(line):
-    data = {}
-    parts = line.split("(")
-    if len(parts) < 2:
-        return data
-    key = parts[0].strip()
-    for i in range(1, len(parts)):
-        sub = parts[i].split(")", 1)
-        value = sub[0].strip()
-        if key != "":
-            data[key] = value
-        if len(sub) > 1:
-            key = sub[1].strip()
-        else:
-            key = ""
-    return data
-
-def _fetch_managers(ctx, mq_home):
-    dspmq = mq_home + "/bin/dspmq"
-    if not ctx.file_exists(dspmq):
-        return None
-    res = ctx.run([dspmq, "-o", "all", "-x"], mutates=False, ok_codes=[0, 1])
-    managers = {}
-    current = None
-    for raw in res.stdout.splitlines():
-        line = raw.strip()
-        if line == "":
-            continue
-        data = _parse_kv_line(line)
-        if "QMNAME" in data:
-            current = data["QMNAME"]
-            managers[current] = {"attrs": data, "instances": []}
-        elif "INSTANCE" in data and current != None:
-            managers[current]["instances"].append(
-                [data.get("INSTANCE", ""), data.get("MODE", "")]
-            )
-    return managers
 
 def _map_status(status, params):
-    entry = _STATUS_MAP.get(status)
-    if entry == None:
-        wato_key = "unknown"
-        check_state = 3
-    else:
-        wato_key = entry[0]
-        check_state = entry[1]
+    wato_key, check_state = _DEFAULT_STATUS_MAP.get(status, ("unknown", 3))
     if "mapped_states" in params:
-        mapped = dict(params["mapped_states"])
-        if wato_key in mapped:
-            check_state = mapped[wato_key]
+        mapped_states = dict(params["mapped_states"])
+        if wato_key in mapped_states:
+            check_state = mapped_states[wato_key]
         elif "mapped_states_default" in params:
             check_state = params["mapped_states_default"]
     return check_state
 
-def _worst(a, b):
-    return b if b > a else a
 
-def _state_name(s):
-    if s == 0:
-        return "OK"
-    if s == 1:
-        return "WARN"
-    if s == 2:
-        return "CRIT"
-    return "UNKNOWN"
+def _parse_line(line):
+    data = {}
+    idx = 0
+    rest = line
+    while True:
+        pos = rest.find("(", idx)
+        if pos == -1:
+            break
+        cidx = rest.find(")", pos)
+        if cidx == -1:
+            break
+        content = rest[pos + 1:cidx]
+        kv = content.split(None, 1)
+        if len(kv) == 2:
+            data[kv[0].strip()] = kv[1].strip()
+        idx = cidx + 1
+    return data
+
+
+def _cmd_available(ctx, cmd):
+    res = ctx.run(["sh", "-c", "command -v %s" % cmd], mutates=False, ok_codes=[0, 1])
+    return res.rc == 0
+
+
+def _run_disp(ctx, params):
+    version_path = params.get("version_cmd", "dspmq")
+    if not _cmd_available(ctx, version_path):
+        return None
+    res = ctx.run([version_path, "-m"], mutates=False, ok_codes=[0, 127])
+    if res.rc != 0 and res.rc != 127:
+        return None
+    return res
+
+
+def _parse_managers(ctx, params):
+    parsed = {}
+    current_qmname = None
+    res = _run_disp(ctx, params)
+    if res == None:
+        return parsed
+    lines = res.stdout.splitlines()
+    for line in lines:
+        if line.strip() == "":
+            current_qmname = None
+            continue
+        data = _parse_line(line.strip())
+        if not data:
+            continue
+        if "QMNAME" in data:
+            current_qmname = data["QMNAME"]
+            instances = []
+            parsed[current_qmname] = {"attributes": data, "instances": instances}
+        elif "INSTANCE" in data and current_qmname != None and current_qmname in parsed:
+            parsed[current_qmname]["instances"].append((data["INSTANCE"], data["MODE"]))
+    return parsed
+
+
+def _has_ibm_mq(ctx):
+    return _cmd_available(ctx, "dspmq")
+
+
+def _max_state(ranks):
+    m = 0
+    for r in ranks:
+        if r > m:
+            m = r
+    return m
+
 
 def main(ctx, params):
-    mq_home = params.get("mq_home", "/usr/mqm")
-
     if params.get("_discover"):
-        managers = _fetch_managers(ctx, mq_home)
-        if managers == None:
-            return {
-                "changed": False,
-                "msg": "dspmq not found under " + mq_home,
-                "data": {"discovery": []},
-            }
-        items = [{"item": name, "params": {}, "metrics": []} for name in managers]
-        return {
-            "changed": False,
-            "msg": "discovered %d managers" % len(items),
-            "data": {"discovery": items},
-        }
+        if not _has_ibm_mq(ctx):
+            return {"changed": False, "msg": "no IBM MQ found on this host", "data": {"discovery": []}}
+        parsed = _parse_managers(ctx, params)
+        if len(parsed) == 0:
+            return {"changed": False, "msg": "no IBM MQ managers discovered", "data": {"discovery": []}}
+        discovery = []
+        for item in sorted(parsed.keys()):
+            discovery.append({"item": item, "params": {}, "metrics": ["status", "instances"]})
+        return {"changed": False, "msg": "discovered %d items" % len(discovery), "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    managers = _fetch_managers(ctx, mq_home)
-    if managers == None:
-        return {
-            "changed": False,
-            "msg": "dspmq not found under " + mq_home,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if not _has_ibm_mq(ctx):
+        return {"changed": False, "msg": "IBM MQ is not installed on this host", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    mgr = managers.get(item)
-    if mgr == None:
-        return {
-            "changed": False,
-            "msg": "Manager not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    parsed = _parse_managers(ctx, params)
+    if item == "":
+        if len(parsed) > 0:
+            item = sorted(parsed.keys())[0]
+        else:
+            return {"changed": False, "msg": "no IBM MQ manager found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    attrs = mgr["attrs"]
-    instances = mgr["instances"]
-    status = attrs.get("STATUS", "")
-    default = attrs.get("DEFAULT", "")
+    if item not in parsed:
+        return {"changed": False, "msg": "no such IBM MQ manager: %s" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    data = parsed[item]
+    attrs = data["attributes"]
+    instances = data["instances"]
+    status = attrs.get("STATUS", "STATUS NOT AVAILABLE")
+    default = attrs.get("DEFAULT", "NO")
     instname = attrs.get("INSTNAME", "")
     instpath = attrs.get("INSTPATH", "")
-    instver = attrs.get("INSTVER", "")
+    instversion = attrs.get("INSTVER", "")
 
-    worst = _map_status(status, params)
-    parts = ["Status: " + status]
+    check_state = _map_status(status, params)
+    state_map = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
 
-    ver_state, ver_msg = _check_version(instver, params)
-    parts.append(ver_msg)
-    worst = _worst(worst, ver_state)
+    version_state, version_summary = _ibm_mq_check_version(instversion, params, "Version")
 
-    parts.append("Installation: %s (%s), Default: %s" % (instpath, instname, default))
+    standby = attrs.get("STANDBY", "NOT APPLICABLE")
+    ha = attrs.get("HA", "")
 
-    standby = attrs.get("STANDBY", "")
-    ha = attrs.get("HA")
+    details_parts = []
+    details_parts.append("Status: %s" % status)
+    details_parts.append(version_summary)
+    details_parts.append("Installation: %s (%s), Default: %s" % (instpath, instname, default))
 
+    instance_count = len(instances)
+    inst_state = 0
     if ha == "REPLICATED":
-        if len(instances) > 0:
-            parts.append("High availability: replicated, Instance: " + instances[0][0])
+        if instance_count > 0:
+            details_parts.append("High availability: replicated, Instance: %s" % instances[0][0])
         else:
-            parts.append("High availability: replicated")
+            details_parts.append("High availability: replicated")
     elif standby == "PERMITTED":
-        if len(instances) == 2:
-            parts.append("Multi-Instance: %s=%s and %s=%s" % (
-                instances[0][0], instances[0][1], instances[1][0], instances[1][1],
-            ))
-        elif len(instances) == 1:
-            parts.append("Multi-Instance: %s=%s and missing partner" % (
-                instances[0][0], instances[0][1],
-            ))
-            worst = _worst(worst, 2)
+        if instance_count == 2:
+            details_parts.append("Multi-Instance: %s=%s and %s=%s" % (instances[0][0], instances[0][1], instances[1][0], instances[1][1]))
+            inst_state = 0
+        elif instance_count == 1:
+            details_parts.append("Multi-Instance: %s=%s and missing partner" % (instances[0][0], instances[0][1]))
+            inst_state = 2
         else:
-            parts.append("Multi-Instance: unknown instances (%s)" % str(instances))
-            worst = _worst(worst, 2)
+            inst_state = 2
+            details_parts.append("Multi-Instance: unknown instances (%s)" % str(instances))
     elif standby == "NOT PERMITTED":
-        if len(instances) == 1:
-            parts.append("Single-Instance: %s=%s" % (instances[0][0], instances[0][1]))
+        if instance_count == 1:
+            details_parts.append("Single-Instance: %s=%s" % (instances[0][0], instances[0][1]))
+            inst_state = 0
         else:
-            parts.append("Single-Instance: unknown instances (%s)" % str(instances))
-            worst = _worst(worst, 2)
+            inst_state = 2
+            details_parts.append("Single-Instance: unknown instances (%s)" % str(instances))
     elif standby == "NOT APPLICABLE":
-        if len(instances) != 0:
-            parts.append("Unknown instance setup (%s)" % str(instances))
-            worst = _worst(worst, 2)
+        if instance_count != 0:
+            inst_state = 2
+            details_parts.append("Unknown instance setup (%s)" % str(instances))
     else:
-        parts.append("Unknown STANDBY state (%s)" % standby)
-        worst = _worst(worst, 2)
+        inst_state = 2
+        details_parts.append("Unknown STANDBY state (%s)" % standby)
 
-    return {
-        "changed": False,
-        "msg": ", ".join(parts),
-        "data": {
-            "state": _state_name(worst),
-            "metrics": {},
-            "details": "",
-        },
-    }
+    final_state_rank = _max_state([check_state, version_state, inst_state])
+    final_state = state_map.get(final_state_rank, "UNKNOWN")
+
+    metrics = {"instances": float(instance_count)}
+
+    msg = "%s - Status: %s" % (item, status)
+    return {"changed": False, "msg": msg, "data": {"state": final_state, "metrics": metrics, "details": "\n".join(details_parts)}}

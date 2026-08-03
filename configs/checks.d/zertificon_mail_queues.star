@@ -1,116 +1,139 @@
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
+    base = "1.3.6.1.4.1.2021.8.1.100"
+    cols = ["5", "6", "7", "8", "9", "10", "17"]
+    labels = [
+        "mail_queue_postfix_total",
+        "mail_queue_incoming_length",
+        "mail_queue_active_length",
+        "mail_queue_deferred_length",
+        "mail_queue_hold_length",
+        "mail_queue_drop_length",
+        "mail_queue_z1_messenger",
+    ]
+
+    def snmpget_oid(oid):
+        res = ctx.run(
+            [
+                "snmpget",
+                "-v2c",
+                "-c", params.get("community", "public"),
+                "-Oqv",
+                params.get("host", "localhost"),
+                oid,
+            ],
+            mutates=False,
+        )
+        return res
+
+    # probe for the real Zertificon appliance via sysoid / a base OID
+    probe = snmpget_oid(base + "." + cols[0])
+    if probe.rc != 0:
         return {
             "changed": False,
-            "msg": "discovered 1 service",
+            "msg": "Zertificon appliance not present (no SNMP response)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # discovery mode
+    if params.get("_discover"):
+        values = []
+        ok = True
+        for c in cols:
+            r = snmpget_oid(base + "." + c)
+            if r.rc != 0 or not r.stdout.strip():
+                ok = False
+                break
+            val = r.stdout.strip()
+            if not val.lstrip("-").isdigit():
+                ok = False
+                break
+            values.append(int(val))
+        if not ok:
+            return {
+                "changed": False,
+                "msg": "Zertificon appliance not present",
+                "data": {"discovery": []},
+            }
+        metrics = list(labels)
+        return {
+            "changed": False,
+            "msg": "discovered Zertificon Mail Queues",
             "data": {
-                "discovery": [{
-                    "item": "",
-                    "params": {},
-                    "metrics": [
-                        "mail_queue_postfix_total",
-                        "mail_queue_incoming_length",
-                        "mail_queue_active_length",
-                        "mail_queue_deferred_length",
-                        "mail_queue_hold_length",
-                        "mail_queue_drop_length",
-                        "mail_queue_z1_messenger"
-                    ]
-                }]
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": metrics,
+                    }
+                ]
             },
         }
 
-    # Check mode - SNMP probe
-    res = ctx.run([
-        "snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-        ".1.3.6.1.4.1.2021.8.1.100.5",
-        ".1.3.6.1.4.1.2021.8.1.100.6",
-        ".1.3.6.1.4.1.2021.8.1.100.7",
-        ".1.3.6.1.4.1.2021.8.1.100.8",
-        ".1.3.6.1.4.1.2021.8.1.100.9",
-        ".1.3.6.1.4.1.2021.8.1.100.10",
-        ".1.3.6.1.4.1.2021.8.1.100.17"
-    ], mutates=False)
-
-    if res.rc != 0 or res.stdout == "":
-        return {
-            "changed": False,
-            "msg": "SNMP query failed or returned empty output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Parse SNMP values (format: OID = INTEGER:value)
+    # check mode — single service, item ""
     values = []
-    for line in res.stdout.splitlines():
-        if line.find("=") != -1:
-            val_str = line.rsplit(":", 1)[-1].strip()
-            if val_str.isdigit():
-                values.append(int(val_str))
-            else:
-                # Non-numeric fallback: try extracting digits only
-                digits = ""
-                for c in val_str:
-                    if c.isdigit():
-                        digits = digits + str(c)
-                if digits != "":
-                    values.append(int(digits))
-                else:
-                    values.append(0)
-        else:
-            values.append(0)
+    for c in cols:
+        r = snmpget_oid(base + "." + c)
+        if r.rc != 0 or not r.stdout.strip():
+            return {
+                "changed": False,
+                "msg": "no Zertificon mail queue data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        val = r.stdout.strip()
+        if not val.lstrip("-").isdigit():
+            return {
+                "changed": False,
+                "msg": "invalid Zertificon mail queue data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        values.append(int(val))
 
-    # Ensure we have exactly 7 values
-    while len(values) < 7:
-        values.append(0)
-    if len(values) > 7:
-        values = values[:7]
-
-    postfix = values[0]
-    incoming = values[1]
-    active = values[2]
-    deferred = values[3]
-    hold = values[4]
-    maildrop = values[5]
-    z1 = values[6]
-
-    # Metric names mapping
-    metric_info = [
-        ("postfix", "mail_queue_postfix_total", postfix),
-        ("incoming", "mail_queue_incoming_length", incoming),
-        ("active", "mail_queue_active_length", active),
-        ("deferred", "mail_queue_deferred_length", deferred),
-        ("hold", "mail_queue_hold_length", hold),
-        ("maildrop", "mail_queue_drop_length", maildrop),
-        ("z1", "mail_queue_z1_messenger", z1),
-    ]
-
-    # Determine worst state and build message
-    state = "OK"
-    details_parts = []
     metrics = {}
+    for i in range(len(labels)):
+        metrics[labels[i]] = values[i]
 
-    for param_key, metric_name, value in metric_info:
-        levels = params.get(param_key)
-        if levels != None:
-            warn_val = levels[0]
-            crit_val = levels[1]
-            if value >= crit_val:
-                state = "CRIT"
-            elif value >= warn_val and state != "CRIT":
+    crits = []
+    warns = []
+    for i in range(len(labels)):
+        mname = labels[i]
+        val = values[i]
+        warn = params.get("levels_" + mname)
+        if warn != None and type(warn) == "list" and len(warn) >= 2:
+            w = warn[0]
+            c = warn[1]
+            warns.append((mname, val, w))
+            crits.append((mname, val, c))
+
+    state = "OK"
+    parts = []
+    for i in range(len(labels)):
+        mname = labels[i]
+        val = values[i]
+        parts.append("%s: %s" % (mname, str(val)))
+
+    if len(crits) > 0:
+        crit_found = False
+        for mname, val, c in crits:
+            if val >= c:
+                crit_found = True
+                break
+        if crit_found:
+            state = "CRIT"
+        else:
+            warn_found = False
+            for mname, val, w in warns:
+                if val >= w:
+                    warn_found = True
+                    break
+            if warn_found:
                 state = "WARN"
-        metrics[metric_name] = value
-
-    # Build details string
-    for param_key, metric_name, value in metric_info:
-        details_parts.append("%s: %d" % (metric_name, value))
 
     return {
         "changed": False,
-        "msg": ", ".join(details_parts),
+        "msg": ", ".join(parts),
         "data": {
             "state": state,
             "metrics": metrics,
-            "details": ""
+            "details": "",
         },
     }

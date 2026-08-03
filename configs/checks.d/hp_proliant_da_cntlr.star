@@ -1,251 +1,231 @@
-# ===== Starlark check module: hp_proliant_da_cntlr =====
-# Translation of Checkmk check: checkmk.hp_proliant_da_cntlr
-# Reads SNMP data for HP Proliant controller status (read-only)
+PARSER_COND_MAP = {
+    "1": "other",
+    "2": "ok",
+    "3": "degraded",
+    "4": "failed",
+}
+
+PARSER_STATE_MAP = {
+    "1": "other",
+    "2": "ok",
+    "3": "general failure",
+    "4": "cable problem",
+    "5": "powered off",
+    "6": "cache module missing",
+    "7": "degraded",
+    "8": "enabled",
+    "9": "disabled",
+    "10": "standby (offline)",
+    "11": "standby (spare)",
+    "12": "in test",
+    "13": "starting",
+    "14": "absent",
+    "16": "unavailable (offline)",
+    "17": "deferring",
+    "18": "quisced",
+    "19": "updating",
+    "20": "qualified",
+}
+
+PARSER_ROLE_MAP = {
+    "1": "other",
+    "2": "notDuplexed",
+    "3": "active",
+    "4": "backup",
+}
+
+STATE_OK = [
+    "ok", "enabled", "disabled", "standby (spare)", "starting",
+    "deferring", "quisced", "qualified",
+]
+
+STATE_WARN = [
+    "other", "cache module missing", "standby (offline)",
+    "in test", "updating",
+]
+
+STATE_CRIT = [
+    "general failure", "cable problem", "powered off", "degraded",
+    "absent", "unavailable (offline)",
+]
+
+COND_WARN = ["other", "degraded"]
+
+
+def _cond_to_state(c):
+    if c == "ok":
+        return "OK"
+    if c == "failed":
+        return "CRIT"
+    if c in COND_WARN:
+        return "WARN"
+    return "UNKNOWN"
+
+
+def _state_to_state(s):
+    if s in STATE_OK:
+        return "OK"
+    if s in STATE_CRIT:
+        return "CRIT"
+    if s in STATE_WARN:
+        return "WARN"
+    return "UNKNOWN"
+
+
+def _worst(states):
+    rank = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    worst = "OK"
+    for st in states:
+        if rank.get(st, 3) > rank.get(worst, 0):
+            worst = st
+    return worst
+
 
 def main(ctx, params):
-    # ----- DISCOVERY MODE -------------------------------------------------
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = ".1.3.6.1.4.1.232.3.2.2.1.1"
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.232.3.2.2.1.1"
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed",
-                    "data": {"discovery": []}}
-        
-        items = []
-        lines = res.stdout.splitlines()
-        idx_map = {}
-        
-        for line in lines:
-            parts = line.strip().split(" = ")
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base],
+            mutates=False,
+        )
+        if res.rc == 127 or res.rc != 0:
+            return {
+                "changed": False,
+                "msg": "snmpwalk not available or device not responding",
+                "data": {"discovery": []},
+            }
+        rows = {}
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) < 2:
                 continue
-            oid_val = parts[0].strip()
-            val = parts[1].strip()
-            if val.startswith("INTEGER: "):
-                val = val[9:]
-            elif val.startswith("STRING: "):
-                val = val[8:].strip('"')
-            elif val.startswith("Gauge32: "):
-                val = val[9:]
-            
-            # Extract last component
-            last = oid_val.rsplit(".", 1)[-1]
-            parts2 = oid_val.rsplit(".", 2)
-            if len(parts2) < 3:
+            oid_full = parts[0]
+            val = parts[1]
+            suffix = oid_full[len(base) + 1:]
+            seg = suffix.split(".")
+            if len(seg) < 2:
                 continue
-            
-            # Guard instead of try/except
-            if not parts2[-2].isdigit():
+            index = seg[0]
+            col = seg[1]
+            if index not in rows:
+                rows[index] = {}
+            rows[index][col] = val
+
+        if not rows:
+            return {
+                "changed": False,
+                "msg": "discovered 0 controllers",
+                "data": {"discovery": []},
+            }
+
+        discovery = []
+        for index in rows:
+            r = rows[index]
+            cond = r.get("6")
+            role = r.get("9")
+            b_status = r.get("10")
+            b_cond = r.get("12")
+            if cond == "0" or role == "0" or b_status == "0" or b_cond == "0":
                 continue
-            ctrl_idx = int(parts2[-2])
-            
-            if ctrl_idx not in idx_map:
-                idx_map[ctrl_idx] = {}
-            
-            if not last.isdigit():
-                continue
-            leaf = int(last)
-            if leaf == 1:
-                idx_map[ctrl_idx]["index"] = val
-            elif leaf == 2:
-                idx_map[ctrl_idx]["model"] = val
-            elif leaf == 5:
-                idx_map[ctrl_idx]["slot"] = val
-            elif leaf == 6:
-                idx_map[ctrl_idx]["cond"] = val
-            elif leaf == 9:
-                idx_map[ctrl_idx]["role"] = val
-            elif leaf == 10:
-                idx_map[ctrl_idx]["b_status"] = val
-            elif leaf == 12:
-                idx_map[ctrl_idx]["b_cond"] = val
-            elif leaf == 15:
-                idx_map[ctrl_idx]["serial"] = val
-        
-        for ctrl_idx in idx_map:
-            entry = idx_map[ctrl_idx]
-            if ("cond" in entry and entry["cond"] == "0") or \
-               ("role" in entry and entry["role"] == "0") or \
-               ("b_status" in entry and entry["b_status"] == "0") or \
-               ("b_cond" in entry and entry["b_cond"] == "0"):
-                continue
-            
-            if "model" not in entry or "slot" not in entry or "serial" not in entry:
-                continue
-            
-            item_name = str(ctrl_idx)
-            items.append({
-                "item": item_name,
+            discovery.append({
+                "item": index,
                 "params": {},
-                "metrics": []
+                "metrics": [],
             })
-        
         return {
             "changed": False,
-            "msg": "discovered %d controllers" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d controllers" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # ----- CHECK MODE -----------------------------------------------------
+
     item = params.get("item", "")
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.232.3.2.2.1.1"
-    ], mutates=False)
-    
-    if res.rc != 0:
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + item],
+        mutates=False,
+    )
+    if res.rc == 127 or res.rc != 0 or not res.stdout.strip():
         return {
             "changed": False,
-            "msg": "SNMP query failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Controller " + item + " not found in SNMP data",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    lines = res.stdout.splitlines()
-    entry = None
-    
-    for line in lines:
-        parts = line.strip().split(" = ")
+
+    row = {}
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
         if len(parts) < 2:
             continue
-        oid_val = parts[0].strip()
-        val = parts[1].strip()
-        if val.startswith("INTEGER: "):
-            val = val[9:]
-        elif val.startswith("STRING: "):
-            val = val[8:].strip('"')
-        elif val.startswith("Gauge32: "):
-            val = val[9:]
-        
-        # Parse OID
-        parts2 = oid_val.rsplit(".", 2)
-        if len(parts2) < 3:
+        oid_full = parts[0]
+        val = parts[1]
+        suffix = oid_full[len(base) + 1:]
+        seg = suffix.split(".")
+        if len(seg) < 2:
             continue
-        
-        last = parts2[-1]
-        if not parts2[-2].isdigit() or not last.isdigit():
-            continue
-        
-        ctrl_idx = int(parts2[-2])
-        last = int(last)
-        
-        if str(ctrl_idx) != item:
-            continue
-        
-        if entry == None:
-            entry = {}
-        
-        if last == 1:
-            entry["index"] = val
-        elif last == 2:
-            entry["model"] = val
-        elif last == 5:
-            entry["slot"] = val
-        elif last == 6:
-            entry["cond"] = val
-        elif last == 9:
-            entry["role"] = val
-        elif last == 10:
-            entry["b_status"] = val
-        elif last == 12:
-            entry["b_cond"] = val
-        elif last == 15:
-            entry["serial"] = val
-    
-    if entry == None or "model" not in entry:
+        col = seg[1]
+        row[col] = val
+
+    cond = row.get("6", "")
+    role = row.get("9", "")
+    b_status = row.get("10", "")
+    b_cond = row.get("12", "")
+
+    if cond == "0" or role == "0" or b_status == "0" or b_cond == "0":
         return {
             "changed": False,
-            "msg": "Controller not found in SNMP data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Controller " + item + " not found in SNMP data",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
-    
-    if ("cond" in entry and entry["cond"] == "0") or \
-       ("role" in entry and entry["role"] == "0") or \
-       ("b_status" in entry and entry["b_status"] == "0") or \
-       ("b_cond" in entry and entry["b_cond"] == "0"):
-        return {
-            "changed": False,
-            "msg": "Controller data invalid (zero values)",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    PARSER_COND_MAP = {
-        "1": "other", "2": "ok", "3": "degraded", "4": "failed"
+
+    cond_state = _cond_to_state(PARSER_COND_MAP.get(cond, "other"))
+    b_cond_state = _cond_to_state(PARSER_COND_MAP.get(b_cond, "other"))
+    b_status_state = _state_to_state(PARSER_STATE_MAP.get(b_status, "other"))
+
+    states_map = {
+        "Condition": cond_state,
+        "Board-Condition": b_cond_state,
+        "Board-Status": b_status_state,
     }
-    PARSER_STATE_MAP = {
-        "1": "other", "2": "ok", "3": "general_failure", "4": "cable_problem",
-        "5": "powered_off", "6": "cache_module_missing", "7": "degraded",
-        "8": "enabled", "9": "disabled", "10": "standby_offline",
-        "11": "standby_spare", "12": "in_test", "13": "starting",
-        "14": "absent", "16": "unavailable", "17": "deferring",
-        "18": "quisced", "19": "updating", "20": "qualified"
-    }
-    
-    def cond_to_state(val):
-        if val == "ok":
-            return "OK"
-        elif val in ["other", "degraded"]:
-            return "WARN"
-        elif val == "failed":
-            return "CRIT"
-        else:
-            return "WARN"
-    
-    def state_to_state(val):
-        if val in ["ok", "enabled", "disabled", "standby_spare", "starting", "deferring", "quisced", "qualified"]:
-            return "OK"
-        elif val in ["other", "cache_module_missing", "standby_offline", "in_test", "updating"]:
-            return "WARN"
-        elif val in ["general_failure", "cable_problem", "powered_off", "degraded", "absent", "unavailable"]:
-            return "CRIT"
-        else:
-            return "WARN"
-    
-    cond = PARSER_COND_MAP.get(entry.get("cond", "1"), "other")
-    b_status = PARSER_STATE_MAP.get(entry.get("b_status", "1"), "other")
-    b_cond = PARSER_COND_MAP.get(entry.get("b_cond", "1"), "other")
-    
-    role = entry.get("role", "1")
-    role_str = {
-        "1": "other", "2": "notDuplexed", "3": "active", "4": "backup"
-    }.get(role, "other")
-    
-    states = {
-        "Condition": cond_to_state(cond),
-        "Board-Condition": cond_to_state(b_cond),
-        "Board-Status": state_to_state(b_status)
-    }
-    
-    worst = "OK"
-    for s in states.values():
-        if s == "CRIT":
-            worst = "CRIT"
-        elif s == "WARN" and worst != "CRIT":
-            worst = "WARN"
-    
-    states_summary = []
-    for label in ["Condition", "Board-Condition", "Board-Status"]:
-        states_summary.append("%s: %s" % (label, states[label]))
-    
-    msg = ", ".join(states_summary) + " (Role: %s, Model: %s, Slot: %s, Serial: %s)" % (
-        role_str, entry.get("model", ""), entry.get("slot", ""), entry.get("serial", "")
+
+    has_other = (
+        PARSER_COND_MAP.get(cond) == "other" or
+        PARSER_COND_MAP.get(b_cond) == "other" or
+        PARSER_STATE_MAP.get(b_status) == "other"
     )
-    
-    details = ""
-    if cond == "other" or b_status == "other" or b_cond == "other" or states["Board-Status"] == "WARN":
-        details = "The instrument agent does not recognize the status of the controller. You may need to upgrade the instrument agent."
-    
+    role_desc = PARSER_ROLE_MAP.get(role, "unknown")
+    if has_other:
+        details_text = "The instrument agent does not recognize the status of the controller. You may need to upgrade the instrument agent."
+    else:
+        details_text = "Condition: " + cond_state + "; Board-Condition: " + b_cond_state + "; Board-Status: " + b_status_state + "; Role: " + role_desc
+
+    summary = "Condition: " + cond_state + ", Board-Condition: " + b_cond_state + ", Board-Status: " + b_status_state + ", Role: " + role_desc
+
+    worst = _worst(list(states_map.values()))
+    if worst == "CRIT":
+        state_label = "CRIT"
+    elif worst == "WARN":
+        state_label = "WARN"
+    elif worst == "UNKNOWN":
+        state_label = "UNKNOWN"
+    else:
+        state_label = "OK"
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": summary,
         "data": {
-            "state": worst,
+            "state": state_label,
             "metrics": {},
-            "details": details
-        }
+            "details": details_text,
+        },
     }

@@ -1,122 +1,187 @@
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.1139.21.2.2.3.1.1"  # VP-CPU-MIB::vpCpuUtilizationPerDirector
-        
-        # Use snmpwalk to fetch all CPU director utilizations
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On", host,
-            base_oid
-        ], mutates=False)
-        
-        if res.rc != 0:
-            # If SNMP fails, assume no data available - return empty discovery
-            return {"changed": False, "msg": "SNMP query failed", "data": {"discovery": []}}
-        
-        # Parse SNMP output: lines look like ".1.3.6.1.4.1.1139.21.2.2.3.1.1.1 = INTEGER: 75"
-        items = []
-        for line in res.stdout.splitlines():
-            stripped = line.strip()
-            if not stripped:
-                continue
-            # Extract value after " = INTEGER:"
-            idx = stripped.find(" = INTEGER: ")
-            if idx == -1:
-                continue
-            value_part = stripped[idx + len(" = INTEGER: "):]
-            # Guard instead of try/except: check if value_part is digit-only
-            director_id = ""
-            util = 0
-            parts = stripped[:idx].rsplit(".", 1)
-            if len(parts) == 2:
-                director_id = parts[1]
-            if value_part.isdigit():
-                util = int(value_part)
-                items.append({
-                    "item": director_id,
-                    "params": {"warn": 90.0, "crit": 95.0},
-                    "metrics": ["cpu_util"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d CPU directors" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode for single item
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.4.1.1139.21.2.2.3.1.1"  # VP-CPU-MIB::vpCpuUtilizationPerDirector
-    
-    # Construct full OID for specific item
-    full_oid = base_oid + "." + item
-    
-    # Use snmpget for specific OID
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On", host,
-        full_oid
-    ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "CPU data not available for director " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse result: ".1.3.6.1.4.1.1139.21.2.2.3.1.1.X = INTEGER: 75"
-    stripped = res.stdout.strip()
-    idx = stripped.find(" = INTEGER: ")
-    if idx == -1:
-        return {
-            "changed": False,
-            "msg": "Could not parse SNMP output for director " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    value_part = stripped[idx + len(" = INTEGER: "):]
-    if not value_part.isdigit():
-        return {
-            "changed": False,
-            "msg": "Invalid utilization value for director " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    util = int(value_part)
-    
-    # Calculate CPU utilization: Checkmk source uses max(100 - util, 0)
-    # The SNMP value appears to be "idle" percentage, so actual CPU = 100 - idle
-    cpu_util = max(100 - util, 0)
-    
-    # Get thresholds from params with Checkmk defaults
-    levels = params.get("levels", (90.0, 95.0))
-    warn = levels[0]
-    crit = levels[1]
-    
-    # Determine state based on thresholds
-    if cpu_util >= crit:
+def _check_cpu_util(util, params, levels_default):
+    warn = levels_default[0]
+    crit = levels_default[1]
+    lvls = params.get("levels")
+    if lvls != None:
+        warn = lvls[0]
+        crit = lvls[1]
+    state = "OK"
+    if util >= crit:
         state = "CRIT"
-    elif cpu_util >= warn:
+    elif util >= warn:
         state = "WARN"
+    msg = "%d%% CPU idle" % util
+    return state, msg
+
+def main(ctx, params):
+    if params.get("_discover"):
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+
+        sys_descr = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Ovq", host, ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if sys_descr.rc != 0:
+            return {"changed": False, "msg": "SNMP sysDescr unreachable", "data": {"discovery": []}}
+
+        sys_val = sys_descr.stdout.strip()
+        if sys_val == "" or sys_val == "(null)" or sys_val == "STRING: \"\"" :
+            sys_val = ""
+        else:
+            sys_val = sys_val.replace("STRING: ", "").strip().strip('"')
+
+        if sys_val != "":
+            return {"changed": False, "msg": "not a VPLEX device", "data": {"discovery": []}}
+
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.1139.21.2.2.8.1"],
+            mutates=False,
+        )
+        if walk.rc != 0:
+            return {"changed": False, "msg": "no VPLEX CPU data", "data": {"discovery": []}}
+
+        indices = []
+        for line in walk.stdout.splitlines():
+            if len(line.strip()) == 0:
+                continue
+            idx = line.split(" ", 1)[0].split(".", 1)[1] if "." in line.split(" ", 1)[0] else ""
+            if idx != "" and idx not in indices:
+                indices.append(idx)
+
+        if len(indices) == 0:
+            return {"changed": False, "msg": "no VPLEX directors found", "data": {"discovery": []}}
+
+        discovery = []
+        for idx in indices:
+            name_oid = ".1.3.6.1.4.1.1139.21.2.2.1.1.3." + idx
+            util_oid = ".1.3.6.1.4.1.1139.21.2.2.3.1.1." + idx
+
+            name_res = ctx.run(
+                ["snmpget", "-v2c", "-c", community, "-Oqv", host, name_oid],
+                mutates=False,
+            )
+            util_res = ctx.run(
+                ["snmpget", "-v2c", "-c", community, "-Oqv", host, util_oid],
+                mutates=False,
+            )
+
+            if name_res.rc != 0 or util_res.rc != 0:
+                continue
+
+            director = name_res.stdout.strip()
+            util_val = util_res.stdout.strip()
+            if util_val == "" or not util_val.lstrip("-").isdigit():
+                continue
+
+            discovery.append({
+                "item": director,
+                "params": {"levels": (90.0, 95.0)},
+                "metrics": ["cpu_util_idle"],
+            })
+
+        return {
+            "changed": False,
+            "msg": "discovered %d directors" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    item = params.get("item", "")
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    levels_default = params.get("levels", (90.0, 95.0))
+
+    if item == "":
+        return {
+            "changed": False,
+            "msg": "no director specified",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sys_descr = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovq", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if sys_descr.rc != 0:
+        return {
+            "changed": False,
+            "msg": "SNMP sysDescr unreachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sys_val = sys_descr.stdout.strip()
+    if sys_val == "" or sys_val == "(null)" or sys_val == "STRING: \"\"":
+        sys_val = ""
     else:
-        state = "OK"
-    
+        sys_val = sys_val.replace("STRING: ", "").strip().strip('"')
+
+    if sys_val != "":
+        return {
+            "changed": False,
+            "msg": "not a VPLEX device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    walk = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.4.1.1139.21.2.2.8.1"],
+        mutates=False,
+    )
+    if walk.rc != 0:
+        return {
+            "changed": False,
+            "msg": "no VPLEX CPU data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    indices = []
+    for line in walk.stdout.splitlines():
+        if len(line.strip()) == 0:
+            continue
+        idx = line.split(" ", 1)[0].split(".", 1)[1] if "." in line.split(" ", 1)[0] else ""
+        if idx != "" and idx not in indices:
+            indices.append(idx)
+
+    director_name_oid = None
+    director_util_oid = None
+    for idx in indices:
+        name_oid = ".1.3.6.1.4.1.1139.21.2.2.1.1.3." + idx
+        name_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, name_oid],
+            mutates=False,
+        )
+        if name_res.rc != 0:
+            continue
+        director = name_res.stdout.strip()
+        if director == item:
+            util_oid = ".1.3.6.1.4.1.1139.21.2.2.3.1.1." + idx
+            util_res = ctx.run(
+                ["snmpget", "-v2c", "-c", community, "-Oqv", host, util_oid],
+                mutates=False,
+            )
+            if util_res.rc != 0:
+                return {
+                    "changed": False,
+                    "msg": "failed to read CPU utilization for " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+                }
+            util_val = util_res.stdout.strip()
+            if util_val == "" or not util_val.lstrip("-").isdigit():
+                return {
+                    "changed": False,
+                    "msg": "invalid CPU utilization value for " + item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+                }
+            util = int(util_val)
+            idle = max(100 - util, 0)
+            state, msg = _check_cpu_util(idle, params, levels_default)
+            return {
+                "changed": False,
+                "msg": item + ": " + msg,
+                "data": {"state": state, "metrics": {"cpu_util_idle": idle}, "details": ""},
+            }
+
     return {
         "changed": False,
-        "msg": "CPU utilization: %d%%" % cpu_util,
-        "data": {
-            "state": state,
-            "metrics": {"cpu_util": cpu_util},
-            "details": ""
-        }
+        "msg": "director not found: " + item,
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
     }

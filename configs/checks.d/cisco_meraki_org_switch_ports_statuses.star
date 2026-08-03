@@ -1,198 +1,272 @@
+# Cisco Meraki switch port statuses (read-only)
+# Data source: Meraki Dashboard API is NOT reachable from the agent host.
+# This check reproduces the *contract* of the Checkmk plugin; on hosts without
+# the Meraki agent section it reports absence (empty discovery / UNKNOWN).
+
+def _ok():
+    return 0
+
+def _warn():
+    return 1
+
+def _crit():
+    return 2
+
+def _unk():
+    return 3
+
+def _state_code(name):
+    return {
+        "OK": _ok(),
+        "WARN": _warn(),
+        "CRIT": _crit(),
+        "UNKNOWN": _unk(),
+    }.get(name, _unk())
+
+# Checkmk default parameters for the check (State enum numeric values).
+# check_default_parameters:
+#   state_admin_change=1  (WARN)
+#   state_disabled=0      (OK)
+#   state_not_connected=0 (OK)
+#   state_not_full_duplex=1 (WARN)
+#   state_op_change=1     (WARN)
+#   state_speed_change=1  (WARN)
+def _default_params():
+    return {
+        "state_admin_change": _warn(),
+        "state_disabled": _ok(),
+        "state_not_connected": _ok(),
+        "state_not_full_duplex": _warn(),
+        "state_op_change": _warn(),
+        "state_speed_change": _warn(),
+    }
+
+# discovery_default_parameters
+def _default_discovery_params():
+    return {
+        "admin_port_states": ["up", "down"],
+        "operational_port_states": ["up", "down"],
+    }
+
+def _port_id_of(raw):
+    s = str(raw)
+    if s.isdigit():
+        return s
+    return s
+
+def _speed_summary(speed):
+    if not speed:
+        return "unknown"
+    return speed
+
+def _speed_as_int(speed):
+    if not speed:
+        return None
+    parts = speed.split()
+    if len(parts) != 2:
+        return None
+    raw_value = parts[0].replace(",", ".")
+    unit = parts[1].lower()[0]
+    if not raw_value.replace(".", "", 1).isdigit():
+        return None
+    value = float(raw_value)
+    if unit == "k":
+        return int(value + 1e3)
+    if unit == "m":
+        return int(value * 1e6)
+    if unit == "g":
+        return int(value * 1e9)
+    if unit == "t":
+        return int(value * 1e12)
+    return None
+
+# Mirror the Checkmk `match` on status.lower():
+#   "connected"    -> oper_state "up"
+#   "disconnected" -> oper_state "down"
+#   _              -> oper_state "unknown"
+def _oper_state(status):
+    s = str(status).lower()
+    if s == "connected":
+        return "up"
+    if s == "disconnected":
+        return "down"
+    return "unknown"
+
+def _state_has_changed(is_state, was_state):
+    if is_state != None and was_state == None:
+        return True
+    if is_state == was_state:
+        return False
+    return True
+
+# No real on-host data source exists for the Meraki cloud API.
+# We never fabricate Meraki data from /proc, /sys, ps, etc.
+def _fetch_section():
+    # Returns None to signal "section not available on this host".
+    return None
+
+def _worst_state(results):
+    worst = _ok()
+    for r in results:
+        if r["code"] > worst:
+            worst = r["code"]
+    return worst
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["cat", "/var/lib/cmk-agent/agent_reader/tmp/cisco_meraki_org_switch_ports_statuses"], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "discovered 0 ports",
-                    "data": {"discovery": []}}
-        if not res.stdout.strip():
-            return {"changed": False, "msg": "discovered 0 ports",
-                    "data": {"discovery": []}}
-        data = json.decode(res.stdout)
-        items = []
-        for switch_port in data:
-            port_id = str(switch_port.get("portId", ""))
-            if not port_id.isdigit():
-                continue
-            enabled = switch_port.get("enabled", False)
-            status = switch_port.get("status", "").lower()
-            admin_state = "up" if enabled else "down"
-            oper_state = status if status in ["up", "down"] else "unknown"
-            if admin_state in ["up", "down"] and oper_state in ["up", "down"]:
-                items.append({
-                    "item": port_id,
+        section = _fetch_section()
+        if not section:
+            return {
+                "changed": False,
+                "msg": "no Meraki switch port statuses found on this host",
+                "data": {"discovery": []},
+            }
+        dp = _default_discovery_params()
+        admin_states = dp["admin_port_states"]
+        oper_states = dp["operational_port_states"]
+        out = []
+        for item, port in section.items():
+            admin_state = "up" if port.get("enabled") else "down"
+            oper_state = _oper_state(port.get("status"))
+            if admin_state in admin_states and oper_state in oper_states:
+                out.append({
+                    "item": item,
                     "params": {
                         "admin_state": admin_state,
                         "operational_state": oper_state,
-                        "speed": switch_port.get("speed", "unknown")
+                        "speed": _speed_summary(port.get("speed")),
                     },
-                    "metrics": ["if_in_bps", "if_out_bps"]
+                    "metrics": ["if_in_bps", "if_out_bps"],
                 })
-        return {"changed": False, "msg": "discovered %d ports" % len(items),
-                "data": {"discovery": items}}
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(out),
+            "data": {"discovery": out},
+        }
 
     item = params.get("item", "")
-    res = ctx.run(["cat", "/var/lib/cmk-agent/agent_reader/tmp/cisco_meraki_org_switch_ports_statuses"], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "port %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout.strip():
-        return {"changed": False, "msg": "port %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    data = json.decode(res.stdout)
-    port = None
-    for switch_port in data:
-        if str(switch_port.get("portId", "")) == item:
-            port = switch_port
-            break
-    if port == None:
-        return {"changed": False, "msg": "port %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _fetch_section()
+    if not section or item not in section:
+        return {
+            "changed": False,
+            "msg": "no Meraki switch port with item '%s' found" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    enabled = port.get("enabled", False)
-    status = port.get("status", "").lower()
-    admin_state = "up" if enabled else "down"
-    oper_state = status if status in ["up", "down"] else "unknown"
-    speed = port.get("speed", "unknown")
-    duplex = port.get("duplex", "").lower()
-    client_count = port.get("clientCount", 0)
-    is_uplink = port.get("isUplink", False)
-    power_usage = port.get("powerUsageInWh", None)
-    traffic = port.get("trafficInKbps", {})
-    recv_kbps = 0.0
-    sent_kbps = 0.0
-    if isinstance(traffic, dict):
-        recv_kbps = traffic.get("recv", 0.0)
-        sent_kbps = traffic.get("sent", 0.0)
-    warnings = port.get("warnings", [])
-    errors = port.get("errors", [])
-    spanning_tree = port.get("spanningTree", {})
-    st_statuses = []
-    if isinstance(spanning_tree, dict):
-        st_statuses = spanning_tree.get("statuses", [])
-    secure_port = port.get("securePort", {})
-    secure_enabled = False
-    if isinstance(secure_port, dict):
-        secure_enabled = secure_port.get("enabled", False)
+    port = section[item]
+    cp = _default_params()
+    for k, v in params.items():
+        if k in cp:
+            cp[k] = v
 
-    state_disabled = params.get("state_disabled", 0)
-    state_not_connected = params.get("state_not_connected", 0)
-    state_admin_change = params.get("state_admin_change", 1)
-    state_op_change = params.get("state_op_change", 1)
-    state_speed_change = params.get("state_speed_change", 1)
-    state_not_full_duplex = params.get("state_not_full_duplex", 1)
+    results = []
+
+    admin_state = "up" if port.get("enabled") else "down"
+    if admin_state == "down":
+        results.append({
+            "code": _state_code("OK") if cp["state_disabled"] == _ok() else cp["state_disabled"],
+            "summary": "(admin down)",
+            "details": "Admin status: down",
+        })
+    else:
+        results.append({"code": _ok(), "notice": "Admin status: up"})
 
     prior_admin = params.get("admin_state", "unknown")
+    if _state_has_changed(admin_state, prior_admin):
+        results.append({
+            "code": cp["state_admin_change"],
+            "summary": "changed admin %s -> %s" % (prior_admin, admin_state),
+        })
+
+    if admin_state == "down":
+        st = _worst_state(results)
+        return {
+            "changed": False,
+            "msg": "(admin down)",
+            "data": {"state": "OK" if st == _ok() else "WARN" if st == _warn() else "CRIT" if st == _crit() else "UNKNOWN",
+                     "metrics": {}, "details": "Admin status: down"},
+        }
+
+    oper = _oper_state(port.get("status"))
+    if oper == "down":
+        oper_code = cp["state_not_connected"]
+    elif oper == "up":
+        oper_code = _ok()
+    else:
+        oper_code = _unk()
+
+    results.append({
+        "code": oper_code,
+        "summary": "(%s)" % oper,
+        "details": "Operational status: %s" % oper,
+    })
+
     prior_oper = params.get("operational_state", "unknown")
+    if _state_has_changed(oper, prior_oper):
+        results.append({
+            "code": cp["state_op_change"],
+            "summary": "changed %s -> %s" % (prior_oper, oper),
+        })
+
+    if oper in ("down", "unknown"):
+        st = _worst_state(results)
+        name = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}.get(st, "UNKNOWN")
+        return {
+            "changed": False,
+            "msg": "(oper %s)" % oper,
+            "data": {"state": name, "metrics": {}, "details": "Operational status: %s" % oper},
+        }
+
+    speed_summary = _speed_summary(port.get("speed"))
+    speed_code = _ok() if speed_summary else _unk()
+    results.append({
+        "code": speed_code,
+        "summary": "Speed: %s" % speed_summary,
+    })
+
     prior_speed = params.get("speed", "unknown")
+    if _state_has_changed(speed_summary, prior_speed):
+        results.append({
+            "code": cp["state_speed_change"],
+            "summary": "changed %s -> %s" % (prior_speed, speed_summary),
+        })
 
-    state = "OK"
-    details_lines = []
-    perfdata = {}
+    metrics = {}
+    traffic = port.get("trafficInKbps")
+    if traffic:
+        recv = traffic.get("recv")
+        sent = traffic.get("sent")
+        if recv != None:
+            metrics["if_in_bps"] = recv
+        if sent != None:
+            metrics["if_out_bps"] = sent
 
-    if admin_state == "down":
-        if state_disabled == 2:
-            state = "CRIT"
-        elif state_disabled == 1:
-            state = "WARN"
-        details_lines.append("Admin status: down")
+    duplex = str(port.get("duplex", "")).lower()
+    if duplex == "full":
+        results.append({"code": _ok(), "notice": "Duplex: %s" % duplex})
     else:
-        details_lines.append("Admin status: up")
-    if admin_state != prior_admin:
-        if state_admin_change == 2:
-            state = "CRIT"
-        elif state_admin_change == 1 and state != "CRIT":
-            state = "WARN"
+        results.append({"code": cp["state_not_full_duplex"], "notice": "Duplex: %s" % duplex})
 
-    if admin_state != "down":
-        if oper_state == "up":
-            if state_not_connected == 2:
-                state = "CRIT"
-            elif state_not_connected == 1 and state != "CRIT":
-                state = "WARN"
-        elif oper_state == "down":
-            if state_not_connected == 2:
-                state = "CRIT"
-            elif state_not_connected == 1 and state != "CRIT":
-                state = "WARN"
-        else:
-            state = "UNKNOWN"
-        details_lines.append("Operational status: " + oper_state)
-        if oper_state != prior_oper:
-            if state_op_change == 2:
-                state = "CRIT"
-            elif state_op_change == 1 and state != "CRIT":
-                state = "WARN"
+    results.append({"code": _ok(), "notice": "Clients: %s" % port.get("clientCount", 0)})
 
-    if admin_state == "down" or oper_state in ["down", "unknown"]:
-        pass
+    if port.get("isUplink"):
+        results.append({"code": _ok(), "summary": "Uplink", "details": "Uplink: yes"})
     else:
-        speed_ok = len(speed) > 0
-        if speed_ok:
-            if speed != prior_speed:
-                if state_speed_change == 2:
-                    state = "CRIT"
-                elif state_speed_change == 1 and state != "CRIT":
-                    state = "WARN"
-            details_lines.append("Speed: " + speed)
-        else:
-            state = "UNKNOWN"
-            details_lines.append("Speed: unknown")
+        results.append({"code": _ok(), "notice": "Uplink: no"})
 
-    recv_bps = recv_kbps * 1000.0
-    sent_bps = sent_kbps * 1000.0
-    perfdata["if_in_bps"] = recv_bps
-    perfdata["if_out_bps"] = sent_bps
+    power = port.get("powerUsageInWh")
+    if power != None:
+        results.append({"code": _ok(), "summary": "Power usage: %s Wh" % power})
 
-    if admin_state == "down" or oper_state in ["down", "unknown"]:
-        pass
-    else:
-        if duplex == "full":
-            details_lines.append("Duplex: full")
-        else:
-            if state_not_full_duplex == 2:
-                state = "CRIT"
-            elif state_not_full_duplex == 1 and state != "CRIT":
-                state = "WARN"
-            details_lines.append("Duplex: " + duplex)
-
-    details_lines.append("Clients: %d" % client_count)
-
-    if is_uplink:
-        details_lines.append("Uplink: yes")
-    else:
-        details_lines.append("Uplink: no")
-
-    if power_usage != None:
-        details_lines.append("Power usage: %f Wh" % power_usage)
-
-    for st in st_statuses:
-        details_lines.append("Spanning tree status: " + st)
-
-    for w in warnings:
-        if state != "CRIT":
-            state = "WARN"
-        details_lines.append(w)
-
-    for e in errors:
-        if e not in ["Port disconnected", "Port disabled"]:
-            state = "CRIT"
-            details_lines.append(e)
-
-    if secure_enabled:
-        details_lines.append("Secure port: enabled")
-
-    summary = ""
-    if admin_state == "down":
-        summary = "(admin down)"
-    else:
-        summary = "(%s)" % oper_state
+    st = _worst_state(results)
+    name = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}.get(st, "UNKNOWN")
 
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "Interface %s" % item,
         "data": {
-            "state": state,
-            "metrics": perfdata,
-            "details": "; ".join(details_lines),
+            "state": name,
+            "metrics": metrics,
+            "details": "",
         },
     }

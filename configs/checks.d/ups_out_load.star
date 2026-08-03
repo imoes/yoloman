@@ -1,141 +1,112 @@
-def main(ctx, params):
-    # Default thresholds from Checkmk check_default_parameters
-    warn = params.get("levels", (85, 90))
-    warn_val = warn[0]
-    crit_val = warn[1]
+_UPS_SYSOIDS = [
+    ".1.3.6.1.4.1.232.165.3",
+    ".1.3.6.1.4.1.476.1.42",
+    ".1.3.6.1.4.1.534.1",
+    ".1.3.6.1.4.1.935",
+    ".1.3.6.1.4.1.8072.3.2.10",
+    ".1.3.6.1.4.1.2254.2.5",
+    ".1.3.6.1.4.1.12551.4.0",
+    ".1.3.6.1.4.1.4555.1.1.7",
+    ".1.3.6.1.4.1.42610.1.4.4",
+    ".1.3.6.1.2.1.33",
+    ".1.3.6.1.4.1.534.2",
+    ".1.3.6.1.4.1.5491",
+    ".1.3.6.1.4.1.705.1",
+    ".1.3.6.1.4.1.818.1.100.1",
+    ".1.3.6.1.4.1.850",
+]
 
-    # Discovery mode: enumerate all phase items
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.2.1.33.1.4.4.1.5"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-        
-        items = []
-        # Parse output lines like ".1.3.6.1.2.1.33.1.4.4.1.5.1 = INTEGER: 230"
-        # We only care about items where voltage (OID .1.3.6.1.2.1.33.1.4.4.1.2) is non-zero
-        # We'll fetch voltage separately per candidate to avoid extra complexity
-        for line in res.stdout.splitlines():
-            stripped = line.strip()
-            if not stripped or "=" not in stripped:
-                continue
-            parts = stripped.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_path = parts[0]
-            value_str = parts[1].strip()
-            # Extract phase index from end of OID
-            # Base OID: .1.3.6.1.2.1.33.1.4.4.1
-            # Voltage OID: .1.3.6.1.2.1.33.1.4.4.1.2
-            # Power OID: .1.3.6.1.2.1.33.1.4.4.1.5
-            # End OID is index; value_str format: "INTEGER: <value>" or just "<value>"
-            # Get last component of OID after .5
-            end_oid = oid_path.rsplit(".", 1)
-            if len(end_oid) < 2:
-                continue
-            index_str = end_oid[1]
-            # Try to get voltage for this index
-            voltage_oid = ".1.3.6.1.2.1.33.1.4.4.1.2." + index_str
-            v_res = ctx.run([
-                "snmpget", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), voltage_oid
-            ], mutates=False)
-            if v_res.rc != 0:
-                continue
-            # Parse snmpget output: ".1.3.6.1.2.1.33.1.4.4.1.2.1 = INTEGER: 230"
-            v_line = v_res.stdout.strip()
-            v_parts = v_line.split(" = ", 1)
-            if len(v_parts) < 2:
-                continue
-            v_val_str = v_parts[1].strip()
-            # Extract integer value
-            v_val = 0
-            if ":" in v_val_str:
-                v_val_str = v_val_str.split(":", 1)[1].strip()
-            if v_val_str.isdigit():
-                v_val = int(v_val_str)
-            if v_val > 0:
-                items.append({
-                    "item": index_str,
-                    "params": {"levels": (warn_val, crit_val)},
-                    "metrics": ["out_load"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d phases" % len(items),
-            "data": {"discovery": items}
-        }
+_OID_BASE = ".1.3.6.1.2.1.33.1.4.4.1"
+_COL_POWER = "2"
+_COL_VOLTAGE = "5"
 
-    # Check mode: examine one specific item (phase)
-    item = params.get("item", "")
-    if item == "":
-        fail("item is required for check mode")
-    
-    # Get power value from .1.3.6.1.2.1.33.1.4.4.1.5.<item>
-    power_oid = ".1.3.6.1.2.1.33.1.4.4.1.5." + item
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), power_oid
-    ], mutates=False)
-    
+def _int_or_zero(value):
+    if value == "" or value == None:
+        return 0
+    return int(value)
+
+def _is_ups(ctx, host, community):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed for phase " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse output: ".1.3.6.1.2.1.33.1.4.4.1.5.1 = INTEGER: 45"
-    line = res.stdout.strip()
-    if not line or " = " not in line:
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP output for phase " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    parts = line.split(" = ", 1)
-    if len(parts) < 2:
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP output for phase " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    value_str = parts[1].strip()
-    if ":" in value_str:
-        value_str = value_str.split(":", 1)[1].strip()
-    
-    if not value_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "non-numeric load value for phase " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    power = int(value_str)
-    
-    # Determine state
-    if power >= crit_val:
+        return None
+    sysoid = res.stdout.strip()
+    for known in _UPS_SYSOIDS:
+        if sysoid == known or sysoid.startswith(known + "."):
+            return True
+    return False
+
+def _walk_phases(ctx, host, community):
+    col_oid = _OID_BASE + "." + _COL_POWER
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, col_oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {}
+    phases = {}
+    for line in res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) != 2:
+            continue
+        oid_full, power_val = sp[0], sp[1]
+        idx = oid_full[len(col_oid) + 1:]
+        if idx == "":
+            continue
+        vres = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, _OID_BASE + "." + _COL_VOLTAGE + "." + idx],
+            mutates=False,
+        )
+        voltage = _int_or_zero(vres.stdout.strip()) if vres.rc == 0 else 0
+        phases[idx] = (_int_or_zero(power_val), voltage)
+    return phases
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    levels = params.get("levels", (85, 90))
+
+    is_ups = _is_ups(ctx, host, community)
+    if is_ups != True:
+        return {"changed": False, "msg": "not a UPS (no matching sysObjectID)",
+                "data": {"discovery": [], "host_labels": {}}}
+
+    if params.get("_discover"):
+        phases = _walk_phases(ctx, host, community)
+        discovery = []
+        for idx, (power, voltage) in phases.items():
+            if voltage:
+                discovery.append({
+                    "item": idx,
+                    "params": {"levels": levels},
+                    "metrics": ["out_load"],
+                })
+        return {"changed": False,
+                "msg": "discovered %d phases" % len(discovery),
+                "data": {"discovery": discovery,
+                         "host_labels": {"cmk/ups": "true"}}}
+
+    item = params.get("item", "")
+    phases = _walk_phases(ctx, host, community)
+    if item not in phases:
+        return {"changed": False,
+                "msg": "Phase %s not found in SNMP output" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    power, voltage = phases[item]
+    warn = levels[0]
+    crit = levels[1]
+    if power >= crit:
         state = "CRIT"
-    elif power >= warn_val:
+    elif power >= warn:
         state = "WARN"
     else:
         state = "OK"
-    
-    # Build summary message
-    msg = "Phase " + item + ": " + str(power) + "% load"
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"out_load": power},
-            "details": ""
-        }
-    }
+
+    return {"changed": False,
+            "msg": "load %f%%" % power,
+            "data": {"state": state,
+                     "metrics": {"out_load": power},
+                     "details": "Voltage: %dV" % voltage}}

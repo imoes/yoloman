@@ -1,109 +1,239 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed: " + res.stderr,
-                    "data": {"discovery": []}}
+# Translated from Checkmk check mk.orion_system (SNMP: Orion/Phasor energy
+# system). Read-only: discovers one Temperature / Charge / Direct Current
+# service per entity and reports its state against operator-supplied levels.
 
-        lines = res.stdout.splitlines()
-        if len(lines) < 8:
-            return {"changed": False, "msg": "SNMP response too short",
-                    "data": {"discovery": []}}
-
-        values = []
-        for line in lines:
-            parts = line.strip().split(" = ")
-            if len(parts) < 2:
-                continue
-            val_str = parts[1].strip()
-            if ":" in val_str:
-                val_str = val_str.split(":", 1)[1].strip()
-            values.append(val_str)
-
-        if len(values) < 8:
-            return {"changed": False, "msg": "Could not parse 8 required fields",
-                    "data": {"discovery": []}}
-
-        battery_temp = values[3]
-        temp_items = []
-        if battery_temp != "2147483647":
-            temp_items.append({
-                "item": "Battery",
-                "params": {},
-                "metrics": ["temperature"]
-            })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature items" % len(temp_items),
-            "data": {"discovery": temp_items}
-        }
-
-    item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
+def _snmpget(ctx, host, community, oid):
+    return ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv", host, oid
     ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed: " + res.stderr,
+
+def _snmpwalk(ctx, host, community, oid):
+    return ctx.run([
+        "snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid
+    ], mutates=False)
+
+# SNMP base OID for the Orion system table.
+BASE_OID = ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
+# Column OIDs (relative to BASE_OID) per the source plugin's oids list.
+COL = {
+    "system_voltage":        "1",
+    "load_current":          "2",
+    "battery_current":       "3",
+    "battery_temp":          "4",
+    "charge_state":          "5",
+    "battery_current_limit": "6",
+    "rectifier_current":     "7",
+    "system_power":          "8",
+}
+# Sentinel meaning "no value" in the firmware.
+NO_VALUE = "2147483647"
+
+CHARGE_STATES = {
+    "1": (0, "float charging"),
+    "2": (0, "discharge"),
+    "3": (0, "equalize"),
+    "4": (0, "boost"),
+    "5": (0, "battery test"),
+    "6": (0, "recharge"),
+    "7": (0, "separate charge"),
+    "8": (0, "event control charge"),
+}
+
+def _to_float(raw):
+    if raw == None:
+        return None
+    s = raw.strip()
+    if s == NO_VALUE or s == "":
+        return None
+    if not s.replace("-", "").replace("+", "").isdigit() and not s.endswith(".0") and not (s.startswith("-") and s[1:].replace("-", "").isdigit()):
+        return None
+    n = float(s)
+    return n
+
+def main(ctx, params):
+    discover = params.get("_discover", False)
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+    plugin = params.get("_plugin", "orion_system_temp")
+
+    # Probe: is this an Orion device? The source checks the sysObjectID prefix.
+    sysid = _snmpget(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if sysid.rc != 0 or sysid.stdout == None or \
+       not sysid.stdout.strip().startswith(".1.3.6.1.4.1.20246"):
+        if discover:
+            return {"changed": False, "msg": "no Orion system found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False,
+                "msg": "no Orion system (" + plugin + ")",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    lines = res.stdout.splitlines()
-    if len(lines) < 8:
-        return {"changed": False, "msg": "SNMP response too short",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    values = []
-    for line in lines:
-        parts = line.strip().split(" = ")
-        if len(parts) < 2:
+    # Walk the whole table once; rows identified by index suffix.
+    rows = {}
+    for col in COL:
+        res = _snmpwalk(ctx, host, community, BASE_OID + "." + COL[col])
+        if res.rc != 0 or res.stdout == None or res.stdout.strip() == "":
             continue
-        val_str = parts[1].strip()
-        if ":" in val_str:
-            val_str = val_str.split(":", 1)[1].strip()
-        values.append(val_str)
+        for line in res.stdout.strip().splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid_full = line[:sp]
+            val = line[sp + 1:]
+            idx = oid_full[len(BASE_OID + "." + COL[col]) + 1:]
+            if idx not in rows:
+                rows[idx] = {}
+            rows[idx][col] = val
 
-    if len(values) < 8:
-        return {"changed": False, "msg": "Could not parse 8 required fields",
+    # No rows -> nothing to report.
+    if not rows:
+        if discover:
+            return {"changed": False, "msg": "no Orion system rows",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no Orion system (" + plugin + ")",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    battery_temp_str = values[3]
+    # Parse each row into the section structure used by the source plugin.
+    parsed = {}
+    for idx, row in rows.items():
+        sv = _to_float(row.get("system_voltage", NO_VALUE))
+        lc = _to_float(row.get("load_current", NO_VALUE))
+        bc = _to_float(row.get("battery_current", NO_VALUE))
+        bt = _to_float(row.get("battery_temp", NO_VALUE))
+        cs = row.get("charge_state", "")
+        sp_v = _to_float(row.get("system_power", NO_VALUE))
+        rc = _to_float(row.get("rectifier_current", NO_VALUE))
 
-    if item != "Battery":
-        return {"changed": False, "msg": "item not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        temperature = {}
+        if bt != None:
+            temperature["Battery"] = bt * 0.1
 
-    if battery_temp_str == "2147483647":
-        return {"changed": False, "msg": "no battery temperature data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        electrical = {}
+        for what, value, factor in [
+            ("voltage", sv, 0.01),
+            ("current", lc, 0.1),
+            ("power", sp_v, 1),
+        ]:
+            if value != None:
+                sd = electrical.setdefault("System", {})
+                sd[what] = value * factor
 
-    battery_temp = float(int(battery_temp_str)) * 0.1 if battery_temp_str.isdigit() else -999.0
-    if battery_temp_str.isdigit() == False:
-        return {"changed": False, "msg": "invalid battery temperature value",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        for name, value in [("Battery", bc), ("Rectifier", rc)]:
+            if value != None:
+                idata = electrical.setdefault(name, {})
+                idata["current"] = value * 0.1
 
-    warn_upper = params.get("levels_upper")
-    crit_upper = params.get("levels_lower")
-    warn_u = 25.0 if warn_upper == None else warn_upper
-    crit_u = 35.0 if crit_upper == None else crit_upper
+        charging = {"Battery": CHARGE_STATES.get(cs, (3, "unknown[%s]" % cs))}
 
-    state = "OK"
-    if battery_temp >= crit_u:
-        state = "CRIT"
-    elif battery_temp >= warn_u:
-        state = "WARN"
-
-    return {
-        "changed": False,
-        "msg": "Temperature: %f C" % battery_temp,
-        "data": {
-            "state": state,
-            "metrics": {"temperature": battery_temp},
-            "details": ""
+        parsed[idx] = {
+            "temperature": temperature,
+            "electrical": electrical,
+            "charging": charging,
         }
-    }
+
+    # ---- DISCOVERY ----
+    if discover:
+        if plugin == "orion_system_charging":
+            out = []
+            for idx, sec in parsed.items():
+                for entity in sec["charging"]:
+                    out.append({"item": entity, "params": {}, "metrics": []})
+            return {"changed": False,
+                    "msg": "discovered %d items" % len(out),
+                    "data": {"discovery": out}}
+
+        if plugin == "orion_system_dc":
+            out = []
+            for idx, sec in parsed.items():
+                for entity in sec["electrical"]:
+                    out.append({"item": entity, "params": {},
+                                "metrics": ["power", "current", "voltage"]})
+            return {"changed": False,
+                    "msg": "discovered %d items" % len(out),
+                    "data": {"discovery": out}}
+
+        # default: temperature
+        out = []
+        for idx, sec in parsed.items():
+            for entity in sec["temperature"]:
+                warn = params.get("warn", 35)
+                crit = params.get("crit", 40)
+                out.append({"item": entity,
+                            "params": {"warn": warn, "crit": crit},
+                            "metrics": ["temperature"]})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(out),
+                "data": {"discovery": out}}
+
+    # ---- CHECK ----
+    match_idx = None
+    for idx, sec in parsed.items():
+        if plugin == "orion_system_charging":
+            if item in sec["charging"]:
+                match_idx = idx
+                break
+        elif plugin == "orion_system_dc":
+            if item in sec["electrical"]:
+                match_idx = idx
+                break
+        else:
+            if item in sec["temperature"]:
+                match_idx = idx
+                break
+
+    if match_idx == None:
+        return {"changed": False,
+                "msg": "no such item: " + str(item) + " (" + plugin + ")",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    sec = parsed[match_idx]
+
+    if plugin == "orion_system_temp":
+        if item in sec["temperature"]:
+            value = sec["temperature"][item]
+            warn = params.get("warn", 35)
+            crit = params.get("crit", 40)
+            state = "CRIT" if value >= crit else ("WARN" if value >= warn else "OK")
+            return {"changed": False,
+                    "msg": "Temperature %s: %f C" % (item, value),
+                    "data": {"state": state,
+                             "metrics": {"temperature": value},
+                             "details": ""}}
+        return {"changed": False, "msg": "no temperature for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if plugin == "orion_system_charging":
+        if item in sec["charging"]:
+            state_int, state_readable = sec["charging"][item]
+            st = ["OK", "WARN", "CRIT", "UNKNOWN"][state_int] \
+                 if 0 <= state_int and state_int <= 3 else "UNKNOWN"
+            return {"changed": False,
+                    "msg": "Charge %s: %s" % (item, state_readable),
+                    "data": {"state": st, "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "no charging state for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # orion_system_dc
+    if item in sec["electrical"]:
+        e = sec["electrical"][item]
+        power = e.get("power", 0.0)
+        current = e.get("current", 0.0)
+        voltage = e.get("voltage", 0.0)
+        warn = params.get("warn", 0)
+        crit = params.get("crit", 0)
+        state = "OK"
+        if power != None:
+            if crit != 0 and power >= crit:
+                state = "CRIT"
+            elif warn != 0 and power >= warn:
+                state = "WARN"
+        return {"changed": False,
+                "msg": "Direct Current %s: %f W" % (item, power),
+                "data": {"state": state,
+                         "metrics": {"power": power,
+                                     "current": current,
+                                     "voltage": voltage},
+                         "details": ""}}
+    return {"changed": False, "msg": "no electrical data for " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

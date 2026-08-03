@@ -1,56 +1,61 @@
-WANTED_KEYS = ["name", "location", "code_level", "email_contact_location"]
-
 def main(ctx, params):
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [
-                {"item": "", "params": {}, "metrics": []},
-            ]},
-        }
+        # Probe for the real thing: IBM SVC system management CLI
+        res = ctx.run(["svcinfo", "lsnode", "-nohdr"], mutates=False)
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "no IBM SVC system found", "data": {"discovery": []}}
+        # Single-service check: one entry with item ""
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [
+            {"item": "", "params": {}, "metrics": ["bandwidth"]}
+        ]}}
 
-    host = params.get("host", "localhost")
-    user = params.get("user", "monitor")
-    ssh_key = params.get("ssh_key", "")
+    # Probe for IBM SVC management CLI
+    res = ctx.run(["svcinfo", "lssystem", "-nohdr", "-bytes", "-delim", ":"], mutates=False)
+    if res.rc == 127 or res.rc != 0:
+        return {"changed": False, "msg": "IBM SVC system not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    cmd = ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes",
-           "-o", "ConnectTimeout=10"]
-    if ssh_key != "":
-        cmd = cmd + ["-i", ssh_key]
-    cmd = cmd + [user + "@" + host, "lssystem -delim :"]
-
-    res = ctx.run(cmd, mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SSH/lssystem failed: " + res.stderr.strip(),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr.strip()},
-        }
-
+    # Parse the output - lines are colon-delimited key:value pairs
     data = {}
-    for raw in res.stdout.splitlines():
-        line = raw.strip()
-        if line == "":
-            continue
-        idx = line.find(":")
-        if idx < 1:
-            continue
-        key = line[:idx].strip()
-        val = line[idx + 1:].strip()
-        if key not in data:
+    for line in res.stdout.splitlines():
+        if ":" in line:
+            idx = line.find(":")
+            key = line[:idx]
+            val = line[idx+1:]
             data[key] = val
 
-    parts = []
-    for key in WANTED_KEYS:
-        val = data.get(key, "")
-        if val != "":
-            parts.append(key + ": " + val)
+    # Build the message from specific keys
+    message = ""
+    for key in ["name", "location", "code_level", "email_contact_location"]:
+        if key in data:
+            if message != "":
+                message += ", "
+            message += "%s: %s" % (key, data[key])
 
-    msg = ", ".join(parts) if len(parts) > 0 else "no data retrieved"
+    # Extract bandwidth as a metric if available
+    metrics = {}
+    if "bandwidth" in data:
+        bw = data["bandwidth"]
+        metric_val = _parse_bandwidth(bw)
+        if metric_val != None:
+            metrics["bandwidth"] = metric_val
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": "OK", "metrics": {}, "details": ""},
-    }
+    if not message:
+        message = "IBM SVC system info"
+
+    return {"changed": False, "msg": message, "data": {"state": "OK", "metrics": metrics, "details": ""}}
+
+
+def _parse_bandwidth(s):
+    # Parse bandwidth values like "2500" or "2500MB" etc.
+    if not s:
+        return None
+    # Strip non-digit suffix for simple numeric extraction
+    digits = ""
+    for ch in s:
+        if ch.isdigit() or ch == "." or ch == "-":
+            digits += ch
+        else:
+            break
+    if digits and digits.replace(".", "").replace("-", "").isdigit():
+        return float(digits)
+    return None

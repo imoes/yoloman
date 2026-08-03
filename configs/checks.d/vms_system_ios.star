@@ -1,134 +1,69 @@
-# ===== check plugin: vms_system_ios =====
-
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["vms_system"], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "agent plugin 'vms_system' not available or failed",
-                "data": {"discovery": []}
-            }
-        lines = res.stdout.splitlines()
-        if len(lines) == 0:
-            return {
-                "changed": False,
-                "msg": "no data from vms_system",
-                "data": {"discovery": []}
-            }
-        parts = lines[0].strip().split()
-        if len(parts) < 3:
-            return {
-                "changed": False,
-                "msg": "unexpected data format from vms_system",
-                "data": {"discovery": []}
-            }
-        direct_ios_str = parts[0]
-        buffered_ios_str = parts[1]
-        # Guard: ensure strings represent floats before conversion
-        def is_float_str(s):
-            # Accept digits, optional single dot, optional minus, no letters
-            s_clean = s.strip()
-            if s_clean == "":
-                return False
-            seen_dot = False
-            for c in s_clean:
-                if c == '.':
-                    if seen_dot:
-                        return False
-                    seen_dot = True
-                elif not c.isdigit():
-                    return False
-            return True
-        
-        if not is_float_str(direct_ios_str) or not is_float_str(buffered_ios_str):
-            return {
-                "changed": False,
-                "msg": "failed to parse numeric values from vms_system",
-                "data": {"discovery": []}
-            }
-        
-        direct_ios = float(direct_ios_str)
-        buffered_ios = float(buffered_ios_str)
-        
-        return {
-            "changed": False,
-            "msg": "discovered IOs service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": ["direct", "buffered"]}]}
-        }
-    
-    # Check mode (non-discovery)
-    res = ctx.run(["vms_system"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "agent plugin 'vms_system' not available or failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    lines = res.stdout.splitlines()
-    if len(lines) == 0:
-        return {
-            "changed": False,
-            "msg": "no data from vms_system",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    parts = lines[0].strip().split()
-    if len(parts) < 3:
-        return {
-            "changed": False,
-            "msg": "unexpected data format from vms_system",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    direct_ios_str = parts[0]
-    buffered_ios_str = parts[1]
-    
-    def is_float_str(s):
-        s_clean = s.strip()
-        if s_clean == "":
-            return False
-        seen_dot = False
-        for c in s_clean:
-            if c == '.':
-                if seen_dot:
-                    return False
-                seen_dot = True
-            elif not c.isdigit():
-                return False
-        return True
-    
-    if not is_float_str(direct_ios_str) or not is_float_str(buffered_ios_str):
-        return {
-            "changed": False,
-            "msg": "failed to parse numeric values from vms_system",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    direct_ios = float(direct_ios_str)
-    buffered_ios = float(buffered_ios_str)
-    
-    return {
-        "changed": False,
-        "msg": "Direct IOs: %f/sec, Buffered IOs: %f/sec" % (direct_ios, buffered_ios),
-        "data": {
-            "state": "OK",
-            "metrics": {"direct": direct_ios, "buffered": buffered_ios},
-            "details": ""
-        }
-    }
+        stats = ctx.stat("/proc/vmsystem")
+        if stats == None or stats.get("is_dir"):
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        content = ctx.file_read("/proc/vmsystem")
+        lines = content.split("\n")
+        found = False
+        for line in lines:
+            parts = line.strip().split()
+            if len(parts) >= 3:
+                if _is_float(parts[0]) and _is_float(parts[1]) and _is_float(parts[2]):
+                    found = True
+                    break
+        if not found:
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {},
+                     "metrics": ["direct", "buffered"]}
+                ]}}
+
+    stats = ctx.stat("/proc/vmsystem")
+    if stats == None or stats.get("is_dir"):
+        return {"changed": False, "msg": "no vms_system data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    content = ctx.file_read("/proc/vmsystem")
+    lines = content.split("\n")
+    direct_ios = None
+    buffered_ios = None
+    procs = None
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) >= 3 and _is_float(parts[0]) and _is_float(parts[1]) and _is_float(parts[2]):
+            direct_ios = float(parts[0])
+            buffered_ios = float(parts[1])
+            procs = int(float(parts[2]))
+            break
+
+    if direct_ios == None or buffered_ios == None or procs == None:
+        return {"changed": False, "msg": "no vms_system data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    details = "Direct IOs: %f/sec, Buffered IOs: %f/sec, Processes: %d" % (direct_ios, buffered_ios, procs)
+
+    return {"changed": False, "msg": "Direct IOs: %f/sec, Buffered IOs: %f/sec" % (direct_ios, buffered_ios),
+            "data": {"state": "OK",
+                     "metrics": {"direct": direct_ios, "buffered": buffered_ios},
+                     "details": details}}
+
+def _is_float(s):
+    if not s:
+        return False
+    stripped = s
+    if stripped.startswith("-"):
+        stripped = stripped[1:]
+    if stripped == "":
+        return False
+    parts = stripped.split(".", 1)
+    if len(parts) == 1:
+        return parts[0].isdigit()
+    if len(parts) == 2:
+        int_part = parts[0] if parts[0] else ""
+        frac_part = parts[1]
+        return (int_part == "" or int_part.isdigit()) and (frac_part == "" or frac_part.isdigit()) and (int_part != "" or frac_part != "")
+    return False

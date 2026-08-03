@@ -1,207 +1,132 @@
-def _parse_zfsget_agent(ctx, host_data):
-    """Parse zfsget agent output (string_table) into a dict by mountpoint."""
-    # Split zfs and df sections if [df] marker present
-    zfs_lines = []
-    df_lines = []
-    in_df = False
-    for line in host_data.splitlines():
-        stripped = line.strip()
-        if stripped == "[df]":
-            in_df = True
-            continue
-        if in_df:
-            df_lines.append(stripped)
-        else:
-            zfs_lines.append(stripped)
-    
-    # Parse ZFS properties
-    zfs_data = {}
-    for line in zfs_lines:
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        name = parts[0]
-        prop = " ".join(parts[1:-1]).strip()
-        value = parts[-1]
-        if prop == " quota " and value in ("0", "-"):
-            continue
-        if prop not in (" name ", " quota ", " used ", " available ", " mountpoint ", " type "):
-            continue
-        # Split prop and value
-        idx = line.find(prop)
-        if idx == -1:
-            continue
-        raw_value = line[idx + len(prop):].strip()
-        # Convert value to MB with guard (no try/except)
-        val = 0.0
-        if raw_value == "-" or raw_value.replace(".", "").replace("-", "").isdigit():
-            if raw_value == "-":
-                val = 0.0
-            else:
-                # Guard: only convert if numeric
-                val = float(raw_value) / (1024.0 * 1024.0) if raw_value.replace(".", "").replace("-", "").isdigit() else raw_value
-        else:
-            val = raw_value
-        zfs_data.setdefault(name, {})[prop.strip()] = val
-
-    # Map ZFS entries to mountpoints
-    parsed_zfs = {}
-    for entry in zfs_data.values():
-        mp = str(entry.get("mountpoint", ""))
-        if mp.startswith("/"):
-            name = str(entry.get("name", ""))
-            is_pool = "/" not in name
-            if entry.get("type") == "filesystem":
-                parsed_zfs[name] = entry
-
-    # Parse df output
-    parsed_df = {}
-    for line in df_lines:
-        if not line:
-            continue
-        parts = line.split()
-        if len(parts) < 6:
-            continue
-        # Extract fields with guards
-        mountpoint = parts[-1]
-        if not mountpoint.startswith("/"):
-            continue
-        avail_str = parts[-3]
-        used_str = parts[-4]
-        kbytes_str = parts[-5]
-        
-        # Guard: check if all are digits before converting
-        if avail_str.isdigit() and used_str.isdigit() and kbytes_str.isdigit():
-            avail = int(avail_str)
-            used = int(used_str)
-            kbytes = int(kbytes_str)
-            total = kbytes
-            if used and avail and not total:
-                total = used + avail
-            else:
-                avail = total - used
-            # Convert to MB
-            entry = {
-                "name": "",
-                "mountpoint": mountpoint,
-                "total": total / 1024.0,
-                "used": used / 1024.0,
-                "available": avail / 1024.0,
-            }
-            # Find best matching ZFS device by name similarity (simplified)
-            best_name = ""
-            best_sim = 0.0
-            for name in parsed_zfs:
-                # Simple similarity: longest common prefix length / max length
-                s1, s2 = name, mountpoint
-                l = 0
-                for i in range(min(len(s1), len(s2))):
-                    if s1[i] == s2[i]:
-                        l += 1
-                    else:
-                        break
-                sim = float(l) / max(len(s1), len(s2)) if max(len(s1), len(s2)) > 0 else 0.0
-                if sim > best_sim:
-                    best_sim = sim
-                    best_name = name
-            if best_sim > 0.5:
-                entry["name"] = best_name
-            else:
-                entry["name"] = mountpoint
-            parsed_df[mountpoint] = entry
-
-    # Merge df and zfs data by mountpoint
-    merged = {}
-    for mp, df_entry in parsed_df.items():
-        zfs_entry = None
-        if df_entry["name"]:
-            zfs_entry = parsed_zfs.get(df_entry["name"])
-        if not zfs_entry:
-            for name, zentry in parsed_zfs.items():
-                if zentry.get("mountpoint") == mp:
-                    zfs_entry = zentry
-                    break
-        if zfs_entry:
-            quota = zfs_entry.get("quota", None)
-            used_val = zfs_entry.get("used", None)
-            available = zfs_entry.get("available", None)
-            if quota != None and quota == 0:
-                quota = None
-            if quota == None and used_val != None and available != None:
-                total = float(used_val) + float(available)
-            else:
-                total = float(used_val) + float(available)
-            merged[mp] = (mp, total, float(available), 0.0)
-        else:
-            total = df_entry["total"]
-            avail = df_entry["available"]
-            merged[mp] = (mp, total, avail, 0.0)
-
-    return merged
-
-
 def main(ctx, params):
+    # ZFS filesystem usage check - read-only
+    # Uses local df data combined with zfsget-style parsing
+
+    # Default thresholds from Checkmk's FILESYSTEM_DEFAULT_PARAMS
+    # The filesystem check uses: warn=80, crit=90 for used_percent (in %)
+    # and warn/crit for growth (not relevant for basic usage check)
+
+    excluded_mountpoints = ["/proc", "/sys", "/dev", "/run", "/snap", "/boot", "/lost+found"]
+
     if params.get("_discover"):
-        res = ctx.run(["zfs", "list", "-Hp", "-o", "name,quota,used,available,mountpoint,type"], mutates=False)
-        zfs_list = res.stdout
+        # Probe for ZFS - check if zfs command exists
+        zfs_probe = ctx.run(["zfs", "list", "-H", "-o", "name,mountpoint"],
+                          mutates=False)
+        if zfs_probe.rc == 127:
+            # zfs not installed - no ZFS filesystems to discover
+            return {"changed": False, "msg": "ZFS not installed",
+                    "data": {"discovery": []}}
 
-        parsed = _parse_zfsget_agent(ctx, zfs_list)
-        items = [mp for mp in parsed if mp not in ["/", "/dev", "/proc", "/sys", "/etc/mnttab", "/etc/svc/volatile", "/system/contract", "/system/object", "/dev/fd", "/tmp", "/var/run", "/lib/libc.so.1"]]
+        if zfs_probe.rc != 0:
+            # Error running zfs, or no pools/datasets
+            return {"changed": False, "msg": "no ZFS datasets found",
+                    "data": {"discovery": []}}
+
+        # Parse ZFS datasets from output
+        # Each line: name mountpoint
         discovery = []
-        for mp in items:
-            if mp in parsed:
-                total = parsed[mp][1]
-                discovery.append({
-                    "item": mp,
-                    "params": {"levels": (80.0, 90.0)},
-                    "metrics": ["used_percent"],
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d ZFS filesystems" % len(discovery),
-            "data": {"discovery": discovery},
-        }
+        lines = zfs_probe.stdout.splitlines()
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 2:
+                continue
+            name = parts[0]
+            mountpoint = parts[1]
+            # Check if this is a usable filesystem with a mountpoint
+            if mountpoint == "none" or mountpoint.startswith("/"):
+                if mountpoint not in excluded_mountpoints:
+                    # Use mountpoint as item identifier
+                    discovery.append({
+                        "item": mountpoint,
+                        "params": {
+                            "warn_used": 80,
+                            "crit_used": 90,
+                            "warn_free": 10,
+                            "crit_free": 5,
+                            "warn_growth": 0,
+                            "crit_growth": 0,
+                        },
+                        "metrics": ["used_percent", "used", "total", "free"]
+                    })
 
+        return {"changed": False,
+                "msg": "discovered %d ZFS filesystems" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # Check mode - examine one specific filesystem
     item = params.get("item", "")
-    res = ctx.run(["zfs", "list", "-Hp", "-o", "name,quota,used,available,mountpoint,type", item], mutates=False)
-    if not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "filesystem %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    warn_used = params.get("warn_used", 80)
+    crit_used = params.get("crit_used", 90)
 
-    parsed = _parse_zfsget_agent(ctx, res.stdout)
-    if item not in parsed:
-        return {
-            "changed": False,
-            "msg": "filesystem %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    # Get df information for this mountpoint
+    df_res = ctx.run(["df", "-k", item], mutates=False)
 
-    mp, total, avail, _ = parsed[item]
-    used = total - avail
-    used_pct = (used / total * 100.0) if total > 0 else 0.0
+    if df_res.rc == 127:
+        return {"changed": False, "msg": "df command not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    levels = params.get("levels", (80.0, 90.0))
-    warn_pct, crit_pct = levels[0], levels[1]
+    if df_res.rc != 0:
+        return {"changed": False,
+                "msg": "mountpoint not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if used_pct >= crit_pct:
-        state = "CRIT"
-    elif used_pct >= warn_pct:
-        state = "WARN"
+    lines = df_res.stdout.splitlines()
+    if len(lines) < 2:
+        return {"changed": False, "msg": "no data for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Parse df output: Filesystem 1K-blocks Used Available Use% Mounted on
+    fields = lines[1].split()
+    if len(fields) < 6:
+        return {"changed": False, "msg": "unexpected df output for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Get usage percentage (strip % sign)
+    used_percent_str = fields[4].rstrip("%")
+    used_percent = int(used_percent_str) if used_percent_str.isdigit() else 0
+
+    # Get sizes in KB, convert to bytes for metrics
+    total_kb = int(fields[1]) if fields[1].isdigit() else 0
+    used_kb = int(fields[2]) if fields[2].isdigit() else 0
+    avail_kb = int(fields[3]) if fields[3].isdigit() else 0
+
+    # Calculate percentage from kb values for accuracy
+    if total_kb > 0:
+        used_percent = int((used_kb * 100) / total_kb)
+        free_percent = int((avail_kb * 100) / total_kb)
     else:
-        state = "OK"
+        free_percent = 100 - used_percent
 
-    msg = "Size: %f MB, Used: %f MB (%f%%)" % (total, used, used_pct)
-    metrics = {
-        "size": total,
-        "used": used,
-        "used_percent": used_pct,
-    }
+    # Determine state based on thresholds
+    state = "OK"
+    if used_percent >= crit_used or free_percent <= params.get("crit_free", 5):
+        state = "CRIT"
+    elif used_percent >= warn_used or free_percent <= params.get("warn_free", 10):
+        state = "WARN"
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": ""},
-    }
+    msg = "%s %d%% used (%f GB of %f GB)" % (
+        item, used_percent,
+        total_kb / (1024*1024),
+        (used_kb + avail_kb) / (1024*1024) if total_kb == 0 else total_kb / (1024*1024)
+    )
+
+    details = "Mountpoint: %s\nUsed: %f GB\nTotal: %f GB\nAvailable: %f GB" % (
+        item,
+        used_kb / (1024*1024),
+        total_kb / (1024*1024),
+        avail_kb / (1024*1024)
+    )
+
+    return {"changed": False,
+            "msg": msg,
+            "data": {
+                "state": state,
+                "metrics": {
+                    "used_percent": used_percent,
+                    "free_percent": free_percent,
+                    "used": used_kb * 1024,
+                    "total": total_kb * 1024,
+                    "free": avail_kb * 1024
+                },
+                "details": details
+            }}

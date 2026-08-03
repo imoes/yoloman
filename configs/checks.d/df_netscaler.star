@@ -1,133 +1,102 @@
-# ===== Starlark check module for df_netscaler (read-only) =====
-# Translated from Checkmk plugin cmk.plugins.netscaler.agent_based.df_netscaler
-# Uses SNMP to fetch disk usage data (.1.3.6.1.4.1.5951.4.1.1.41.8.1.*)
-
-_BASE_OID = ".1.3.6.1.4.1.5951.4.1.1.41.8.1"
-_DEFAULT_LEVELS = (80.0, 90.0)
-_EXCLUDED_MOUNTPOINTS = ["/dev", "/dev/shm", "/run", "/sys", "/proc"]
-
-def _parse_snmp_table(lines):
-    name_map = {}
-    size_map = {}
-    avail_map = {}
-    
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        eq_idx = stripped.find("=")
-        if eq_idx < 0:
-            continue
-        oid_part = stripped[:eq_idx].strip()
-        value_part = stripped[eq_idx+1:].strip()
-        if not value_part.startswith(":"):
-            continue
-        type_val = value_part[1:].strip()
-        
-        if not oid_part.startswith(_BASE_OID):
-            continue
-        suffix = oid_part[len(_BASE_OID):]
-        if not suffix:
-            continue
-        
-        segs = suffix.split(".")
-        if len(segs) < 2:
-            continue
-        key = ".".join(segs[1:])
-        
-        typ = 0
-        if segs[0].isdigit():
-            typ = int(segs[0])
-        
-        if typ == 1:
-            val = type_val
-            if val.startswith('"') and val.endswith('"'):
-                val = val[1:-1]
-            name_map[key] = val
-        elif typ == 2:
-            clean_val = type_val
-            if clean_val.startswith('-'):
-                clean_val = clean_val[1:]
-            if clean_val.isdigit():
-                size_map[key] = int(type_val)
-            else:
-                size_map[key] = 0
-        elif typ == 3:
-            clean_val = type_val
-            if clean_val.startswith('-'):
-                clean_val = clean_val[1:]
-            if clean_val.isdigit():
-                avail_map[key] = int(type_val)
-            else:
-                avail_map[key] = 0
-    
-    result = []
-    for key in name_map:
-        name = name_map[key]
-        size = size_map.get(key, 0)
-        avail = avail_map.get(key, 0)
-        result.append((name, size, avail))
-    
-    return result
-
-def _compute_state(used_percent, warn, crit):
-    if used_percent >= crit:
-        return "CRIT"
-    elif used_percent >= warn:
-        return "WARN"
-    else:
-        return "OK"
-
 def main(ctx, params):
     if params.get("_discover"):
-        community = params.get("community", "public")
         host = params.get("host", "localhost")
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, _BASE_OID], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        section = _parse_snmp_table(res.stdout.splitlines())
-        items = []
-        for name, size, avail in section:
-            if size <= 0 or name in _EXCLUDED_MOUNTPOINTS:
+        community = params.get("community", "public")
+        version = params.get("version", "2c")
+        detect = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host,
+                          ".1.3.6.1.2.1.1.1.0"], mutates=False)
+        if detect.rc != 0:
+            return {"changed": False, "msg": "SNMP unreachable", "data": {"discovery": []}}
+        if "netscaler" not in (detect.stdout or "").lower():
+            return {"changed": False, "msg": "not a netscaler", "data": {"discovery": []}}
+
+        name_walk = ctx.run(["snmpwalk", "-v" + version, "-c", community, "-Oqn",
+                             host, ".1.3.6.1.4.1.5951.4.1.1.41.8.1.1"], mutates=False)
+        size_walk = ctx.run(["snmpwalk", "-v" + version, "-c", community, "-Oqn",
+                             host, ".1.3.6.1.4.1.5951.4.1.1.41.8.1.2"], mutates=False)
+        avail_walk = ctx.run(["snmpwalk", "-v" + version, "-c", community, "-Oqn",
+                              host, ".1.3.6.1.4.1.5951.4.1.1.41.8.1.3"], mutates=False)
+
+        def to_map(walk_res, colbase):
+            m = {}
+            for line in (walk_res.stdout or "").splitlines():
+                line = line.strip()
+                sp = line.find(" ")
+                if sp < 0:
+                    continue
+                oid = line[:sp]
+                val = line[sp + 1:]
+                idx = oid[len(colbase) + 1:]
+                m[idx] = val
+            return m
+
+        colbase = ".1.3.6.1.4.1.5951.4.1.1.41.8.1"
+        names = to_map(name_walk, colbase + ".1")
+        sizes = to_map(size_walk, colbase + ".2")
+        avail = to_map(avail_walk, colbase + ".3")
+
+        out = []
+        for idx, name in names.items():
+            sz = sizes.get(idx, "0")
+            size_f = float(sz)
+            name_clean = name.strip().strip('"')
+            if not name_clean or size_f <= 0:
                 continue
-            items.append({"item": name, "params": {"levels": _DEFAULT_LEVELS}, "metrics": ["used_percent"]})
-        return {"changed": False, "msg": "discovered %d filesystems" % len(items), "data": {"discovery": items}}
-    
+            out.append({"item": name_clean, "params": {}, "metrics": ["used_percent"]})
+        return {"changed": False, "msg": "discovered %d filesystems" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    levels = params.get("levels", _DEFAULT_LEVELS)
-    warn = levels[0]
-    crit = levels[1]
-    
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, _BASE_OID], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    section = _parse_snmp_table(res.stdout.splitlines())
-    found = False
-    size = 0
-    avail = 0
-    for name, s, a in section:
-        if name == item:
-            found = True
-            size = s
-            avail = a
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+    base = ".1.3.6.1.4.1.5951.4.1.1.41.8.1"
+
+    name_walk = ctx.run(["snmpwalk", "-v" + version, "-c", community, "-Oqn", host, base + ".1"], mutates=False)
+    if name_walk.rc != 0 and name_walk.rc != 2:
+        return {"changed": False, "msg": "not a netscaler or unreachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    idx = None
+    for line in (name_walk.stdout or "").splitlines():
+        line = line.strip()
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:].strip().strip('"')
+        if val == item:
+            idx = oid.rsplit(".", 1)[-1]
             break
-    
-    if not found:
-        return {"changed": False, "msg": "filesystem %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    used = size - avail
+    if idx == None:
+        return {"changed": False, "msg": "no such filesystem: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    size_res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host, base + ".2." + idx], mutates=False)
+    avail_res = ctx.run(["snmpget", "-v" + version, "-c", community, "-Oqv", host, base + ".3." + idx], mutates=False)
+    if size_res.rc != 0 or avail_res.rc != 0:
+        return {"changed": False, "msg": "failed to read netscaler fs metrics",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    size = float(size_res.stdout)
+    avail = float(avail_res.stdout)
     if size <= 0:
-        used_percent = 0.0
-    else:
-        used_percent = (float(used) / float(size)) * 100.0
-    
-    state = _compute_state(used_percent, warn, crit)
-    return {
-        "changed": False,
-        "msg": "Size: %d MB, Used: %d MB (%f%%)" % (size // 1024, used // 1024, used_percent),
-        "data": {"state": state, "metrics": {"used_percent": used_percent}, "details": ""}
-    }
+        return {"changed": False, "msg": item + " size unknown",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    used = size - avail
+    used_percent = (used / size) * 100.0 if size > 0 else 0.0
+
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
+    levels = params.get("levels")
+    if levels != None:
+        if type(levels) == "list":
+            warn = levels[0] if len(levels) > 0 else warn
+            crit = levels[1] if len(levels) > 1 else crit
+        elif type(levels) == "dict":
+            warn = levels.get("warn", warn)
+            crit = levels.get("crit", crit)
+
+    state = "CRIT" if used_percent >= crit else ("WARN" if used_percent >= warn else "OK")
+    return {"changed": False,
+            "msg": "%s %d%% used" % (item, int(used_percent)),
+            "data": {"state": state, "metrics": {"used_percent": used_percent}, "details": ""}}

@@ -1,155 +1,303 @@
-STATE_ORDER = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+# ===== checkmk.nfsiostat → read-only Starlark check module =====
+# Checks NFS IO statistics produced by the `nfsiostat` command.
 
-def _to_float(s):
-    s = s.strip().lstrip("(").rstrip(")%")
-    if s == "" or s == "-":
-        return 0.0
-    if "." in s:
-        parts = s.split(".")
-        if parts[0].lstrip("-").isdigit() and parts[1].isdigit():
-            return float(s)
-        return 0.0
-    if s.lstrip("-").isdigit():
-        return float(s)
-    return 0.0
+METRIC_NAMES = [
+    "op_s",
+    "rpc_backlog",
+    "read_ops",
+    "read_b_s",
+    "read_b_op",
+    "read_retrans_pct",
+    "read_avg_rtt_ms",
+    "read_avg_exe_ms",
+    "write_ops_s",
+    "write_b_s",
+    "write_b_op",
+    "write_retrans_pct",
+    "write_avg_rtt_ms",
+    "write_avg_exe_ms",
+]
 
-def _worst(a, b):
-    if STATE_ORDER.get(b, 0) > STATE_ORDER.get(a, 0):
-        return b
-    return a
+LABELS = {
+    "op_s": "Operations", "rpc_backlog": "RPC Backlog",
+    "read_ops": "Read operations", "read_b_s": "Reads size",
+    "read_b_op": "Read bytes per operation",
+    "read_retrans_pct": "Read Retransmission",
+    "read_avg_rtt_ms": "Read average RTT",
+    "read_avg_exe_ms": "Read average EXE",
+    "write_ops_s": "Write operations", "write_b_s": "Writes size",
+    "write_b_op": "Write bytes per operation",
+    "write_retrans_pct": "Write Retransmission",
+    "write_avg_rtt_ms": "Write Average RTT",
+    "write_avg_exe_ms": "Write Average EXE",
+}
 
-def _check_upper(value, levels, label, unit):
-    if levels == None:
-        return ("OK", "%s: %f%s" % (label, value, unit))
-    warn = levels[0]
-    crit = levels[1]
-    if value >= crit:
-        return ("CRIT", "%s: %f%s (crit)" % (label, value, unit))
-    if value >= warn:
-        return ("WARN", "%s: %f%s (warn)" % (label, value, unit))
-    return ("OK", "%s: %f%s" % (label, value, unit))
+DEFAULT_PARAMS = {name: None for name in METRIC_NAMES}
 
-def _parse_nfsiostat(output):
-    mounts = {}
-    lines = output.splitlines()
-    current_mount = None
-    st = None
-    mdata = {}
-
-    for line in lines:
-        stripped = line.strip()
-        if "mounted on" in line and stripped != "" and not stripped.startswith("#"):
-            parts = line.split()
-            if len(parts) >= 1:
-                current_mount = "'" + parts[0] + "',"
-                mdata = {}
-                st = "op_header"
-        elif st == "op_header" and stripped.startswith("op/s"):
-            st = "op_vals"
-        elif st == "op_vals" and stripped != "":
-            parts = stripped.split()
-            if len(parts) >= 2:
-                mdata["op_s"] = _to_float(parts[0])
-                mdata["rpc_backlog"] = _to_float(parts[1])
-            st = "read_header"
-        elif st == "read_header" and stripped.startswith("read:"):
-            st = "read_vals"
-        elif st == "read_vals" and stripped != "":
-            parts = stripped.split()
-            if len(parts) >= 7:
-                mdata["read_ops"] = _to_float(parts[0])
-                mdata["read_b_s"] = _to_float(parts[1])
-                mdata["read_b_op"] = _to_float(parts[2])
-                mdata["read_retrans"] = _to_float(parts[4])
-                mdata["read_avg_rtt_s"] = _to_float(parts[5]) / 1000.0
-                mdata["read_avg_exe_s"] = _to_float(parts[6]) / 1000.0
-            st = "write_header"
-        elif st == "write_header" and stripped.startswith("write:"):
-            st = "write_vals"
-        elif st == "write_vals" and stripped != "":
-            parts = stripped.split()
-            if len(parts) >= 7:
-                mdata["write_ops_s"] = _to_float(parts[0])
-                mdata["write_b_s"] = _to_float(parts[1])
-                mdata["write_b_op"] = _to_float(parts[2])
-                mdata["write_retrans"] = _to_float(parts[4])
-                mdata["write_avg_rtt_s"] = _to_float(parts[5]) / 1000.0
-                mdata["write_avg_exe_s"] = _to_float(parts[6]) / 1000.0
-            if current_mount != None:
-                mounts[current_mount] = mdata
-            current_mount = None
-            mdata = {}
-            st = None
-
-    return mounts
 
 def main(ctx, params):
-    res = ctx.run(["nfsiostat"], mutates=False, ok_codes=[0, 1, 127])
-
     if params.get("_discover"):
-        if res.rc != 0 or res.stdout.strip() == "":
-            return {"changed": False, "msg": "discovered 0 mounts",
-                    "data": {"discovery": []}}
-        mounts = _parse_nfsiostat(res.stdout)
-        items = []
-        for name in mounts:
-            items.append({
-                "item": name,
-                "params": {},
-                "metrics": [
-                    "op_s", "rpc_backlog",
-                    "read_ops", "read_b_s", "read_b_op", "read_retrans",
-                    "read_avg_rtt_s", "read_avg_exe_s",
-                    "write_ops_s", "write_b_s", "write_b_op", "write_retrans",
-                    "write_avg_rtt_s", "write_avg_exe_s",
-                ],
-            })
-        return {"changed": False, "msg": "discovered %d mounts" % len(items),
-                "data": {"discovery": items}}
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
-    item = params.get("item", "")
 
+def _discover(ctx, params):
+    probe = ctx.run(["nfsiostat", "-V"], mutates=False)
+    if probe.rc == 127:
+        return {"changed": False, "msg": "nfsiostat not installed",
+                "data": {"discovery": []}}
+
+    res = ctx.run(["nfsiostat"], mutates=False)
     if res.rc != 0:
-        return {"changed": False, "msg": "nfsiostat failed (rc=%d)" % res.rc,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr}}
+        return {"changed": False, "msg": "nfsiostat failed",
+                "data": {"discovery": []}}
 
-    mounts = _parse_nfsiostat(res.stdout)
+    section = _parse(res.stdout)
+    out = []
+    for mountname in section:
+        out.append({
+            "item": mountname,
+            "params": dict(DEFAULT_PARAMS),
+            "metrics": list(METRIC_NAMES),
+        })
+    return {"changed": False, "msg": "discovered %d items" % len(out),
+            "data": {"discovery": out}}
 
-    if item not in mounts:
-        return {"changed": False, "msg": "NFS mount not found: " + item,
+
+def _check(ctx, params):
+    probe = ctx.run(["nfsiostat", "-V"], mutates=False)
+    if probe.rc == 127:
+        return {"changed": False,
+                "msg": "nfsiostat not installed",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    d = mounts[item]
+    res = ctx.run(["nfsiostat"], mutates=False)
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "nfsiostat failed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    checks = [
-        ("op_s",            d.get("op_s", 0.0),            params.get("op_s"),            "/s"),
-        ("rpc_backlog",     d.get("rpc_backlog", 0.0),      params.get("rpc_backlog"),     ""),
-        ("read_ops",        d.get("read_ops", 0.0),         params.get("read_ops"),        "/s"),
-        ("read_b_s",        d.get("read_b_s", 0.0),         params.get("read_b_s"),        " kB/s"),
-        ("read_b_op",       d.get("read_b_op", 0.0),        params.get("read_b_op"),       " kB/op"),
-        ("read_retrans",    d.get("read_retrans", 0.0),     params.get("read_retrans"),    "%"),
-        ("read_avg_rtt_s",  d.get("read_avg_rtt_s", 0.0),  params.get("read_avg_rtt_s"),  "s"),
-        ("read_avg_exe_s",  d.get("read_avg_exe_s", 0.0),  params.get("read_avg_exe_s"),  "s"),
-        ("write_ops_s",     d.get("write_ops_s", 0.0),      params.get("write_ops_s"),     "/s"),
-        ("write_b_s",       d.get("write_b_s", 0.0),        params.get("write_b_s"),       " kB/s"),
-        ("write_b_op",      d.get("write_b_op", 0.0),       params.get("write_b_op"),      " kB/op"),
-        ("write_retrans",   d.get("write_retrans", 0.0),    params.get("write_retrans"),   "%"),
-        ("write_avg_rtt_s", d.get("write_avg_rtt_s", 0.0), params.get("write_avg_rtt_s"), "s"),
-        ("write_avg_exe_s", d.get("write_avg_exe_s", 0.0), params.get("write_avg_exe_s"), "s"),
-    ]
+    section = _parse(res.stdout)
+    item = params.get("item", "")
+    if item not in section:
+        return {"changed": False,
+                "msg": "no such mount: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    overall = "OK"
-    msgs = []
+    values = section[item]
     metrics = {}
+    for mname in METRIC_NAMES:
+        metrics[mname] = values[mname]
 
-    for cname, value, levels, unit in checks:
-        cstate, cmsg = _check_upper(value, levels, cname, unit)
-        overall = _worst(overall, cstate)
-        msgs.append(cmsg)
-        metrics[cname] = value
+    acc = {"state": "OK"}
+    summaries = []
+    for mname in METRIC_NAMES:
+        s = _level(values[mname], params, mname, LABELS[mname], acc)
+        if s:
+            summaries.append(s)
 
-    summary = "Ops: %f/s, Read: %f kB/s, Write: %f kB/s" % (
-        d.get("op_s", 0.0), d.get("read_b_s", 0.0), d.get("write_b_s", 0.0))
+    summary = ", ".join(summaries) if summaries else item
+    details = _build_details(item, values)
 
     return {"changed": False, "msg": summary,
-            "data": {"state": overall, "metrics": metrics, "details": "\n".join(msgs)}}
+            "data": {"state": acc["state"], "metrics": metrics, "details": details}}
+
+
+def _level(value, params, pname, label, acc):
+    lvls = params.get(pname)
+    if lvls == None:
+        return ""
+    warn = lvls[0] if len(lvls) > 0 else None
+    crit = lvls[1] if len(lvls) > 1 else None
+    s = "OK"
+    if crit != None and value >= crit:
+        s = "CRIT"
+    elif warn != None and value >= warn:
+        s = "WARN"
+    if s != "OK":
+        if s == "CRIT":
+            acc["state"] = "CRIT"
+        elif s == "WARN" and acc["state"] == "OK":
+            acc["state"] = "WARN"
+    return "%s: %s" % (label, _render(value, pname))
+
+
+def _render(v, pname):
+    if pname in ("read_retrans_pct", "write_retrans_pct"):
+        return "%f%%" % v
+    if pname in ("read_avg_rtt_ms", "read_avg_exe_ms",
+                 "write_avg_rtt_ms", "write_avg_exe_ms"):
+        return "%f ms" % v
+    if pname in ("read_b_s", "write_b_s", "read_b_op", "write_b_op"):
+        return "%f B" % v
+    return "%f" % v
+
+
+def _build_details(item, values):
+    lines = [item]
+    for mname in METRIC_NAMES:
+        lines.append("  %s: %s" % (LABELS[mname], _render(values[mname], mname)))
+    return "\n".join(lines)
+
+
+def _parse(text):
+    section = {}
+    lines = text.splitlines()
+    i = 0
+    n = len(lines)
+    while i < n:
+        line = lines[i]
+        header = _find_mount_header(line)
+        if header:
+            mountname = "'" + header + "',"
+            i += 1
+            numbers1 = []
+            read_nums = []
+            write_nums = []
+            while i < n:
+                l = lines[i].strip()
+                if l == "" or l.startswith("op/s") or l.startswith("read:") or l.startswith("write:") or l.startswith("mounted on"):
+                    i += 1
+                    continue
+                parts = l.split()
+                if len(parts) >= 2 and _is_number(parts[0]):
+                    numbers1 = [_to_float(p) for p in parts[:2]]
+                    i += 1
+                    break
+                i += 1
+            while i < n:
+                l = lines[i].strip()
+                if l == "":
+                    i += 1
+                    continue
+                if l.startswith("read:"):
+                    i += 1
+                    break
+                i += 1
+            if i < n and not lines[i].strip().startswith("write:") and not lines[i].strip().startswith("mounted on"):
+                parts = lines[i].split()
+                read_nums = _extract_numbers(parts)
+                i += 1
+            while i < n:
+                l = lines[i].strip()
+                if l == "":
+                    i += 1
+                    continue
+                if l.startswith("write:"):
+                    i += 1
+                    break
+                i += 1
+            if i < n and not lines[i].strip().startswith("mounted on"):
+                parts = lines[i].split()
+                write_nums = _extract_numbers(parts)
+                i += 1
+            if len(read_nums) >= 7 and len(write_nums) >= 7:
+                section[mountname] = {
+                    "op_s": numbers1[0] if len(numbers1) > 0 else 0.0,
+                    "rpc_backlog": numbers1[1] if len(numbers1) > 1 else 0.0,
+                    "read_ops": read_nums[0],
+                    "read_b_s": read_nums[1],
+                    "read_b_op": read_nums[2],
+                    "read_retrans_pct": read_nums[4],
+                    "read_avg_rtt_ms": read_nums[5],
+                    "read_avg_exe_ms": read_nums[6],
+                    "write_ops_s": write_nums[0],
+                    "write_b_s": write_nums[1],
+                    "write_b_op": write_nums[2],
+                    "write_retrans_pct": write_nums[4],
+                    "write_avg_rtt_ms": write_nums[5],
+                    "write_avg_exe_ms": write_nums[6],
+                }
+        else:
+            i += 1
+    return section
+
+
+def _find_mount_header(line):
+    idx = line.find(" mounted on ")
+    if idx < 0:
+        return None
+    left = line[:idx]
+    if ":" not in left:
+        return None
+    return left.strip()
+
+
+def _extract_numbers(parts):
+    nums = []
+    for p in parts:
+        cleaned = p.replace("(", "").replace(")", "").replace("%", "")
+        if _is_number(cleaned):
+            nums.append(_to_float(cleaned))
+    return nums
+
+
+def _is_number(s):
+    if s == "":
+        return False
+    if s == "." or s == "-" or s == "+":
+        return False
+    # check valid float format without try
+    parts = s.split(".")
+    if len(parts) > 2:
+        return False
+    for seg in parts:
+        if seg == "":
+            continue
+        if seg[0] in "+-":
+            seg = seg[1:]
+        if seg == "":
+            return False
+        for ch in seg:
+            if ch < "0" or ch > "9":
+                return False
+    return True
+
+
+def _to_float(s):
+    if s == None:
+        return 0.0
+    sign = 1.0
+    idx = 0
+    if s[0] == "+":
+        idx = 1
+    elif s[0] == "-":
+        sign = -1.0
+        idx = 1
+    rest = s[idx:]
+    if "." in rest:
+        ip, frac = rest.split(".", 1)
+    else:
+        ip, frac = rest, ""
+    ip_val = _str_to_int(ip)
+    frac_val = 0.0
+    if frac:
+        frac_val = _str_to_int(frac) / (_ipow(10, len(frac)))
+    return sign * (ip_val + frac_val)
+
+
+def _str_to_int(s):
+    if s == "":
+        return 0
+    val = 0
+    for ch in s:
+        val = val * 10 + (_ord(ch) - _ord("0"))
+    return val
+
+
+def _ord(ch):
+    o = 0
+    base = "0"
+    while o < 256:
+        if ch == base:
+            return o
+        o += 1
+        base = chr(o)
+    return 0
+
+
+def _ipow(b, e):
+    result = 1
+    for _ in range(e):
+        result = result * b
+    return result

@@ -1,194 +1,193 @@
-# ===== Starlark check module: liebert_temp_general =====
-# Read-only: never mutates; discovers and reports fluid temperatures from Liebert units
-
-# OID base for the liebert_temp_general SNMP section
-_LIEBERT_TEMP_BASE = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-
-def _temperature_to_celsius(value, unit):
-    if value == None:
-        return None
-    if unit == None:
-        return None
-    # Attempt to parse as float using string methods
-    if type(value) == "int" or type(value) == "float":
-        v = float(value)
-    else:
-        if not (value.strip().find(".") >= 0 or value.strip().isdigit()):
-            return None
-        v = float(value)
-    u = unit.replace("deg ", "").lower()
-    if u == "c" or u == "%":
-        return v
-    elif u == "f":
-        return (v - 32) * (5.0 / 9.0)
-    elif u == "k":
-        return v - 273.15
-    else:
-        return None
-
-def _snmp_parse_lines(lines):
-    parsed = []
-    for line in lines:
-        if line == "":
-            continue
-        eq_pos = line.find("=")
-        if eq_pos < 0:
-            continue
-        oid_part = line[:eq_pos].strip()
-        rest = line[eq_pos + 1:].strip()
-        colon_pos = rest.find(":")
-        if colon_pos < 0:
-            continue
-        type_val = rest[:colon_pos].strip()
-        val_part = rest[colon_pos + 1:].strip()
-        oid_tokens = oid_part.split(".")
-        index = ""
-        for t in oid_tokens:
-            if t.isdigit():
-                index = t
-        parsed.append((oid_part, type_val, val_part, index))
-    return parsed
-
-def _build_section(parsed_triples):
-    sections = {}
-    for entry in parsed_triples:
-        oid = entry[0]
-        type_val = entry[1]
-        val = entry[2]
-        idx = entry[3]
-        if idx == "":
-            continue
-        if not idx in sections:
-            sections[idx] = {"name": None, "value": None, "unit": None}
-        if oid.startswith(_LIEBERT_TEMP_BASE + ".10.1.2.2."):
-            sections[idx]["name"] = val.strip()
-        elif oid.startswith(_LIEBERT_TEMP_BASE + ".20.1.2.2."):
-            sections[idx]["value"] = val
-        elif oid.startswith(_LIEBERT_TEMP_BASE + ".30.1.2.2."):
-            sections[idx]["unit"] = val.strip()
-        elif oid.startswith(_LIEBERT_TEMP_BASE + ".10.1.2.1."):
-            sections[idx]["name"] = val.strip()
-        elif oid.startswith(_LIEBERT_TEMP_BASE + ".20.1.2.1."):
-            sections[idx]["value"] = val
-        elif oid.startswith(_LIEBERT_TEMP_BASE + ".30.1.2.1."):
-            sections[idx]["unit"] = val.strip()
-    result = {}
-    for idx in sections:
-        data = sections[idx]
-        name = data["name"]
-        if name == None or name == "":
-            continue
-        name = name.strip()
-        if name == "":
-            continue
-        value = data["value"]
-        unit = data["unit"]
-        if value == None or value == "" or unit == None or unit == "":
-            continue
-        celsius = _temperature_to_celsius(value, unit)
-        if celsius == None:
-            continue
-        result[name] = (celsius, unit)
-    return result
-
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+
+    base = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+
+    name_oid = base + ".10"
+    value_oid = base + ".20"
+    unit_oid = base + ".30"
+
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On",
-            host,
-            _LIEBERT_TEMP_BASE
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed",
-                "data": {"discovery": []}
-            }
-        lines = res.stdout.splitlines()
-        parsed = _snmp_parse_lines(lines)
-        section = _build_section(parsed)
+        sys_oid = ".1.3.6.1.2.1.1.2.0"
+        probe = ctx.run(
+            ["snmpget", "-" + version, "-c", community, "-Ovqn", host, sys_oid],
+            mutates=False,
+        )
+        if probe.rc != 0 or probe.stdout == "":
+            return {"changed": False, "msg": "no Liebert device detected",
+                    "data": {"discovery": []}}
+        sys_val = probe.stdout.strip()
+        if not sys_val.endswith(".476.1.42"):
+            prefix = ".1.3.6.1.4.1.476.1.42"
+            if not (sys_val.startswith(prefix + ".") or sys_val == prefix):
+                return {"changed": False, "msg": "not a Liebert device",
+                        "data": {"discovery": []}}
+
+        walk_names = ctx.run(
+            ["snmpwalk", "-" + version, "-c", community, "-On", host, name_oid],
+            mutates=False,
+        )
+        if walk_names.rc != 0 or walk_names.stdout == "":
+            return {"changed": False, "msg": "no Liebert temperature sensors",
+                    "data": {"discovery": []}}
+
+        names = {}
+        for line in walk_names.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp + 1:].strip()
+            if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"":
+                val = val[1:-1]
+            idx = oid[len(name_oid) + 1:]
+            if idx == "":
+                continue
+            names[idx] = val
+
+        if len(names) == 0:
+            return {"changed": False, "msg": "no Liebert temperature sensors",
+                    "data": {"discovery": []}}
+
         discovery = []
-        for item in section:
-            discovery.append({
-                "item": item,
-                "params": {},
-                "metrics": ["temperature"]
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d fluid temperatures" % len(discovery),
-            "data": {"discovery": discovery}
-        }
+        seen = {}
+        for idx in sorted(names.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split(".")]):
+            n = names[idx]
+            if n in seen:
+                cnt = 2
+                nn = n + " " + str(cnt)
+                while nn in seen:
+                    cnt = cnt + 1
+                    nn = n + " " + str(cnt)
+                n = nn
+            seen[n] = True
+            discovery.append({"item": n, "params": {}, "metrics": ["temperature"]})
+
+        return {"changed": False, "msg": "discovered %d sensors" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        _LIEBERT_TEMP_BASE
-    ], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    lines = res.stdout.splitlines()
-    parsed = _snmp_parse_lines(lines)
-    section = _build_section(parsed)
-    if not item in section:
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    tuple_entry = section[item]
-    celsius = tuple_entry[0]
-    unit = tuple_entry[1]
-    warn = params.get("levels_upper", None)
-    if warn == None:
-        warn_warn = None
-        warn_crit = None
+    warn = params.get("warn", 40)
+    crit = params.get("crit", 60)
+    levels = params.get("levels")
+    if levels != None and len(levels) == 2:
+        warn = levels[0]
+        crit = levels[1]
+
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    probe = ctx.run(
+        ["snmpget", "-" + version, "-c", community, "-Ovqn", host, sys_oid],
+        mutates=False,
+    )
+    if probe.rc != 0 or probe.stdout == "":
+        return {"changed": False, "msg": "no Liebert device detected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sys_val = probe.stdout.strip()
+    prefix = ".1.3.6.1.4.1.476.1.42"
+    if not (sys_val.startswith(prefix + ".") or sys_val == prefix):
+        return {"changed": False, "msg": "not a Liebert device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    walk_names = ctx.run(
+        ["snmpwalk", "-" + version, "-c", community, "-On", host, name_oid],
+        mutates=False,
+    )
+    if walk_names.rc != 0 or walk_names.stdout == "":
+        return {"changed": False, "msg": "no Liebert temperature sensors",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    names = {}
+    for line in walk_names.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:].strip()
+        if len(val) >= 2 and val[0] == val[-1] and val[0] in "\"":
+            val = val[1:-1]
+        idx = oid[len(name_oid) + 1:]
+        if idx == "":
+            continue
+        names[idx] = val
+
+    seen = {}
+    idx_to_name = {}
+    for idx in sorted(names.keys(), key=lambda x: [int(p) if p.isdigit() else p for p in x.split(".")]):
+        n = names[idx]
+        if n in seen:
+            cnt = 2
+            nn = n + " " + str(cnt)
+            while nn in seen:
+                cnt = cnt + 1
+                nn = n + " " + str(cnt)
+            n = nn
+        seen[n] = True
+        idx_to_name[idx] = n
+
+    target_idx = None
+    for idx in idx_to_name:
+        if idx_to_name[idx] == item:
+            target_idx = idx
+            break
+
+    if target_idx == None:
+        return {"changed": False, "msg": "no such sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    val_res = ctx.run(
+        ["snmpget", "-" + version, "-c", community, "-Oqv", host,
+         value_oid + "." + target_idx],
+        mutates=False,
+    )
+    if val_res.rc != 0 or val_res.stdout == "":
+        return {"changed": False, "msg": "no value for sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    val_str = val_res.stdout.strip()
+    if val_str == "Unavailable" or val_str == "":
+        return {"changed": False, "msg": item + " unavailable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    val = 0.0
+    try_parse = val_str
+    try_dec = None
+    if try_parse.replace(".", "", 1).isdigit() and try_parse.count(".") <= 1:
+        val = float(try_parse)
+        try_dec = val
     else:
-        if type(warn) == "list" and len(warn) == 2:
-            warn_warn = warn[0]
-            warn_crit = warn[1]
-        else:
-            warn_warn = None
-            warn_crit = None
-    if params.get("warn") != None:
-        warn_warn = params.get("warn")
-    if params.get("crit") != None:
-        warn_crit = params.get("crit")
+        try_dec = None
+
+    unit_res = ctx.run(
+        ["snmpget", "-" + version, "-c", community, "-Oqv", host,
+         unit_oid + "." + target_idx],
+        mutates=False,
+    )
+    unit = "deg C"
+    if unit_res.rc == 0 and unit_res.stdout != "":
+        u = unit_res.stdout.strip()
+        if len(u) >= 2 and u[0] == u[-1] and u[0] in "\"":
+            u = u[1:-1]
+        unit = u
+
+    celsius = val
+    u_norm = unit.replace("deg ", "").lower()
+    if u_norm == "f":
+        celsius = (val - 32) * (5.0 / 9.0)
+    elif u_norm == "k":
+        celsius = val - 273.15
+    elif u_norm != "c" and u_norm != "%":
+        return {"changed": False,
+                "msg": "unknown unit for " + item + ": " + unit,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     state = "OK"
-    if warn_warn != None and celsius >= warn_warn:
-        state = "WARN"
-    if warn_crit != None and celsius >= warn_crit:
+    if celsius >= crit:
         state = "CRIT"
-    details = "Temperature: %f C" % celsius
-    return {
-        "changed": False,
-        "msg": details,
-        "data": {
-            "state": state,
-            "metrics": {"temperature": celsius},
-            "details": details
-        }
-    }
+    elif celsius >= warn:
+        state = "WARN"
+
+    return {"changed": False,
+            "msg": "%s: %f deg C" % (item, celsius),
+            "data": {"state": state, "metrics": {"temperature": celsius},
+                     "details": "Unit: " + unit}}

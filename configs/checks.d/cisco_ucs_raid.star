@@ -1,6 +1,6 @@
-# Mapping from SNMP operability string to (state_code, status_text)
-# Based on MAP_OPERABILITY in cmk.plugins.cisco.lib_ucs
-OPERABILITY_MAP = {
+# Map from Cisco UCS operability code to (State index, label).
+# State index: 0 = OK, 1 = WARN, 2 = CRIT.
+MAP_OPERABILITY = {
     "0": (2, "unknown"),
     "1": (0, "operable"),
     "2": (2, "inoperable"),
@@ -33,102 +33,209 @@ OPERABILITY_MAP = {
     "108": (1, "linkActivateBlocked"),
 }
 
+# SysOID base for Cisco UCS platforms the check detects.
+CISCO_UCS_SYOID = ".1.3.6.1.4.1.9."
+
+# SNMP base OID for the RAID controller table.
+RAID_BASE = ".1.3.6.1.4.1.9.9.719.1.45.1.1"
+
+# OID suffixes within the RAID table (relative to RAID_BASE).
+OID_MODEL = "5"
+OID_OPERABILITY = "7"
+OID_SERIAL = "14"
+OID_VENDOR = "17"
+
+# String-to-state mapping.
+STATE_OK = "OK"
+STATE_WARN = "WARN"
+STATE_CRIT = "CRIT"
+STATE_UNKNOWN = "UNKNOWN"
+
+STATE_BY_INDEX = {0: STATE_OK, 1: STATE_WARN, 2: STATE_CRIT}
+
+
+def _state_name(idx):
+    return STATE_BY_INDEX.get(idx, STATE_UNKNOWN)
+
+
+def _probe_snmpget(ctx, community, host, oid):
+    return ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+
+
+def _probe_sysdesc(ctx, community, host):
+    # sysDescr (.1.3.6.1.2.1.1.1.0) lets us confirm this is a Cisco UCS device.
+    return ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+
+
+def _probe_sysoid(ctx, community, host):
+    # sysObjectID (.1.3.6.1.2.1.1.2.0) is what Checkmk's DETECT matches on.
+    return ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+
+
+def _sysoid_matches(sysoid):
+    # Checkmk DETECT matches sysObjectID against a set of Cisco UCS prefixes.
+    if sysoid == None or sysoid == "":
+        return False
+    for prefix in [
+        ".1.3.6.1.4.1.9.1.1682",
+        ".1.3.6.1.4.1.9.1.1683",
+        ".1.3.6.1.4.1.9.1.1684",
+        ".1.3.6.1.4.1.9.1.1685",
+        ".1.3.6.1.4.1.9.1.2178",
+        ".1.3.6.1.4.1.9.1.2179",
+        ".1.3.6.1.4.1.9.1.2424",
+        ".1.3.6.1.4.1.9.1.2492",
+        ".1.3.6.1.4.1.9.1.2493",
+        ".1.3.6.1.4.1.9.1.3100",
+    ]:
+        if sysoid == prefix:
+            return True
+    return False
+
+
+def _snmp_available(ctx, community, host):
+    # Probe for the real thing: snmpget must exist (rc != 127) and respond.
+    res = _probe_sysoid(ctx, community, host)
+    if res.rc == 127:
+        return False
+    if res.rc != 0:
+        return False
+    return True
+
+
+def _fetch_raid(ctx, community, host):
+    model = ""
+    operability_code = ""
+    serial = ""
+    vendor = ""
+    ok = True
+
+    res = _probe_snmpget(ctx, community, host, RAID_BASE + "." + OID_MODEL)
+    if res.rc == 127 or res.rc != 0:
+        ok = False
+        model = ""
+    else:
+        model = res.stdout.strip()
+
+    res = _probe_snmpget(ctx, community, host, RAID_BASE + "." + OID_OPERABILITY)
+    if res.rc == 127 or res.rc != 0:
+        ok = False
+        operability_code = ""
+    else:
+        operability_code = res.stdout.strip()
+
+    res = _probe_snmpget(ctx, community, host, RAID_BASE + "." + OID_SERIAL)
+    if res.rc == 127 or res.rc != 0:
+        ok = False
+        serial = ""
+    else:
+        serial = res.stdout.strip()
+
+    res = _probe_snmpget(ctx, community, host, RAID_BASE + "." + OID_VENDOR)
+    if res.rc == 127 or res.rc != 0:
+        ok = False
+        vendor = ""
+    else:
+        vendor = res.stdout.strip()
+
+    if not ok:
+        return {"ok": False, "model": "", "operability_code": "", "serial": "", "vendor": ""}
+
+    return {
+        "ok": True,
+        "model": model,
+        "operability_code": operability_code,
+        "serial": serial,
+        "vendor": vendor,
+    }
+
+
 def main(ctx, params):
-    # Discovery mode: only one service always exists
     if params.get("_discover"):
+        community = params.get("community", "public")
+        host = params.get("host", "localhost")
+
+        # Probe for the real thing: is snmp available and is this a Cisco UCS device?
+        if not _snmp_available(ctx, community, host):
+            return {"changed": False, "msg": "no snmp agent reachable",
+                    "data": {"discovery": []}}
+
+        sysoid_res = _probe_sysoid(ctx, community, host)
+        sysoid = sysoid_res.stdout.strip() if sysoid_res.rc == 0 else ""
+        if not _sysoid_matches(sysoid):
+            return {"changed": False, "msg": "not a cisco ucs device",
+                    "data": {"discovery": []}}
+
+        raid = _fetch_raid(ctx, community, host)
+        if not raid.get("ok", False):
+            return {"changed": False, "msg": "cisco ucs raid data unavailable",
+                    "data": {"discovery": []}}
+
         return {
             "changed": False,
             "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
+            "data": {
+                "discovery": [
+                    {
+                        "item": "RAID Controller",
+                        "params": {},
+                        "metrics": [],
+                    }
+                ],
+            },
         }
 
-    # Check mode: get RAID controller info via SNMP
+    # Check mode: evaluate the single RAID Controller service (item ""]).
     community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    # Query the RAID controller section:
-    # .1.3.6.1.4.1.9.9.719.1.45.1.1.5 = cucsRaidControllerModel
-    # .1.3.6.1.4.1.9.9.719.1.45.1.1.7 = cucsRaidControllerOperability
-    # .1.3.6.1.4.1.9.9.719.1.45.1.1.14 = cucsRaidControllerSerial
-    # .1.3.6.1.4.1.9.9.719.1.45.1.1.17 = cucsRaidControllerVendor
-    base_oid = ".1.3.6.1.4.1.9.9.719.1.45.1.1"
-    
-    oids = ["5", "7", "14", "17"]
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, base_oid
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP error: " + res.stderr.strip(),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    # Parse SNMP output to find our OIDs
-    model = ""
-    operability_str = ""
-    serial = ""
-    vendor = ""
-    
-    for line in res.stdout.splitlines():
-        if not line:
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        
-        # Extract value type and content (e.g., "STRING: value" or "STRING: "value"")
-        if value_part.startswith("STRING: "):
-            value = value_part[8:].strip().strip('"')
-        else:
-            value = value_part
-        
-        # Match specific OID suffixes
-        if oid_part.endswith(".5"):
-            model = value
-        elif oid_part.endswith(".7"):
-            operability_str = value.strip()
-        elif oid_part.endswith(".14"):
-            serial = value
-        elif oid_part.endswith(".17"):
-            vendor = value
 
-    # Ensure we have data
-    if not model:
-        return {
-            "changed": False,
-            "msg": "no RAID controller data found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if not _snmp_available(ctx, community, host):
+        return {"changed": False, "msg": "no snmp agent reachable",
+                "data": {"state": STATE_UNKNOWN, "metrics": {}, "details": ""}}
 
-    # Map operability to state code and status text
-    state_code = 2  # default to CRIT
-    status_text = "unknown"
-    if operability_str in OPERABILITY_MAP:
-        state_code, status_text = OPERABILITY_MAP[operability_str]
-    
-    # Determine Checkmk state
-    state_str = "OK" if state_code == 0 else ("WARN" if state_code == 1 else "CRIT")
+    sysoid_res = _probe_sysoid(ctx, community, host)
+    sysoid = sysoid_res.stdout.strip() if sysoid_res.rc == 0 else ""
+    if not _sysoid_matches(sysoid):
+        return {"changed": False, "msg": "not a cisco ucs device",
+                "data": {"state": STATE_UNKNOWN, "metrics": {}, "details": ""}}
 
-    # Build summary message
-    msg_parts = []
-    msg_parts.append("Status: %s" % status_text)
-    msg_parts.append("Model: %s" % model)
-    msg_parts.append("Vendor: %s" % vendor)
-    msg_parts.append("Serial number: %s" % serial)
-    summary = ", ".join(msg_parts)
+    raid = _fetch_raid(ctx, community, host)
+    if not raid.get("ok", False):
+        return {"changed": False, "msg": "cisco ucs raid data unavailable",
+                "data": {"state": STATE_UNKNOWN, "metrics": {}, "details": ""}}
+
+    operability_code = raid.get("operability_code", "")
+
+    if operability_code not in MAP_OPERABILITY:
+        return {"changed": False,
+                "msg": "unknown operability code: %s" % operability_code,
+                "data": {"state": STATE_UNKNOWN, "metrics": {}, "details": ""}}
+
+    state_idx, operability_label = MAP_OPERABILITY[operability_code]
+    state = _state_name(state_idx)
+
+    model = raid.get("model", "")
+    vendor = raid.get("vendor", "")
+    serial = raid.get("serial", "")
+
+    summary = "Status: %s" % operability_label
+    details = "Model: %s\nVendor: %s\nSerial number: %s" % (model, vendor, serial)
 
     return {
         "changed": False,
         "msg": summary,
         "data": {
-            "state": state_str,
+            "state": state,
             "metrics": {},
-            "details": "",
+            "details": details,
         },
     }

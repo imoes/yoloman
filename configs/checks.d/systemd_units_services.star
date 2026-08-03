@@ -1,186 +1,382 @@
-def _format_bytes(b):
-    for unit in ["B", "KB", "MB", "GB", "TB"]:
-        if abs(b) < 1024.0:
-            return "%f %s" % (b, unit)
-        b = b / 1024.0
-    return "%f %s" % (b, "PB")
+SYSTEMD_UNIT_SUFFIXES = ["service", "socket"]
 
-def _format_timespan(s):
-    s = int(s)
-    parts = []
-    for unit, name in [(60, "min"), (60, "h"), (24, "d"), (365, "y")]:
-        if s >= unit:
-            val = s // unit
-            parts.insert(0, "%d %s" % (val, name))
-            s = s % unit
-    if s > 0 or len(parts) == 0:
-        parts.insert(0, "%d s" % s)
-    return " ".join(parts)
+# systemctl list-unit-files recognized "LoadState" file states
+_SYSTEMD_UNIT_FILE_STATES = [
+    "enabled",
+    "enabled-runtime",
+    "linked",
+    "linked-runtime",
+    "masked",
+    "masked-runtime",
+    "static",
+    "indirect",
+    "disabled",
+    "generated",
+    "transient",
+    "bad",
+]
+
+# default check states mapping (Checkmk defaults)
+_DEFAULT_STATES = {"active": 0, "inactive": 0, "failed": 2}
+_DEFAULT_STATES_DEFAULT = 2
+_DEFAULT_ELSE = 2
+
+# skip the volatile Checkmk agent unit
+_SKIPPED_PREFIX = "check-mk-agent@"
+
+
+def _has_systemctl(ctx):
+    res = ctx.run(["systemctl", "--version"], mutates=False)
+    return res.rc != 127
+
+
+def _list_units(ctx, unit_type):
+    res = ctx.run(
+        ["systemctl", "list-units", "--type=" + unit_type, "--all", "--no-legend", "--plain"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        f = line.split()
+        if len(f) < 4:
+            continue
+        rows.append(f)
+    return rows
+
+
+def _unit_name_and_type(raw):
+    for ut in SYSTEMD_UNIT_SUFFIXES:
+        suffix = "." + ut
+        if raw.endswith(suffix):
+            return raw[:-len(suffix)], ut
+    return None
+
+
+def _show_unit(ctx, unit_name, unit_type):
+    full = unit_name + "." + unit_type
+    props = "Id,LoadState,ActiveState,SubState,Description,UnitFileState," + \
+            "MemoryCurrent,CPUUsageNSec,TasksCurrent,StateChangeTimestampMonotonic"
+    res = ctx.run(
+        ["systemctl", "show", full, "--property=" + props],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout.strip():
+        return None
+    block = {}
+    for line in res.stdout.splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        block[key] = value
+    return block
+
+
+def _to_int(raw):
+    if not raw:
+        return None
+    raw = raw.strip()
+    if raw == "[not set]" or raw == "0":
+        return None
+    # handle negative sentinel (uint64 max / -1)
+    if raw.startswith("-"):
+        return None
+    digits = raw.lstrip("-")
+    if not digits.isdigit():
+        return None
+    val = int(raw)
+    if val < 0:
+        return None
+    return val
+
+
+def _to_float(raw):
+    if not raw:
+        return None
+    raw = raw.strip()
+    if not raw:
+        return None
+    parts = raw.split(".")
+    ok = True
+    for p in parts:
+        if not p.isdigit():
+            ok = False
+            break
+    if not ok:
+        return None
+    return float(raw)
+
+
+def _uptime(ctx):
+    res = ctx.run(["systemctl", "show", "-", "--property=ActiveEnterTimestampMonotonic"],
+                  mutates=False)
+    if res.rc == 0 and res.stdout.strip():
+        for line in res.stdout.splitlines():
+            if "=" in line:
+                _, value = line.split("=", 1)
+                v = _to_int(value.strip())
+                if v != None:
+                    return v / 1000000.0
+    # fallback: read /proc/uptime
+    if ctx.file_exists("/proc/uptime"):
+        content = ctx.file_read("/proc/uptime")
+        parts = content.split()
+        v = _to_float(parts[0]) if len(parts) > 0 else None
+        if v != None:
+            return v
+    return 0.0
+
+
+def _discover(ctx, unit_type):
+    if not _has_systemctl(ctx):
+        return []
+    uptime_seconds = _uptime(ctx)
+    rows = _list_units(ctx, unit_type)
+    entries = []
+    for f in rows:
+        unit_id = f[0].strip()
+        if unit_id.startswith(_SKIPPED_PREFIX):
+            continue
+        name_type = _unit_name_and_type(unit_id)
+        if name_type == None:
+            continue
+        name, ut = name_type
+        if ut != unit_type:
+            continue
+        active_status = f[2]
+        loaded_status = f[1]
+        sub_state = f[3]
+        block = _show_unit(ctx, name, unit_type)
+        if block == None:
+            entries.append({
+                "name": name,
+                "loaded": loaded_status,
+                "active": active_status,
+                "sub": sub_state,
+                "description": "",
+                "enabled": None,
+                "memory": None,
+                "cpu_seconds": None,
+                "tasks": None,
+                "time_since_change": None,
+            })
+        else:
+            entries.append(_parse_show_block(block, uptime_seconds))
+    return entries
+
+
+def _parse_show_block(block, uptime_seconds):
+    unit_id = block.get("Id", "")
+    if not unit_id:
+        return None
+    name_type = _unit_name_and_type(unit_id)
+    if name_type == None:
+        return None
+
+    memory = _to_int(block.get("MemoryCurrent"))
+    cpu_ns = _to_int(block.get("CPUUsageNSec"))
+    cpu_seconds = cpu_ns / 1000000000.0 if cpu_ns != None else None
+    tasks = _to_int(block.get("TasksCurrent"))
+    enabled = block.get("UnitFileState") or None
+    if enabled and enabled not in _SYSTEMD_UNIT_FILE_STATES:
+        enabled = None
+
+    time_since_change = None
+    sc = block.get("StateChangeTimestampMonotonic")
+    ts_us = _to_int(sc)
+    if ts_us != None and ts_us > 0:
+        elapsed = uptime_seconds - ts_us / 1000000.0
+        if elapsed >= 0:
+            time_since_change = elapsed
+
+    return {
+        "name": block.get("Id", "")[:-len("." + name_type[1])] if name_type else "",
+        "loaded": block.get("LoadState", ""),
+        "active": block.get("ActiveState", ""),
+        "sub": block.get("SubState", ""),
+        "description": block.get("Description", ""),
+        "enabled": enabled,
+        "memory": memory,
+        "cpu_seconds": cpu_seconds,
+        "tasks": tasks,
+        "time_since_change": time_since_change,
+    }
+
+
+def _match_regex(pattern, text):
+    return False
+
+
+def _grade_state(active_status, states, states_default):
+    val = states.get(active_status, states_default)
+    if val == 0:
+        return "OK"
+    if val == 1:
+        return "WARN"
+    return "CRIT"
+
+
+def _check_levels(value, levels_upper, levels_lower):
+    if value == None:
+        return "OK", None
+    if levels_upper:
+        w = levels_upper[0]
+        c = levels_upper[1]
+        if value >= c:
+            return "CRIT", value
+        if value >= w:
+            return "WARN", value
+    if levels_lower:
+        w = levels_lower[0]
+        c = levels_lower[1]
+        if value <= c:
+            return "CRIT", value
+        if value <= w:
+            return "WARN", value
+    return "OK", value
+
+
+def _worst_state(states):
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    worst = "OK"
+    for s in states:
+        if order.get(s, 0) > order.get(worst, 0):
+            worst = s
+    return worst
+
+
+def _match_rule(entry, names, descriptions, states):
+    if names:
+        hit = False
+        for n in names:
+            if n.startswith("~"):
+                if _match_regex(n[1:], entry["name"]):
+                    hit = True
+                    break
+            elif n == entry["name"]:
+                hit = True
+                break
+        if not hit:
+            return False
+    if descriptions:
+        hit = False
+        for d in descriptions:
+            if d.startswith("~"):
+                if _match_regex(d[1:], entry["description"]):
+                    hit = True
+                    break
+            elif d == entry["description"]:
+                hit = True
+                break
+        if not hit:
+            return False
+    if states:
+        if entry["active"] not in states:
+            return False
+    return True
+
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run(["systemctl", "list-units", "--type=service", "--no-legend", "--no-pager"], mutates=False)
-        discovery = []
-        for line in res.stdout.splitlines():
-            fields = line.split()
-            if len(fields) >= 4:
-                unit = fields[0]
-                if unit.endswith(".service"):
-                    name = unit[:-8]
-                else:
-                    continue
-                if name.find("check-mk-agent@") == 0:
-                    continue
-                res_status = ctx.run(["systemctl", "show", unit, "--property=ActiveState,SubState,Description,CPUUsageNSec,MemoryCurrent,TasksCurrent,StateChangeTimestampMonotonic"], mutates=False)
-                status = {"ActiveState": "", "SubState": "", "Description": ""}
-                for st_line in res_status.stdout.splitlines():
-                    if st_line.find("=") != -1:
-                        k, v = st_line.split("=", 1)
-                        status[k] = v.strip()
-                item_params = {
-                    "states": {
-                        "active": 0,
-                        "inactive": 0,
-                        "failed": 2,
-                    },
-                    "states_default": 2,
-                }
-                discovery.append({
-                    "item": name,
-                    "params": item_params,
-                    "metrics": ["cpu_time", "active_since", "mem_used", "number_of_tasks"]
-                })
-        return {"changed": False, "msg": "discovered %d services" % len(discovery),
-                "data": {"discovery": discovery}}
+        unit_type = params.get("unit_type", "service")
+        names = params.get("names", [])
+        descriptions = params.get("descriptions", [])
+        states = params.get("states", [])
 
+        entries = _discover(ctx, unit_type)
+        out = []
+        for entry in entries:
+            if _match_rule(entry, names, descriptions, states):
+                out.append({
+                    "item": entry["name"],
+                    "params": {},
+                    "metrics": ["cpu_time", "mem_used", "number_of_tasks", "active_since"],
+                })
+        return {
+            "changed": False,
+            "msg": "discovered %d units" % len(out),
+            "data": {"discovery": out},
+        }
+
+    unit_type = params.get("unit_type", "service")
     item = params.get("item", "")
-    unit_name = item + ".service"
-    
-    res_exists = ctx.run(["systemctl", "is-active", unit_name], mutates=False)
-    if res_exists.rc != 0:
-        else_state = params.get("else", 2)
-        state_str = "CRIT" if else_state == 2 else ("WARN" if else_state == 1 else "OK")
+
+    if not _has_systemctl(ctx):
+        return {
+            "changed": False,
+            "msg": "systemctl not found (systemd not running)",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    uptime_seconds = _uptime(ctx)
+    entries = _discover(ctx, unit_type)
+
+    target = None
+    for e in entries:
+        if e["name"] == item:
+            target = e
+            break
+
+    if target == None:
+        else_state = params.get("else", _DEFAULT_ELSE)
+        state = "OK" if else_state == 0 else ("WARN" if else_state == 1 else "CRIT")
         return {
             "changed": False,
             "msg": "Unit not found",
             "data": {
-                "state": state_str,
+                "state": state,
                 "metrics": {},
-                "details": "Only units currently in memory are found. These can be shown with `systemctl --all --type service --type socket`."
-            }
+                "details": "Only units currently in memory are found. These can be shown with `systemctl --all --type service --type socket`.",
+            },
         }
-    
-    res_show = ctx.run(["systemctl", "show", unit_name, "--property=ActiveState,Description,CPUUsageNSec,MemoryCurrent,TasksCurrent,StateChangeTimestampMonotonic"], mutates=False)
-    props = {}
-    for line in res_show.stdout.splitlines():
-        if line.find("=") != -1:
-            key, val = line.split("=", 1)
-            props[key] = val.strip()
-    
-    active_status = props.get("ActiveState", "")
-    description = props.get("Description", "")
-    
-    states = params.get("states", {"active": 0, "inactive": 0, "failed": 2})
-    state_val = states.get(active_status, params.get("states_default", 2))
-    if state_val == 2:
-        state_str = "CRIT"
-    elif state_val == 1:
-        state_str = "WARN"
-    else:
-        state_str = "OK"
-    
+
+    states_map = params.get("states", _DEFAULT_STATES)
+    states_default = params.get("states_default", _DEFAULT_STATES_DEFAULT)
+    state = _grade_state(target["active"], states_map, states_default)
+
     metrics = {}
-    details = []
-    
-    cpu_ns_str = props.get("CPUUsageNSec")
-    if cpu_ns_str and cpu_ns_str != "":
-        if cpu_ns_str.isdigit():
-            cpu_ns = int(cpu_ns_str)
-            if cpu_ns != 18446744073709551615:
-                cpu_seconds = float(cpu_ns) / 1000000000.0
-                metrics["cpu_time"] = cpu_seconds
-                details.append("CPU Time: %f s" % cpu_seconds)
-                cpu_levels = params.get("cpu_time")
-                if cpu_levels != None:
-                    warn_val, crit_val = cpu_levels
-                    if crit_val != None and cpu_seconds >= crit_val:
-                        state_str = "CRIT"
-                    elif warn_val != None and cpu_seconds >= warn_val:
-                        state_str = "WARN" if state_str != "CRIT" else state_str
-        else:
-            cpu_ns = 0
-    
-    mem_str = props.get("MemoryCurrent")
-    if mem_str and mem_str != "":
-        if mem_str.isdigit():
-            mem_bytes = int(mem_str)
-            if mem_bytes != 18446744073709551615:
-                metrics["mem_used"] = mem_bytes
-                details.append("Memory: %s" % _format_bytes(mem_bytes))
-                mem_levels = params.get("memory")
-                if mem_levels != None:
-                    warn_val, crit_val = mem_levels
-                    if crit_val != None and mem_bytes >= crit_val:
-                        state_str = "CRIT"
-                    elif crit_val == None and warn_val != None and mem_bytes >= warn_val:
-                        state_str = "WARN" if state_str != "CRIT" else state_str
-        else:
-            mem_bytes = 0
-    
-    tasks_str = props.get("TasksCurrent")
-    if tasks_str and tasks_str != "":
-        if tasks_str.isdigit():
-            tasks = int(tasks_str)
-            if tasks != 18446744073709551615:
-                metrics["number_of_tasks"] = tasks
-                details.append("Tasks: %d" % tasks)
-        else:
-            tasks = 0
-    
-    if active_status == "active":
-        timestamp_str = props.get("StateChangeTimestampMonotonic")
-        if timestamp_str and timestamp_str != "":
-            if timestamp_str.isdigit():
-                ts_us = int(timestamp_str)
-                if ts_us > 0:
-                    res_uptime = ctx.run(["cat", "/proc/uptime"], mutates=False)
-                    if res_uptime.rc == 0:
-                        uptime_str = res_uptime.stdout.split()[0]
-                        if uptime_str.find(".") != -1:
-                            uptime_parts = uptime_str.split(".")
-                            if uptime_parts[0].isdigit() and uptime_parts[1].isdigit():
-                                uptime = float(uptime_parts[0]) + float("." + uptime_parts[1])
-                            else:
-                                uptime = 0.0
-                        elif uptime_str.isdigit():
-                            uptime = float(uptime_str)
-                        else:
-                            uptime = 0.0
-                        
-                        elapsed = uptime - (float(ts_us) / 1000000.0)
-                        if elapsed >= 0:
-                            metrics["active_since"] = elapsed
-                            details.append("Active since: %s" % _format_timespan(elapsed))
-                            active_levels = params.get("active_since_lower")
-                            if active_levels != None:
-                                warn_val, crit_val = active_levels
-                                if crit_val != None and elapsed <= crit_val:
-                                    state_str = "CRIT"
-                                elif warn_val != None and elapsed <= warn_val:
-                                    state_str = "WARN" if state_str != "CRIT" else state_str
-            else:
-                ts_us = 0
-    
-    msg = "Status: %s, %s" % (active_status, description)
-    if len(details) > 0:
-        msg += ", " + ", ".join(details)
-    
+    details_parts = ["Status: %s" % target["active"]]
+    verdict_states = [state]
+
+    if target["cpu_seconds"] != None:
+        cpu_levels = params.get("cpu_time")
+        s, _ = _check_levels(target["cpu_seconds"], cpu_levels, None)
+        if s != "OK":
+            verdict_states.append(s)
+        metrics["cpu_time"] = target["cpu_seconds"]
+        details_parts.append("CPU Time: %fs" % target["cpu_seconds"])
+
+    if target["time_since_change"] != None and target["active"] == "active":
+        lower = params.get("active_since_lower")
+        upper = params.get("active_since_upper")
+        s, _ = _check_levels(target["time_since_change"], upper, lower)
+        if s != "OK":
+            verdict_states.append(s)
+        metrics["active_since"] = target["time_since_change"]
+        details_parts.append("Active since: %fs" % target["time_since_change"])
+
+    if target["memory"] != None:
+        mem_levels = params.get("memory")
+        s, _ = _check_levels(target["memory"], mem_levels, None)
+        if s != "OK":
+            verdict_states.append(s)
+        metrics["mem_used"] = target["memory"]
+        details_parts.append("Memory: %d B" % target["memory"])
+
+    if target["tasks"] != None:
+        metrics["number_of_tasks"] = target["tasks"]
+        details_parts.append("Tasks: %d" % target["tasks"])
+
+    details_parts.append(target["description"])
+    final_state = _worst_state(verdict_states)
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "%s (%s)" % (", ".join(details_parts[:2]), target["active"]),
         "data": {
-            "state": state_str,
+            "state": final_state,
             "metrics": metrics,
-            "details": ""
-        }
+            "details": ", ".join(details_parts),
+        },
     }

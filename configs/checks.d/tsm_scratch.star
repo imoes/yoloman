@@ -1,70 +1,74 @@
 def main(ctx, params):
-    # Run the command to get scratch pool count
-    # We use the same command structure as the Checkmk agent plugin would use
-    # Based on the parse function, we expect 3 fields per line: inst, tapes, library
-    res = ctx.run(["dsmadmc", "-dataonly=yes", "-noheadings", "-seperator", "|",
-                   "SELECT", "'default'", ",", "COUNT(*)", ",", "'default'", "FROM", "STAGEPOOLS", "WHERE", "POOLNAME='SCRATCH'"],
-                  mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "TSM command failed or dsmadmc not available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    out = res.stdout.strip()
-    if not out:
-        return {"changed": False, "msg": "No data from TSM",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Parse the output: we expect lines of the form: default|<count>|default
-    lines = out.splitlines()
-    section = {}
-    for line in lines:
-        parts = line.split("|")
-        if len(parts) != 3:
-            continue
-        inst, tapes, library = parts
-        tapes_stripped = tapes.strip()
-        num_tapes = int(tapes_stripped) if tapes_stripped.isdigit() else 0
-        inst_stripped = inst.strip()
-        library_stripped = library.strip()
-        if inst_stripped != "default":
-            item = inst_stripped + " / " + library_stripped
-        else:
-            item = library_stripped
-        section[item] = num_tapes
-
-    # Discovery mode
     if params.get("_discover"):
-        discovery_items = []
-        for item, count in section.items():
-            discovery_items.append({
+        res = ctx.run(["dsmadmc", "-dataout=yes", "query status"], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "dsmadmc not installed", "data": {"discovery": []}}
+        if res.rc != 0:
+            return {"changed": False, "msg": "dsmadmc query failed", "data": {"discovery": []}}
+        res2 = ctx.run(["dsmadmc", "-dataout=yes", "query scratchpool"], mutates=False)
+        if res2.rc != 0:
+            return {"changed": False, "msg": "cannot query scratch pools", "data": {"discovery": []}}
+        out = []
+        for line in res2.stdout.splitlines():
+            f = line.split()
+            if len(f) < 3:
+                continue
+            library = f[0]
+            tapes_str = f[1]
+            if not tapes_str.lstrip("-").isdigit():
+                continue
+            num_tapes = int(tapes_str)
+            inst = "default"
+            item = library if inst == "default" else (inst + " / " + library)
+            out.append({
                 "item": item,
-                "params": {"levels_lower": ("fixed", (7, 5))},
-                "metrics": ["tapes_free"]
+                "params": {"levels_lower": params.get("levels_lower", ("fixed", (7, 5)))},
+                "metrics": ["tapes_free"],
             })
-        return {"changed": False, "msg": "discovered %d items" % len(discovery_items),
-                "data": {"discovery": discovery_items}}
+        return {"changed": False, "msg": "discovered %d scratch pools" % len(out),
+                "data": {"discovery": out}}
 
-    # Check mode
     item = params.get("item", "")
-    if item not in section:
-        return {"changed": False, "msg": "item not found: " + item,
+    res = ctx.run(["dsmadmc", "-dataout=yes", "query scratchpool"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "dsmadmc not installed (TSM client missing)",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    num_tapes = section[item]
+    if res.rc != 0:
+        return {"changed": False, "msg": "cannot query TSM scratch pools",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    num_tapes = None
+    found_item = False
+    for line in res.stdout.splitlines():
+        f = line.split()
+        if len(f) < 3:
+            continue
+        library = f[0]
+        tapes_str = f[1]
+        if not tapes_str.lstrip("-").isdigit():
+            continue
+        inst = "default"
+        cur_item = library if inst == "default" else (inst + " / " + library)
+        if cur_item == item:
+            found_item = True
+            num_tapes = int(tapes_str)
+            break
+    if not found_item or num_tapes == None:
+        return {"changed": False, "msg": "no scratch pool found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     levels_lower = params.get("levels_lower", ("fixed", (7, 5)))
-    
+    warn = None
+    crit = None
+    if levels_lower != None:
+        mode = levels_lower[0]
+        vals = levels_lower[1]
+        if mode == "fixed" and vals != None:
+            warn = vals[0]
+            crit = vals[1]
     state = "OK"
-    if levels_lower[0] == "fixed":
-        warn, crit = levels_lower[1]
-        if num_tapes <= crit:
-            state = "CRIT"
-        elif num_tapes <= warn:
-            state = "WARN"
-    
-    msg = "Found tapes: %d" % num_tapes
-    if levels_lower[0] == "fixed":
-        warn, crit = levels_lower[1]
-        msg = msg + " (warn at %d, crit at %d)" % (warn, crit)
-
-    return {"changed": False, "msg": msg,
+    if warn != None and num_tapes <= warn:
+        state = "WARN"
+    if crit != None and num_tapes <= crit:
+        state = "CRIT"
+    return {"changed": False,
+            "msg": "Found tapes: %d" % num_tapes,
             "data": {"state": state, "metrics": {"tapes_free": num_tapes}, "details": ""}}

@@ -1,247 +1,130 @@
-# Module: papouch_th2e_sensors_humidity
-# Read-only Starlark check for humidity sensors on PAPOUCH TH2E devices
-
-# SNMP OIDs base
-_BASE_OID = ".1.3.6.1.4.1.18248.20.1.2.1.1"
-
-# Map sensor type by OID end
-_SENSOR_TYPE_MAP = {
-    "1": "temp",
-    "2": "humidity",
-    "3": "dewpoint",
+_MAP_SENSOR_TYPE = {"1": "temp", "2": "humidity", "3": "dewpoint"}
+_MAP_UNITS = {"0": "c", "1": "f", "2": "k", "3": "percent"}
+_MAP_STATES = {
+    "0": (0, "OK"),
+    "1": (3, "not available"),
+    "2": (1, "over-flow"),
+    "3": (1, "under-flow"),
+    "4": (2, "error"),
 }
 
-# Map unit type
-_UNITS_MAP = {
-    "0": "c",
-    "1": "f",
-    "2": "k",
-    "3": "percent",
-}
+BASE_OID = ".1.3.6.1.4.1.18248.20.1.2.1.1"
 
-# Map raw state to (check_state, readable)
-_STATE_MAP = {
-    "0": {"state": 0, "name": "OK"},
-    "1": {"state": 3, "name": "not available"},
-    "2": {"state": 1, "name": "over-flow"},
-    "3": {"state": 1, "name": "under-flow"},
-    "4": {"state": 2, "name": "error"},
-}
-
-# Checkmk default parameters
-_DEFAULT_LEVELS = (30.0, 35.0)
-_DEFAULT_LEVELS_LOWER = (12.0, 8.0)
-
-def _parse_snmp_output(stdout):
-    result = {}
-    for line in stdout.splitlines():
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value_part = parts[1].strip()
-        if not oid_full.startswith(_BASE_OID + "."):
-            continue
-        oid_end = oid_full[len(_BASE_OID) + 1:]
-        parts_oid = oid_end.split(".")
-        if len(parts_oid) != 2:
-            continue
-        sensor_index = parts_oid[1]
-        if value_part.startswith("INTEGER:"):
-            value_str = value_part[8:].strip()
-        else:
-            value_str = value_part
-        if value_str.isdigit():
-            value = int(value_str)
-            result.setdefault(sensor_index, []).append(value)
-    return result
-
-def _format_state(state_code):
-    if str(state_code) in _STATE_MAP:
-        return _STATE_MAP[str(state_code)]
-    return {"state": 3, "name": "unknown"}
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            _BASE_OID
-        ], mutates=False)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "snmpwalk failed",
-                "data": {"discovery": []}
-            }
-        parsed = _parse_snmp_output(res.stdout)
-        sensors = []
-        for sensor_idx, values in parsed.items():
-            if len(values) < 4:
+        sysoid = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sysoid.rc != 0 or not sysoid.stdout.strip():
+            return {"changed": False, "msg": "not a papouch th2e device", "data": {"discovery": []}}
+        desc = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-OvQ", host, ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if desc.rc != 0 or "th2e" not in desc.stdout:
+            return {"changed": False, "msg": "not a papouch th2e device", "data": {"discovery": []}}
+
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, BASE_OID + ".1"],
+            mutates=False,
+        )
+        if walk.rc != 0 or not walk.stdout.strip():
+            return {"changed": False, "msg": "no papouch th2e sensors", "data": {"discovery": []}}
+
+        rows = {}
+        for line in walk.stdout.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) < 2:
                 continue
-            state = values[1]
-            unit = values[3]
-            sensor_type = _SENSOR_TYPE_MAP.get(str(values[0]), "")
-            if sensor_type == "humidity" and unit == 3:
-                item = "Sensor " + sensor_idx
-                sensors.append({
-                    "item": item,
-                    "params": {
-                        "levels": _DEFAULT_LEVELS,
-                        "levels_lower": _DEFAULT_LEVELS_LOWER
-                    },
-                    "metrics": ["humidity"]
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d humidity sensors" % len(sensors),
-            "data": {"discovery": sensors}
-        }
+            oid = parts[0]
+            val = parts[1].strip()
+            idx = oid[len(BASE_OID) + 2:]
+            if not idx:
+                continue
+            rows.setdefault(idx, {})["1"] = val
+
+        for line in walk.stdout.splitlines():
+            parts = line.split(None, 1)
+            if len(parts) < 2:
+                continue
+            oid = parts[0]
+            idx = oid[len(BASE_OID) + 2:]
+            col = oid[len(BASE_OID) + 1]
+            if col == "3":
+                rows.setdefault(idx, {})["3"] = parts[1].strip()
+
+        discovery = []
+        for idx, fields in rows.items():
+            stype = _MAP_SENSOR_TYPE.get(fields.get("1", "1"), "unknown")
+            if stype == "humidity":
+                discovery.append({"item": "Sensor %s" % idx, "params": {"levels": (30.0, 35.0), "levels_lower": (12.0, 8.0)}, "metrics": ["humidity"]})
+        return {"changed": False, "msg": "discovered %d humidity sensors" % len(discovery), "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "item must be specified",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    if not item.startswith("Sensor "):
-        return {
-            "changed": False,
-            "msg": "invalid item format",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    sensor_idx = item[7:]
-    
-    sensor_base = _BASE_OID + ".1." + sensor_idx
-    res = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        sensor_base + ".1",
-        sensor_base + ".2",
-        sensor_base + ".3",
-        sensor_base + ".4"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "snmpget failed for " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    values = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value_part = parts[1].strip()
-        if not oid_full.startswith(sensor_base + "."):
-            continue
-        field = oid_full[len(sensor_base) + 1:]
-        if value_part.startswith("INTEGER:"):
-            value_str = value_part[8:].strip()
-        else:
-            value_str = value_part
-        if value_str.isdigit():
-            values[field] = int(value_str)
-    
-    required_fields = ["1", "2", "3", "4"]
-    if not (len(required_fields) == 4 and "1" in values and "2" in values and "3" in values and "4" in values):
-        return {
-            "changed": False,
-            "msg": "missing sensor data for " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    state_code = values["2"]
-    reading = float(values["3"]) / 10.0
-    unit = values["4"]
-    
-    if unit != 3:
-        return {
-            "changed": False,
-            "msg": "sensor " + item + " is not humidity type",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    state_info = _format_state(state_code)
-    
-    levels_upper = params.get("levels", _DEFAULT_LEVELS)
-    levels_lower = params.get("levels_lower", _DEFAULT_LEVELS_LOWER)
-    warn_upper = levels_upper[0]
-    crit_upper = levels_upper[1]
-    warn_lower = levels_lower[0]
-    crit_lower = levels_lower[1]
-    
-    state_code_num = state_info["state"]
-    if state_code_num != 0:
+
+    sysoid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysoid.rc == 127:
+        return {"changed": False, "msg": "snmp not available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if sysoid.rc != 0 or not sysoid.stdout.strip():
+        return {"changed": False, "msg": "not a papouch th2e device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    desc = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-OvQ", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    if desc.rc != 0 or "th2e" not in desc.stdout:
+        return {"changed": False, "msg": "not a papouch th2e device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    idx = item.replace("Sensor ", "")
+    state_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, BASE_OID + ".3." + idx],
+        mutates=False,
+    )
+    reading_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, BASE_OID + ".2." + idx],
+        mutates=False,
+    )
+    if state_res.rc != 0 or reading_res.rc != 0:
+        return {"changed": False, "msg": "sensor %s not reachable" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    state_code = state_res.stdout.strip()
+    reading_raw = reading_res.stdout.strip()
+
+    smap = _MAP_STATES.get(state_code)
+    if smap == None:
+        return {"changed": False, "msg": "unknown sensor state: %s" % state_code, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    dev_status_int, state_readable = smap
+    reading_val = 0.0
+    if reading_raw.lstrip("-").isdigit():
+        reading_val = float(reading_raw) / 10.0
+
+    levels = params.get("levels", (30.0, 35.0))
+    levels_lower = params.get("levels_lower", (12.0, 8.0))
+
+    warn_upper = levels[0] if type(levels) == "list" else levels[0]
+    crit_upper = levels[1] if type(levels) == "list" else levels[1]
+    warn_lower = levels_lower[0] if type(levels_lower) == "list" else levels_lower[0]
+    crit_lower = levels_lower[1] if type(levels_lower) == "list" else levels_lower[1]
+
+    if dev_status_int != 0:
+        state = "UNKNOWN"
+    elif reading_val >= crit_upper:
         state = "CRIT"
-        if state_code_num == 2:
-            state = "CRIT"
-        elif state_code_num == 1:
-            state = "WARN"
-        else:
-            state = "UNKNOWN"
-        return {
-            "changed": False,
-            "msg": "Status: " + state_info["name"],
-            "data": {
-                "state": state,
-                "metrics": {"humidity": reading},
-                "details": ""
-            }
-        }
-    
-    if reading >= crit_upper:
-        state = "CRIT"
-    elif reading >= warn_upper:
+    elif reading_val >= warn_upper:
         state = "WARN"
-    elif reading <= crit_lower:
+    elif reading_val <= crit_lower:
         state = "CRIT"
-    elif reading <= warn_lower:
+    elif reading_val <= warn_lower:
         state = "WARN"
     else:
         state = "OK"
-    
-    msg = "Status: %s, Humidity: %f%%" % (state_info["name"], reading)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"humidity": reading},
-            "details": ""
-        }
-    }
+
+    return {"changed": False, "msg": "Status: %s, %f%%" % (state_readable, reading_val), "data": {"state": state, "metrics": {"humidity": reading_val}, "details": ""}}

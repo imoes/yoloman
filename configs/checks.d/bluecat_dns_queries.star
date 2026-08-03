@@ -1,70 +1,44 @@
 def main(ctx, params):
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {}, "metrics": [
-                        "Success", "Referral", "NXRSet", "NXDomain", "Recursion", "Failure"
-                    ]}
-                ]
-            }
-        }
-    
-    # Check mode: get DNS query counters via SNMP
-    # Bluecat DNS queries SNMP OIDs: .1.3.6.1.4.1.13315.3.1.2.2.2.1.{1-6}
-    oid_base = ".1.3.6.1.4.1.13315.3.1.2.2.2.1"
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base = "1.3.6.1.4.1.13315.3.1.2.2.2.1"
     oids = ["1", "2", "3", "4", "5", "6"]
     value_names = ["Success", "Referral", "NXRSet", "NXDomain", "Recursion", "Failure"]
-    
-    # Build snmpget command for each OID
-    res = ctx.run([
-        "snmpget",
-        "-On",
-        "-v2c",
-        "-cpublic",
-        "localhost",
-        oid_base + ".1",
-        oid_base + ".2",
-        oid_base + ".3",
-        oid_base + ".4",
-        oid_base + ".5",
-        oid_base + ".6"
-    ], mutates=False)
-    
-    # Parse output: extract integer values from lines like:
-    # .1.3.6.1.4.1.13315.3.1.2.2.2.1.1.0 = Counter32: 12345
-    lines = res.stdout.splitlines()
-    if len(lines) < 6:
-        fail("failed to retrieve DNS query counters")
-    
+
+    if params.get("_discover"):
+        sys_oid = ".1.3.6.1.2.1.1.2.0"
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, sys_oid], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no bluecat device found", "data": {"discovery": []}}
+        sys_res = res.stdout.strip()
+        if sys_res != ".1.3.6.1.4.1.13315.2.1":
+            return {"changed": False, "msg": "no bluecat device found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [{"item": "", "params": {}, "metrics": value_names}]}}
+
+    item = params.get("item", "")
     values = []
-    for line in lines:
-        # Extract value after last colon
-        idx = line.rfind(":")
-        if idx == -1:
-            fail("failed to parse SNMP output")
-        val_str = line[idx+1:].strip()
-        # Convert to integer
-        val = int(val_str)
-        values.append(val)
-    
-    # Build metrics dict with raw values as rates (approximation for Starlark)
-    # In Checkmk, get_rate uses value_store to compute rates; here we approximate
-    # by using raw counter values since Starlark lacks persistent state
+    for oid in oids:
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, base + "." + oid], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "unable to fetch bluecat dns queries",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        values.append(res.stdout.strip())
+
+    if len(values) < len(value_names):
+        return {"changed": False, "msg": "incomplete data from bluecat device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     metrics = {}
-    for i, name in enumerate(value_names):
-        metrics[name] = values[i] if i < len(values) else 0
-    
-    # State determination: always OK for this check
-    # Checkmk's check_levels with no levels specified yields OK
-    return {
-        "changed": False,
-        "msg": "DNS queries collected",
-        "data": {
-            "state": "OK",
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    detail_parts = []
+    for i in range(len(value_names)):
+        name = value_names[i]
+        value = values[i]
+        num = int(value) if value.isdigit() else 0
+        detail_parts.append("%s: %d" % (name, num))
+        if num > 0:
+            metrics[name] = float(num)
+
+    detail = ", ".join(detail_parts)
+    return {"changed": False, "msg": "DNS Queries " + detail,
+            "data": {"state": "OK", "metrics": metrics, "details": detail}}

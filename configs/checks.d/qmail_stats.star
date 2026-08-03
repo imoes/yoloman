@@ -1,83 +1,91 @@
-# Top-level constants for thresholds
-DEFAULT_DEFERRED_WARN = 10
-DEFAULT_DEFERRED_CRIT = 20
-
 def main(ctx, params):
     if params.get("_discover"):
+        # Probe for the real thing: the qmail queue directory tree.
+        # Absence of the product means no service, never a placeholder.
+        if not ctx.file_exists("/var/qmail/queue"):
+            return {"changed": False, "msg": "no qmail queue found", "data": {"discovery": []}}
         return {
             "changed": False,
-            "msg": "discovered 1 service",
+            "msg": "discovered 1 item",
             "data": {
                 "discovery": [
                     {
                         "item": "",
-                        "params": {"deferred": [DEFAULT_DEFERRED_WARN, DEFAULT_DEFERRED_CRIT]},
-                        "metrics": ["queue"]
+                        "params": {"deferred": [10, 20]},
+                        "metrics": ["queue"],
                     }
                 ]
-            }
+            },
         }
 
-    # Check mode: get queue length from agent data
-    # The Checkmk agent section reads from /var/spool/mqueue-count or similar.
-    # We replicate the agent logic by reading the same file path.
-    queue_file = "/var/spool/mqueue-count"
-    if not ctx.file_exists(queue_file):
+    # CHECK MODE — read the deferred queue length from the on-host qmail queue.
+    # The Checkmk agent plugin reads the `qmail-qstat` output; we reproduce the
+    # same data source. If qmail is not installed (rc==127) or the queue is
+    # missing, the product is absent -> UNKNOWN, never OK.
+    res = ctx.run(["/var/qmail/bin/qmail-qstat"], mutates=False)
+    if not res.stdout or res.rc == 127:
         return {
             "changed": False,
-            "msg": "queue file not found: " + queue_file,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
+            "msg": "no qmail installation found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    content = ctx.file_read(queue_file).strip()
-    if not content:
-        return {
-            "changed": False,
-            "msg": "queue file empty",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
+    length = 0
+    found = False
+    for line in res.stdout.splitlines():
+        # Lines look like: "Messages in queue but not yet preprocessed: 0"
+        # or  "Messages in queue: 0" / "Messages in queue but not preprocessed: 1"
+        # We want the total deferred count; qmail-qstat reports a single total.
+        lower = line.lower()
+        if lower.find("messages") != -1 and lower.find("queue") != -1:
+            # extract the trailing integer
+            parts = line.split()
+            for token in reversed(parts):
+                stripped = token.rstrip(",")
+                if stripped.isdigit():
+                    length = int(stripped)
+                    found = True
+                    break
+            if found:
+                break
+
+    if not found:
+        # Fallback: take the last integer found anywhere in the output.
+        last_int = None
+        for line in res.stdout.splitlines():
+            for token in line.split():
+                if token.isdigit():
+                    last_int = int(token)
+        if last_int == None:
+            return {
+                "changed": False,
+                "msg": "could not parse qmail queue length",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
             }
-        }
+        length = last_int
 
-    # Parse queue length (first token only, as per source)
-    length_str = content.split()[0]
-    if not length_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid queue length: " + length_str,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+    # Threshold levels come from params; Checkmk default is (warn, crit) = (10, 20).
+    levels = params.get("deferred", [10, 20])
+    if len(levels) >= 2:
+        warn = levels[0]
+        crit = levels[1]
+    else:
+        warn = 10
+        crit = 20
 
-    queue_length = int(length_str)
-
-    # Extract thresholds from params
-    deferred = params.get("deferred", [DEFAULT_DEFERRED_WARN, DEFAULT_DEFERRED_CRIT])
-    warn = deferred[0]
-    crit = deferred[1]
-
-    # Determine state based on thresholds (upper levels)
-    state = "OK"
-    if queue_length >= crit:
+    if length >= crit:
         state = "CRIT"
-    elif queue_length >= warn:
+    elif length >= warn:
         state = "WARN"
+    else:
+        state = "OK"
 
     return {
         "changed": False,
-        "msg": "Deferred mails: %d" % queue_length,
+        "msg": "Deferred mails: %d" % length,
         "data": {
             "state": state,
-            "metrics": {"queue": queue_length},
-            "details": ""
-        }
+            "metrics": {"queue": length},
+            "details": "Deferre`d mails in qmail queue: %d" % length,
+        },
     }

@@ -1,151 +1,108 @@
-# Constants (top-level, no imports)
-DEFAULT_LOWER_WARN = 3000
-DEFAULT_LOWER_CRIT = 2800
+def check_fan(value, params):
+    warn = None
+    crit = None
+    lower = params.get("lower", None) if type(params) == "dict" else None
+    if type(params) == "dict" and lower != None and type(lower) == "list" and len(lower) == 2:
+        warn = lower[1]
+        crit = lower[0]
+    if warn == None or crit == None:
+        warn = params.get("warn", 3000) if type(params) == "dict" else 3000
+        crit = params.get("crit", 2800) if type(params) == "dict" else 2800
+    if value >= crit:
+        return ["CRIT", {"rpm": value}, "FAN %d RPM below critical threshold %d" % (value, crit)]
+    if value >= warn:
+        return ["WARN", {"rpm": value}, "FAN %d RPM below warning threshold %d" % (value, warn)]
+    return ["OK", {"rpm": value}, "FAN %d RPM above warning threshold %d" % (value, warn)]
 
-def _saveint(i):
-    # Guard-based replacement: return 0 for non-digit strings
-    return int(i) if i.isdigit() else 0
-
-def _discover_fans(section):
-    out = []
-    for row in section:
-        if len(row) < 3:
-            continue
-        presence, state, name = row
-        name = name.lstrip()
-        if name.startswith("FAN") and presence != "6" and (_saveint(state) > 0 or "Power" == "FAN"):
-            sensor_id = name.split("#")[-1]
-            out.append([sensor_id, name, state])
-    return out
 
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
-        ], mutates=False)
+        res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                       "-OvQ", params.get("host", "localhost"),
+                       ".1.3.6.1.2.1.1.2.0"], mutates=False)
         if res.rc != 0:
-            return {"changed": False, "msg": "snmpwalk failed", "data": {"discovery": []}}
+            return {"changed": False, "msg": "sysObjectID not reachable",
+                    "data": {"discovery": []}}
+        sysoid = res.stdout.strip()
+        brocade_prefixes = [".1.3.6.1.4.1.1588.2.1.1", ".1.3.6.1.2.4.1.1588.2.1.1",
+                            ".1.3.6.1.4.1.1588.2.2.1", ".1.3.6.1.4.1.1588.3.3.1",
+                            ".1.3.6.1.4.1.1916.2.306"]
+        is_brocade = False
+        for p in brocade_prefixes:
+            if sysoid.startswith(p):
+                is_brocade = True
+                break
+        if not is_brocade:
+            return {"changed": False, "msg": "not a Brocade device",
+                    "data": {"discovery": []}}
 
-        raw = {}
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_str = parts[0].strip()
-            val_str = parts[1].strip()
-            oid_parts = oid_str.split(".")
-            if len(oid_parts) < 15:
-                continue
-            idx_str = oid_parts[-1]
-            col_str = oid_parts[-2]
-            if not idx_str.isdigit() or not col_str.isdigit():
-                continue
-            col = int(col_str)
-            idx = int(idx_str)
-            if idx not in raw:
-                raw[idx] = {}
-            if val_str.startswith("INTEGER:"):
-                val = val_str[len("INTEGER:"):].strip()
-            elif val_str.startswith("STRING:"):
-                val = val_str[len("STRING:"):].strip().strip('"')
-            else:
-                val = val_str
-            raw[idx]["presence" if col == 3 else ("state" if col == 4 else "name")] = val
+        col3 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"),
+                        ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1.3"], mutates=False)
+        col4 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"),
+                        ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1.4"], mutates=False)
+        col5 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+                        "-Oqn", params.get("host", "localhost"),
+                        ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1.5"], mutates=False)
 
-        section = []
-        for idx in sorted(raw.keys()):
-            row = raw[idx]
-            presence = row.get("presence", "0")
-            state = row.get("state", "0")
-            name = row.get("name", "")
-            section.append([presence, state, name])
+        base1 = ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
+        col_map = {base1 + ".3": col3, base1 + ".4": col4, base1 + ".5": col5}
 
-        fans = _discover_fans(section)
-        out = []
-        for fan in fans:
-            sensor_id, name, state = fan
-            out.append({
-                "item": sensor_id,
-                "params": {"lower": [DEFAULT_LOWER_WARN, DEFAULT_LOWER_CRIT]},
-                "metrics": ["speed"]
-            })
-        return {"changed": False, "msg": "discovered %d FANs" % len(out),
-                "data": {"discovery": out}}
+        rows = {}
+        for col_oid, res in col_map.items():
+            for line in res.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) != 2:
+                    continue
+                oid, val = parts
+                if not oid.startswith(col_oid + "."):
+                    continue
+                idx = oid[len(col_oid) + 1:]
+                if idx not in rows:
+                    rows[idx] = {}
+                rows[idx][col_oid] = val
+
+        discovery = []
+        seen = []
+        for idx in sorted(rows.keys()):
+            r = rows[idx]
+            presence = r.get(base1 + ".3", "")
+            state = r.get(base1 + ".4", "")
+            name = r.get(base1 + ".5", "").lstrip()
+            if not name.startswith("FAN"):
+                continue
+            if presence == "6":
+                continue
+            s = int(state) if state.isdigit() else 0
+            if s <= 0:
+                continue
+            sensor_id = name.split("#")[-1]
+            if sensor_id in seen:
+                continue
+            seen.append(sensor_id)
+            discovery.append({"item": sensor_id, "params": {"lower": [3000, 2800]},
+                              "metrics": ["fan_rpm"]})
+
+        return {"changed": False, "msg": "discovered %d fan sensors" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    if item == None:
-        item = ""
-
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "snmpwalk failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    raw = {}
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_str = parts[0].strip()
-        val_str = parts[1].strip()
-        oid_parts = oid_str.split(".")
-        if len(oid_parts) < 15:
-            continue
-        idx_str = oid_parts[-1]
-        col_str = oid_parts[-2]
-        if not idx_str.isdigit() or not col_str.isdigit():
-            continue
-        col = int(col_str)
-        idx = int(idx_str)
-        if idx not in raw:
-            raw[idx] = {}
-        if val_str.startswith("INTEGER:"):
-            val = val_str[len("INTEGER:"):].strip()
-        elif val_str.startswith("STRING:"):
-            val = val_str[len("STRING:"):].strip().strip('"')
-        else:
-            val = val_str
-        raw[idx]["presence" if col == 3 else ("state" if col == 4 else "name")] = val
-
-    section = []
-    for idx in sorted(raw.keys()):
-        row = raw[idx]
-        presence = row.get("presence", "0")
-        state = row.get("state", "0")
-        name = row.get("name", "")
-        section.append([presence, state, name])
-
-    fans = _discover_fans(section)
-    found = False
-    for sensor_id, name, value in fans:
-        if item == sensor_id:
-            found = True
-            speed = _saveint(value)
-            lower = params.get("lower", [DEFAULT_LOWER_WARN, DEFAULT_LOWER_CRIT])
-            warn = lower[0] if isinstance(lower, list) else DEFAULT_LOWER_WARN
-            crit = lower[1] if isinstance(lower, list) else DEFAULT_LOWER_CRIT
-            if speed <= crit:
-                state = "CRIT"
-                summary = "Error: speed %d RPM below critical threshold %d RPM" % (speed, crit)
-            elif speed <= warn:
-                state = "WARN"
-                summary = "Warning: speed %d RPM below warning threshold %d RPM" % (speed, warn)
-            else:
-                state = "OK"
-                summary = "OK: speed %d RPM" % speed
-            metrics = {"speed": speed}
-            return {"changed": False, "msg": summary, "data": {"state": state, "metrics": metrics, "details": ""}}
-
-    if not found:
-        return {"changed": False, "msg": "FAN %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    col3 = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                    "-Oqv", params.get("host", "localhost"),
+                    ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1.3." + item], mutates=False)
+    col5 = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                    "-Oqv", params.get("host", "localhost"),
+                    ".1.3.6.1.4.1.1588.2.1.1.1.1.22.1.5." + item], mutates=False)
+    if col5.rc != 0:
+        return {"changed": False, "msg": "fan %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    name = col5.stdout.strip().lstrip()
+    if not name.startswith("FAN"):
+        return {"changed": False, "msg": "fan %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    value = int(col3.stdout.strip()) if col3.stdout.strip().isdigit() else 0
+    state, metrics, summary = check_fan(value, params)
+    return {"changed": False,
+            "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": ""}}

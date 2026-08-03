@@ -1,282 +1,417 @@
+def _parse_float(s):
+    if not s:
+        return None
+    cleaned = s.strip()
+    if len(cleaned) == 0:
+        return None
+    first = cleaned
+    if first[0] == "-":
+        rest = first[1:]
+    elif first[0] == "+":
+        rest = first[1:]
+    else:
+        rest = first
+    has_dot = rest.find(".") >= 0
+    ok = len(rest) > 0
+    if ok:
+        dot_seen = False
+        for ch in rest:
+            if ch.isdigit():
+                continue
+            if ch == "." and not dot_seen:
+                dot_seen = True
+                continue
+            ok = False
+            break
+    if not ok:
+        return None
+    return float(cleaned)
+
+
+def _parse_int(s):
+    if not s:
+        return None
+    cleaned = s.strip()
+    if len(cleaned) == 0:
+        return None
+    first = cleaned
+    if first[0] == "-":
+        rest = first[1:]
+    elif first[0] == "+":
+        rest = first[1:]
+    else:
+        rest = first
+    ok = len(rest) > 0
+    for ch in rest:
+        if not ch.isdigit():
+            ok = False
+            break
+    if not ok:
+        return None
+    return int(cleaned)
+
+
+def _units_to_seconds(unit):
+    return _UNITS_TO_SECONDS.get(unit, None)
+
+
+def _split_into_components(time_string):
+    out = []
+    if not time_string:
+        return out
+    if time_string[-1].isdigit():
+        has_letter = False
+        for ch in time_string:
+            if not ch.isdigit() and ch != ".":
+                has_letter = True
+                break
+        if not has_letter:
+            ts = time_string + "s"
+        else:
+            ts = time_string
+    else:
+        if _UNITS_TO_SECONDS.has_key(time_string[-1:]):
+            ts = time_string
+        elif not _UNITS_TO_SECONDS.has_key(time_string[-1]):
+            ts = time_string + "s"
+        else:
+            ts = time_string
+    i = 0
+    n = len(ts)
+    while i < n:
+        j = i
+        while j < n and (ts[j].isdigit() or ts[j] == "."):
+            j = j + 1
+        if j == i:
+            i = i + 1
+            continue
+        num = float(ts[i:j])
+        k = j
+        while k < n and not (ts[k].isdigit() or ts[k] == "."):
+            k = k + 1
+        unit = ts[j:k]
+        secs = _units_to_seconds(unit)
+        if secs == None:
+            i = k
+            continue
+        out.append(num * secs)
+        i = k
+    return out
+
+
+def _strip_sign(time_string):
+    if len(time_string) > 0 and time_string[0] == "-":
+        return time_string[1:], -1
+    if len(time_string) > 0 and time_string[0] == "+":
+        return time_string[1:], 1
+    return time_string, 1
+
+
+def _get_seconds(components):
+    time_string = "".join(components)
+    ts, sign = _strip_sign(time_string)
+    total = 0.0
+    for v in _split_into_components(ts):
+        total = total + v
+    return sign * total
+
+
+def _grade_upper(value, levels):
+    if levels == None or len(levels) < 2:
+        return "OK"
+    w = levels[0]
+    c = levels[1]
+    if value >= c:
+        return "CRIT"
+    if value >= w:
+        return "WARN"
+    return "OK"
+
+
+def _tolerance_grade(elapsed, levels_upper):
+    return _grade_upper(elapsed, levels_upper)
+
+
+def _timesyncd_present(ctx):
+    res = ctx.run(["timedatectl", "show-timesync", "-a"], mutates=False)
+    if res.rc == 127:
+        return False, None
+    if res.rc != 0:
+        b = ctx.run(
+            ["busctl", "get-property", "org.freedesktop.timesyncd",
+             "/org/freedesktop/timesyncd", "org.freedesktop.timesyncd",
+             "Server"],
+            mutates=False,
+        )
+        if b.rc == 127:
+            return False, None
+        if b.rc != 0:
+            return False, None
+    return True, res
+
+
+def _parse_ntp_message_timestamp(ntp_message_raw, timezone_raw):
+    body = ntp_message_raw
+    p = body.find("NTPMessage={")
+    if p >= 0:
+        body = body[p + len("NTPMessage={"):]
+        pe = body.find(" }")
+        if pe >= 0:
+            body = body[:pe]
+        else:
+            pe2 = body.rfind("}")
+            if pe2 >= 0:
+                body = body[:pe2]
+    else:
+        eq = body.find("=")
+        if eq >= 0:
+            body = body[eq + 1:]
+    parts = body.split(",")
+    receive_raw = None
+    for pp in parts:
+        pp = pp.strip()
+        if pp.startswith("ReceiveTimestamp="):
+            receive_raw = pp[len("ReceiveTimestamp="):]
+            break
+    if receive_raw == None:
+        return None
+    return _parse_float(receive_raw)
+
+
+def _parse_timesyncd_output(stdout):
+    section = {}
+    ntp_message = None
+    timezone_raw = None
+    for line in stdout.splitlines():
+        if not line:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("[[[") and stripped.endswith("]]]") and len(stripped) > 6:
+            val = _parse_float(stripped[3:-3])
+            if val != None:
+                section["synctime"] = val
+            continue
+        eq = stripped.find("=")
+        if eq == -1:
+            if stripped.startswith("NTPMessage="):
+                ntp_message = stripped
+            if stripped.startswith("Timezone="):
+                timezone_raw = stripped
+            continue
+        key = stripped[:eq].lower()
+        val = stripped[eq + 1:]
+        if key == "server":
+            cleaned = val.replace("(", "").replace(")", "").strip()
+            section["server"] = cleaned
+        elif key == "stratum":
+            iv = _parse_int(val)
+            if iv != None:
+                section["stratum"] = iv
+        elif key == "offset":
+            secs = _get_seconds([val])
+            if secs != None:
+                section["offset"] = secs
+        elif key == "jitter":
+            secs = _get_seconds([val])
+            if secs != None:
+                section["jitter"] = secs
+        elif key == "ntpmessage":
+            ntp_message = stripped
+        elif key == "timezone":
+            timezone_raw = stripped
+    if ntp_message != None and timezone_raw != None:
+        rt = _parse_ntp_message_timestamp(ntp_message, timezone_raw)
+        if rt != None:
+            return section, {"receivetimestamp": rt}
+    return section, None
+
+
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(["timedatectl", "status"], mutates=False)
-        has_timesyncd = False
-        if "NTP service: active" in res.stdout.lower() or "systemd-timesyncd" in res.stdout.lower():
-            has_timesyncd = True
-        if has_timesyncd:
+        present, _ = _timesyncd_present(ctx)
+        if not present:
             return {
                 "changed": False,
-                "msg": "discovered Systemd Timesyncd Time service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": [
-                    "time_offset", "last_sync_time", "last_sync_receive_time",
-                    "stratum", "jitter"
-                ]}]}
+                "msg": "timesyncd not installed",
+                "data": {"discovery": []},
             }
         return {
             "changed": False,
-            "msg": "discovered 0 items (systemd-timesyncd not active)",
-            "data": {"discovery": []}
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": [
+                            "time_offset",
+                            "last_sync_time",
+                            "last_sync_receive_time",
+                            "jitter",
+                            "stratum",
+                        ],
+                    }
+                ],
+            },
         }
 
-    # Check mode - get data via timedatectl status
-    res = ctx.run(["timedatectl", "status"], mutates=False)
-    if res.rc != 0:
+    item = params.get("item", "")
+
+    present, res = _timesyncd_present(ctx)
+    if not present:
         return {
             "changed": False,
-            "msg": "failed to get timedatectl status",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "systemd-timesyncd is not installed",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "timedatectl / busctl not available; timesyncd absent",
+            },
         }
 
-    # Default parameters (Checkmk defaults)
-    stratum_level = params.get("stratum_level", 10)
-    quality_levels = params.get("quality_levels", [200.0, 500.0])
-    warn_quality = quality_levels[0] / 1000.0
-    crit_quality = quality_levels[1] / 1000.0
-    last_ntp_message = params.get("last_ntp_message", [3600, 7200])
-
-    state = "OK"
-    messages = []
-
-    lines = res.stdout.splitlines()
-    server = None
-    stratum = None
-    offset = None
-    jitter = None
-    synctime = None
-    ntp_message_time = None
-
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith("Server:") or stripped.startswith("NTP server:"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val != "" and val != "(null)" and val != "none":
-                    server = val
-        elif stripped.startswith("Stratum:"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if val.isdigit():
-                    stratum = int(val)
-        elif stripped.startswith("Offset:"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                val_parts = val.split()
-                if len(val_parts) >= 1:
-                    num_str = val_parts[0]
-                    unit = "s"
-                    if len(val_parts) >= 2:
-                        unit = val_parts[1].lower()
-                    num_val = 0.0
-                    if num_str.replace(".", "").replace("-", "").isdigit() or num_str == "-" or num_str == ".":
-                        num_val = float(num_str)
-                    else:
-                        digits = ""
-                        for c in num_str:
-                            if c.isdigit() or c == '.' or (c == '-' and digits == ""):
-                                digits += c
-                            else:
-                                break
-                        if digits != "" and digits != "-" and digits != ".":
-                            num_val = float(digits)
-                        else:
-                            num_val = 0.0
-                    if unit in ("ms", "msec"):
-                        num_val = num_val / 1000.0
-                    elif unit in ("us", "µs", "usec"):
-                        num_val = num_val / 1000000.0
-                    offset = num_val
-        elif stripped.startswith("Jitter:"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                val_parts = val.split()
-                if len(val_parts) >= 1:
-                    num_str = val_parts[0]
-                    unit = "s"
-                    if len(val_parts) >= 2:
-                        unit = val_parts[1].lower()
-                    num_val = 0.0
-                    if num_str.replace(".", "").replace("-", "").isdigit() or num_str == "-" or num_str == ".":
-                        num_val = float(num_str)
-                    else:
-                        digits = ""
-                        for c in num_str:
-                            if c.isdigit() or c == '.' or (c == '-' and digits == ""):
-                                digits += c
-                            else:
-                                break
-                        if digits != "" and digits != "-" and digits != ".":
-                            num_val = float(digits)
-                        else:
-                            num_val = 0.0
-                    if unit in ("ms", "msec"):
-                        num_val = num_val / 1000.0
-                    elif unit in ("us", "µs", "usec"):
-                        num_val = num_val / 1000000.0
-                    jitter = num_val
-        elif stripped.startswith("Last sync time:"):
-            parts = stripped.split(":", 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                val = val.replace(" ago", "")
-                if val.isdigit():
-                    synctime = float(val)
-                else:
-                    total_seconds = 0
-                    if "min" in val:
-                        idx = val.find("min")
-                        if idx >= 0:
-                            before = val[:idx].strip()
-                            digits = ""
-                            for c in before:
-                                if c.isdigit():
-                                    digits += c
-                                else:
-                                    break
-                            if digits != "":
-                                total_seconds += int(digits) * 60
-                    if "sec" in val:
-                        idx = val.find("sec")
-                        if idx >= 0:
-                            before = val[:idx].strip()
-                            digits = ""
-                            for c in before:
-                                if c.isdigit():
-                                    digits += c
-                                else:
-                                    break
-                            if digits != "":
-                                total_seconds += int(digits)
-                    if "h" in val:
-                        idx = val.find("h")
-                        if idx >= 0:
-                            before = val[:idx].strip()
-                            digits = ""
-                            for c in before:
-                                if c.isdigit():
-                                    digits += c
-                                else:
-                                    break
-                            if digits != "":
-                                total_seconds += int(digits) * 3600
-                    if "d" in val:
-                        idx = val.find("d")
-                        if idx >= 0:
-                            before = val[:idx].strip()
-                            digits = ""
-                            for c in before:
-                                if c.isdigit():
-                                    digits += c
-                                else:
-                                    break
-                            if digits != "":
-                                total_seconds += int(digits) * 86400
-                    if total_seconds > 0:
-                        synctime = float(total_seconds)
-        elif stripped.startswith("NTPMessage={"):
-            idx = stripped.find("ReceiveTimestamp=")
-            if idx >= 0:
-                ts_part = stripped[idx + len("ReceiveTimestamp="):]
-                ts_tokens = ts_part.split()
-                if len(ts_tokens) >= 2:
-                    date_part = ts_tokens[0]
-                    time_part = ts_tokens[1]
-                    if date_part.count("-") == 2:
-                        parts = date_part.split("-")
-                        if len(parts) == 3:
-                            year = int(parts[0]) if parts[0].isdigit() else 0
-                            month = int(parts[1]) if parts[1].isdigit() else 0
-                            day = int(parts[2]) if parts[2].isdigit() else 0
-                            if time_part.count(":") >= 2:
-                                time_parts = time_part.split(":")
-                                hour = int(time_parts[0]) if time_parts[0].isdigit() else 0
-                                minute = int(time_parts[1]) if time_parts[1].isdigit() else 0
-                                second_str = time_parts[2].split(".")[0]
-                                second = int(second_str) if second_str.isdigit() else 0
-                                days = (year - 1970) * 365 + (year - 1969) // 4
-                                month_days = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
-                                days += month_days[month - 1] + day - 1
-                                if month > 2 and (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
-                                    days += 1
-                                ntp_message_time = days * 86400 + hour * 3600 + minute * 60 + second
-
-    # Check server presence
-    if server == None or server == "":
-        state = "CRIT"
-        messages.append("Found no time server")
+    if res == None or res.stdout == "":
         return {
             "changed": False,
-            "msg": "; ".join(messages),
-            "data": {"state": state, "metrics": {}, "details": ""}
+            "msg": "no timesyncd data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Check offset
+    section, ntp = _parse_timesyncd_output(res.stdout)
+
+    ql = params.get("quality_levels", _DEFAULT_QUALITY_LEVELS)
+    q_warn = ql[0] / 1000.0
+    q_crit = ql[1] / 1000.0
+    q_levels = (q_warn, q_crit)
+
     metrics = {}
+    states = []
+    details = []
+
+    offset = section.get("offset", None)
     if offset != None:
-        abs_offset = abs(offset)
-        if abs_offset >= crit_quality:
-            state = "CRIT"
-        elif abs_offset >= warn_quality:
-            if state != "CRIT":
-                state = "WARN"
-        metrics["time_offset"] = abs_offset
+        off = abs(offset)
+        metrics["time_offset"] = off
+        st = _grade_upper(off, q_levels)
+        states.append(st)
+        details.append("Offset: %gs" % off)
 
-    # Check last sync time
+    synctime = section.get("synctime", None)
+    alert_delay = params.get("alert_delay", _DEFAULT_ALERT_DELAY)
+    last_sync_key = "last_sync_time"
     if synctime != None:
-        if synctime >= last_ntp_message[1]:
-            if state != "CRIT":
-                state = "CRIT"
-        elif synctime >= last_ntp_message[0]:
-            if state == "OK":
-                state = "WARN"
-        metrics["last_sync_time"] = synctime
+        if synctime > 86400:
+            metrics[last_sync_key] = synctime
+            details.append("Time since last sync: epoch %g" % synctime)
+        else:
+            metrics[last_sync_key] = synctime
+            st = _grade_upper(synctime, alert_delay)
+            states.append(st)
+            details.append("Time since last sync: %gs" % synctime)
+    else:
+        metrics[last_sync_key] = 0
+        details.append("Time since last sync: n/a")
 
-    # Check NTP message receive time
-    if ntp_message_time != None:
-        if synctime == None:
-            synctime = ntp_message_time
-            if synctime >= last_ntp_message[1]:
-                if state != "CRIT":
-                    state = "CRIT"
-            elif synctime >= last_ntp_message[0]:
-                if state == "OK":
-                    state = "WARN"
-        metrics["last_sync_receive_time"] = synctime if synctime != None else 0
+    if ntp != None:
+        rt = ntp.get("receivetimestamp", None)
+        if rt != None:
+            metrics["last_sync_receive_time"] = rt
+            st = _tolerance_grade(rt, params.get("last_ntp_message", _DEFAULT_LAST_NTP_MESSAGE))
+            states.append(st)
+            details.append("Time since last NTP message: %gs" % rt)
 
-    # Check stratum
+    server = section.get("server", None)
+    if server == None or server == "null":
+        states.append("CRIT")
+        details.append("Found no time server")
+        return {
+            "changed": False,
+            "msg": "Found no time server",
+            "data": {
+                "state": "CRIT",
+                "metrics": metrics,
+                "details": "\n".join(details),
+            },
+        }
+
+    stratum = section.get("stratum", None)
     if stratum != None:
-        upper_stratum = stratum_level - 1
-        if stratum > upper_stratum:
-            if state == "OK":
-                state = "WARN"
         metrics["stratum"] = stratum
+        stratum_level = params.get("stratum_level", _DEFAULT_STRATUM_LEVEL)
+        s_levels = (stratum_level - 1, stratum_level)
+        st = _grade_upper(stratum, s_levels)
+        if st != "OK":
+            states.append(st)
+        details.append("Stratum: %d" % stratum)
 
-    # Check jitter
+    jitter = section.get("jitter", None)
     if jitter != None:
-        if jitter >= crit_quality:
-            if state != "CRIT":
-                state = "CRIT"
-        elif jitter >= warn_quality:
-            if state == "OK":
-                state = "WARN"
         metrics["jitter"] = jitter
+        st = _grade_upper(jitter, q_levels)
+        if st != "OK":
+            states.append(st)
+        details.append("Jitter: %gs" % jitter)
 
-    # Final summary
+    if server != None and offset == None and stratum == None and jitter == None:
+        states.append("CRIT")
+        details.append("Found no time server")
+
+    if len(states) == 0:
+        final = "OK"
+    else:
+        if "CRIT" in states:
+            final = "CRIT"
+        elif "WARN" in states:
+            final = "WARN"
+        else:
+            final = "OK"
+
     summary = "Synchronized on %s" % server
-    if state == "OK":
-        summary = "Synchronized on %s" % server
-    elif state == "WARN":
-        summary = "Warning: " + summary
-    elif state == "CRIT":
-        summary = "Critical: " + summary
+    if final != "OK":
+        summary = details[0] if len(details) > 0 else summary
 
     return {
         "changed": False,
         "msg": summary,
-        "data": {"state": state, "metrics": metrics, "details": ""}
+        "data": {
+            "state": final,
+            "metrics": metrics,
+            "details": "\n".join(details),
+        },
     }
+
+
+_UNITS_TO_SECONDS = {
+    "y": 31557600.0,
+    "year": 31557600.0,
+    "years": 31557600.0,
+    "M": 2630016.0,
+    "month": 2630016.0,
+    "months": 2630016.0,
+    "w": 604800.0,
+    "week": 604800.0,
+    "weeks": 604800.0,
+    "d": 86400.0,
+    "day": 86400.0,
+    "days": 86400.0,
+    "h": 3600.0,
+    "hour": 3600.0,
+    "hours": 3600.0,
+    "m": 60.0,
+    "min": 60.0,
+    "minute": 60.0,
+    "minutes": 60.0,
+    "s": 1.0,
+    "sec": 1.0,
+    "second": 1.0,
+    "seconds": 1.0,
+    "msec": 0.001,
+    "ms": 0.001,
+    "us": 0.000001,
+    "usec": 0.000001,
+    "µs": 0.000001,
+}
+
+_DEFAULT_STRATUM_LEVEL = 10
+_DEFAULT_QUALITY_LEVELS = (200.0, 500.0)
+_DEFAULT_ALERT_DELAY = (300, 3600)
+_DEFAULT_LAST_NTP_MESSAGE = (3600, 7200)

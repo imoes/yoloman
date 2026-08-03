@@ -1,221 +1,227 @@
-def main(ctx, params):
-    # Discovery mode: enumerate items (containers, images, volumes) from podman data
-    if params.get("_discover"):
-        res = ctx.run(["podman", "system", "df", "--format", "json"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to run podman df: " + res.stderr,
-                    "data": {"discovery": []}}
-        if not res.stdout:
-            return {"changed": False, "msg": "no output from podman df",
-                    "data": {"discovery": []}}
-        
-        data = json.decode(res.stdout)
-        
-        items = []
-        if isinstance(data, list):
-            # Summary format
-            for entry in data:
-                entry_type = entry.get("Type")
-                if entry_type == "Images":
-                    items.append({"item": "images", "params": {}, "metrics": ["size", "reclaimable_size", "total_number", "active_number"]})
-                elif entry_type == "Containers":
-                    items.append({"item": "containers", "params": {}, "metrics": ["size", "reclaimable_size", "total_number", "active_number"]})
-                elif entry_type == "Local Volumes":
-                    items.append({"item": "volumes", "params": {}, "metrics": ["size", "reclaimable_size", "total_number", "active_number"]})
-        elif isinstance(data, dict):
-            # Entity format
-            if "Images" in data:
-                images = data.get("Images", [])
-                total_size = 0
-                total_number = len(images)
-                active_number = 0
-                for img in images:
-                    size = float(img.get("Size", 0))
-                    total_size += size
-                    if img.get("Containers", 0) > 0:
-                        active_number += 1
-                items.append({"item": "images", "params": {}, "metrics": ["size", "total_number", "active_number"]})
-            if "Containers" in data:
-                containers = data.get("Containers", [])
-                total_size = 0
-                total_reclaimable = 0
-                total_number = len(containers)
-                active_number = 0
-                for c in containers:
-                    size = float(c.get("Size", 0))
-                    rwsize = float(c.get("RWSize", 0))
-                    total_size += size
-                    total_reclaimable += rwsize
-                    status = c.get("Status", "").lower()
-                    if status == "running":
-                        active_number += 1
-                metrics = ["size", "reclaimable_size", "total_number", "active_number"] if total_reclaimable > 0 else ["size", "total_number", "active_number"]
-                items.append({"item": "containers", "params": {}, "metrics": metrics})
-            if "Volumes" in data:
-                volumes = data.get("Volumes", [])
-                total_size = 0
-                total_reclaimable = 0
-                total_number = len(volumes)
-                active_number = 0
-                for v in volumes:
-                    size = float(v.get("Size", 0))
-                    reclaimable = float(v.get("ReclaimableSize", 0))
-                    total_size += size
-                    total_reclaimable += reclaimable
-                    if v.get("Links", 0) > 0:
-                        active_number += 1
-                metrics = ["size", "reclaimable_size", "total_number", "active_number"] if total_reclaimable > 0 else ["size", "total_number", "active_number"]
-                items.append({"item": "volumes", "params": {}, "metrics": metrics})
-        
-        return {"changed": False, "msg": "discovered %d items" % len(items),
-                "data": {"discovery": items}}
+def render_bytes(n):
+    n = float(n)
+    units = ["B", "kB", "MB", "GB", "TB", "PB"]
+    i = 0
+    while n >= 1024.0 and i < len(units) - 1:
+        n = n / 1024.0
+        i = i + 1
+    if i == 0:
+        return "%d %s" % (int(n), units[i])
+    return "%f %s" % (n, units[i])
 
-    # Check mode: verify one item
-    item = params.get("item", "")
-    if not item:
-        return {"changed": False, "msg": "no item specified",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    res = ctx.run(["podman", "system", "df", "--format", "json"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to run podman df: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout:
-        return {"changed": False, "msg": "no output from podman df",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    data = json.decode(res.stdout)
-
-    # Extract usage data for the requested item
-    size = 0.0
-    reclaimable_size = None
-    total_number = 0
-    active_number = 0
-
-    if isinstance(data, list):
-        # Summary format
-        for entry in data:
-            entry_type = entry.get("Type")
-            if entry_type == "Images" and item == "images":
-                size = float(entry.get("RawSize", 0))
-                reclaimable_size = float(entry.get("RawReclaimable", 0))
-                total_number = int(entry.get("Total", 0))
-                active_number = int(entry.get("Active", 0))
-                break
-            elif entry_type == "Containers" and item == "containers":
-                size = float(entry.get("RawSize", 0))
-                reclaimable_size = float(entry.get("RawReclaimable", 0))
-                total_number = int(entry.get("Total", 0))
-                active_number = int(entry.get("Active", 0))
-                break
-            elif entry_type == "Local Volumes" and item == "volumes":
-                size = float(entry.get("RawSize", 0))
-                reclaimable_size = float(entry.get("RawReclaimable", 0))
-                total_number = int(entry.get("Total", 0))
-                active_number = int(entry.get("Active", 0))
-                break
-    elif isinstance(data, dict):
-        # Entity format
-        if item == "images" and "Images" in data:
-            images = data.get("Images", [])
-            for img in images:
-                size += float(img.get("Size", 0))
-                if img.get("Containers", 0) > 0:
-                    active_number += 1
-            total_number = len(images)
-        elif item == "containers" and "Containers" in data:
-            containers = data.get("Containers", [])
-            for c in containers:
-                size += float(c.get("Size", 0))
-                rwsize = float(c.get("RWSize", 0))
-                reclaimable_size = (reclaimable_size if reclaimable_size != None else 0) + rwsize
-                status = c.get("Status", "").lower()
-                if status == "running":
-                    active_number += 1
-            total_number = len(containers)
-        elif item == "volumes" and "Volumes" in data:
-            volumes = data.get("Volumes", [])
-            for v in volumes:
-                size += float(v.get("Size", 0))
-                reclaimable = float(v.get("ReclaimableSize", 0))
-                reclaimable_size = (reclaimable_size if reclaimable_size != None else 0) + reclaimable
-                if v.get("Links", 0) > 0:
-                    active_number += 1
-            total_number = len(volumes)
-
-    # Apply thresholds
+def check_levels(value, levels, label):
     state = "OK"
-    msg_parts = []
-    
-    # Size
-    size_val = float(size)
-    warn_size = params.get("size_upper", {}).get("levels", (None, None))
-    crit_size = params.get("size_upper", {}).get("levels", (None, None))
-    warn_size_val = warn_size[1] if warn_size != None and len(warn_size) > 1 else None
-    crit_size_val = crit_size[1] if crit_size != None and len(crit_size) > 1 else None
-    if crit_size_val != None and size_val >= crit_size_val:
-        state = "CRIT"
-    elif warn_size_val != None and size_val >= warn_size_val:
-        state = "WARN"
-    msg_parts.append("Size: %s" % _render_bytes(size_val))
-
-    # Reclaimable size (if available)
-    if reclaimable_size != None:
-        reclaim_val = float(reclaimable_size)
-        warn_rec = params.get("reclaimable_upper", {}).get("levels", (None, None))
-        crit_rec = params.get("reclaimable_upper", {}).get("levels", (None, None))
-        warn_rec_val = warn_rec[1] if warn_rec != None and len(warn_rec) > 1 else None
-        crit_rec_val = crit_rec[1] if crit_rec != None and len(crit_rec) > 1 else None
-        if crit_rec_val != None and reclaim_val >= crit_rec_val:
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+        if value >= crit:
             state = "CRIT"
-        elif warn_rec_val != None and reclaim_val >= warn_rec_val:
+        elif value >= warn:
             state = "WARN"
-        msg_parts.append("Reclaimable: %s" % _render_bytes(reclaim_val))
+    return state
 
-    # Total count
-    total_val = float(total_number)
-    warn_tot = params.get("total", {}).get("levels", (None, None))
-    crit_tot = params.get("total", {}).get("levels", (None, None))
-    warn_tot_val = warn_tot[1] if warn_tot != None and len(warn_tot) > 1 else None
-    crit_tot_val = crit_tot[1] if crit_tot != None and len(crit_tot) > 1 else None
-    if crit_tot_val != None and total_val >= crit_tot_val:
-        state = "CRIT"
-    elif warn_tot_val != None and total_val >= warn_tot_val:
-        state = "WARN"
-    msg_parts.append("Total: %d" % int(total_val))
-
-    # Active count
-    active_val = float(active_number)
-    warn_act = params.get("active", {}).get("levels", (None, None))
-    crit_act = params.get("active", {}).get("levels", (None, None))
-    warn_act_val = warn_act[1] if warn_act != None and len(warn_act) > 1 else None
-    crit_act_val = crit_act[1] if crit_act != None and len(crit_act) > 1 else None
-    if crit_act_val != None and active_val >= crit_act_val:
-        state = "CRIT"
-    elif warn_act_val != None and active_val >= warn_act_val:
-        state = "WARN"
-    msg_parts.append("Active: %d" % int(active_val))
-
-    # Build metrics dict
-    metrics = {"podman_disk_usage_" + item + "_total_size": size_val,
-               "podman_disk_usage_" + item + "_total_number": total_val,
-               "podman_disk_usage_" + item + "_active_number": active_val}
-    if reclaimable_size != None:
-        metrics["podman_disk_usage_" + item + "_reclaimable_size"] = float(reclaimable_size)
-
-    return {"changed": False, "msg": "; ".join(msg_parts),
-            "data": {"state": state, "metrics": metrics, "details": ""}}
-
-
-def _render_bytes(value):
-    # Simple bytes renderer: returns human-readable bytes string
-    if value < 1024:
-        return "%f B" % value
-    elif value < 1024 * 1024:
-        return "%f KB" % (value / 1024.0)
-    elif value < 1024 * 1024 * 1024:
-        return "%f MB" % (value / (1024.0 * 1024.0))
-    elif value < 1024 * 1024 * 1024 * 1024:
-        return "%f GB" % (value / (1024.0 * 1024.0 * 1024.0))
+def normalize_type(t):
+    if t == "Images":
+        return "images"
+    elif t == "Containers":
+        return "containers"
+    elif t == "Local Volumes":
+        return "volumes"
     else:
-        return "%f TB" % (value / (1024.0 * 1024.0 * 1024.0 * 1024.0))
+        return t.lower()
+
+def parse_disk_usage(data):
+    disk_usage = {}
+    for entry in data:
+        t = entry.get("Type", "")
+        key = normalize_type(t)
+        size_val = float(entry.get("Size", 0))
+        reclaimable_val = float(entry.get("ReclaimableSize", 0))
+        total_val = int(entry.get("Total", 1))
+        active_val = int(entry.get("Active", 0))
+
+        if key in disk_usage:
+            existing = disk_usage[key]
+            new_size = existing["size"] + size_val
+            new_total = existing["total"] + total_val
+            new_active = existing["active"] + active_val
+            new_reclaimable = existing["reclaimable"]
+            if reclaimable_val > 0 or (new_reclaimable != None and new_reclaimable > 0):
+                base = 0.0
+                if new_reclaimable != None:
+                    base = new_reclaimable
+                new_reclaimable = base + reclaimable_val
+            else:
+                new_reclaimable = None
+            disk_usage[key] = {
+                "size": new_size,
+                "reclaimable": new_reclaimable,
+                "total": new_total,
+                "active": new_active,
+            }
+        else:
+            if reclaimable_val > 0:
+                rec = reclaimable_val
+            else:
+                rec = None
+            disk_usage[key] = {
+                "size": size_val,
+                "reclaimable": rec,
+                "total": total_val,
+                "active": active_val,
+            }
+    return disk_usage
+
+def main(ctx, params):
+    if params.get("_discover"):
+        probe = ctx.run(["podman", "--version"], mutates=False)
+        if probe.rc == 127:
+            return {"changed": False, "msg": "podman not installed", "data": {"discovery": []}}
+
+        res = ctx.run(["podman", "system", "df", "-v", "--format", "json"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "podman system df failed", "data": {"discovery": []}}
+
+        if res.stdout == "" or res.stdout == None:
+            return {"changed": False, "msg": "no data from podman", "data": {"discovery": []}}
+
+        data = json.decode(res.stdout)
+        if type(data) != "list":
+            return {"changed": False, "msg": "unexpected podman output", "data": {"discovery": []}}
+
+        disk_usage = parse_disk_usage(data)
+
+        discovery = []
+        for key in sorted(disk_usage.keys()):
+            du = disk_usage[key]
+            metrics = ["podman_disk_usage_%s_total_size" % key]
+            if du["reclaimable"] != None:
+                metrics.append("podman_disk_usage_%s_reclaimable_size" % key)
+            metrics.append("podman_disk_usage_%s_total_number" % key)
+            metrics.append("podman_disk_usage_%s_active_number" % key)
+            discovery.append({
+                "item": key,
+                "params": {
+                    "size_upper": None,
+                    "reclaimable_upper": None,
+                    "total": None,
+                    "active": None,
+                },
+                "metrics": metrics,
+            })
+
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    item = params.get("item", "")
+    sizes_params = params.get(item, {})
+
+    probe = ctx.run(["podman", "--version"], mutates=False)
+    if probe.rc == 127:
+        return {
+            "changed": False,
+            "msg": "podman not installed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "podman binary not found"},
+        }
+
+    res = ctx.run(["podman", "system", "df", "-v", "--format", "json"], mutates=False)
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "podman system df failed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
+        }
+
+    if res.stdout == "" or res.stdout == None:
+        return {
+            "changed": False,
+            "msg": "no data from podman",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "empty output"},
+        }
+
+    data = json.decode(res.stdout)
+    if type(data) != "list":
+        return {
+            "changed": False,
+            "msg": "unexpected output format",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "podman output is not a list"},
+        }
+
+    disk_usage = parse_disk_usage(data)
+
+    if item not in disk_usage:
+        return {
+            "changed": False,
+            "msg": "no such item: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "item not found in podman output"},
+        }
+
+    du = disk_usage[item]
+    found_size = du["size"]
+    found_reclaimable = du["reclaimable"]
+    found_total = du["total"]
+    found_active = du["active"]
+
+    size_upper = None
+    reclaimable_upper = None
+    total_levels = None
+    active_levels = None
+
+    if type(sizes_params) == "dict":
+        size_upper = sizes_params.get("size_upper")
+        reclaimable_upper = sizes_params.get("reclaimable_upper")
+        total_levels = sizes_params.get("total")
+        active_levels = sizes_params.get("active")
+
+    size_state = check_levels(found_size, size_upper, "Size")
+    metrics = {"podman_disk_usage_%s_total_size" % item: found_size}
+    details_parts = ["Size: %s" % render_bytes(found_size)]
+
+    overall_state = size_state
+
+    if found_reclaimable != None:
+        reclaim_state = check_levels(found_reclaimable, reclaimable_upper, "Reclaimable")
+        if reclaim_state == "CRIT":
+            overall_state = "CRIT"
+        elif reclaim_state == "WARN" and overall_state == "OK":
+            overall_state = "WARN"
+        metrics["podman_disk_usage_%s_reclaimable_size" % item] = found_reclaimable
+        details_parts.append("Reclaimable: %s" % render_bytes(found_reclaimable))
+
+    total_state = check_levels(found_total, total_levels, "Total")
+    if total_state == "CRIT":
+        overall_state = "CRIT"
+    elif total_state == "WARN" and overall_state == "OK":
+        overall_state = "WARN"
+    metrics["podman_disk_usage_%s_total_number" % item] = found_total
+    details_parts.append("Total: %d" % found_total)
+
+    active_state = check_levels(found_active, active_levels, "Active")
+    if active_state == "CRIT":
+        overall_state = "CRIT"
+    elif active_state == "WARN" and overall_state == "OK":
+        overall_state = "WARN"
+    metrics["podman_disk_usage_%s_active_number" % item] = found_active
+    details_parts.append("Active: %d" % found_active)
+
+    details = "\n".join(details_parts)
+
+    if overall_state == "CRIT":
+        msg = "CRIT - " + details
+    elif overall_state == "WARN":
+        msg = "WARN - " + details
+    else:
+        msg = details
+
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": overall_state,
+            "metrics": metrics,
+            "details": details,
+        },
+    }

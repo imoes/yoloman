@@ -1,10 +1,174 @@
-# ===== Starlark check: alcatel_power_aos7 =====
-# Translation of Checkmk check: checkmk.alcatel_power_aos7
-# Read-only SNMP check for Alcatel-Lucent AOS7 power supplies
-
 def main(ctx, params):
-    # Mappings defined at module top level (Starlark requirement)
-    alcatel_power_aos7_operability_to_status_mapping = {
+    if params.get("_discover"):
+        res = ctx.run(
+            [
+                "snmpget",
+                "-v2c",
+                "-c",
+                params.get("community", "public"),
+                "-Oqv",
+                "-t",
+                "5",
+                params.get("host", "localhost"),
+                ".1.3.6.1.2.1.1.2.0",
+            ],
+            mutates=False,
+        )
+        if res.rc == 127 or res.rc != 0:
+            return {
+                "changed": False,
+                "msg": "host is not an Alcatel AOS7 device or SNMP unavailable",
+                "data": {"discovery": [], "host_labels": {}},
+            }
+
+        sys_oid = res.stdout.strip().strip('"').strip()
+        if not sys_oid.startswith(".1.3.6.1.4.1.6486.801"):
+            return {
+                "changed": False,
+                "msg": "not an Alcatel AOS7 device",
+                "data": {"discovery": [], "host_labels": {}},
+            }
+
+        walk = ctx.run(
+            [
+                "snmpwalk",
+                "-v2c",
+                "-c",
+                params.get("community", "public"),
+                "-Oqn",
+                "-t",
+                "5",
+                params.get("host", "localhost"),
+                ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1",
+            ],
+            mutates=False,
+        )
+        if walk.rc != 0:
+            return {
+                "changed": False,
+                "msg": "no alcatel_power_aos7 data: %s" % walk.stderr.strip(),
+                "data": {"discovery": []},
+            }
+
+        operability = {}
+        ptype = {}
+        column_operability = ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.2"
+        column_type = ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.35"
+
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            value = line[sp + 1:].strip()
+            if oid.startswith(column_operability + "."):
+                index = oid[len(column_operability) + 1:]
+                operability[index] = value
+            elif oid.startswith(column_type + "."):
+                index = oid[len(column_type) + 1:]
+                ptype[index] = value
+
+        operability_mapping = {
+            "1": "up",
+            "2": "down",
+            "3": "testing",
+            "4": "unknown",
+            "5": "secondary",
+            "6": "not present",
+            "7": "unpowered",
+            "8": "master",
+            "9": "idle",
+            "10": "power save",
+        }
+        type_mapping = {
+            "0": "no power supply",
+            "1": "AC",
+            "2": "DC",
+        }
+
+        out = []
+        for index in operability:
+            op = operability.get(index, "")
+            status_readable = operability_mapping.get(op, "unknown")
+            pt = ptype.get(index, "0")
+            power_type = type_mapping.get(pt, "no power supply")
+            if power_type == "no power supply" or status_readable == "not present":
+                continue
+            out.append(
+                {
+                    "item": index,
+                    "params": {},
+                    "metrics": [],
+                }
+            )
+
+        return {
+            "changed": False,
+            "msg": "discovered %d power supplies" % len(out),
+            "data": {
+                "discovery": out,
+                "host_labels": {"cmk/os_family": "network"},
+            },
+        }
+
+    item = params.get("item", "")
+
+    walk = ctx.run(
+        [
+            "snmpwalk",
+            "-v2c",
+            "-c",
+            params.get("community", "public"),
+            "-Oqn",
+            "-t",
+            "5",
+            params.get("host", "localhost"),
+            ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.2",
+        ],
+        mutates=False,
+    )
+    if walk.rc != 0:
+        return {
+            "changed": False,
+            "msg": "could not query power supply operability: %s" % walk.stderr.strip(),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    operability_value = ""
+    found_item = False
+    for line in walk.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        oid = line[:sp]
+        value = line[sp + 1:].strip()
+        base = ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.2"
+        if oid.startswith(base + "."):
+            index = oid[len(base) + 1:]
+            if index == item:
+                operability_value = value
+                found_item = True
+                break
+
+    type_walk = ctx.run(
+        [
+            "snmpget",
+            "-v2c",
+            "-c",
+            params.get("community", "public"),
+            "-Oqv",
+            "-t",
+            "5",
+            params.get("host", "localhost"),
+            ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.35." + item,
+        ],
+        mutates=False,
+    )
+    power_type_value = "0"
+    if type_walk.rc == 0:
+        power_type_value = type_walk.stdout.strip()
+
+    operability_mapping = {
         "1": "up",
         "2": "down",
         "3": "testing",
@@ -16,186 +180,38 @@ def main(ctx, params):
         "9": "idle",
         "10": "power save",
     }
-
-    alcatel_power_aos7_no_power_supply = "no power supply"
-    
-    alcatel_power_aos7_power_type_mapping = {
-        "0": alcatel_power_aos7_no_power_supply,
+    type_mapping = {
+        "0": "no power supply",
         "1": "AC",
         "2": "DC",
     }
-    
-    base_oid = ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1"
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    # ===== DISCOVERY MODE =====
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base_oid + ".2",  # operabilityStatus
-            base_oid + ".35", # powerSupplyType
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed: " + res.stderr,
-                "data": {"discovery": []},
-            }
-        
-        # Parse snmpwalk output: lines like ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.1.2 = INTEGER: 1"
-        # We need to correlate items by their index (end of OID)
-        power_entries = {}
-        
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line or "=" not in line:
-                continue
-            
-            parts = line.split(" = ")
-            if len(parts) != 2:
-                continue
-            
-            oid_full = parts[0]
-            value = parts[1]
-            
-            # Extract index (last numeric part of OID)
-            oid_end = oid_full.rsplit(".", 1)
-            if len(oid_end) != 2:
-                continue
-            
-            # Extract value integer
-            val_parts = value.split(": ")
-            if len(val_parts) < 2:
-                continue
-            value_str = val_parts[1].strip()
-            if not value_str.isdigit():
-                continue
-            
-            index = oid_end[1]
-            value_int = value_str
-            
-            # Store value by index
-            if index not in power_entries:
-                power_entries[index] = {}
-            
-            # Determine which OID this is by checking OID length/structure
-            # base_oid.2 = operabilityStatus, base_oid.35 = powerSupplyType
-            if oid_full.endswith(".2"):
-                power_entries[index]["operability"] = value_int
-            elif oid_full.endswith(".35"):
-                power_entries[index]["type"] = value_int
-        
-        # Build discovery list
-        discovered = []
-        for idx, entry in sorted(power_entries.items()):
-            # Map values to readable strings
-            status_readable = alcatel_power_aos7_operability_to_status_mapping.get(
-                entry.get("operability", "4"), "unknown"
-            )
-            power_type = alcatel_power_aos7_power_type_mapping.get(
-                entry.get("type", "0"), alcatel_power_aos7_no_power_supply
-            )
-            
-            # Only discover if it's a real power supply and not "not present"
-            if (power_type != alcatel_power_aos7_no_power_supply and
-                status_readable != "not present"):
-                # Item name is just the index (e.g., "1")
-                item = str(idx)
-                discovered.append({
-                    "item": item,
-                    "params": {},
-                    "metrics": [],
-                })
-        
+
+    if not found_item:
         return {
             "changed": False,
-            "msg": "discovered %d power supplies" % len(discovered),
-            "data": {"discovery": discovered},
+            "msg": "no such power supply: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # ===== CHECK MODE =====
-    item = params.get("item", "")
-    
-    # Fetch both required OIDs in one walk for the specific item
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host,
-        base_oid + ".2." + item,  # operabilityStatus
-        base_oid + ".35." + item, # powerSupplyType
-    ], mutates=False)
-    
-    if res.rc != 0:
+
+    status_readable = operability_mapping.get(operability_value, "unknown")
+    power_type = type_mapping.get(power_type_value, "no power supply")
+
+    if power_type == "no power supply" or status_readable == "not present":
         return {
             "changed": False,
-            "msg": "SNMP get failed for item " + item + ": " + res.stderr,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
+            "msg": "power supply %s is not present" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Parse snmpget output: lines like ".1.3.6.1.4.1.6486.801.1.1.1.1.1.1.1.1.2 = INTEGER: 1"
-    values = {}
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line or "=" not in line:
-            continue
-        
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        
-        oid_full = parts[0]
-        value = parts[1]
-        
-        # Extract value
-        val_parts = value.split(": ")
-        if len(val_parts) < 2:
-            continue
-        value_str = val_parts[1].strip()
-        if not value_str.isdigit():
-            continue
-        
-        # Determine OID type from suffix
-        if oid_full.endswith(".2"):
-            values["operability"] = value_str
-        elif oid_full.endswith(".35"):
-            values["type"] = value_str
-    
-    # Check if we got values for both OIDs
-    if "operability" not in values or "type" not in values:
-        return {
-            "changed": False,
-            "msg": "missing data for power supply " + item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
-        }
-    
-    # Map values
-    status_readable = alcatel_power_aos7_operability_to_status_mapping.get(
-        values["operability"], "unknown"
-    )
-    power_type = alcatel_power_aos7_power_type_mapping.get(
-        values["type"], alcatel_power_aos7_no_power_supply
-    )
-    
-    # Determine state (CRIT if not "up", OK otherwise)
+
     state = "OK" if status_readable == "up" else "CRIT"
-    
-    # Build message in Checkmk style
-    msg = "[%s] Status: %s" % (power_type, status_readable)
-    
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "[%s] Status: %s" % (power_type, status_readable),
         "data": {
             "state": state,
             "metrics": {},
-            "details": "",
+            "details": "Power Supply %s: operability=%s, type=%s"
+            % (item, status_readable, power_type),
         },
     }

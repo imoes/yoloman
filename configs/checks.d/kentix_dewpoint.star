@@ -1,98 +1,119 @@
-# Sensor item names based on the Checkmk plugin's parsing logic
-SENSOR_ITEMS = ["LAN", "Rack"]
+def _split_line(line):
+    idx = line.find(" ")
+    if idx == -1:
+        return "", ""
+    return line[:idx], line[idx + 1:]
 
-def _get_dewpoint_data(ctx):
-    host = ctx.facts().get("hostname", "localhost")
-    community = "public"
-    base_oid = ".1.3.6.1.4.1.37954"
-    # Fetch both OIDs: LAN (2.1.3.1) and Rack (3.1.2.1)
-    oids = ["2.1.3.1", "3.1.2.1"]
-    data = {}
-    for i, oid_suffix in enumerate(oids):
-        oid = base_oid + "." + oid_suffix
-        res = ctx.run(["snmpget", "-v2c", "-c", community, "-On", host, oid], mutates=False)
-        if res.rc != 0:
-            continue
-        line = res.stdout.strip()
-        # Parse: OID = STRING: "value" or OID = INTEGER: value
-        if " = " not in line:
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        value_str = parts[1].strip()
-        # Handle different SNMP value types
-        if value_str.startswith("STRING: "):
-            value_str = value_str[8:].strip('"')
-        elif value_str.startswith("INTEGER: "):
-            value_str = value_str[9:]
-        # Extract numeric value (remove trailing units if any)
-        # e.g., "123" or "123.4"
-        if value_str == "":
-            continue
-        val = float(value_str) if value_str.replace('.', '').lstrip('-').isdigit() else None
-        if val != None:
-            data[SENSOR_ITEMS[i]] = val / 10.0
-    return data
-
-def _parse_dewpoint_data(ctx):
-    data = _get_dewpoint_data(ctx)
-    # Return dict of {item: reading} only if at least one sensor is present
-    return data if data else None
+def _get_suffix_oid(base, col, idx):
+    return base + "." + col + "." + idx
 
 def main(ctx, params):
-    if params.get("_discover"):
-        section = _parse_dewpoint_data(ctx)
-        if section == None or not section:
-            return {"changed": False, "msg": "discovered 0 dewpoint sensors",
+    base = ".1.3.6.1.4.1.37954"
+    oids = ["2.1.3.1", "3.1.2.1"]
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+
+    sysoid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if sysoid_res.rc != 0 or not sysoid_res.stdout.startswith(".1.3.6.1.4.1.332.11.6"):
+        return {"changed": False, "msg": "Kentix device not detected",
+                "data": {"discovery": []}}
+
+    walk_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + oids[0]],
+        mutates=False,
+    )
+    if walk_res.rc != 0:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "discovered 0 items",
                     "data": {"discovery": []}}
+        return {"changed": False, "msg": "no kentix dewpoint data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    rows = {}
+    for line in walk_res.stdout.splitlines():
+        oid, val = _split_line(line)
+        if not oid or not val:
+            continue
+        idx = oid[len(base + "." + oids[0]):]
+        if not idx:
+            continue
+        rows[idx] = {"lan": val}
+
+    if not rows:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "discovered 0 items",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no kentix dewpoint data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    for idx in list(rows.keys()):
+        r = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+             _get_suffix_oid(base, oids[1], idx)],
+            mutates=False,
+        )
+        if r.rc == 0:
+            rows[idx]["rack"] = r.stdout.strip()
+
+    warn = params.get("warn", 28.0)
+    crit = params.get("crit", 30.0)
+    p = params.get("levels")
+    w = warn
+    c = crit
+    if p and len(p) >= 2:
+        w = p[0]
+        c = p[1]
+
+    if params.get("_discover"):
         discovery = []
-        for item in section:
-            # Checkmk defaults are empty dict; temperature check defaults used below
-            discovery.append({
-                "item": item,
-                "params": {},
-                "metrics": ["temperature"]
-            })
-        return {"changed": False, "msg": "discovered %d dewpoint sensors" % len(discovery),
+        for idx in rows:
+            vals = rows[idx]
+            lan = vals.get("lan", "")
+            rack = vals.get("rack", "")
+            for sub, val in [("LAN", lan), ("Rack", rack)]:
+                if val and val not in ("NOSUCHOBJECT", "NOSUCHINSTANCE"):
+                    item = sub + "/" + idx
+                    discovery.append({"item": item,
+                                      "params": {"warn": w, "crit": c},
+                                      "metrics": ["dewpoint"]})
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
                 "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    section = _parse_dewpoint_data(ctx)
-    if section == None or item not in section:
-        return {"changed": False, "msg": "item not found: " + item,
+    idx = item
+    for sub in ["LAN", "Rack"]:
+        prefix = sub + "/"
+        if item.startswith(prefix):
+            idx = item[len(prefix):]
+            break
+
+    vals = rows.get(idx, {})
+    reading = None
+    which = ""
+    for sub, key in [("LAN", "lan"), ("Rack", "rack")]:
+        v = vals.get(key, "")
+        if v and v not in ("NOSUCHOBJECT", "NOSUCHINSTANCE"):
+            reading = float(v) / 10.0
+            which = sub
+            break
+
+    if reading == None:
+        return {"changed": False,
+                "msg": "no dewpoint reading for " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    reading = section[item]
-    # Checkmk temperature check defaults
-    # For dewpoint, we treat reading as temperature value in °C
-    # Default thresholds from Checkmk temperature ruleset
-    warn = params.get("levels", (20.0, 30.0))
-    warn_upper, crit_upper = warn if isinstance(warn, tuple) else (None, None)
-    warn_lower, crit_lower = params.get("levels_lower", (None, None))
-    warn_upper = warn_upper if warn_upper != None else 20.0
-    crit_upper = crit_upper if crit_upper != None else 30.0
-    warn_lower = warn_lower if warn_lower != None else None
-    crit_lower = crit_lower if crit_lower != None else None
-
-    # Determine state
     state = "OK"
-    details = ""
-
-    # Upper levels
-    if crit_upper != None and reading >= crit_upper:
+    if reading >= c:
         state = "CRIT"
-    elif warn_upper != None and reading >= warn_upper:
+    elif reading >= w:
         state = "WARN"
 
-    # Lower levels (only if defined)
-    if crit_lower != None and reading <= crit_lower:
-        state = "CRIT"
-    elif warn_lower != None and reading <= warn_lower:
-        state = "WARN"
-
-    # Build message
-    msg = "Dewpoint: %f C" % reading
-
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {"temperature": reading}, "details": ""}}
+    metrics = {"dewpoint": reading}
+    return {"changed": False,
+            "msg": "%s %s: %f C" % (which, item, reading),
+            "data": {"state": state, "metrics": metrics,
+                     "details": "Dewpoint reading for " + item}}

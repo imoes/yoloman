@@ -1,122 +1,142 @@
-# ===== Checkmk check: statgrab_cpu (CPU utilization) =====
-# Read-only Starlark check module for yolo-man agent
-# No mutates, no file_write, changed=False always
+def _to_int(s):
+    s = s.strip()
+    if s.lstrip("-").isdigit():
+        return int(s)
+    return None
 
 def main(ctx, params):
-    # DISCOVERY MODE
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {"item": "", "params": {}, "metrics": ["util"]}
-                ]
-            },
-        }
-
-    # CHECK MODE (single-service check, item == "")
-    # Read CPU times from agent section statgrab_cpu (already parsed into JSON by agent)
-    # Expected JSON format: {"user": N, "nice": N, "kernel": N, "idle": N, "iowait": N}
-    if not ctx.file_exists("/tmp/cmk_statgrab_cpu.json"):
-        return {
-            "changed": False,
-            "msg": "data missing: /tmp/cmk_statgrab_cpu.json",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            },
-        }
-
-    raw_str = ctx.file_read("/tmp/cmk_statgrab_cpu.json")
-    if not raw_str:
-        return {
-            "changed": False,
-            "msg": "empty data file",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            },
-        }
-
-    raw = json.decode(raw_str)
-    if type(raw) != "dict":
-        return {
-            "changed": False,
-            "msg": "invalid data format",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            },
-        }
-
-    # Extract values with defaults of 0 if missing
-    user = raw.get("user", 0)
-    nice = raw.get("nice", 0)
-    kernel = raw.get("kernel", 0)
-    idle = raw.get("idle", 0)
-    iowait = raw.get("iowait", 0)
-
-    # Validate numeric types
-    for name, val in [("user", user), ("nice", nice), ("kernel", kernel), ("idle", idle), ("iowait", iowait)]:
-        if type(val) != "int" and type(val) != "float":
+        res = ctx.run(["vmstat", "1", "2"], mutates=False)
+        if res.rc == 0 and res.stdout:
             return {
                 "changed": False,
-                "msg": "non-numeric value for " + name,
+                "msg": "discovered CPU utilization",
                 "data": {
-                    "state": "UNKNOWN",
-                    "metrics": {},
-                    "details": ""
+                    "discovery": [
+                        {
+                            "item": "",
+                            "params": {},
+                            "metrics": [
+                                "cpu_user",
+                                "cpu_system",
+                                "cpu_idle",
+                                "cpu_iowait",
+                                "cpu_iowait_percent",
+                            ],
+                        }
+                    ]
                 },
             }
-
-    # Compute total and util
-    total = user + nice + kernel + idle + iowait
-    if total == 0:
         return {
             "changed": False,
-            "msg": "no CPU activity detected",
+            "msg": "no CPU data available",
+            "data": {"discovery": []},
+        }
+
+    res = ctx.run(["vmstat", "1", "2"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {
+            "changed": False,
+            "msg": "no CPU data available",
             "data": {
                 "state": "UNKNOWN",
                 "metrics": {},
-                "details": ""
+                "details": "",
             },
         }
 
-    # util = 100 * (total - idle) / total
-    util = 100.0 * (total - idle) / total
+    lines = [l for l in res.stdout.splitlines() if l.strip()]
+    if len(lines) < 3:
+        return {
+            "changed": False,
+            "msg": "no CPU data available",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
 
-    # Apply thresholds (check default is empty, but ruleset cpu_iowait may set warn/crit)
-    # Use safe defaults consistent with Checkmk defaults (no thresholds = OK)
-    warn = params.get("util", {}).get("warn")
-    crit = params.get("util", {}).get("crit")
-    if warn == None:
-        # Default in Checkmk: warn=90.0, crit=95.0 (from cpu_iowait ruleset)
-        warn = 90.0
-    if crit == None:
-        crit = 95.0
+    header = lines[-2].split()
+    data = lines[-1].split()
+    if len(header) != len(data):
+        return {
+            "changed": False,
+            "msg": "no CPU data available",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
 
-    # Determine state: higher util is worse
-    if type(util) != "float" and type(util) != "int":
-        util = float(util)
+    idx = {}
+    for i, h in enumerate(header):
+        idx[h] = i
+
+    def col(name):
+        pos = idx.get(name)
+        if pos == None or pos >= len(data):
+            return None
+        return _to_int(data[pos])
+
+    user = col("us")
+    system = col("sy")
+    idle = col("id")
+    iowait = col("wa")
+
+    if user == None or system == None or idle == None or iowait == None:
+        return {
+            "changed": False,
+            "msg": "no CPU data available",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
+        }
+
+    total = user + system + idle + iowait
+    if total <= 0:
+        total = 1
+
+    user_p = user * 100.0 / total
+    system_p = system * 100.0 / total
+    idle_p = idle * 100.0 / total
+    iowait_p = iowait * 100.0 / total
+
+    warn = params.get("iowait", {}).get("warn", 0) if params.get("iowait") else 0
+    crit = params.get("iowait", {}).get("crit", 0) if params.get("iowait") else 0
+    if params.get("iowait_levels"):
+        wl = params.get("iowait_levels")
+        if type(wl) == "list" and len(wl) >= 2:
+            warn = wl[0]
+            crit = wl[1]
 
     state = "OK"
-    if crit != None and util >= crit:
+    if crit and iowait_p >= crit:
         state = "CRIT"
-    elif warn != None and util >= warn:
+    elif warn and iowait_p >= warn:
         state = "WARN"
 
-    msg = "CPU utilization: %f%%" % util
+    msg = "User: %f%%, System: %f%%, Idle: %f%%, I/O wait: %f%%" % (
+        user_p, system_p, idle_p, iowait_p
+    )
+    if iowait_p > 0 and (warn or crit):
+        msg = msg + " - iowait %s" % state
 
     return {
         "changed": False,
         "msg": msg,
         "data": {
             "state": state,
-            "metrics": {"util": util},
+            "metrics": {
+                "cpu_user": user_p,
+                "cpu_system": system_p,
+                "cpu_idle": idle_p,
+                "cpu_iowait": iowait_p,
+                "cpu_iowait_percent": iowait_p,
+            },
             "details": "",
         },
     }

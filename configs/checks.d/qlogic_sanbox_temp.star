@@ -1,207 +1,275 @@
+_STATUS_MAP = [
+    "undefined",  # 0
+    "unknown",    # 1
+    "other",      # 2
+    "ok",         # 3
+    "warning",    # 4
+    "failed",     # 5
+]
+
+_STATUS_MAP_LEN = len(_STATUS_MAP)
+
+
+def _status_from_sensor(sensor_status):
+    if sensor_status == 3:
+        return "OK"
+    if sensor_status == 4:
+        return "WARN"
+    if sensor_status == 5:
+        return "CRIT"
+    return "UNKNOWN"
+
+
+def _clean_sensor_id(sensor_id):
+    cleaned = sensor_id.replace("16.0.0.192.221.48.", "")
+    cleaned = cleaned.replace(".0.0.0.0.0.0.0.0", "")
+    return cleaned
+
+
+def _strip_type_tag(val):
+    if val == None:
+        return ""
+    colon = val.find(":")
+    if colon >= 0:
+        rest = val[colon + 1:].strip()
+        if rest.startswith('"') and rest.endswith('"'):
+            rest = rest[1:-1]
+        if rest.startswith("'") and rest.endswith("'"):
+            rest = rest[1:-1]
+        return rest
+    return val
+
+
+def _is_int(s):
+    if s == "":
+        return False
+    return s.lstrip("-").isdigit()
+
+
+def _to_int(s):
+    if _is_int(s):
+        return int(s), True
+    return 0, False
+
+
+def _to_float(s):
+    if _is_int(s):
+        return float(int(s)), True
+    # attempt manual float parse
+    sign = 1
+    body = s
+    if body.startswith("-"):
+        sign = -1
+        body = body[1:]
+    elif body.startswith("+"):
+        body = body[1:]
+    if body == "":
+        return 0.0, False
+    dots = body.count(".")
+    parts = body.split(".")
+    ok = True
+    for p in parts:
+        if p == "" or not _is_int(p):
+            ok = False
+            break
+    if ok and dots <= 1:
+        return sign * float(body), True
+    return 0.0, False
+
+
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        if res.rc == 127:
+            return None, "snmpget not installed"
+        if res.stdout == "" and res.stderr == "":
+            return None, "no response from host"
+        return None, "snmpget failed for " + oid + ": " + res.stderr.strip()
+    return res.stdout.strip(), None
+
+
+def _snmp_walk(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        if res.rc == 127:
+            return [], "snmpwalk not installed"
+        if res.stdout == "" and res.stderr == "":
+            return [], "no response from host"
+        return [], "snmpwalk failed for " + oid + ": " + res.stderr.strip()
+    rows = []
+    for line in res.stdout.splitlines():
+        if line == "":
+            continue
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        rows.append((parts[0], parts[1]))
+    return rows, None
+
+
+def _fetch_sysoid(ctx, host, community):
+    val, err = _snmp_get(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if err != None:
+        return "", err
+    return val, None
+
+
+def _is_qlogic(ctx, host, community):
+    sysoid, err = _fetch_sysoid(ctx, host, community)
+    if err != None:
+        return False
+    if sysoid.startswith(".1.3.6.1.4.1.3873.1.14"):
+        return True
+    if sysoid.startswith(".1.3.6.1.4.1.3873.1.8"):
+        return True
+    return False
+
+
+def _walk_sensor_table(ctx, host, community):
+    base = ".1.3.6.1.3.94.1.8.1"
+    name_base = base + ".3"
+    rows, err = _snmp_walk(ctx, host, community, name_base)
+    if err != None:
+        return [], err
+
+    records = []
+    for (line_oid, name_val) in rows:
+        if not line_oid.startswith(name_base + "."):
+            continue
+        index = line_oid[len(name_base) + 1:]
+
+        status_val, e1 = _snmp_get(ctx, host, community, base + ".4." + index)
+        if e1 != None:
+            continue
+        message_val, e2 = _snmp_get(ctx, host, community, base + ".6." + index)
+        if e2 != None:
+            continue
+        type_val, e3 = _snmp_get(ctx, host, community, base + ".7." + index)
+        if e3 != None:
+            continue
+        char_val, e4 = _snmp_get(ctx, host, community, base + ".8." + index)
+        if e4 != None:
+            continue
+        id_val, e5 = _snmp_get(ctx, host, community, base + ".9." + index)
+        if e5 != None:
+            continue
+
+        records.append({
+            "sensor_name": name_val,
+            "sensor_status": status_val,
+            "sensor_message": message_val,
+            "sensor_type": type_val,
+            "sensor_characteristic": char_val,
+            "sensor_id": id_val,
+        })
+
+    return records, None
+
+
 def main(ctx, params):
-    # SNMP base OID for qlogic_sanbox temperature section
-    SNMP_BASE_OID = ".1.3.6.1.3.94.1.8.1"
-    OID_TEMP_TYPE = "8"
-    OID_CHAR_TEMP = "3"
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-    # Status mapping: index matches SNMP value (0-based list, SNMP values start at 0)
-    status_map = [
-        "undefined",  # 0
-        "unknown",    # 1
-        "other",      # 2
-        "ok",         # 3
-        "warning",    # 4
-        "failed",     # 5
-    ]
-
-    def status_to_state(status_int):
-        if status_int == 3:
-            return "OK"
-        elif status_int == 4:
-            return "WARN"
-        elif status_int == 5:
-            return "CRIT"
-        else:
-            return "UNKNOWN"
-
-    def clean_sensor_id(sensor_id):
-        return sensor_id.replace("16.0.0.192.221.48.", "").replace(".0.0.0.0.0.0.0.0", "")
-
-    # ===== DISCOVERY MODE =====
     if params.get("_discover"):
-        # Walk the SNMP section for qlogic_sanbox
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            SNMP_BASE_OID,
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
+        if not _is_qlogic(ctx, host, community):
+            return {"changed": False, "msg": "not a Qlogic SANbox", "data": {"discovery": []}}
 
-        # Parse table: collect rows by sensor ID and column
-        raw_data = {}
-        for line in res.stdout.splitlines():
-            idx = line.find(" = ")
-            if idx == -1:
-                continue
-            oid_full = line[:idx].strip()
-            value = line[idx+3:].strip().strip('"')
-            suffix = oid_full[len(SNMP_BASE_OID):]
-            if not suffix.startswith("."):
-                continue
-            suffix = suffix[1:]
-            parts = suffix.split(".")
-            if len(parts) < 2:
-                continue
-            if not parts[0].isdigit():
-                continue
-            col = int(parts[0])
-            # Count trailing zeros
-            zero_count = 0
-            for p in reversed(parts):
-                if p == "0":
-                    zero_count += 1
-                else:
-                    break
-            if zero_count < 8:
-                continue
-            id_parts = parts[1:-zero_count]
-            if len(id_parts) == 0:
-                continue
-            sensor_id = ".".join(id_parts)
-            # Store column data
-            if sensor_id not in raw_data:
-                raw_data[sensor_id] = {}
-            raw_data[sensor_id][col] = value
+        records, err = _walk_sensor_table(ctx, host, community)
+        if err != None:
+            return {"changed": False, "msg": "discovery failed: " + err, "data": {"discovery": []}}
 
-        # Build discovered items
-        items = []
-        for sensor_id, cols in raw_data.items():
-            sensor_type = cols.get(7, "")
-            sensor_char = cols.get(8, "")
-            sensor_name = cols.get(3, "")
-
-            if sensor_type == OID_TEMP_TYPE and sensor_char == OID_CHAR_TEMP and sensor_name != "Temperature Status":
-                cleaned_id = clean_sensor_id(sensor_id)
-                items.append({
-                    "item": cleaned_id,
+        out = []
+        seen = set()
+        for r in records:
+            sensor_type = _strip_type_tag(r["sensor_type"])
+            sensor_characteristic = _strip_type_tag(r["sensor_characteristic"])
+            sensor_name = _strip_type_tag(r["sensor_name"])
+            sensor_id = _strip_type_tag(r["sensor_id"])
+            if (
+                sensor_type == "8"
+                and sensor_characteristic == "3"
+                and sensor_name != "Temperature Status"
+            ):
+                item = _clean_sensor_id(sensor_id)
+                if item in seen:
+                    continue
+                seen.add(item)
+                out.append({
+                    "item": item,
                     "params": {},
-                    "metrics": ["temp"]
+                    "metrics": ["temp"],
                 })
 
         return {
             "changed": False,
-            "msg": "discovered %d temperature sensors" % len(items),
-            "data": {"discovery": items},
+            "msg": "discovered %d temperature sensors" % len(out),
+            "data": {"discovery": out},
         }
 
-    # ===== CHECK MODE =====
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        SNMP_BASE_OID,
-    ], mutates=False)
-    if res.rc != 0:
+    if not _is_qlogic(ctx, host, community):
         return {
             "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "not a Qlogic SANbox",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    # Parse table
-    raw_data = {}
-    for line in res.stdout.splitlines():
-        idx = line.find(" = ")
-        if idx == -1:
-            continue
-        oid_full = line[:idx].strip()
-        value = line[idx+3:].strip().strip('"')
-        suffix = oid_full[len(SNMP_BASE_OID):]
-        if not suffix.startswith("."):
-            continue
-        suffix = suffix[1:]
-        parts = suffix.split(".")
-        if len(parts) < 2:
-            continue
-        if not parts[0].isdigit():
-            continue
-        col = int(parts[0])
-        zero_count = 0
-        for p in reversed(parts):
-            if p == "0":
-                zero_count += 1
-            else:
-                break
-        if zero_count < 8:
-            continue
-        id_parts = parts[1:-zero_count]
-        if len(id_parts) == 0:
-            continue
-        sensor_id = ".".join(id_parts)
-        if sensor_id not in raw_data:
-            raw_data[sensor_id] = {}
-        raw_data[sensor_id][col] = value
+    records, err = _walk_sensor_table(ctx, host, community)
+    if err != None:
+        return {
+            "changed": False,
+            "msg": "failed to fetch sensor table: " + err,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Find matching item
-    found = False
-    for sensor_id, cols in raw_data.items():
-        cleaned_id = clean_sensor_id(sensor_id)
+    for r in records:
+        sensor_id_raw = _strip_type_tag(r["sensor_id"])
+        cleaned_id = _clean_sensor_id(sensor_id_raw)
         if cleaned_id != item:
             continue
-        found = True
 
-        sensor_status_raw = cols.get(4, "")
-        sensor_message = cols.get(6, "")
-        sensor_type = cols.get(7, "")
+        sensor_status_raw = _strip_type_tag(r["sensor_status"])
+        sensor_message = _strip_type_tag(r["sensor_message"])
 
-        # Only process temperature sensors
-        if sensor_type != OID_TEMP_TYPE:
+        status_int, ok = _to_int(sensor_status_raw)
+        if not ok:
             return {
                 "changed": False,
-                "msg": "item %s not found or not a temperature sensor" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+                "msg": "invalid sensor status for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
             }
 
-        # Parse status safely
-        sensor_status = 1
-        if sensor_status_raw.isdigit() or (len(sensor_status_raw) > 1 and sensor_status_raw[0] == '-' and sensor_status_raw[1:].isdigit()):
-            sensor_status = int(sensor_status_raw)
+        sensor_status = status_int
+        if sensor_status < 0 or sensor_status >= _STATUS_MAP_LEN:
+            sensor_status_descr = str(sensor_status)
         else:
-            sensor_status = 1
+            sensor_status_descr = _STATUS_MAP[sensor_status]
 
-        status_str = status_map[sensor_status] if (0 <= sensor_status) and (sensor_status < len(status_map)) else str(sensor_status)
-        state = status_to_state(sensor_status)
+        state = _status_from_sensor(sensor_status)
 
-        # Parse temperature if present
         metrics = {}
-        summary_parts = []
-        summary_parts.append("Sensor %s is at %s and reports status %s" % (item, sensor_message, status_str))
         if sensor_message.endswith(" degrees C"):
-            temp_part = sensor_message.replace(" degrees C", "")
-            if temp_part.lstrip("-").isdigit():
-                temp_val = float(temp_part)
-                metrics["temp"] = temp_val
+            temp_str = sensor_message.replace(" degrees C", "")
+            temp_val, ok2 = _to_float(temp_str)
+            if ok2:
+                metrics = {"temp": temp_val}
+
+        summary = "Sensor %s is at %s and reports status %s" % (item, sensor_message, sensor_status_descr)
 
         return {
             "changed": False,
-            "msg": ", ".join(summary_parts),
-            "data": {
-                "state": state,
-                "metrics": metrics,
-                "details": ""
-            }
+            "msg": summary,
+            "data": {"state": state, "metrics": metrics, "details": ""},
         }
 
-    # Not found
     return {
         "changed": False,
         "msg": "No sensor %s found" % item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
     }

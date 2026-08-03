@@ -1,142 +1,112 @@
+_STATE_MAPPING = {
+    "mode_disabled": "OK",
+    "mode_active_active": "OK",
+    "mode_active_passive": "OK",
+    "ha_local_state_active": "OK",
+    "ha_local_state_passive": "OK",
+    "ha_local_state_active_primary": "OK",
+    "ha_local_state_active_secondary": "OK",
+    "ha_local_state_disabled": "OK",
+    "ha_local_state_initial": "WARN",
+    "ha_local_state_tentative": "WARN",
+    "ha_local_state_non_functional": "CRIT",
+    "ha_local_state_suspended": "CRIT",
+    "ha_local_state_unknown": "UNKNOWN",
+    "ha_peer_state_active": "OK",
+    "ha_peer_state_passive": "OK",
+    "ha_peer_state_active_primary": "OK",
+    "ha_peer_state_active_secondary": "OK",
+    "ha_peer_state_disabled": "OK",
+    "ha_peer_state_initial": "WARN",
+    "ha_peer_state_tentative": "WARN",
+    "ha_peer_state_non_functional": "CRIT",
+    "ha_peer_state_suspended": "CRIT",
+    "ha_peer_state_unknown": "UNKNOWN",
+}
+
+_OID_SYS_DESCR = ".1.3.6.1.2.1.1.2.0"
+_OID_BASE = ".1.3.6.1.4.1.25461.2.1.2.1"
+_OID_COLS = ["1", "11", "12", "13"]
+
+def _uniform(name):
+    return name.lower().replace("-", "_")
+
+def _state_for_key(key):
+    return _STATE_MAPPING.get(key, "UNKNOWN")
+
+def _worst(states):
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    worst = "OK"
+    worst_order = 0
+    for s in states:
+        o = order.get(s, 3)
+        if o > worst_order:
+            worst = s
+            worst_order = o
+    return worst
+
 def main(ctx, params):
-    # Discovery mode: always yield one service for Palo Alto devices
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}
-        }
-
-    # Check mode: read Palo Alto SNMP data
-    community = params.get("community", "public")
     host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.25461.2.1.2.1.1",   # panSysSwVersion
-        ".1.3.6.1.4.1.25461.2.1.2.1.11",  # panSysHAState
-        ".1.3.6.1.4.1.25461.2.1.2.1.12",  # panSysHAPeerState
-        ".1.3.6.1.4.1.25461.2.1.2.1.13"   # panSysHAMode
-    ], mutates=False)
+    community = params.get("community", "public")
 
-    if res.rc != 0:
+    if params.get("_discover"):
+        descr = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, _OID_SYS_DESCR], mutates=False)
+        if descr.rc != 0 or descr.stdout.find("25461") == -1:
+            return {"changed": False, "msg": "no Palo Alto device found", "data": {"discovery": []}}
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, _OID_BASE + ".1"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no Palo Alto device found", "data": {"discovery": []}}
         return {
             "changed": False,
-            "msg": "SNMP error: " + (res.stderr if res.stderr else "unknown"),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "Palo Alto State", "params": {"warn": 1, "crit": 2}, "metrics": []}
+                ],
+                "host_labels": {"cmk/dev_type": "palo_alto"}
+            },
         }
 
-    lines = res.stdout.splitlines()
-    # Parse SNMP output: OID = TYPE: VALUE
-    data = {}
-    for line in lines:
-        if " = " not in line:
-            continue
-        oid_part, value_part = line.strip().rsplit(" = ", 1)
-        oid_num = oid_part.rsplit(".", 1)[-1]
-        # Strip type prefix (INTEGER:, STRING:, etc.) and quotes
-        if ": " in value_part:
-            value = value_part.split(": ", 1)[1].strip().strip('"')
-        else:
-            value = value_part.strip()
-        data[oid_num] = value
+    values = []
+    ok = True
+    for col in _OID_COLS:
+        r = ctx.run(["snmpget", "-v2c", "-c", community] + [host, _OID_BASE + "." + col], mutates=False)
+        if r.rc != 0:
+            ok = False
+            break
+        values.append(r.stdout.strip())
 
-    # Check required fields exist
-    if "1" not in data or "11" not in data or "12" not in data or "13" not in data:
-        return {
-            "changed": False,
-            "msg": "Missing Palo Alto SNMP data",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    if not ok or len(values) < 4:
+        return {"changed": False, "msg": "Palo Alto device not responding or data unavailable", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    firmware_version = data["1"]
-    ha_local_state = data["11"]
-    ha_peer_state = data["12"]
-    ha_mode = data["13"]
+    firmware_version = values[0]
+    ha_local_state = values[1]
+    ha_peer_state = values[2]
+    ha_mode = values[3]
 
-    # State mapping as defined in Checkmk source
-    STATE_MAPPING_DEFAULT = {
-        "mode_disabled": 0,  # OK
-        "mode_active_active": 0,  # OK
-        "mode_active_passive": 0,  # OK
-        "ha_local_state_active": 0,  # OK
-        "ha_local_state_passive": 0,  # OK
-        "ha_local_state_active_primary": 0,  # OK
-        "ha_local_state_active_secondary": 0,  # OK
-        "ha_local_state_disabled": 0,  # OK
-        "ha_local_state_initial": 1,  # WARN
-        "ha_local_state_tentative": 1,  # WARN
-        "ha_local_state_non_functional": 2,  # CRIT
-        "ha_local_state_suspended": 2,  # CRIT
-        "ha_local_state_unknown": 3,  # UNKNOWN
-        "ha_peer_state_active": 0,  # OK
-        "ha_peer_state_passive": 0,  # OK
-        "ha_peer_state_active_primary": 0,  # OK
-        "ha_peer_state_active_secondary": 0,  # OK
-        "ha_peer_state_disabled": 0,  # OK
-        "ha_peer_state_initial": 1,  # WARN
-        "ha_peer_state_tentative": 1,  # WARN
-        "ha_peer_state_non_functional": 2,  # CRIT
-        "ha_peer_state_suspended": 2,  # CRIT
-        "ha_peer_state_unknown": 3,  # UNKNOWN
-    }
+    parts = []
+    states = []
 
-    # Uniform format helper: lower + replace '-' with '_'
-    def _uniform_format(name):
-        return name.lower().replace("-", "_")
+    mode_key = "mode_" + _uniform(ha_mode)
+    mode_state = _state_for_key(mode_key)
+    parts.append("HA mode: " + ha_mode)
+    states.append(mode_state)
 
-    # Build summary messages
-    summaries = []
-    
-    # Firmware version line
-    summaries.append("Firmware Version: " + firmware_version)
-    
-    # HA mode state
-    mode_key = "mode_" + _uniform_format(ha_mode)
-    mode_state = STATE_MAPPING_DEFAULT.get(mode_key, 3)  # Default to UNKNOWN if not found
-    
-    # HA local state
     if ha_mode == "disabled":
-        local_state = 0  # OK
+        local_state = "OK"
+        peer_state = "OK"
     else:
-        local_key = "ha_local_state_" + _uniform_format(ha_local_state)
-        local_state = STATE_MAPPING_DEFAULT.get(local_key, 3)  # Default to UNKNOWN
-    
-    # HA peer state
-    if ha_mode == "disabled":
-        peer_state = 0  # OK
-    else:
-        peer_key = "ha_peer_state_" + _uniform_format(ha_peer_state)
-        peer_state = STATE_MAPPING_DEFAULT.get(peer_key, 3)  # Default to UNKNOWN
+        local_key = "ha_local_state_" + _uniform(ha_local_state)
+        peer_key = "ha_peer_state_" + _uniform(ha_peer_state)
+        local_state = _state_for_key(local_key)
+        peer_state = _state_for_key(peer_key)
 
-    # Determine overall state (worst of all)
-    state = "OK"
-    if mode_state == 2 or local_state == 2 or peer_state == 2:
-        state = "CRIT"
-    elif mode_state == 1 or local_state == 1 or peer_state == 1:
-        state = "WARN"
-    elif mode_state == 3 or local_state == 3 or peer_state == 3:
-        state = "UNKNOWN"
+    parts.append("HA local state: " + ha_local_state)
+    parts.append("HA peer state: " + ha_peer_state)
+    states.append(local_state)
+    states.append(peer_state)
 
-    # Build summary string
-    ha_mode_summary = "HA mode: " + ha_mode
-    ha_local_summary = "HA local state: " + ha_local_state
-    ha_peer_summary = "HA peer state: " + ha_peer_state
-    
-    # Final message format (Checkmk style)
-    msg_parts = summaries + [ha_mode_summary, ha_local_summary]
-    
-    # Details (notice only for peer state)
-    details = ""
-    if ha_peer_summary:
-        details = ha_peer_summary
+    overall = _worst(states)
+    msg = "Firmware Version: " + firmware_version + "; " + "; ".join(parts)
 
-    return {
-        "changed": False,
-        "msg": ", ".join(msg_parts),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": details
-        }
-    }
+    return {"changed": False, "msg": msg, "data": {"state": overall, "metrics": {}, "details": msg}}

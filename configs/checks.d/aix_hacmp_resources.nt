@@ -2,33 +2,15 @@ name: aix_hacmp_resources
 fqcn: checkmk.aix_hacmp_resources
 collection: checkmk
 short_description: HACMP RG %s
-description:
-    > ## Overview
-    > This check monitors the status of HACMP (High Availability Cluster Multi-Processing) resource groups on AIX systems. It ensures critical clustered services remain available, which is essential for high-availability environments.
-    >
-    > ## What it monitors
-    > - HACMP resource group states (e.g., ONLINE, OFFLINE, FAIL)
-    > - Resource group name and associated nodes
-    > - Failover and failback behavior (concurrent/non-concurrent mode)
-    > - Cluster node health and role (active/passive)
-    >
-    > ## How it works
-    > The check parses the `aix_hacmp_resources` agent section (format: `group_name:state:node:mode:flags...`) from the yolo-man agent output. During discovery (`_discover=True`), it identifies individual resource groups to monitor as separate services. The state of each group determines the result: ONLINE groups yield OK; states like OFFLINE or FAIL trigger WARN/CRIT.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - **OK**: Resource group is ONLINE and healthy.
-    > - **WARN/CRIT**: Resource group is OFFLINE, FAILING, or in an unexpected state.
-    > - **UNKNOWN**: Data unavailable, agent section missing, or parsing failure.
-    >
-    > ## Metrics
-    > None.
+description: Checkmk check 'aix_hacmp_resources' (service: HACMP RG %s), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    expect_online_on:
+        type: string
+        default: first
+        description: expect_online_on (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Applications
+execution: local
+prompt_version: c21f0f5a7229

@@ -1,185 +1,220 @@
 def main(ctx, params):
-    # Discover mode: produce single service with all packet metrics
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    base1 = ".1.3.6.1.4.1.2620.1.1"
+    base2 = ".1.3.6.1.4.1.2620.1.2.5.4"
+
+    # Probe for the real thing: Check Point / IPSO system OID
+    sysid = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    sys_desc = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.1.0"],
+        mutates=False,
+    )
+    is_checkpoint = False
+    if sysid.rc == 0 and sysid.stdout.strip().startswith(".1.3.6.1.4.1.2620"):
+        is_checkpoint = True
+    if not is_checkpoint and sys_desc.rc == 0:
+        desc = sys_desc.stdout.strip().lower()
+        if desc.startswith("ipso ") or "cpx" in desc:
+            is_checkpoint = True
+
+    if not is_checkpoint:
+        if params.get("_discover"):
+            return {
+                "changed": False,
+                "msg": "discovered 0 items (not a Check Point/IPSO system)",
+                "data": {"discovery": []},
+            }
+        return {
+            "changed": False,
+            "msg": "not a Check Point/IPSO system (no Check Point system OID)",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "System does not appear to be a Check Point/IPSO device.",
+            },
+        }
+
     if params.get("_discover"):
-        # 探测SNMP数据：两个树段
-        # 树1: base=".1.3.6.1.4.1.2620.1.1", oids=["4","5","6","7"] -> Accepted, Rejected, Dropped, Logged
-        # 树2: base=".1.3.6.1.4.1.2620.1.2.5.4", oids=["5","6"] -> EspEncrypted, EspDecrypted
-        res1 = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-                        ".1.3.6.1.4.1.2620.1.1.4",
-                        ".1.3.6.1.4.1.2620.1.1.5",
-                        ".1.3.6.1.4.1.2620.1.1.6",
-                        ".1.3.6.1.4.1.2620.1.1.7"], mutates=False)
-        res2 = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-                        ".1.3.6.1.4.1.2620.1.2.5.4.5",
-                        ".1.3.6.1.4.1.2620.1.2.5.4.6"], mutates=False)
+        t1 = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base1 + ".4"],
+            mutates=False,
+        )
+        t2 = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base2 + ".5"],
+            mutates=False,
+        )
+        if t1.rc != 0 and t2.rc != 0:
+            return {
+                "changed": False,
+                "msg": "discovered 0 items (no packet statistics OIDs)",
+                "data": {"discovery": []},
+            }
+        metrics = [
+            "accepted", "rejected", "dropped", "logged",
+            "espencrypted", "espdecrypted",
+        ]
+        defaults = {
+            "accepted": 100000,
+            "rejected": 100000,
+            "dropped": 100000,
+            "logged": 100000,
+            "espencrypted": 100000,
+            "espdecrypted": 100000,
+        }
+        crit_defaults = {
+            "accepted": 200000,
+            "rejected": 200000,
+            "dropped": 200000,
+            "logged": 200000,
+            "espencrypted": 200000,
+            "espdecrypted": 200000,
+        }
+        params_disc = {}
+        for k in metrics:
+            params_disc[k] = [defaults[k], crit_defaults[k]]
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": params_disc, "metrics": metrics}
+                ]
+            },
+        }
 
-        # 解析：snmpwalk输出形如 .1.3.6.1.4.1.2620.1.1.4.0 = INTEGER: 131645
-        def parse_snmp_walk(out):
-            result = {}
-            for line in out.splitlines():
-                line = line.strip()
-                eq_idx = line.find("=")
-                if eq_idx == -1:
-                    continue
-                oid_part = line[:eq_idx].strip()
-                val_part = line[eq_idx+1:].strip()
-                # 提取数值部分：去掉前缀 "INTEGER: " 或 "Counter32: "
-                val_str = val_part
-                for prefix in ["INTEGER: ", "Counter32: ", "Gauge32: "]:
-                    if val_str.startswith(prefix):
-                        val_str = val_str[len(prefix):]
-                        break
-                val_str = val_str.strip()
-                if val_str.isdigit():
-                    # 提取子OID最后一段作为key：.1.3.6.1.4.1.2620.1.1.4.0 -> 0
-                    dot_idx = oid_part.rfind(".")
-                    if dot_idx != -1:
-                        sub_oid_str = oid_part[dot_idx+1:]
-                        val_int = int(sub_oid_str)
-                        result[val_int] = int(val_str)
-            return result
+    # CHECK MODE
+    cols1 = [base1 + ".4", base1 + ".5", base1 + ".6", base1 + ".7"]
+    vals1 = {}
+    for col in cols1:
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, col + ".0"],
+            mutates=False,
+        )
+        if res.rc == 0 and res.stdout.strip().isdigit():
+            vals1[col] = int(res.stdout.strip())
 
-        # 构建section: 两个树拼接
-        tree1 = parse_snmp_walk(res1.stdout)
-        tree2 = parse_snmp_walk(res2.stdout)
+    cols2 = [base2 + ".5", base2 + ".6"]
+    vals2 = {}
+    for col in cols2:
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, col + ".0"],
+            mutates=False,
+        )
+        if res.rc == 0 and res.stdout.strip().isdigit():
+            vals2[col] = int(res.stdout.strip())
 
-        section = {}
-        # 映射：Accepted(0,0), Rejected(0,1), Dropped(0,2), Logged(0,3) -> tree1 key 0~3
-        if 0 in tree1:
-            section["Accepted"] = tree1[0]
-        if 1 in tree1:
-            section["Rejected"] = tree1[1]
-        if 2 in tree1:
-            section["Dropped"] = tree1[2]
-        if 3 in tree1:
-            section["Logged"] = tree1[3]
-        # EspEncrypted(1,0), EspDecrypted(1,1) -> tree2 key 5,6 映射为 0,1
-        if 5 in tree2:
-            section["EspEncrypted"] = tree2[5]
-        if 6 in tree2:
-            section["EspDecrypted"] = tree2[6]
+    keys = [
+        ("Accepted", vals1.get(base1 + ".4")),
+        ("Rejected", vals1.get(base1 + ".5")),
+        ("Dropped", vals1.get(base1 + ".6")),
+        ("Logged", vals1.get(base1 + ".7")),
+        ("EspEncrypted", vals2.get(base2 + ".5")),
+        ("EspDecrypted", vals2.get(base2 + ".6")),
+    ]
 
-        if section:
-            # 单服务，item=""
-            metrics = ["accepted", "rejected", "dropped", "logged", "espencrypted", "espdecrypted"]
-            return {"changed": False, "msg": "discovered Packet Statistics",
-                    "data": {"discovery": [{"item": "", "params": {}, "metrics": metrics}]}}
-        else:
-            return {"changed": False, "msg": "no packet data found",
-                    "data": {"discovery": []}}
+    # No data gathered
+    has_data = False
+    for _, v in keys:
+        if v != None:
+            has_data = True
+            break
+    if not has_data:
+        return {
+            "changed": False,
+            "msg": "no packet statistics available",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "Check Point packet statistics OIDs returned no values.",
+            },
+        }
 
-    # 检查模式（单服务）
-    # 首先探测SNMP（同上）
-    res1 = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-                    ".1.3.6.1.4.1.2620.1.1.4",
-                    ".1.3.6.1.4.1.2620.1.1.5",
-                    ".1.3.6.1.4.1.2620.1.1.6",
-                    ".1.3.6.1.4.1.2620.1.1.7"], mutates=False)
-    res2 = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost",
-                    ".1.3.6.1.4.1.2620.1.2.5.4.5",
-                    ".1.3.6.1.4.1.2620.1.2.5.4.6"], mutates=False)
+    now = ctx.run(["date", "+%s"], mutates=False)
+    this_time = 0.0
+    if now.rc == 0 and now.stdout.strip().isdigit():
+        this_time = float(now.stdout.strip())
 
-    def parse_snmp_walk(out):
-        result = {}
-        for line in out.splitlines():
-            line = line.strip()
-            eq_idx = line.find("=")
-            if eq_idx == -1:
-                continue
-            oid_part = line[:eq_idx].strip()
-            val_part = line[eq_idx+1:].strip()
-            val_str = val_part
-            for prefix in ["INTEGER: ", "Counter32: ", "Gauge32: "]:
-                if val_str.startswith(prefix):
-                    val_str = val_str[len(prefix):]
-                    break
-            val_str = val_str.strip()
-            if val_str.isdigit():
-                dot_idx = oid_part.rfind(".")
-                if dot_idx != -1:
-                    sub_oid_str = oid_part[dot_idx+1:]
-                    val_int = int(sub_oid_str)
-                    result[val_int] = int(val_str)
-        return result
+    prev = ctx.run(["cat", "/tmp/cmk_checkpoint_packets_state"], mutates=False)
+    old_time = 0.0
+    old_vals = {}
+    if prev.rc == 0 and prev.stdout != "":
+        old = json.decode(prev.stdout)
+        old_time = float(old.get("time", 0.0))
+        old_vals = old.get("vals", {})
 
-    tree1 = parse_snmp_walk(res1.stdout)
-    tree2 = parse_snmp_walk(res2.stdout)
+    states = []
+    metrics_out = {}
+    details_lines = []
 
-    section = {}
-    if 0 in tree1:
-        section["Accepted"] = tree1[0]
-    if 1 in tree1:
-        section["Rejected"] = tree1[1]
-    if 2 in tree1:
-        section["Dropped"] = tree1[2]
-    if 3 in tree1:
-        section["Logged"] = tree1[3]
-    if 5 in tree2:
-        section["EspEncrypted"] = tree2[5]
-    if 6 in tree2:
-        section["EspDecrypted"] = tree2[6]
-
-    # 未发现数据则返回UNKNOWN
-    if not section:
-        return {"changed": False, "msg": "no packet data found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # 默认阈值（Checkmk默认参数）
     defaults = {
-        "accepted": (100000.0, 200000.0),
-        "rejected": (100000.0, 200000.0),
-        "dropped": (100000.0, 200000.0),
-        "logged": (100000.0, 200000.0),
-        "espencrypted": (100000.0, 200000.0),
-        "espdecrypted": (100000.0, 200000.0),
+        "accepted": (100000, 200000),
+        "rejected": (100000, 200000),
+        "dropped": (100000, 200000),
+        "logged": (100000, 200000),
+        "espencrypted": (100000, 200000),
+        "espdecrypted": (100000, 200000),
     }
 
-    # 构建metrics和计算状态
-    metrics = {}
-    details_parts = []
-    state = "OK"
-
-    for name in ["Accepted", "Rejected", "Dropped", "Logged", "EspEncrypted", "EspDecrypted"]:
-        key = name.lower()
-        if name not in section:
+    for name, value in keys:
+        if value == None:
             continue
-        value = float(section[name])
-        # 转换为rate（第一次采集时返回当前值，但无历史 —— 按Checkmk速率语义模拟）
-        # 实际在Starlark中无时间状态，按Checkmk rate语义，首次返回当前值作为瞬时速率（rate = value / delta_time），但delta_time未知。
-        # 简化：使用value本身作为瞬时速率（单位 pkts/s），实际Checkmk rate函数会依赖时间戳和value_store。
-        # 由于Starlark无状态，这里直接使用value作为当前值，并以该值作为rate（粗略近似，符合只读检查目的）
-        rate = value
+        key = name.lower()
+        rate = 0.0
+        elapsed = this_time - old_time
+        if elapsed > 0 and key in old_vals and old_time > 0:
+            old_v = old_vals.get(key, value)
+            if value >= old_v:
+                rate = (value - old_v) / elapsed
 
-        warn_crit = params.get(key)
-        if warn_crit == None:
-            warn_crit = defaults.get(key, (None, None))
-        warn_val, crit_val = warn_crit if warn_crit != None else (None, None)
-
-        # 按Checkmk check_levels逻辑：upper levels
-        # CRIT if >= crit_val, WARN if >= warn_val
-        if crit_val != None and rate >= float(crit_val):
-            item_state = "CRIT"
-        elif warn_val != None and rate >= float(warn_val):
-            item_state = "WARN"
+        lvl = params.get(key)
+        if lvl == None:
+            d = defaults.get(key, (100000, 200000))
+            warn = d[0]
+            crit = d[1]
         else:
-            item_state = "OK"
+            if len(lvl) > 0:
+                warn = lvl[0]
+            else:
+                warn = 100000
+            if len(lvl) > 1:
+                crit = lvl[1]
+            else:
+                crit = 200000
 
-        # 状态合并：优先最差
-        if item_state == "CRIT":
-            state = "CRIT"
-        elif item_state == "WARN" and state == "OK":
-            state = "WARN"
+        if rate >= crit:
+            st = "CRIT"
+        elif rate >= warn:
+            st = "WARN"
+        else:
+            st = "OK"
+        states.append(st)
+        metrics_out[key] = rate
+        details_lines.append(
+            "%s: %f pkts/s (%s)" % (name, rate, st)
+        )
 
-        metrics[key] = rate
-        details_parts.append("%s: %f pkts/s" % (name, rate))
+    if len(states) == 0:
+        overall = "UNKNOWN"
+    else:
+        if "CRIT" in states:
+            overall = "CRIT"
+        elif "WARN" in states:
+            overall = "WARN"
+        else:
+            overall = "OK"
 
-    msg = ", ".join(details_parts) if details_parts else "no metrics"
+    msg = ", ".join(details_lines)
     return {
         "changed": False,
         "msg": msg,
         "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
+            "state": overall,
+            "metrics": metrics_out,
+            "details": "\n".join(details_lines),
         },
     }

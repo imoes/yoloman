@@ -1,40 +1,63 @@
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    detect_oid = ".1.3.6.1.2.1.1.1.0"
+    res_detect = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqvv", host, detect_oid],
+        mutates=False,
+    )
+    if res_detect.rc != 0:
+        return {
+            "changed": False,
+            "msg": "snmp detection failed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    sys_desc = res_detect.stdout.strip()
+    if "agent for hipath" not in sys_desc:
+        return {
+            "changed": False,
+            "msg": "not a Hitachi VSP Octopus e system",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
     if params.get("_discover"):
-        # Discovery: check if device is an SNI Octopuse by probing sysDescr
-        res = ctx.run(["snmpget", "-On", "-v2c", "-c", "public", "localhost", "1.3.6.1.2.1.1.1.0"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "discovered 0 items (SNMP not available)",
-                    "data": {"discovery": []}}
-        if "agent for hipath" not in res.stdout.lower():
-            return {"changed": False, "msg": "discovered 0 items (not SNI Octopuse device)",
-                    "data": {"discovery": []}}
-        # One service exists
-        return {"changed": False, "msg": "discovered 1 service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["util"]}]}}
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": {}, "metrics": ["util"]},
+                ],
+            },
+        }
 
-    # Check mode (single-service check)
-    res = ctx.run(["snmpget", "-On", "-v2c", "-c", "public", "localhost", "1.3.6.1.4.1.231.7.2.9.1.7.0"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP query failed",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    # Parse value: expect something like "INTEGER: 42"
-    line = res.stdout.strip()
-    if "INTEGER" in line:
-        parts = line.split(":")
-        if len(parts) < 2:
-            return {"changed": False, "msg": "unable to parse CPU value",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        cpu_str = parts[1].strip()
-    else:
-        return {"changed": False, "msg": "unexpected SNMP output format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    cpu_val = _fetch_cpu(ctx, host, community)
+    if cpu_val == None:
+        return {
+            "changed": False,
+            "msg": "could not retrieve CPU utilization",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    if not cpu_str.isdigit():
-        return {"changed": False, "msg": "CPU value is not an integer",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    cpu_perc = int(cpu_str)
+    return {
+        "changed": False,
+        "msg": "CPU utilization is %d%%" % cpu_val,
+        "data": {
+            "state": "OK",
+            "metrics": {"util": float(cpu_val)},
+            "details": "",
+        },
+    }
 
-    # Determine state (no thresholds in this check; always OK)
-    state = "OK"
-    return {"changed": False, "msg": "CPU utilization is %d%%" % cpu_perc,
-            "data": {"state": state, "metrics": {"util": float(cpu_perc)}, "details": ""}}
+
+def _fetch_cpu(ctx, host, community):
+    oid = ".1.3.6.1.4.1.231.7.2.9.1.7"
+    r = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+                mutates=False)
+    if r.rc != 0:
+        return None
+    val = r.stdout.strip()
+    if not val.isdigit():
+        return None
+    return int(val)

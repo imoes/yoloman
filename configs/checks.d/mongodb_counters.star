@@ -1,110 +1,82 @@
 def main(ctx, params):
-    # Step 1: Get serverStatus via mongosh
-    res = ctx.run(["mongosh", "--quiet", "--eval", "db.adminCommand({serverStatus:1})", "--norc"], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "Failed to get MongoDB serverStatus",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": "mongosh command failed"}
-        }
-    
-    # Step 2: Parse JSON - guard instead of try/except
-    if not res.stdout:
-        return {
-            "changed": False,
-            "msg": "Failed to parse MongoDB serverStatus JSON",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": "empty output"}
-        }
-    
-    # Guard: check if output starts with '{' to avoid JSON decode error
-    if res.stdout.find("{") != 0:
-        return {
-            "changed": False,
-            "msg": "Failed to parse MongoDB serverStatus JSON",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": "invalid JSON format"}
-        }
-    
-    data = json.decode(res.stdout)
-    
-    # Extract opcounters and opcountersRepl
-    server_status = data.get("serverStatus", {})
-    opcounters = server_status.get("opcounters", {})
-    opcounters_repl = server_status.get("opcountersRepl", {})
-    
-    # Build section in the same format as parse_mongodb_counters
-    section = {}
-    if opcounters:
-        section["opcounters"] = opcounters
-    if opcounters_repl:
-        section["opcountersRepl"] = opcounters_repl
-    
-    # Step 3: Discovery
     if params.get("_discover"):
-        items = []
-        if "opcounters" in section:
-            metrics_list = []
-            for k in opcounters.keys():
-                metrics_list.append(k + "_ops")
-            items.append({
-                "item": "Operations",
-                "params": {},
-                "metrics": metrics_list
-            })
-        if "opcountersRepl" in section:
-            metrics_list = []
-            for k in opcounters_repl.keys():
-                metrics_list.append(k + "_ops")
-            items.append({
-                "item": "Replica Operations",
-                "params": {},
-                "metrics": metrics_list
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Step 4: Check mode
+        # Probe for MongoDB serverStatus data on-host.
+        res = ctx.run(
+            ["mongo", "--quiet", "--eval",
+             "JSON.stringify(db.serverStatus().opcounters)"],
+            mutates=False,
+        )
+        if res.rc != 0:
+            return {"changed": False, "msg": "mongo binary not available or errored",
+                    "data": {"discovery": []}}
+        if not res.stdout:
+            return {"changed": False, "msg": "no opcounters data",
+                    "data": {"discovery": []}}
+
+        ops = json.decode(res.stdout)
+        if ops == None or len(ops) == 0:
+            return {"changed": False, "msg": "no opcounters counters",
+                    "data": {"discovery": []}}
+
+        metrics = ["%s_ops" % k for k in ops]
+        discovery = [{"item": "Operations", "params": {},
+                      "metrics": metrics, "service_labels": {}}]
+
+        # Replica-set counters live under opcountersRepl.
+        res2 = ctx.run(
+            ["mongo", "--quiet", "--eval",
+             "JSON.stringify(db.serverStatus().opcountersRepl)"],
+            mutates=False,
+        )
+        if res2.rc == 0 and res2.stdout:
+            repl = json.decode(res2.stdout)
+            if not (repl == None) and len(repl) > 0:
+                repl_metrics = ["%s_ops" % k for k in repl]
+                discovery.append({"item": "Replica Operations", "params": {},
+                                  "metrics": repl_metrics,
+                                  "service_labels": {}})
+
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
     item_map = {"Operations": "opcounters", "Replica Operations": "opcountersRepl"}
-    
-    if item not in item_map:
-        return {
-            "changed": False,
-            "msg": "Unknown item: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    section_key = item_map[item]
-    if section_key not in section:
-        return {
-            "changed": False,
-            "msg": "Item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": "Section key '" + section_key + "' not in data"}
-        }
-    
-    data_item = section[section_key]
-    
-    # Build metrics: for each counter, metric name is "{counter}_ops", value is absolute count
+    field = item_map.get(item, None)
+    if field == None:
+        return {"changed": False,
+                "msg": "unknown item: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    res = ctx.run(
+        ["mongo", "--quiet", "--eval",
+         "JSON.stringify(db.serverStatus().%s)" % field],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "mongo query failed for %s" % field,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if not res.stdout:
+        return {"changed": False,
+                "msg": "no data returned for %s" % field,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    data = json.decode(res.stdout)
+    if data == None or len(data) == 0:
+        return {"changed": False,
+                "msg": "no counters in section %s" % field,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     metrics = {}
-    details_parts = []
-    for counter_name in data_item.keys():
-        value = data_item.get(counter_name)
-        # Guard: ensure value is an integer
-        if value == None:
-            value = 0
-        metrics[counter_name + "_ops"] = value
-        details_parts.append(counter_name + ": " + str(value))
-    
-    msg = item + ": " + ", ".join(details_parts)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": "OK",
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+    details_lines = []
+    for what, value in data.items():
+        v = value if type(value) == "int" or type(value) == "float" else 0
+        metrics["%s_ops" % what] = v
+        details_lines.append("%s: %d" % (what.title(), v))
+
+    msg = "%s counters: %s" % (item, ", ".join(details_lines))
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": "OK", "metrics": metrics, "details": msg}}

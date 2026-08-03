@@ -1,74 +1,47 @@
 def main(ctx, params):
-    # Discovery mode: enumerate Web Service instances
     if params.get("_discover"):
-        # Query WMI for WebService instances using PowerShell (standard on Windows)
-        # We fetch CurrentConnections for each instance, excluding _Total
-        cmd = "Get-WmiObject -Class Win32_PerfRawData_W3SVC_WebService | Select-Object -Property Name,CurrentConnections | Format-Table -HideTableHeaders -Wrap"
-        res = ctx.run(["powershell", "-Command", cmd], mutates=False)
-        if res.rc != 0:
-            fail("failed to query WMI: " + res.stderr)
-
-        items = []
-        for line in res.stdout.splitlines():
-            parts = line.strip().split()
-            if len(parts) < 2:
+        # Probe for the data source: wmic (Windows Management Instrumention CLI)
+        res = ctx.run(["wmic", "path", "Win32_PerfRawData_W3SVC_W3SVC", "get", "Name,CurrentConnections", "/value"], mutates=False)
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no web services data available (wmic/wmi not present)",
+                    "data": {"discovery": []}}
+        raw = res.stdout
+        instances = []
+        for line in raw.splitlines():
+            line = line.strip()
+            if line == "" or line == "None":
                 continue
-            name = parts[0].strip('"')
-            # Skip _Total and empty names
-            if name == "_Total" or name == "":
-                continue
-            items.append({
-                "item": name,
-                "params": {},
-                "metrics": ["connections"]
-            })
+            if line.startswith("Name="):
+                name = line[len("Name="):]
+                instances.append(name)
+        discovery = []
+        for name in instances:
+            discovery.append({"item": name, "params": {}, "metrics": ["connections"]})
+        return {"changed": False, "msg": "discovered %d web services" % len(discovery),
+                "data": {"discovery": discovery}}
 
-        return {
-            "changed": False,
-            "msg": "discovered %d web services" % len(items),
-            "data": {"discovery": items}
-        }
-
-    # Check mode: verify single item
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Query WMI for the specific instance
-    cmd = ("Get-WmiObject -Class Win32_PerfRawData_W3SVC_WebService -Filter \"Name='%s'\" | " +
-           "Select-Object -ExpandProperty CurrentConnections") % item
-    res = ctx.run(["powershell", "-Command", cmd], mutates=False)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "failed to query WMI for " + item + ": " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    stdout = res.stdout.strip()
-    if not stdout.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid data for " + item + ": " + stdout,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    value = int(stdout)
-
-    # Determine state based on thresholds (no default levels in source, use OK)
-    state = "OK"
-    msg = item + ": " + str(value) + " connections"
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"connections": value},
-            "details": ""
-        }
-    }
+    res = ctx.run(["wmic", "path", "Win32_PerfRawData_W3SVC_W3SVC", "get", "Name,CurrentConnections", "/value"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "no web service data available (wmi not present)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    raw = res.stdout
+    found_value = None
+    current_name = ""
+    for line in raw.splitlines():
+        line = line.strip()
+        if line == "" or line == "None":
+            continue
+        if line.startswith("Name="):
+            current_name = line[len("Name="):]
+            found_value = None
+        elif line.startswith("CurrentConnections="):
+            found_value = line[len("CurrentConnections="):]
+            if current_name == item:
+                break
+    if current_name != item or found_value == None:
+        return {"changed": False, "msg": "web service %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    connections = int(found_value) if found_value.isdigit() else 0
+    return {"changed": False, "msg": "Web Service %s: Connections: %d" % (item, connections),
+            "data": {"state": "OK", "metrics": {"connections": connections}, "details": ""}}

@@ -1,260 +1,338 @@
-def main(ctx, params):
-    # Run w32tm /query /status to get time service status
-    res = ctx.run(["w32tm", "/query", "/status"], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "Windows time service not available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+# Translated Checkmk check: checkmk.w32time_status
+# Windows time service (w32tm) monitoring, read-only Starlark module.
 
-    # Parse the output line by line, splitting on first ':'
-    lines_raw = res.stdout.splitlines()
-    data = {}
-    for line in lines_raw:
-        # Skip lines without colon (incomplete wrapped lines)
-        if ":" not in line:
-            continue
-        # Split on first colon only
-        key_val = line.split(":", 1)
-        if len(key_val) < 2:
-            continue
-        key = key_val[0].strip()
-        val = key_val[1].strip()
-        data[key] = val
+def _parse_int(s):
+    t = s.strip()
+    p = t.find("(")
+    if p >= 0:
+        t = t[:p].strip()
+    sp = t.find(" ")
+    if sp >= 0:
+        t = t[:sp].strip()
+    if t == "":
+        return 0
+    neg = False
+    if t.startswith("-"):
+        neg = True
+        t = t[1:]
+    if not t.isdigit():
+        return 0
+    v = int(t)
+    return -v if neg else v
 
-    # If service is not available, we may get only one error line
-    # In our agent output, an error line appears as a single line without proper fields
-    # We'll detect missing fields and treat as ErrorStatus equivalent
-    if not data or "Last Successful Sync Time" not in data:
-        # Fallback: if we have only one key with no colon split, use it as error message
-        if len(data) == 1:
-            err_msg = list(data.values())[0]
+def _parse_float(s):
+    t = s.strip()
+    p = t.find("(")
+    if p >= 0:
+        t = t[:p].strip()
+    end = 0
+    saw_digit = False
+    for i in range(len(t)):
+        c = t[i]
+        if c.isdigit():
+            saw_digit = True
+            end = i + 1
+        elif c == "." or c == "-" or c == "+":
+            end = i + 1
         else:
-            err_msg = "Windows time service not available"
-        return {
-            "changed": False,
-            "msg": err_msg,
-            "data": {
-                "state": "WARN",
-                "metrics": {},
-                "details": ""
-            }
-        }
+            if saw_digit:
+                break
+            end = i + 1
+    num = t[:end].strip()
+    if num == "" or num == "-" or num == "+" or num == ".":
+        return 0.0
+    neg = False
+    if num.startswith("-"):
+        neg = True
+        num = num[1:]
+    elif num.startswith("+"):
+        num = num[1:]
+    sign = -1 if neg else 1
+    if "." in num:
+        whole, frac = num.split(".", 1)
+    else:
+        whole, frac = num, ""
+    if whole == "":
+        whole = "0"
+    if frac == "":
+        frac = "0"
+    if len(frac) > 9:
+        frac = frac[:9]
+    w = int(whole) if whole.isdigit() else 0
+    f = 0
+    base = 1
+    for ch in frac:
+        if not ch.isdigit():
+            break
+        base = base * 10
+        f = f * 10 + int(ch)
+    if base == 1:
+        return float(sign * w)
+    return sign * (float(w) + f / float(base))
 
-    # Helper functions (no try/except allowed in Starlark — use guards)
-    def parse_int_before_parens(s):
-        if s == None:
-            return None
-        s = s.strip()
-        if "(" in s:
-            s = s.split("(")[0].strip()
-        if not s:
-            return None
-        # Remove any non-digit suffix except possibly leading minus
-        # e.g., "4 (secondary reference - syncd by (S)NTP)" -> "4"
-        if s.startswith("0x"):
-            # hex parsing using int(s,16) is not available in pure Starlark; use manual conversion
-            hex_digits = "0123456789abcdefABCDEF"
-            value = 0
-            for c in s[2:]:
-                if c in hex_digits:
-                    value = value * 16 + hex_digits.find(c)
-                else:
-                    break
-            return value
-        # For integers (including negative)
-        # Check if valid integer string
-        if s.lstrip("-").isdigit() or (s.startswith("-") and s.lstrip("-").isdigit()):
-            return int(s.split()[0])
-        return None
+def _parse_hex(s):
+    t = s.strip()
+    p = t.find("(")
+    if p >= 0:
+        t = t[:p].strip()
+    if t.startswith("0x") or t.startswith("0X"):
+        t = t[2:]
+    v = 0
+    for ch in t:
+        d = -1
+        if ("0" <= ch) and (ch <= "9"):
+            d = int(ch)
+        elif ("a" <= ch) and (ch <= "f"):
+            d = 10 + (int(ch[0]) - int("a"[0]))
+        elif ("A" <= ch) and (ch <= "F"):
+            d = 10 + (int(ch[0]) - int("A"[0]))
+        if d < 0:
+            return 0
+        v = v * 16 + d
+    return v
 
-    def parse_float_clean(s):
-        if s == None:
-            return None
-        s = s.strip()
-        if "(" in s:
-            s = s.split("(")[0].strip()
-        if not s:
-            return None
-        parts = s.split()
-        if len(parts) == 0:
-            return None
-        s = parts[0]
-        # Check for float (allow decimal point and optional sign)
-        dot_count = s.count(".")
-        if dot_count <= 1:
-            # Strip sign and dots to validate digits
-            candidate = s.replace(".", "", 1).lstrip("-")
-            if candidate.isdigit():
-                # Safe to convert
-                if dot_count == 1:
-                    return float(s)
-                else:
-                    return int(s)
-        return None
-
-    # Extract fields — defaults to None if missing
-    leap_indicator = parse_int_before_parens(data.get("Leap Indicator", ""))
-    stratum = parse_int_before_parens(data.get("Stratum", ""))
-    precision = parse_int_before_parens(data.get("Precision", ""))
-    root_delay = parse_float_clean(data.get("Root Delay", ""))
-    root_dispersion = parse_float_clean(data.get("Root Dispersion", ""))
-    reference_id = parse_int_before_parens(data.get("ReferenceId", ""))
-    last_successful_sync_time = data.get("Last Successful Sync Time", "")
-    source = data.get("Source", "")
-    poll_interval = parse_int_before_parens(data.get("Poll Interval", ""))
-    phase_offset = parse_float_clean(data.get("Phase Offset", ""))
-    clock_rate = parse_float_clean(data.get("ClockRate", ""))
-    state_machine = parse_int_before_parens(data.get("State Machine", ""))
-    time_source_flags = parse_int_before_parens(data.get("Time Source Flags", ""))
-    server_role = parse_int_before_parens(data.get("Server Role", ""))
-    last_sync_error = parse_int_before_parens(data.get("Last Sync Error", ""))
-    seconds_since_last_good_sync = parse_float_clean(data.get("Time since Last Good Sync Time", ""))
-
-    # Default parameter values (Checkmk defaults)
-    offset_warn, offset_crit = 0.2, 0.5  # fixed(0.2, 0.5) upper bound
-    time_sync_warn = None
-    time_sync_crit = None
-    stratum_warn, stratum_crit = 5, 5     # fixed(5, 5)
-    # States mapping (default: never_synced=WARN, no_data=WARN, stale_data=OK, time_diff_too_large=WARN, shutting_down=WARN)
-    states_map = {
-        "never_synced": 1,  # WARN (2)
-        "no_data": 1,       # WARN
-        "stale_data": 0,    # OK
-        "time_diff_too_large": 1,  # WARN
-        "shutting_down": 1  # WARN
-    }
-    # Apply custom states if present in params
-    if "states" in params and params["states"]:
-        s = params["states"]
-        if "never_synced" in s: states_map["never_synced"] = s["never_synced"]
-        if "no_data" in s: states_map["no_data"] = s["no_data"]
-        if "stale_data" in s: states_map["stale_data"] = s["stale_data"]
-        if "time_diff_too_large" in s: states_map["time_diff_too_large"] = s["time_diff_too_large"]
-        if "shutting_down" in s: states_map["shutting_down"] = s["shutting_down"]
-
-    # State machine interpretation (OK=1, HOLD=2, etc.)
-    # Check: never synchronized if both state_machine==0 and reference_id==0
+def _grade_levels(value, levels_upper, levels_lower):
     state = "OK"
-    notice = "Sync status: successful"
-
-    # Handle potential None values safely
-    if state_machine == 0 and reference_id == 0:
-        st = "WARN" if states_map["never_synced"] else "OK"
-        return {
-            "changed": False,
-            "msg": "Never synchronized (w32tm reported reference ID and state machine both 0)",
-            "data": {
-                "state": st,
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    # Phase offset levels
-    # Checkmk: levels_upper=(0.2,0.5), levels_lower=("-0.2","-0.5") effectively
-    offset_ok = True
-    if phase_offset != None:
-        # Upper bound
-        if phase_offset >= offset_crit:
-            state = "CRIT"
-            offset_ok = False
-        elif phase_offset >= offset_warn:
-            if state != "CRIT":
-                state = "WARN"
-            offset_ok = False
-        # Lower bound (absolute value)
-        elif -phase_offset >= offset_crit:
-            state = "CRIT"
-            offset_ok = False
-        elif -phase_offset >= offset_warn:
-            if state != "CRIT":
-                state = "WARN"
-            offset_ok = False
-
-    # Time since last sync levels
-    if seconds_since_last_good_sync != None:
-        if time_sync_crit != None and seconds_since_last_good_sync >= time_sync_crit:
-            if state != "CRIT":
+    detail = ""
+    if levels_upper != None:
+        mode = levels_upper[0]
+        if mode == "fixed":
+            lvls = levels_upper[1]
+            warn = lvls[0]
+            crit = lvls[1]
+            if value >= crit:
                 state = "CRIT"
-        elif time_sync_warn != None and seconds_since_last_good_sync >= time_sync_warn:
-            if state != "CRIT":
+            elif value >= warn:
                 state = "WARN"
-
-    # Root dispersion and delay (notice only)
-    # We'll ignore for state but keep in metrics
-
-    # Stratum
-    if stratum != None:
-        if stratum >= stratum_crit:
-            if state != "CRIT":
+            detail = " (warn>=%f crit>=%f)" % (warn, crit)
+    if levels_lower != None:
+        mode = levels_lower[0]
+        if mode == "fixed":
+            lvls = levels_lower[1]
+            warn = lvls[0]
+            crit = lvls[1]
+            if value <= crit:
                 state = "CRIT"
-        elif stratum >= stratum_warn:
-            if state != "CRIT":
+            elif value <= warn and state != "CRIT":
                 state = "WARN"
+            detail = detail + " (lower warn<=%f crit<=%f)" % (warn, crit)
+    return state, detail
 
-    # Last sync error mapping
-    # 0=success, 1=no_data, 2=stale_data, 3=time_diff_too_large, 4=shutting_down
-    if last_sync_error != None:
-        if last_sync_error == 1:
-            st = "WARN" if states_map["no_data"] else "OK"
-            if st == "WARN" and state == "OK":
+def _grade_int_levels(value, levels_upper):
+    state = "OK"
+    detail = ""
+    if levels_upper != None:
+        mode = levels_upper[0]
+        if mode == "fixed":
+            lvls = levels_upper[1]
+            warn = lvls[0]
+            crit = lvls[1]
+            if value >= crit:
+                state = "CRIT"
+            elif value >= warn:
                 state = "WARN"
-        elif last_sync_error == 2:
-            st = "OK" if states_map["stale_data"] else "WARN"
-            # CRIT not possible in defaults
-        elif last_sync_error == 3:
-            st = "WARN" if states_map["time_diff_too_large"] else "OK"
-            if st == "WARN" and state == "OK":
-                state = "WARN"
-        elif last_sync_error == 4:
-            st = "WARN" if states_map["shutting_down"] else "OK"
-            if st == "WARN" and state == "OK":
-                state = "WARN"
+            detail = " (warn>=%d crit>=%d)" % (warn, crit)
+    return state, detail
 
-    # Build metrics
-    metrics = {}
-    if phase_offset != None:
-        metrics["time_offset"] = phase_offset
-    if seconds_since_last_good_sync != None:
-        metrics["time_since_last_successful_sync"] = seconds_since_last_good_sync
-    if root_dispersion != None:
-        metrics["root_dispersion"] = root_dispersion
-    if root_delay != None:
-        metrics["root_delay"] = root_delay
-    if stratum != None:
-        metrics["stratum"] = stratum
+def _state_from_int(v):
+    if v == 0:
+        return "OK"
+    if v == 1:
+        return "WARN"
+    if v == 2:
+        return "CRIT"
+    if v == 3:
+        return "UNKNOWN"
+    return "UNKNOWN"
 
-    # Message construction
-    msg_parts = []
-    if phase_offset != None:
-        msg_parts.append("Offset: %fs" % phase_offset)
-    if seconds_since_last_good_sync != None:
-        msg_parts.append("Last sync: %fs ago" % seconds_since_last_good_sync)
-    if source:
-        msg_parts.append("Source: " + source.split(",")[0])
-    if root_dispersion != None:
-        msg_parts.append("Root dispersion: %fs" % root_dispersion)
-    if root_delay != None:
-        msg_parts.append("Root delay: %fs" % root_delay)
-    if stratum != None:
-        msg_parts.append("Stratum: %d" % stratum)
-
-    if not msg_parts:
-        msg_parts.append("Windows time service status OK")
-    msg = ", ".join(msg_parts)
-
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+def _sync_result_to_check_result(err, states):
+    notices = {
+        0: "Sync status: successful",
+        1: "Sync status: No data from time provider",
+        2: "Sync status: Stale data received from time provider",
+        3: "Sync status: Difference in time from provider was too large",
+        4: "Sync status: Time service shutting down",
     }
+    notice = notices.get(err, "Sync status: Unexpected sync result")
+    if err == 0:
+        st = "OK"
+    elif err == 1:
+        st = _state_from_int(states.get("no_data", 1))
+    elif err == 2:
+        st = _state_from_int(states.get("stale_data", 0))
+    elif err == 3:
+        st = _state_from_int(states.get("time_diff_too_large", 1))
+    elif err == 4:
+        st = _state_from_int(states.get("shutting_down", 1))
+    else:
+        st = "UNKNOWN"
+    return st, notice
+
+def _render_timespan(s):
+    if s < 0:
+        return "%fs" % s
+    days = int(s / 86400)
+    rem = s - days * 86400
+    hours = int(rem / 3600)
+    rem = rem - hours * 3600
+    mins = int(rem / 60)
+    secs = rem - mins * 60
+    if days > 0:
+        return "%dd %dh %dm" % (days, hours, mins)
+    if hours > 0:
+        return "%dh %dm %ds" % (hours, mins, int(secs))
+    if mins > 0:
+        return "%dm %fs" % (mins, secs)
+    return "%fs" % s
+
+def _render_time_offset(s):
+    return "%fs" % s
+
+def _before_parens(s):
+    p = s.find("(")
+    if p >= 0:
+        return s[:p]
+    return s
+
+def _in_parens(s):
+    p1 = s.find("(")
+    p2 = s.find(")")
+    if p1 >= 0 and p2 >= 0 and p2 > p1:
+        return s[p1 + 1:p2]
+    return s
+
+def _parse_w32tm_output(stdout):
+    lines = []
+    for raw in stdout.splitlines():
+        if ":" not in raw:
+            continue
+        value = raw.split(":", 1)[1].strip()
+        lines.append(value)
+    if len(lines) == 1:
+        return {"error": lines[0]}
+    if len(lines) < 16:
+        msg = "incomplete w32tm output: only %d lines" % len(lines)
+        return {"error": msg}
+    return {
+        "leap_indicator": _parse_int(_before_parens(lines[0])),
+        "stratum": _parse_int(_before_parens(lines[1])),
+        "precision": _parse_int(_before_parens(lines[2])),
+        "root_delay": _parse_float(_before_parens(lines[3])),
+        "root_dispersion": _parse_float(_before_parens(lines[4])),
+        "reference_id": _parse_hex(_before_parens(lines[5])),
+        "last_successful_sync_time": lines[6],
+        "source": lines[7],
+        "poll_interval": _parse_int(_in_parens(lines[8])),
+        "phase_offset": _parse_float(lines[9]),
+        "clock_rate": _parse_float(lines[10]),
+        "state_machine": _parse_int(_before_parens(lines[11])),
+        "time_source_flags": _parse_int(_before_parens(lines[12])),
+        "server_role": _parse_int(_before_parens(lines[13])),
+        "last_sync_error": _parse_int(_before_parens(lines[14])),
+        "seconds_since_last_good_sync": _parse_float(lines[15]),
+    }
+
+def _worst(a, b):
+    rank = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    ra = rank.get(a, 3)
+    rb = rank.get(b, 3)
+    return a if ra >= rb else b
+
+def main(ctx, params):
+    if params.get("_discover"):
+        probe = ctx.run(["w32tm", "/version"], mutates=False)
+        if probe.rc == 127:
+            return {"changed": False, "msg": "w32tm not found", "data": {"discovery": []}}
+        if probe.rc != 0 and probe.stdout == "" and probe.stderr == "":
+            return {"changed": False, "msg": "w32tm not found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [
+            {"item": "", "params": {}, "metrics": [
+                "time_offset", "root_dispersion", "root_delay",
+                "last_successful_sync", "stratum",
+            ]},
+        ]}}
+
+    res = ctx.run(["w32tm", "/query", "/status"], mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "w32tm not found on this host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "w32tm binary not installed"}}
+
+    if res.rc != 0 or res.stdout.strip() == "":
+        errmsg = res.stderr.strip() if res.stderr.strip() else ("w32tm /query /status failed (rc=%d)" % res.rc)
+        return {"changed": False, "msg": "w32tm error: " + errmsg,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    status = _parse_w32tm_output(res.stdout)
+    if "error" in status:
+        return {"changed": False, "msg": status["error"],
+                "data": {"state": "WARN", "metrics": {}, "details": ""}}
+
+    default_states = {
+        "never_synced": 1,
+        "no_data": 1,
+        "stale_data": 0,
+        "time_diff_too_large": 1,
+        "shutting_down": 1,
+    }
+    p_states = params.get("states", {})
+    states = dict(default_states)
+    for k in p_states:
+        states[k] = p_states[k]
+
+    if status["state_machine"] == 0 and status["reference_id"] == 0:
+        st = _state_from_int(states["never_synced"])
+        return {"changed": False, "msg": "Never synchronized (w32tm reported reference ID and state machine both 0)",
+                "data": {"state": st, "metrics": {}, "details": ""}}
+
+    offset_levels = params.get("offset", ("fixed", (0.2, 0.5)))
+    sync_levels = params.get("time_since_last_successful_sync", ("no_levels", None))
+    stratum_levels = params.get("stratum", ("fixed", (5, 5)))
+
+    offset_lower = None
+    if offset_levels[0] == "fixed":
+        offset_lower = ("fixed", (-offset_levels[1][1], -offset_levels[1][0]))
+
+    off_state, off_detail = _grade_levels(status["phase_offset"], offset_levels, offset_lower)
+    off_render = _render_time_offset(status["phase_offset"])
+
+    sync_state, sync_detail = _grade_levels(status["seconds_since_last_good_sync"], sync_levels, None)
+    sync_render = "Last successful sync: " + _render_timespan(status["seconds_since_last_good_sync"]) + " ago"
+
+    stratum_state, stratum_detail = _grade_int_levels(status["stratum"], stratum_levels)
+
+    rd_state, rd_detail = _grade_levels(status["root_dispersion"], None, None)
+    rdl_state, rdl_detail = _grade_levels(status["root_delay"], None, None)
+
+    sync_err_state, sync_err_notice = _sync_result_to_check_result(status["last_sync_error"], states)
+
+    overall = "OK"
+    overall = _worst(overall, off_state)
+    overall = _worst(overall, sync_state)
+    overall = _worst(overall, sync_err_state)
+
+    source_name = status["source"].split(",")[0]
+    msg = "Source: %s, Offset: %s%s" % (source_name, off_render, off_detail)
+
+    metrics = {
+        "time_offset": status["phase_offset"],
+        "root_dispersion": status["root_dispersion"],
+        "root_delay": status["root_delay"],
+        "last_successful_sync": status["seconds_since_last_good_sync"],
+        "stratum": status["stratum"],
+    }
+
+    part1 = "Source: %s\nOffset: %s%s\nRoot delay: %s\nRoot dispersion: %s\n" % (
+        source_name, off_render, off_detail,
+        _render_timespan(status["root_delay"]),
+        _render_timespan(status["root_dispersion"]),
+    )
+    part2 = "Stratum: %d%s\nLast successful sync: %s\nSync error: %s\nSeconds since last good sync: %s" % (
+        status["stratum"], stratum_detail,
+        sync_render,
+        sync_err_notice,
+        _render_timespan(status["seconds_since_last_good_sync"]),
+    )
+    details = part1 + part2
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": overall, "metrics": metrics, "details": details}}

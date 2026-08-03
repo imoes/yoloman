@@ -1,5 +1,4 @@
-# Map of outlet states for v3 (OUTLET_STATES in the source)
-OUTLET_STATES_V3 = {
+OUTLET_STATES = {
     0: ("OK", "off"),
     1: ("OK", "on"),
     2: ("WARN", "off wait"),
@@ -12,8 +11,7 @@ OUTLET_STATES_V3 = {
     9: ("CRIT", "on fuse"),
 }
 
-# Map of outlet states for v4 (DEVICE_STATES_V4 in the source)
-OUTLET_STATES_V4 = {
+DEVICE_STATES_V4 = {
     0: ("OK", "normal"),
     1: ("CRIT", "disabled"),
     2: ("CRIT", "purged"),
@@ -38,167 +36,183 @@ OUTLET_STATES_V4 = {
     23: ("CRIT", "conflict"),
 }
 
+OID_SYS_DESCR = ".1.3.6.1.2.1.1.2.0"
+OID_V4_MARKER = ".1.3.6.1.4.1.1718.4"
+OID_V3_BASE = ".1.3.6.1.4.1.1718.3.2.3.1"
+OID_V4_BASE = ".1.3.6.1.4.1.1718.4.1.8"
 
-def _get_outlet_info(ctx, host, community, is_v4):
-    """Walk the SNMP tree and build the section dict {item_name: state_int}."""
-    base_oid = ".1.3.6.1.4.1.1718.3.2.3.1" if not is_v4 else ".1.3.6.1.4.1.1718.4.1.8"
-    if is_v4:
-        # v4 OIDs: 2.1.2 (outletId), 2.1.3 (outletName), 3.1.2 (outletState)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base_oid + ".2.1.2", base_oid + ".2.1.3", base_oid + ".3.1.2"
-        ], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {}
-        lines = res.stdout.splitlines()
-        outlet_id = {}
-        outlet_name = {}
-        outlet_state = {}
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            idx_eq = line.find("=")
-            if idx_eq == -1:
-                continue
-            oid_part = line[:idx_eq].strip()
-            val_part = line[idx_eq+1:].strip()
-            parts = oid_part.split(".")
-            if len(parts) < 2:
-                continue
-            idx_str = parts[-1]
-            if not idx_str.isdigit():
-                continue
-            idx = int(idx_str)
-            if "2.1.2" in oid_part:
-                outlet_id[idx] = val_part.strip('"')
-            elif "2.1.3" in oid_part:
-                outlet_name[idx] = val_part.strip('"')
-            elif "3.1.2" in oid_part:
-                if val_part.isdigit():
-                    outlet_state[idx] = int(val_part)
-        section = {}
-        all_indices = []
-        for k in outlet_id:
-            all_indices.append(k)
-        for k in outlet_name:
-            if k not in all_indices:
-                all_indices.append(k)
-        for k in outlet_state:
-            if k not in all_indices:
-                all_indices.append(k)
-        for idx in sorted(all_indices):
-            oid = outlet_id.get(idx, "")
-            name = outlet_name.get(idx, "")
-            state = outlet_state.get(idx, -1)
-            name_clean = name.replace("Outlet", "")
-            item = "%s %s" % (oid, name_clean)
-            section[item] = state
-        return section
-    else:
-        # v3 OIDs: base + ".2" (outletId), ".3" (outletName), ".5" (outletState)
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            base_oid + ".2", base_oid + ".3", base_oid + ".5"
-        ], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {}
-        lines = res.stdout.splitlines()
-        outlet_id = {}
-        outlet_name = {}
-        outlet_state = {}
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            idx_eq = line.find("=")
-            if idx_eq == -1:
-                continue
-            oid_part = line[:idx_eq].strip()
-            val_part = line[idx_eq+1:].strip()
-            parts = oid_part.split(".")
-            if len(parts) < 2:
-                continue
-            idx_str = parts[-1]
-            if not idx_str.isdigit():
-                continue
-            idx = int(idx_str)
-            if oid_part.endswith(".2"):
-                outlet_id[idx] = val_part.strip('"')
-            elif oid_part.endswith(".3"):
-                outlet_name[idx] = val_part.strip('"')
-            elif oid_part.endswith(".5"):
-                if val_part.isdigit():
-                    outlet_state[idx] = int(val_part)
-        section = {}
-        all_indices = []
-        for k in outlet_id:
-            all_indices.append(k)
-        for k in outlet_name:
-            if k not in all_indices:
-                all_indices.append(k)
-        for k in outlet_state:
-            if k not in all_indices:
-                all_indices.append(k)
-        for idx in sorted(all_indices):
-            oid = outlet_id.get(idx, "")
-            name = outlet_name.get(idx, "")
-            state = outlet_state.get(idx, -1)
-            name_clean = name.replace("Outlet", "")
-            item = "%s %s" % (oid, name_clean)
-            section[item] = state
-        return section
-
+def _strip_type(value):
+    if value == None:
+        return ""
+    v = value
+    if v.startswith("STRING: "):
+        v = v[len("STRING: "):]
+    elif v.startswith("INTEGER: "):
+        v = v[len("INTEGER: "):]
+    elif v.startswith("INTEGER:"):
+        v = v[len("INTEGER:"):]
+    elif v.startswith("Hex-STRING: "):
+        v = v[len("Hex-STRING: "):]
+    elif v.startswith("OID: "):
+        v = v[len("OID: "):]
+    elif v.startswith("Timeticks: "):
+        v = v[len("Timeticks: "):]
+    elif v.startswith("Counter: "):
+        v = v[len("Counter: "):]
+    elif v.startswith("Counter32: "):
+        v = v[len("Counter32: "):]
+    elif v.startswith("Gauge32: "):
+        v = v[len("Gauge32: "):]
+    if len(v) >= 2 and v[0] == '"' and v[len(v)-1] == '"':
+        v = v[1:len(v)-1]
+    return v
 
 def main(ctx, params):
     if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", "public")
-        section = _get_outlet_info(ctx, host, community, True)
-        if not section:
-            section = _get_outlet_info(ctx, host, community, False)
-        items = []
-        for item in section:
-            items.append({"item": item, "params": {}, "metrics": []})
+        # Detect Sentry PDU by sysDescr OID
+        res = ctx.run([
+            "snmpget", "-v2c", "-c", params.get("community", "public"),
+            "-OvQ", params.get("host", "localhost"), OID_SYS_DESCR
+        ], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no sentry pdu found", "data": {"discovery": []}}
+
+        systr = _strip_type(res.stdout).strip()
+        v4 = systr == OID_V4_MARKER
+
+        if v4:
+            base = OID_V4_BASE
+        else:
+            base = OID_V3_BASE
+
+        # Walk the outlet entries
+        res = ctx.run([
+            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
+            "-Oqn", "-fl", params.get("host", "localhost"), base
+        ], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no sentry pdu outlets found", "data": {"discovery": []}}
+
+        rows = {}
+        for line in res.stdout.splitlines():
+            f = line.split()
+            if len(f) < 2:
+                continue
+            oid = f[0]
+            if not oid.startswith(base + "."):
+                continue
+            suffix = oid[len(base)+1:]
+            # suffix format: <outlet>.<col> e.g. "1.2"
+            parts = suffix.split(".")
+            if len(parts) < 2:
+                continue
+            outlet_str = parts[0]
+            col = parts[1]
+            val = _strip_type(" ".join(f[1:]))
+            if outlet_str not in rows:
+                rows[outlet_str] = {}
+            rows[outlet_str][col] = val
+
+        discovery = []
+        if v4:
+            for outlet_id, cols in rows.items():
+                outlet_name = cols.get("2.1.3", "")
+                outlet_name_stripped = outlet_name.replace("Outlet", "")
+                item_name = str(outlet_id) + " " + outlet_name_stripped
+                discovery.append({
+                    "item": item_name,
+                    "params": {},
+                    "metrics": [],
+                })
+        else:
+            for outlet_id, cols in rows.items():
+                outlet_name = cols.get("3", "")
+                outlet_name_stripped = outlet_name.replace("Outlet", "")
+                item_name = str(outlet_id) + " " + outlet_name_stripped
+                discovery.append({
+                    "item": item_name,
+                    "params": {},
+                    "metrics": [],
+                })
+
         return {
             "changed": False,
-            "msg": "discovered %d outlets" % len(items),
-            "data": {"discovery": items},
+            "msg": "discovered %d outlets" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
+    # Check mode
     item = params.get("item", "")
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
+    res = ctx.run([
+        "snmpget", "-v2c", "-c", params.get("community", "public"),
+        "-OvQ", params.get("host", "localhost"), OID_SYS_DESCR
+    ], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "no sentry pdu found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    section = _get_outlet_info(ctx, host, community, True)
-    if not section:
-        section = _get_outlet_info(ctx, host, community, False)
+    systr = _strip_type(res.stdout).strip()
+    v4 = systr == OID_V4_MARKER
 
-    state_map = OUTLET_STATES_V3
-    for k in section:
-        if section[k] >= 100:
-            state_map = OUTLET_STATES_V4
+    if v4:
+        base = OID_V4_BASE
+    else:
+        base = OID_V3_BASE
+
+    # Walk to find the outlet matching item
+    res = ctx.run([
+        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
+        "-Oqn", "-fl", params.get("host", "localhost"), base
+    ], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "no sentry pdu outlets found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    rows = {}
+    for line in res.stdout.splitlines():
+        f = line.split()
+        if len(f) < 2:
+            continue
+        oid = f[0]
+        if not oid.startswith(base + "."):
+            continue
+        suffix = oid[len(base)+1:]
+        parts = suffix.split(".")
+        if len(parts) < 2:
+            continue
+        outlet_str = parts[0]
+        col = parts[1]
+        val = _strip_type(" ".join(f[1:]))
+        if outlet_str not in rows:
+            rows[outlet_str] = {}
+        rows[outlet_str][col] = val
+
+    found_state = None
+    for outlet_id, cols in rows.items():
+        if v4:
+            outlet_name = cols.get("2.1.3", "")
+            state_col = cols.get("2.1.2", "")
+        else:
+            outlet_name = cols.get("3", "")
+            state_col = cols.get("2", "")
+        outlet_name_stripped = outlet_name.replace("Outlet", "")
+        item_name = str(outlet_id) + " " + outlet_name_stripped
+        if item_name == item:
+            if state_col == "":
+                found_state = None
+            else:
+                found_state = int(state_col) if state_col.lstrip("-").isdigit() else None
             break
 
-    outlet_state = section.get(item)
-    if outlet_state == None:
-        return {
-            "changed": False,
-            "msg": "outlet not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if found_state == None:
+        return {"changed": False, "msg": "no such outlet: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    lookup = state_map.get(outlet_state)
-    if lookup == None:
-        return {
-            "changed": False,
-            "msg": "Unhandled state: " + str(outlet_state),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    state, status = lookup
-    return {
-        "changed": False,
-        "msg": "Status: " + status,
-        "data": {"state": state, "metrics": {}, "details": ""},
-    }
+    states_map = DEVICE_STATES_V4 if v4 else OUTLET_STATES
+    if found_state in states_map:
+        state, status = states_map[found_state]
+        return {"changed": False, "msg": "Status: " + status,
+                "data": {"state": state, "metrics": {}, "details": ""}}
+    else:
+        return {"changed": False, "msg": "Unhandled state: " + str(found_state),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

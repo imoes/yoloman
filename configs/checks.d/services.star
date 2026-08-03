@@ -1,115 +1,80 @@
-_START_MODE_MAP = {
-    "auto": "auto",
-    "manual": "demand",
-    "disabled": "disabled",
-    "boot": "boot",
-    "system": "system",
-}
+def _wildcard(value, reference):
+    return value == None or value == reference
 
-_STATE_NAMES = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
-
-def _norm_start(raw):
-    low = raw.strip().lower()
-    return _START_MODE_MAP.get(low, low)
-
-def _match_rule(params, svc_state, svc_start):
-    for rule in params.get("states", [["running", None, 0]]):
-        t_state = rule[0]
-        t_start = rule[1] if len(rule) > 1 else None
-        mon = rule[2] if len(rule) > 2 else 0
-        state_ok = (t_state == None) or (t_state == svc_state)
-        start_ok = (t_start == None) or (t_start == svc_start)
-        if state_ok and start_ok:
-            return int(mon)
-    return int(params.get("else", 2))
-
-def _query_services(ctx):
-    res = ctx.run(
-        [
-            "powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-            "Get-WmiObject Win32_Service | ForEach-Object { $_.Name + '|' + $_.State + '|' + $_.StartMode + '|' + $_.DisplayName }",
-        ],
-        mutates=False,
-        ok_codes=[0, 1],
-    )
-    if res.rc != 0:
-        return None
-    svcs = []
-    for raw in res.stdout.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        parts = line.split("|", 3)
-        if len(parts) < 4:
-            continue
-        svcs.append({
-            "name": parts[0].strip(),
-            "state": parts[1].strip().lower(),
-            "start_type": _norm_start(parts[2]),
-            "desc": parts[3].strip(),
-        })
-    return svcs
+def _match_service_against_params(params, service):
+    states = params.get("states", [("running", None, 0)])
+    for t_state, t_start_type, mon_state in states:
+        if _wildcard(t_state, service["state"]) and _wildcard(t_start_type, service["start_type"]):
+            return mon_state
+    return params.get("else", 2)
 
 def main(ctx, params):
-    svcs = _query_services(ctx)
+    is_windows = ctx.facts().get("os_family") == "windows"
+    if not is_windows:
+        # Not a Windows host — this check monitors Windows services.
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not a Windows host", "data": {"discovery": []}}
+        return {"changed": False, "msg": "no Windows services found on this host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
     if params.get("_discover"):
-        if svcs == None:
-            return {"changed": False, "msg": "discovered 0 services", "data": {"discovery": []}}
-        out = [
-            {
-                "item": s["name"],
-                "params": {"states": [["running", None, 0]], "else": 2, "additional_servicenames": []},
-                "metrics": [],
-            }
-            for s in svcs
-        ]
-        return {
-            "changed": False,
-            "msg": "discovered %d services" % len(out),
-            "data": {"discovery": out},
-        }
-
-    if svcs == None:
-        return {
-            "changed": False,
-            "msg": "failed to query Windows services",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        mode = ctx.check_mode
+        res = ctx.run(["powershell", "-NoProfile", "-Command",
+                       "Get-Service | ForEach-Object { $_.Status + '/' + $_.StartType + ' ' + $_.DisplayName + ' ' + $_.Name }"],
+                      mutates=False)
+        if res.rc != 0 and not res.stdout:
+            return {"changed": False, "msg": "failed to query Windows services",
+                    "data": {"discovery": []}}
+        services = []
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 2)
+            if len(parts) < 3:
+                continue
+            status_field = parts[0]
+            name = parts[1]
+            display = parts[2]
+            cur_state, start_type = status_field.split("/", 1) if "/" in status_field else (status_field, "unknown")
+            services.append({"name": name, "state": cur_state, "start_type": start_type, "description": display})
+        discovery = []
+        for svc in services:
+            discovery.append({"item": svc["name"],
+                              "params": {"states": [("running", None, 0)], "else": 2, "additional_servicenames": []},
+                              "metrics": []})
+        return {"changed": False, "msg": "discovered %d services" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    additional_names = params.get("additional_servicenames", [])
+    res = ctx.run(["powershell", "-NoProfile", "-Command",
+                   "Get-Service -Name '" + item.replace("'", "''") + "' | ForEach-Object { $_.Status + '/' + $_.StartType + ' ' + $_.DisplayName + ' ' + $_.Name }"],
+                  mutates=False)
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False, "msg": "service not found: " + item,
+                "data": {"state": params.get("else", 2), "metrics": {}, "details": ""}}
 
-    found = None
-    for s in svcs:
-        if s["name"] == item or s["desc"] == item:
-            found = s
-            break
-    if found == None:
-        for s in svcs:
-            if s["name"] in additional_names:
-                found = s
-                break
+    lines = res.stdout.splitlines()
+    if not lines:
+        return {"changed": False, "msg": "service not found: " + item,
+                "data": {"state": params.get("else", 2), "metrics": {}, "details": ""}}
+    parts = lines[0].split(" ", 2)
+    if len(parts) < 3:
+        return {"changed": False, "msg": "malformed service output for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    status_field = parts[0]
+    display = parts[1]
+    name = parts[2]
+    cur_state, start_type = status_field.split("/", 1) if "/" in status_field else (status_field, "unknown")
+    svc = {"name": name, "state": cur_state, "start_type": start_type, "description": display}
 
-    if found == None:
-        else_n = int(params.get("else", 2))
-        return {
-            "changed": False,
-            "msg": "service not found",
-            "data": {
-                "state": _STATE_NAMES.get(else_n, "UNKNOWN"),
-                "metrics": {},
-                "details": "",
-            },
-        }
+    state_code = _match_service_against_params(params, svc)
+    if state_code == 0:
+        state = "OK"
+    elif state_code == 1:
+        state = "WARN"
+    elif state_code == 2:
+        state = "CRIT"
+    else:
+        state = "UNKNOWN"
 
-    mon = _match_rule(params, found["state"], found["start_type"])
-    return {
-        "changed": False,
-        "msg": "%s: %s (start type is %s)" % (found["desc"], found["state"], found["start_type"]),
-        "data": {
-            "state": _STATE_NAMES.get(mon, "UNKNOWN"),
-            "metrics": {},
-            "details": "",
-        },
-    }
+    return {"changed": False,
+            "msg": "%s: %s (start type is %s)" % (display, cur_state, start_type),
+            "data": {"state": state, "metrics": {}, "details": ""}}

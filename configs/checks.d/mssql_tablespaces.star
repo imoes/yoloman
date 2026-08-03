@@ -1,206 +1,218 @@
-UOM_MULT = {"KB": 1024, "MB": 1048576, "GB": 1073741824, "TB": 1099511627776}
-STATE_ORDER = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+def _pow(base, exp):
+    result = 1.0
+    for _ in range(exp):
+        result = result * base
+    return result
 
-def _to_bytes(val_str, uom):
-    val_str = val_str.strip().replace(",", "")
-    if not val_str.replace(".", "", 1).isdigit():
-        return -1
-    mult = UOM_MULT.get(uom.strip(), 1)
-    return float(val_str) * mult
+def _to_bytes(value, uom):
+    exponents = {"KB": 1, "MB": 2, "GB": 3, "TB": 4}
+    exponent = exponents.get(uom, 0)
+    if not _is_number(value):
+        return None
+    return float(value) * _pow(1024.0, exponent)
 
-def _render_bytes(b):
-    if b < 0:
-        return "N/A"
-    if b < 1024:
-        return "%d B" % int(b)
-    if b < 1048576:
-        return "%f KB" % (b / 1024.0)
-    if b < 1073741824:
-        return "%f MB" % (b / 1048576.0)
-    if b < 1099511627776:
-        return "%f GB" % (b / 1073741824.0)
-    return "%f TB" % (b / 1099511627776.0)
+def _is_number(s):
+    if type(s) != "string":
+        return False
+    if len(s) == 0:
+        return False
+    neg = False
+    body = s
+    if body[0] == "-":
+        neg = True
+        body = body[1:]
+    if len(body) == 0:
+        return False
+    seen_dot = False
+    for ch in body:
+        if ch == ".":
+            if seen_dot:
+                return False
+            seen_dot = True
+        elif ch < "0" or ch > "9":
+            return False
+    return True
 
-def _worst(s1, s2):
-    if STATE_ORDER.get(s1, 0) >= STATE_ORDER.get(s2, 0):
-        return s1
-    return s2
+def _parse_value(v, uom):
+    if v == None:
+        return None
+    return _to_bytes(v, uom)
 
-def _state_suffix(state):
-    if state == "WARN":
-        return " (!)"
-    if state == "CRIT":
-        return " (!!)"
-    return ""
+def _level_tuple(levels):
+    if levels == None:
+        return None
+    if type(levels) != "list":
+        return None
+    if len(levels) != 2:
+        return None
+    return (levels[0], levels[1])
 
-def _check_upper(value, warn, crit):
-    if crit != None and value >= crit:
-        return "CRIT"
-    if warn != None and value >= warn:
-        return "WARN"
+def _levels_pct(levels):
+    if levels == None:
+        return False
+    if type(levels) != "list":
+        return False
+    if len(levels) != 2:
+        return False
+    return type(levels[1]) == "float"
+
+def _grade(value, warn, crit, upper):
+    if value == None:
+        return "OK"
+    if warn == None and crit == None:
+        return "OK"
+    if upper:
+        if crit != None and value >= crit:
+            return "CRIT"
+        if warn != None and value >= warn:
+            return "WARN"
+    else:
+        if crit != None and value <= crit:
+            return "CRIT"
+        if warn != None and value <= warn:
+            return "WARN"
     return "OK"
 
-def _check_lower(value, warn, crit):
-    if crit != None and value <= crit:
-        return "CRIT"
-    if warn != None and value <= warn:
-        return "WARN"
-    return "OK"
+def _grade_state(value, warn, crit, upper):
+    s = _grade(value, warn, crit, upper)
+    if s == "OK":
+        return "OK", 0
+    if s == "WARN":
+        return "WARN", 1
+    return "CRIT", 2
 
-def _parse_size_pair(s):
-    s = s.strip()
-    parts = s.rsplit(" ", 1)
-    if len(parts) != 2:
-        return -1
-    return _to_bytes(parts[0], parts[1])
-
-def _run_sql(ctx, params, query):
-    host = params.get("host", "localhost")
-    port = params.get("port", 1433)
-    user = params.get("user", "sa")
-    password = params.get("password", "")
-    return ctx.run([
-        "sqlcmd",
-        "-S", "%s,%s" % (host, str(port)),
-        "-U", user,
-        "-P", password,
-        "-Q", query,
-        "-h", "-1",
-        "-W",
-        "-s", "|",
-    ], mutates=False)
-
-def _get_databases(ctx, params):
-    res = _run_sql(ctx, params,
-        "SET NOCOUNT ON; SELECT name FROM sys.databases WHERE state_desc = 'ONLINE' ORDER BY name")
-    if res.rc != 0:
-        fail("sqlcmd failed (rc=%d): %s" % (res.rc, res.stderr.strip()))
-    dbs = []
-    for line in res.stdout.splitlines():
-        s = line.strip()
-        if s and not s.startswith("(") and not s.startswith("---"):
-            dbs.append(s)
-    return dbs
-
-def _get_tablespace(ctx, params, dbname):
-    res = _run_sql(ctx, params,
-        "SET NOCOUNT ON; USE [%s]; EXEC sp_spaceused;" % dbname)
-    if res.rc != 0:
-        return None
-    lines = []
-    for l in res.stdout.splitlines():
-        s = l.strip()
-        if s and not s.startswith("(") and not s.startswith("---"):
-            lines.append(s)
-    if len(lines) < 2:
-        return None
-    parts1 = lines[0].split("|")
-    if len(parts1) < 3:
-        return None
-    parts2 = None
-    for line in lines[1:]:
-        p = line.split("|")
-        if len(p) >= 4:
-            parts2 = p
-            break
-    if parts2 == None:
-        return None
-    return {
-        "size":        _parse_size_pair(parts1[1]),
-        "unallocated": _parse_size_pair(parts1[2]),
-        "reserved":    _parse_size_pair(parts2[0]),
-        "data":        _parse_size_pair(parts2[1]),
-        "indexes":     _parse_size_pair(parts2[2]),
-        "unused":      _parse_size_pair(parts2[3]),
-    }
+def _parse_tablespaces(text):
+    section = {}
+    for line in text.splitlines():
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) < 14:
+            continue
+        pairs = list(zip(parts[:14:2], parts[1:14:2]))
+        values = []
+        for p in pairs[1:]:
+            values.append(_parse_value(p[0], p[1]))
+        keys = ["size", "unallocated", "reserved", "data", "indexes", "unused"]
+        td = {}
+        for i in range(len(keys)):
+            td[keys[i]] = values[i]
+        error_msg = None
+        if len(parts) > 14 and parts[14].startswith("ERROR:"):
+            error_msg = " ".join(parts[15:])
+        item = parts[0] + " " + parts[1]
+        td["error"] = error_msg
+        section[item] = td
+    return section
 
 def main(ctx, params):
-    instance = params.get("instance", "MSSQLSERVER")
-
     if params.get("_discover"):
-        dbs = _get_databases(ctx, params)
-        items = []
-        for db in dbs:
-            items.append({
-                "item": "%s %s" % (instance, db),
-                "params": {},
-                "metrics": ["size", "unallocated", "reserved", "data", "indexes", "unused"],
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d tablespaces" % len(items),
-            "data": {"discovery": items},
-        }
+        res = ctx.run(["sqlcmd", "-Q", "SELECT DB_NAME() AS db, name FROM sys.master_files WITH (NOLOCK)", "-W", "-s", " "], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "sqlcmd not available", "data": {"discovery": []}}
+        text = res.stdout
+        if not text or text.strip() == "":
+            return {"changed": False, "msg": "no MSSQL instance found", "data": {"discovery": []}}
+        section = _parse_tablespaces(text)
+        out = []
+        for item, ts in section.items():
+            if ts.get("error") == None:
+                out.append({"item": item, "params": {}, "metrics": ["size", "unallocated", "reserved", "data", "indexes", "unused"]})
+        if len(out) == 0:
+            return {"changed": False, "msg": "no MSSQL instance found", "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
 
     item = params.get("item", "")
-    space_idx = item.find(" ")
-    if space_idx < 0:
-        return {
-            "changed": False,
-            "msg": "invalid item (expected 'INSTANCE DBNAME'): " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    dbname = item[space_idx + 1:]
-
-    ts = _get_tablespace(ctx, params, dbname)
+    res = ctx.run(["sqlcmd", "-Q", "SELECT DB_NAME() AS db, name FROM sys.master_files WITH (NOLOCK)", "-W", "-s", " "], mutates=False)
+    if res.rc != 0:
+        return {"changed": False, "msg": "MSSQL not present: sqlcmd unavailable", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    text = res.stdout
+    if not text or text.strip() == "":
+        return {"changed": False, "msg": "MSSQL not present: no tablespaces", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _parse_tablespaces(text)
+    ts = section.get(item)
     if ts == None:
-        return {
-            "changed": False,
-            "msg": "could not retrieve tablespace data for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+        return {"changed": False, "msg": "MSSQL tablespace not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    overall = "OK"
-    parts = []
-    metrics_out = {}
-    size = ts["size"]
+    metrics = {}
+    details_parts = []
+    worst_state = "OK"
+    worst_rank = 0
 
-    if size >= 0:
-        metrics_out["size"] = size
-        s = _check_upper(size, params.get("size_warn"), params.get("size_crit"))
-        overall = _worst(overall, s)
-        parts.append("Size: %s%s" % (_render_bytes(size), _state_suffix(s)))
+    if ts.get("error") != None:
+        worst_rank = 2
+        worst_state = "CRIT"
+        details_parts.append(ts["error"])
 
-    for field, label, is_lower in [
-        ("unallocated", "Unallocated", True),
-        ("reserved",    "Reserved",    False),
-        ("data",        "Data",        False),
-        ("indexes",     "Indexes",     False),
-        ("unused",      "Unused",      False),
-    ]:
-        val = ts[field]
-        if val < 0:
+    size = ts.get("size")
+    if size != None:
+        size_levels = _level_tuple(params.get("size"))
+        st = "OK"
+        rank = 0
+        if size_levels != None:
+            st, rank = _grade_state(size, size_levels[0], size_levels[1], True)
+        if rank > worst_rank:
+            worst_rank = rank
+            worst_state = st
+        metrics["size"] = size
+        details_parts.append("Size: %s" % str(size))
+
+    metric_specs = [
+        ("unallocated", ts.get("unallocated"), "Unallocated space", params.get("unallocated"), None),
+        ("reserved", ts.get("reserved"), "Reserved space", None, params.get("reserved")),
+        ("data", ts.get("data"), "Data", None, params.get("data")),
+        ("indexes", ts.get("indexes"), "Indexes", None, params.get("indexes")),
+        ("unused", ts.get("unused"), "Unused", None, params.get("unused")),
+    ]
+
+    for mn, vb, label, levels_lower, levels_upper in metric_specs:
+        if vb == None:
             continue
-        metrics_out[field] = val
-        w = params.get(field + "_warn")
-        c = params.get(field + "_crit")
-        if is_lower:
-            s = _check_lower(val, w, c)
-        else:
-            s = _check_upper(val, w, c)
-        overall = _worst(overall, s)
-        parts.append("%s: %s%s" % (label, _render_bytes(val), _state_suffix(s)))
-        if size > 0:
-            pct = 100.0 * val / size
-            pct_w = params.get(field + "_pct_warn")
-            pct_c = params.get(field + "_pct_crit")
-            if pct_w != None or pct_c != None:
-                if is_lower:
-                    s_pct = _check_lower(pct, pct_w, pct_c)
-                else:
-                    s_pct = _check_upper(pct, pct_w, pct_c)
-                overall = _worst(overall, s_pct)
-                if s_pct != "OK":
-                    parts.append("%f%%%s" % (pct, _state_suffix(s_pct)))
+        metrics[mn] = vb
+        levels_are_perc = _levels_pct(levels_upper) or _levels_pct(levels_lower)
+        lu = None
+        ll = None
+        if not levels_are_perc:
+            lu = _level_tuple(levels_upper)
+            ll = _level_tuple(levels_lower)
+        st_low = "OK"
+        rank_low = 0
+        if ll != None:
+            st_low, rank_low = _grade_state(vb, ll[0], ll[1], False)
+        st_high = "OK"
+        rank_high = 0
+        if lu != None:
+            st_high, rank_high = _grade_state(vb, lu[0], lu[1], True)
+        if rank_low > worst_rank:
+            worst_rank = rank_low
+            worst_state = st_low
+        if rank_high > worst_rank:
+            worst_rank = rank_high
+            worst_state = st_high
+        details_parts.append("%s: %s" % (label, str(vb)))
+        if size != None and size != 0:
+            pct = 100.0 * vb / size
+            metrics[mn + "_percent"] = pct
+            lu_pct = None
+            ll_pct = None
+            if levels_are_perc:
+                lu_pct = _level_tuple(levels_upper)
+                ll_pct = _level_tuple(levels_lower)
+            st_p = "OK"
+            rank_p = 0
+            if lu_pct != None:
+                st_p, rank_p = _grade_state(pct, lu_pct[0], lu_pct[1], True)
+            st_p2 = "OK"
+            rank_p2 = 0
+            if ll_pct != None:
+                st_p2, rank_p2 = _grade_state(pct, ll_pct[0], ll_pct[1], False)
+            if rank_p > worst_rank:
+                worst_rank = rank_p
+                worst_state = st_p
+            if rank_p2 > worst_rank:
+                worst_rank = rank_p2
+                worst_state = st_p2
+            details_parts.append("%s: %f%%" % (label, pct))
 
-    summary = ", ".join(parts) if parts else "no tablespace data"
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": overall,
-            "metrics": metrics_out,
-            "details": "",
-        },
-    }
+    msg = item + " - " + ", ".join(details_parts)
+    return {"changed": False, "msg": msg, "data": {"state": worst_state, "metrics": metrics, "details": "; ".join(details_parts)}}

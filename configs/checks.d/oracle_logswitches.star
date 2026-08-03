@@ -1,92 +1,104 @@
-# Constants for default levels (from Checkmk check defaults)
-DEFAULT_LEVELS = (50, 100)       # (warn, crit) upper levels
-DEFAULT_LEVELS_LOWER = (-1, -1)  # (warn, crit) lower levels
+# Checkmk oracle_logswitches → read-only Starlark check module
+# Monitors Oracle log switches per instance; thresholds from params.
+
+def _is_number(s):
+    if s == None:
+        return False
+    if s == "":
+        return False
+    body = s
+    if body[0] == "-" or body[0] == "+":
+        body = body[1:]
+    if body == "":
+        return False
+    i = 0
+    seen_digit = False
+    for ch in body:
+        if ch == ".":
+            if i != 0 and i != len(body) - 1:
+                i = i + 1
+                continue
+            return False
+        if ch < "0" or ch > "9":
+            return False
+        seen_digit = True
+        i = i + 1
+    return seen_digit
+
+def _parse_int(s):
+    if _is_number(s):
+        return int(s)
+    return None
 
 def main(ctx, params):
-    # Discovery mode: enumerate all databases with logswitch data
     if params.get("_discover"):
-        section_file = "/var/lib/check-mk-agent/oracle_logswitches"
-        if not ctx.file_exists(section_file):
-            return {"changed": False, "msg": "discovered 0 items",
+        res = ctx.run(["sqlplus", "-s", "/nolog"], mutates=False)
+        if res.rc == 127:
+            return {"changed": False, "msg": "sqlplus not installed",
                     "data": {"discovery": []}}
-        content = ctx.file_read(section_file)
-        lines = content.split("\n")
-        out = []
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.split()
-            if len(parts) == 2:
-                item = parts[0]
-                out.append({
-                    "item": item,
-                    "params": {"levels": DEFAULT_LEVELS, "levels_lower": DEFAULT_LEVELS_LOWER},
-                    "metrics": ["logswitches"]
-                })
-        return {"changed": False, "msg": "discovered %d databases" % len(out),
-                "data": {"discovery": out}}
-
-    # Check mode: verify one item
+        if res.rc != 0:
+            return {"changed": False, "msg": "sqlplus failed: " + res.stderr,
+                    "data": {"discovery": []}}
+        login = ctx.run(["sqlplus", "-s", "/ as sysdba", "@/dev/stdin"],
+                        mutates=False)
+        if login.rc != 0:
+            return {"changed": False, "msg": "oracle not available",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 0 items",
+                "data": {"discovery": []}}
     item = params.get("item", "")
-    section_file = "/var/lib/check-mk-agent/oracle_logswitches"
-    if not ctx.file_exists(section_file):
-        return {"changed": False,
-                "msg": "agent data not found: %s" % section_file,
+    warn = params.get("warn", 50)
+    crit = params.get("crit", 100)
+    lowarn = params.get("lowarn", -1)
+    locrit = params.get("locrit", -1)
+    if not _is_number(str(warn)) or not _is_number(str(crit)):
+        warn = 50
+        crit = 100
+    if not _is_number(str(lowarn)) or not _is_number(str(locrit)):
+        lowarn = -1
+        locrit = -1
+    warn = _parse_int(str(warn))
+    crit = _parse_int(str(crit))
+    lowarn = _parse_int(str(lowarn))
+    locrit = _parse_int(str(locrit))
+    if warn == None or crit == None or lowarn == None or locrit == None:
+        return {"changed": False, "msg": "invalid threshold parameters",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    content = ctx.file_read(section_file)
-    lines = content.split("\n")
+    res = ctx.run(["sqlplus", "-s", "/ as sysdba", "@/dev/stdin"],
+                  mutates=False)
+    if res.rc == 127:
+        return {"changed": False, "msg": "sqlplus not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if res.rc != 0:
+        return {"changed": False, "msg": "oracle not available: " + res.stderr,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    lines = res.stdout.splitlines()
+    found = False
+    logswitches = None
     for line in lines:
-        if not line.strip():
+        f = line.split()
+        if len(f) != 2:
             continue
-        parts = line.split()
-        if len(parts) != 2:
-            continue
-        db_name = parts[0]
-        if db_name == item:
-            # Guard: verify the second part is numeric before conversion
-            switch_str = parts[1]
-            if not switch_str.isdigit():
-                return {"changed": False,
-                        "msg": "invalid logswitches value for %s" % item,
-                        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-            logswitches = int(switch_str)
-            
-            # Extract levels from params
-            levels = params.get("levels", DEFAULT_LEVELS)
-            levels_lower = params.get("levels_lower", DEFAULT_LEVELS_LOWER)
-            
-            warn_upper, crit_upper = levels
-            warn_lower, crit_lower = levels_lower
-            
-            # Determine state
-            state = "OK"
-            msg_parts = []
-            msg_parts.append("Log switches: %d" % logswitches)
-            
-            # Upper levels (warn/crit if value >= warn/crit)
-            if crit_upper != None and logswitches >= crit_upper:
-                state = "CRIT"
-                msg_parts.append("CRIT (warn: %d, crit: %d)" % (warn_upper, crit_upper))
-            elif warn_upper != None and logswitches >= warn_upper:
-                state = "WARN"
-                msg_parts.append("WARN (warn: %d, crit: %d)" % (warn_upper, crit_upper))
-            
-            # Lower levels (warn/crit if value <= warn/crit)
-            if crit_lower != None and logswitches <= crit_lower:
-                state = "CRIT"
-                msg_parts.append("CRIT lower (warn: %d, crit: %d)" % (warn_lower, crit_lower))
-            elif warn_lower != None and logswitches <= warn_lower:
-                state = "WARN"
-                msg_parts.append("WARN lower (warn: %d, crit: %d)" % (warn_lower, crit_lower))
-            
-            # Metrics: only logswitches (as number)
-            metrics = {"logswitches": logswitches}
-            return {"changed": False,
-                    "msg": ", ".join(msg_parts),
-                    "data": {"state": state, "metrics": metrics, "details": ""}}
-    
-    # If we didn't find the item, it's not present in the section
+        if f[0] == item:
+            logswitches = _parse_int(f[1])
+            if logswitches != None:
+                found = True
+            break
+    if not found:
+        return {"changed": False,
+                "msg": "no logswitch data for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    state = "OK"
+    if logswitches >= crit:
+        state = "CRIT"
+    elif logswitches >= warn:
+        state = "WARN"
+    if logswitches <= lowarn:
+        state = "WARN"
+    elif logswitches <= locrit:
+        state = "CRIT"
     return {"changed": False,
-            "msg": "database %s not found in agent data" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+            "msg": "Log switches in the last 60 minutes: " + str(logswitches),
+            "data": {"state": state,
+                     "metrics": {"logswitches": logswitches},
+                     "details": item + " log switches = " + str(logswitches)}}

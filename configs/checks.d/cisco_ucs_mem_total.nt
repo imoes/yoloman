@@ -2,30 +2,19 @@ name: cisco_ucs_mem_total
 fqcn: checkmk.cisco_ucs_mem_total
 collection: checkmk
 short_description: Memory total
-description:
-    > ## Overview
-    > This check monitors the total physical memory installed on a Cisco UCS rack-mounted server by querying SNMP. It ensures visibility into available hardware resources for capacity planning and health assessment.
-    >
-    > ## What it monitors
-    > - Total available memory on the Cisco UCS rack unit (in MB), retrieved via SNMP.
-    >
-    > ## How it works
-    > The check uses `snmpget` to query the OID `.1.3.6.1.4.1.9.9.719.1.9.35.1.9` (cucsComputeRackUnitAvailableMemory) on localhost. In discovery mode, it reports one service with an empty item. In check mode, it parses the SNMP response to extract an integer value (in MB), returning OK if parsing succeeds, or UNKNOWN otherwise.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - **OK**: SNMP query succeeds and a valid integer memory value (MB) is parsed.
-    > - **UNKNOWN**: SNMP query fails, output format is unexpected, or no numeric value is found.
-    > - **WARN/CRIT**: Not used by this check.
-    >
-    > ## Metrics
-    > None.
+description: Checkmk check 'cisco_ucs_mem_total' (service: Memory total), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Hardware & Sensors
+execution: snmp
+prompt_version: c21f0f5a7229

@@ -1,102 +1,187 @@
+# Checkmk check: huawei_switch_stack — translated read-only Starlark module.
+#
+# Source data comes from SNMP. The Checkmk agent plugin fetches two SNMP subtrees:
+#   base1 = .1.3.6.1.4.1.2011.5.25.183.1           oids=["5"]   (stack enabled flag)
+#   base2 = .1.3.6.1.4.1.2011.5.25.183.1.20.1      oids=[OIDEnd(), "3"]
+#           (per-slot: index = OIDEnd suffix, col "3" = role)
+#
+# -Oqv gives the bare scalar value for base1.
+# -Oqn gives "<full-oid> <value>" lines for base2.
+# The index (OIDEnd suffix after base2) is the slot member id and becomes the item name.
+# Col "3" value is mapped: "1"=master, "2"=standby, "3"=slave, else "unknown".
+#
+# Detection (DETECT_HUAWEI_SWITCH) = sysObjectID startswith ".1.3.6.1.4.1.2011.2.23".
+
 _STACK_ROLE_NAMES = {
     "1": "master",
     "2": "standby",
     "3": "slave",
 }
+
 _UNKNOWN_ROLE = "unknown"
 
-def _snmpwalk(ctx, community, host, base_oid):
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
+_BASE1 = ".1.3.6.1.4.1.2011.5.25.183.1"
+_COL5 = "5"          # stack enabled flag under base1
+_BASE2 = ".1.3.6.1.4.1.2011.5.25.183.1.20.1"
+_COL3 = "3"          # role column under base2
+
+_DETECT_PREFIX = ".1.3.6.1.4.1.2011.2.23"
+
+
+def _role_name(value):
+    return _STACK_ROLE_NAMES.get(value, _UNKNOWN_ROLE)
+
+
+def _snmp_enabled(ctx, params):
+    """Read the stack-enabled scalar. Returns True if enabled."""
+    res = ctx.run(
+        [
+            "snmpget",
+            "-v2c",
+            "-c", params.get("community", "public"),
+            "-Oqv",
+            params.get("host", "localhost"),
+            _BASE1 + "." + _COL5,
+        ],
+        mutates=False,
+    )
     if res.rc != 0:
-        fail("snmpwalk failed for %s: %s" % (base_oid, res.stderr))
-    return res.stdout
+        return False
+    val = res.stdout.strip()
+    if val == "" or val == "Null":
+        return False
+    return val == "1"
 
-def _parse_snmp_table(output):
-    result = []
-    for line in output.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        # parts[0] is OID string, parts[1] is "TYPE: value"
-        value_part = parts[1].strip()
-        # Extract value after ": "
-        val = value_part[value_part.find(": ") + 2:] if ": " in value_part else value_part
-        result.append(val.strip('"').strip("'"))
-    return result
 
-def _gather_section(ctx, community, host):
-    # Fetch stack enabled info (single scalar at .1.3.6.1.4.1.2011.5.25.183.1.5)
-    enabled_output = _snmpwalk(ctx, community, host, ".1.3.6.1.4.1.2011.5.25.183.1.5")
-    enabled_vals = _parse_snmp_table(enabled_output)
-    # Fetch role info (.1.3.6.1.4.1.2011.5.25.183.1.20.1 + OID end + .3)
-    role_output = _snmpwalk(ctx, community, host, ".1.3.6.1.4.1.2011.5.25.183.1.20.1")
-    role_lines = []
-    for line in role_output.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        # Extract the end part after base
-        if not oid_part.startswith(".1.3.6.1.4.1.2011.5.25.183.1.20.1."):
-            continue
-        end_oid = oid_part[len(".1.3.6.1.4.1.2011.5.25.183.1.20.1."):]
-        value_part = parts[1].strip()
-        val = value_part[value_part.find(": ") + 2:] if ": " in value_part else value_part
-        role_lines.append([end_oid.strip(), val.strip('"').strip("'")])
-
-    if not enabled_vals or not enabled_vals[0] == "1":
+def _snmp_walk_roles(ctx, params):
+    """Walk base2 col 3; return dict {index: role_raw_value}. Empty if none."""
+    res = ctx.run(
+        [
+            "snmpwalk",
+            "-v2c",
+            "-c", params.get("community", "public"),
+            "-Oqn",
+            params.get("host", "localhost"),
+            _BASE2 + "." + _COL3,
+        ],
+        mutates=False,
+    )
+    if res.rc != 0 and res.rc != 126:
         return {}
+    roles = {}
+    base_len = len(_BASE2) + 1  # +1 for the dot before the column number
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        value = line[sp + 1:]
+        # oid is like ".<col>.<index>"; drop the leading column portion.
+        # base2 + "." + col3 + "." + index  ->  oid suffix after that prefix is the index.
+        prefix = _BASE2 + "." + _COL3 + "."
+        if not oid.startswith(prefix):
+            continue
+        index = oid[len(prefix):]
+        if index == "":
+            continue
+        roles[index] = value
+    return roles
 
-    return {line[0]: _STACK_ROLE_NAMES.get(line[1], _UNKNOWN_ROLE) for line in role_lines}
+
+def _is_huawei_switch(ctx, params):
+    res = ctx.run(
+        [
+            "snmpget",
+            "-v2c",
+            "-c", params.get("community", "public"),
+            "-Oqv",
+            params.get("host", "localhost"),
+            ".1.3.6.1.2.1.1.2.0",
+        ],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return False
+    return res.stdout.strip().startswith(_DETECT_PREFIX)
+
 
 def main(ctx, params):
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-
     if params.get("_discover"):
-        section = _gather_section(ctx, community, host)
-        items = []
-        for item, role in section.items():
-            items.append({
-                "item": item,
+        if not _is_huawei_switch(ctx, params):
+            return {
+                "changed": False,
+                "msg": "device is not a Huawei switch",
+                "data": {"discovery": []},
+            }
+        enabled = _snmp_enabled(ctx, params)
+        if not enabled:
+            return {
+                "changed": False,
+                "msg": "stack not enabled on this device",
+                "data": {"discovery": []},
+            }
+        roles = _snmp_walk_roles(ctx, params)
+        if not roles:
+            return {
+                "changed": False,
+                "msg": "no stack members found",
+                "data": {"discovery": []},
+            }
+        discovery = []
+        for index in sorted(roles.keys()):
+            role = _role_name(roles[index])
+            discovery.append({
+                "item": index,
                 "params": {"expected_role": role},
-                "metrics": []
+                "metrics": [],
             })
         return {
             "changed": False,
-            "msg": "discovered %d stack members" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d stack members" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
     item = params.get("item", "")
-    section = _gather_section(ctx, community, host)
-
-    if item not in section:
+    if not _is_huawei_switch(ctx, params):
         return {
             "changed": False,
-            "msg": "stack member %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "device is not a Huawei switch",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-
-    current_role = section[item]
-    expected_role = params.get("expected_role", _UNKNOWN_ROLE)
-
-    if current_role == _UNKNOWN_ROLE:
+    enabled = _snmp_enabled(ctx, params)
+    if not enabled:
+        return {
+            "changed": False,
+            "msg": "stack not enabled on this device",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    roles = _snmp_walk_roles(ctx, params)
+    if not roles:
+        return {
+            "changed": False,
+            "msg": "no stack members found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    role_raw = roles.get(item)
+    if role_raw == None:
+        return {
+            "changed": False,
+            "msg": "no such stack member: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    role = _role_name(role_raw)
+    expected_role = params.get("expected_role", "unknown")
+    if role == _UNKNOWN_ROLE:
         state = "CRIT"
-        summary = _UNKNOWN_ROLE
-    elif current_role == expected_role:
+        summary = role
+    elif role == expected_role:
         state = "OK"
-        summary = current_role
+        summary = role
     else:
         state = "CRIT"
-        summary = "Unexpected role: %s (Expected: %s)" % (current_role, expected_role)
-
+        summary = "Unexpected role: %s (Expected: %s)" % (role, expected_role)
     return {
         "changed": False,
         "msg": summary,
-        "data": {"state": state, "metrics": {}, "details": ""}
+        "data": {"state": state, "metrics": {}, "details": ""},
     }

@@ -1,38 +1,77 @@
+# Translated Checkmk check: plesk_domains → read-only Starlark check module.
+
+def _is_plesk_installed(ctx):
+    res = ctx.run(["which", "plesk"], mutates=False)
+    if res.rc == 0 and res.stdout.strip():
+        return True
+    res2 = ctx.run(["plesk", "--version"], mutates=False)
+    if res2.rc == 0 and res2.stdout.strip():
+        return True
+    return False
+
+def _count_domains(ctx):
+    res = ctx.run(["plesk", "domain", "--list"], mutates=False)
+    if res.rc != 0:
+        return None
+    lines = [l for l in res.stdout.splitlines() if l.strip()]
+    return lines
+
 def main(ctx, params):
-    # Read the agent section data for plesk_domains
-    # The Checkmk agent plugin would fetch this from: plesk_ext util client --domains-info
-    # We replicate that by calling the same command
-    res = ctx.run(["plesk_ext", "util", "client", "--domains-info"], mutates=False)
-    
-    # If command fails or returns empty, we report UNKNOWN
-    if res.rc != 0 or not res.stdout.strip():
+    if params.get("_discover"):
+        if not _is_plesk_installed(ctx):
+            return {
+                "changed": False,
+                "msg": "Plesk not installed",
+                "data": {"discovery": []},
+            }
+        domains = _count_domains(ctx)
+        if domains == None or len(domains) == 0:
+            return {
+                "changed": False,
+                "msg": "No domains configured",
+                "data": {"discovery": []},
+            }
+        return {
+            "changed": False,
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {
+                        "item": "",
+                        "params": {},
+                        "metrics": ["domains"],
+                    }
+                ],
+            },
+        }
+
+    if not _is_plesk_installed(ctx):
+        return {
+            "changed": False,
+            "msg": "Plesk not installed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    domains = _count_domains(ctx)
+    if domains == None:
+        return {
+            "changed": False,
+            "msg": "Failed to query domains",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    if len(domains) == 0:
         return {
             "changed": False,
             "msg": "No domains configured",
-            "data": {"state": "WARN", "metrics": {}, "details": ""}
+            "data": {"state": "WARN", "metrics": {"domains": 0}, "details": ""},
         }
-    
-    lines = res.stdout.strip().splitlines()
-    # Filter out empty lines
-    domains = [line.strip() for line in lines if line.strip()]
-    
-    if not domains:
-        return {
-            "changed": False,
-            "msg": "No domains configured",
-            "data": {"state": "WARN", "metrics": {}, "details": ""}
-        }
-    
-    # First line is the summary (e.g., "Total: 3 domains"), rest are domain names
-    summary = domains[0] if domains else "No domains configured"
+    summary = "%d domain(s) configured" % len(domains)
     details = "\n".join(domains)
-    
     return {
         "changed": False,
         "msg": summary,
         "data": {
             "state": "OK",
-            "metrics": {},
-            "details": details
+            "metrics": {"domains": len(domains)},
+            "details": details,
         },
     }

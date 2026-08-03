@@ -1,19 +1,3 @@
-# State mapping: Checkmk State values (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
-STATE_OK = 0
-STATE_WARN = 1
-STATE_CRIT = 2
-STATE_UNKNOWN = 3
-
-# Checkmk LDISKS_DEFAULTS from megaraid library
-LDISKS_DEFAULTS = {
-    "Optimal": STATE_OK,
-    "Partially Degraded": STATE_WARN,
-    "Degraded": STATE_CRIT,
-    "Offline": STATE_WARN,
-    "Recovery": STATE_WARN,
-}
-
-# Abbreviation mapping: raw state abbreviation -> full state label
 _ABBREVIATIONS = {
     "awb": "Always WriteBack",
     "b": "Blocked",
@@ -63,165 +47,169 @@ _ABBREVIATIONS = {
     "wt": "WriteThrough",
 }
 
+LDISKS_DEFAULTS = {
+    "Optimal": 0,
+    "Partially Degraded": 1,
+    "Degraded": 2,
+    "Offline": 1,
+    "Recovery": 1,
+}
+
+STATE_NAMES = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+
 
 def expand_abbreviation(short):
     return _ABBREVIATIONS.get(short.lower(), short)
 
 
+def parse_vdrives(output):
+    section = {}
+    controller_num = 0
+    separator_count = 0
+
+    lines = output.splitlines()
+    data_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("-----"):
+            separator_count += 1
+            if separator_count == 3:
+                separator_count = 0
+                controller_num += 1
+        elif separator_count == 2:
+            data_lines.append((controller_num, line))
+
+    for controller_num, line in data_lines:
+        f = line.split()
+        if len(f) < 5:
+            continue
+        dg_vd = f[0]
+        raid_type = f[1]
+        rawstate = f[2]
+        access = f[3]
+        consistent = f[4]
+        section["C%d.%s" % (controller_num, dg_vd)] = {
+            "raid_type": raid_type,
+            "state": expand_abbreviation(rawstate),
+            "access": access,
+            "consistent": consistent == "Yes",
+        }
+
+    return section
+
+
 def main(ctx, params):
-    # Discovery mode: enumerate all virtual drives
+    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(["storcli", "/call/vall", "show", "json"], mutates=False)
+        res = ctx.run(["storcli64", "show"], mutates=False)
         if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "failed to run storcli",
-                "data": {"discovery": []},
-            }
-        
-        if res.stdout == "":
-            return {
-                "changed": False,
-                "msg": "empty output from storcli",
-                "data": {"discovery": []},
-            }
-        
-        data = json.decode(res.stdout)
-        
-        # Parse vdrives data
-        drives = []
-        controllers = data.get("Controllers", [])
-        for controller in controllers:
-            response_data = controller.get("Response Data", {})
-            vdrives = response_data.get("VD_LIST", [])
-            controller_num = controller.get("Command Status", {}).get("Controller", 0)
-            
-            for vd in vdrives:
-                dg_vd = vd.get("DG/VD", "")
-                raid_type = vd.get("TYPE", "")
-                raw_state = vd.get("State", "")
-                access = vd.get("Access", "")
-                consistent = vd.get("Consist", "No")
-                
-                item = "C%d.%s" % (controller_num, dg_vd)
-                state_label = expand_abbreviation(raw_state)
-                
-                drives.append({
+            return {"changed": False, "msg": "storcli not available", "data": {"discovery": []}}
+
+        out = []
+        for ctrl in range(0, 16):
+            ctrl_res = ctx.run(["storcli64", "/c%d" % ctrl, "show"], mutates=False)
+            if ctrl_res.rc != 0:
+                break
+
+            vd_res = ctx.run(["storcli64", "/c%d" % ctrl, "vdrv", "show", "all"], mutates=False)
+            if vd_res.rc != 0:
+                continue
+
+            section = parse_vdrives(vd_res.stdout)
+            for item in section:
+                out.append({
                     "item": item,
-                    "params": LDISKS_DEFAULTS,
+                    "params": dict(LDISKS_DEFAULTS),
                     "metrics": [],
                 })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d virtual drives" % len(drives),
-            "data": {"discovery": drives},
-        }
-    
-    # Check mode: verify one virtual drive
+
+        if len(out) == 0:
+            return {"changed": False, "msg": "no virtual drives found", "data": {"discovery": []}}
+
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
+
+    # Check mode
     item = params.get("item", "")
-    res = ctx.run(["storcli", "/call/vall", "show", "json"], mutates=False)
-    
+    res = ctx.run(["storcli64", "show"], mutates=False)
     if res.rc != 0:
         return {
             "changed": False,
-            "msg": "failed to run storcli",
+            "msg": "storcli not available on this host",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    if res.stdout == "":
+
+    # Determine which controller this item belongs to
+    # item is "C<controller>.<dg/vd>"
+    parts = item.split(".")
+    if len(parts) < 2:
         return {
             "changed": False,
-            "msg": "empty output from storcli",
+            "msg": "invalid item format: %s" % item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    data = json.decode(res.stdout)
-    
-    # Find drive by item
-    found = False
-    state = ""
-    raid_type = ""
-    access = ""
-    consistent = False
-    
-    controllers = data.get("Controllers", [])
-    for controller in controllers:
-        response_data = controller.get("Response Data", {})
-        vdrives = response_data.get("VD_LIST", [])
-        controller_num = controller.get("Command Status", {}).get("Controller", 0)
-        
-        for vd in vdrives:
-            dg_vd = vd.get("DG/VD", "")
-            item_id = "C%d.%s" % (controller_num, dg_vd)
-            
-            if item_id == item:
-                found = True
-                state = expand_abbreviation(vd.get("State", ""))
-                raid_type = vd.get("TYPE", "")
-                access = vd.get("Access", "")
-                consistent_str = vd.get("Consist", "No")
-                consistent = consistent_str == "Yes"
-                break
-        
-        if found:
-            break
-    
-    if not found:
+
+    ctrl_str = parts[0]
+    # ctrl_str is like "C0"
+    if not ctrl_str.startswith("C"):
         return {
             "changed": False,
-            "msg": "no such virtual drive: " + item,
+            "msg": "invalid controller in item: %s" % item,
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Build check results
-    state_str = "OK"
-    summary_parts = []
-    details_parts = []
-    metrics = {}
-    
-    # raid_type info
-    summary_parts.append("Raid type is %s" % raid_type)
-    
-    # access info
-    summary_parts.append("Access: %s" % access)
-    
-    # consistency check
-    if not consistent:
-        state_str = "WARN"
-        summary_parts.append("Drive is not consistent")
-    else:
-        summary_parts.append("Drive is consistent")
-    
-    # state mapping (from params or defaults)
-    state_params = params.get("state", {})
-    if state_params == {}:
-        state_params = LDISKS_DEFAULTS
-    
-    raw_state_value = state_params.get(state)
-    if raw_state_value == None:
-        state_str = "UNKNOWN"
-        summary_parts.append("State is %s (unknown)" % state)
-    else:
-        state_map = {
-            STATE_OK: "OK",
-            STATE_WARN: "WARN",
-            STATE_CRIT: "CRIT",
-            STATE_UNKNOWN: "UNKNOWN",
+
+    ctrl_num = ctrl_str[1:]
+    if not ctrl_num.isdigit():
+        return {
+            "changed": False,
+            "msg": "invalid controller number: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-        state_str = state_map.get(raw_state_value, "UNKNOWN")
-        summary_parts.append("State is %s" % state)
-    
-    # Assemble output
-    summary = ", ".join(summary_parts)
-    details = ""
-    
+
+    vd_res = ctx.run(["storcli64", "/c%s" % ctrl_num, "vdrv", "show", "all"], mutates=False)
+    if vd_res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "no virtual drives found for controller %s" % ctrl_num,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    section = parse_vdrives(vd_res.stdout)
+    if item not in section:
+        return {
+            "changed": False,
+            "msg": "virtual drive not found: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    drive = section[item]
+    details_lines = []
+    details_lines.append("Raid type is %s" % drive["raid_type"])
+    details_lines.append("Access: %s" % drive["access"])
+
+    if not drive["consistent"]:
+        details_lines.append("Drive is not consistent")
+
+    summary = "State is %s" % drive["state"]
+
+    raw_state = params.get(drive["state"])
+    if raw_state == None:
+        state = "UNKNOWN"
+        summary += " (unknown[%s])" % drive["state"]
+    else:
+        state_num = raw_state
+        state = STATE_NAMES.get(state_num, "UNKNOWN")
+
+    details = "\n".join(details_lines)
+
     return {
         "changed": False,
-        "msg": summary,
+        "msg": "%s" % summary,
         "data": {
-            "state": state_str,
-            "metrics": metrics,
+            "state": state,
+            "metrics": {},
             "details": details,
         },
     }

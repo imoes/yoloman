@@ -1,159 +1,165 @@
 def main(ctx, params):
-    # Discovery mode: enumerate all IN voltage phases with value > 0
     if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.2.1.33.1.3.3.1"
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, base_oid
-        ], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
+        return _discover(ctx, params)
+    return _check(ctx, params)
 
-        # Parse SNMP output: OIDEnd gives item, .3 gives voltage
-        # We'll process lines like:
-        # .1.3.6.1.2.1.33.1.3.3.1.1.<end>.3 = INTEGER: 230
-        # The item is the <end> part (e.g., "1", "2", "3")
-        items = {}
-        for line in res.stdout.splitlines():
-            stripped = line.strip()
-            if stripped == "":
-                continue
-            # Split into OID and value
-            parts = stripped.split(" = ")
-            if len(parts) != 2:
-                continue
-            oid = parts[0]
-            value_part = parts[1]
-            # Extract value (e.g., "INTEGER: 230" or "INTEGER 230")
-            if value_part.startswith("INTEGER: "):
-                value_str = value_part[9:]
-            elif value_part.startswith("INTEGER "):
-                value_str = value_part[8:]
-            else:
-                continue
-            # Skip if value is empty
-            value_str = value_str.strip()
-            if value_str == "":
-                continue
-            # Parse integer value
-            if not value_str.isdigit():
-                continue
-            value = int(value_str)
-            # Only include items with value > 0
-            if value <= 0:
-                continue
-            # Extract item (the part after the base OID)
-            # Base OID is ".1.3.6.1.2.1.33.1.3.3.1.1."
-            item_oid_prefix = base_oid + ".1."
-            if oid.startswith(item_oid_prefix):
-                item = oid[len(item_oid_prefix):].strip()
-                # Skip if item is empty
-                if item == "":
-                    continue
-                # Avoid duplicates (prefer first)
-                if item not in items:
-                    items[item] = value
 
-        discovery = []
-        for item, value in items.items():
-            # Checkmk defaults: levels_lower = (210.0, 180.0)
-            discovery.append({
-                "item": item,
-                "params": {"levels_lower": [210.0, 180.0]},
-                "metrics": ["in_voltage"]
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d IN voltage phases" % len(discovery),
-            "data": {"discovery": discovery}
-        }
-
-    # Check mode: examine one specific item (phase)
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.2.1.33.1.3.3.1"
-
-    # Build the specific OID for the item: base_oid + ".1." + item + ".3"
-    target_oid = base_oid + ".1." + item + ".3"
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On",
-        host, target_oid
-    ], mutates=False)
+def _is_ups(ctx, host, community):
+    # Probe for a real UPS via the standard UPS-MIB sysObjectID (1.3.6.1.2.1.1.2.0)
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return False
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed for item " + item + ": " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return False
+    sysoid = res.stdout.strip()
+    if sysoid == "" or sysoid == "No response":
+        return False
+    return _matches_ups_oid(sysoid)
 
-    # Parse single-line output: e.g., ".1.3.6.1.2.1.33.1.3.3.1.1.2.3 = INTEGER: 230"
-    stripped = res.stdout.strip()
-    if stripped == "":
-        return {
-            "changed": False,
-            "msg": "no data for item " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
 
-    # Extract value from line
-    parts = stripped.split(" = ")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP output for item " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+def _matches_ups_oid(sysoid):
+    prefixes = [
+        ".1.3.6.1.4.1.232.165.3",
+        ".1.3.6.1.4.1.476.1.42",
+        ".1.3.6.1.4.1.534.1",
+        ".1.3.6.1.4.1.935",
+        ".1.3.6.1.4.1.8072.3.2.10",
+        ".1.3.6.1.4.1.2254.2.5",
+        ".1.3.6.1.4.1.12551.4.0",
+        ".1.3.6.1.4.1.43943",
+        ".1.3.6.1.4.1.4555.1.1.7",
+        ".1.3.6.1.4.1.42610.1.4.4",
+    ]
+    starts = [
+        ".1.3.6.1.4.1.850",
+        ".1.3.6.1.4.1.534.2",
+        ".1.3.6.1.4.1.5491",
+        ".1.3.6.1.4.1.705.1",
+        ".1.3.6.1.4.1.818.1.100.1",
+        ".1.3.6.1.4.1.935",
+        ".1.3.6.1.4.1.534.10",
+        ".1.3.6.1.2.1.33",
+    ]
+    for p in prefixes:
+        if sysoid == p:
+            return True
+    for s in starts:
+        if sysoid.startswith(s):
+            return True
+    return False
 
-    value_part = parts[1]
-    # Extract integer value
-    if value_part.startswith("INTEGER: "):
-        value_str = value_part[9:]
-    elif value_part.startswith("INTEGER "):
-        value_str = value_part[8:]
-    else:
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP value format for item " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    value_str = value_str.strip()
-    if not value_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "non-numeric value for item " + item + ": " + value_str,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    value = int(value_str)
 
-    # Extract thresholds: Checkmk default levels_lower = (210.0, 180.0)
-    levels_lower = params.get("levels_lower", [210.0, 180.0])
-    if type(levels_lower) == "dict":
-        # Handle legacy mapping format (shouldn't happen in our translated context)
-        levels_lower = levels_lower.get("levels_lower", [210.0, 180.0])
+def _fetch_voltage_table(ctx, host, community):
+    # Walk the input-voltage table: .1.3.6.1.2.1.33.1.3.3.1.<idx>, values in col 3
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, ".1.3.6.1.2.1.33.1.3.3.1.3"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    rows = []
+    for line in res.stdout.splitlines():
+        # format: "<OID> <value>"
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid_full = parts[0]
+        value = parts[1].strip()
+        col_base = ".1.3.6.1.2.1.33.1.3.3.1.3"
+        if not oid_full.startswith(col_base + "."):
+            continue
+        index = oid_full[len(col_base) + 1:]
+        rows.append([index, value])
+    return rows
 
-    lower_warn = levels_lower[0]
-    lower_crit = levels_lower[1]
 
-    # Determine state based on lower thresholds
-    if value <= lower_crit:
-        state = "CRIT"
-        summary = "IN voltage: %d V (critical)" % value
-    elif value <= lower_warn:
-        state = "WARN"
-        summary = "IN voltage: %d V (warning)" % value
-    else:
-        state = "OK"
-        summary = "IN voltage: %d V" % value
-
+def _discover(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    if not _is_ups(ctx, host, community):
+        return {"changed": False, "msg": "no UPS detected", "data": {"discovery": []}}
+    rows = _fetch_voltage_table(ctx, host, community)
+    discovery = []
+    for row in rows:
+        item = row[0]
+        value = row[1]
+        if value == "" or value == "No response":
+            continue
+        if not _is_positive_int(value):
+            continue
+        discovery.append({
+            "item": item,
+            "metrics": ["in_voltage"],
+            "params": {"levels_lower": (210.0, 180.0)},
+        })
     return {
         "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": {"in_voltage": value},
-            "details": ""
-        }
+        "msg": "discovered %d items" % len(discovery),
+        "data": {"discovery": discovery},
     }
+
+
+def _check(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+    if not _is_ups(ctx, host, community):
+        return {
+            "changed": False,
+            "msg": "no UPS detected on host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    rows = _fetch_voltage_table(ctx, host, community)
+    if len(rows) == 0:
+        return {
+            "changed": False,
+            "msg": "no input voltage values available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    value = None
+    for row in rows:
+        if row[0] == item:
+            value = row[1]
+            break
+    if value == None:
+        return {
+            "changed": False,
+            "msg": "no such phase: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    if not _is_positive_int(value):
+        return {
+            "changed": False,
+            "msg": "invalid voltage value for phase %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    v = int(value)
+    levels_lower = params.get("levels_lower", (210.0, 180.0))
+    levels_upper = params.get("levels_upper", (None, None))
+    warn_l = levels_lower[0]
+    crit_l = levels_lower[1]
+    state = _grade_lower(v, warn_l, crit_l)
+    return {
+        "changed": False,
+        "msg": "In voltage phase %s: %dV" % (item, v),
+        "data": {"state": state, "metrics": {"in_voltage": v}, "details": ""},
+    }
+
+
+def _grade_lower(value, warn_l, crit_l):
+    if crit_l != None and value <= crit_l:
+        return "CRIT"
+    if warn_l != None and value <= warn_l:
+        return "WARN"
+    return "OK"
+
+
+def _is_positive_int(s):
+    if s == None or s == "":
+        return False
+    if not s.lstrip("-").isdigit():
+        return False
+    return int(s) > 0

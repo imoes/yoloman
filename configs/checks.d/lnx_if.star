@@ -1,123 +1,223 @@
-# Linux network interface check (read-only).
-#
-# Ported from cmk.plugins.network.agent_based.lnx_if, adapted for an agent that
-# does not ship ethtool. Where the Checkmk agent shells out to ethtool for speed
-# and link state, this reads the kernel's own /sys/class/net, which is always
-# present and needs no extra package:
-#   type      ARPHRD number — 772 is loopback, 1 is ethernet (authoritative,
-#             where Checkmk guesses "24 if name==lo else 6")
-#   operstate up / down / unknown
-#   carrier   1 / 0  (fallback when operstate is "unknown", e.g. some virtio NICs)
-#   speed     link speed in Mbit/s, or -1 when the driver cannot report it
-#             (virtio, bonds) — genuinely unknown, not an error
-#
-# Discovery mirrors Checkmk's defaults (lib/interfaces.DISCOVERY_DEFAULT_PARAMETERS):
-# only real ports (loopback porttype 24 excluded) that are currently up
-# (portstates ["1"]), and never docker veth* pairs.
+def _parse_speed(text):
+    if text == "65535Mb/s":
+        return 0
+    if text.endswith("Kb/s"):
+        return int(float(text[:-4])) * 1000
+    if text.endswith("Gb/s"):
+        return int(float(text[:-4])) * 1000000000
+    if text.endswith("Mb/s"):
+        return int(float(text[:-4])) * 1000000
+    return 0
 
-LOOPBACK_ARPHRD = "772"
 
-def _read(ctx, path):
-    """One /sys value, stripped; "" when the file is absent (rc != 0)."""
-    res = ctx.run(["cat", path], mutates=False)
-    if res.rc != 0:
-        return ""
-    return res.stdout.strip()
+def _get_oper(link_detected, state_infos, if_in_octets):
+    if link_detected == "yes":
+        return "1"
+    if link_detected == "no":
+        return "2"
+    if state_infos != None:
+        if "UP" in state_infos and "LOWER_UP" in state_infos:
+            return "1"
+        return "2"
+    if if_in_octets > 0:
+        return "1"
+    return "4"
 
-def _iface_names(ctx):
-    res = ctx.run(["ls", "/sys/class/net"], mutates=False)
-    if res.rc != 0:
-        return []
-    return sorted([n for n in res.stdout.split() if n])
-
-def _oper_up(operstate, carrier):
-    # operstate is the direct answer where the driver sets it; virtio leaves it
-    # "unknown", so fall back to carrier (1 = link present).
-    if operstate == "up":
-        return True
-    if operstate == "down":
-        return False
-    return carrier == "1"
-
-def _monitored(ctx, name):
-    """A real, up port — the set Checkmk would discover by default."""
-    if name.startswith("veth"):
-        return False
-    if _read(ctx, "/sys/class/net/%s/type" % name) == LOOPBACK_ARPHRD:
-        return False
-    operstate = _read(ctx, "/sys/class/net/%s/operstate" % name)
-    carrier = _read(ctx, "/sys/class/net/%s/carrier" % name)
-    return _oper_up(operstate, carrier)
-
-def _speed_label(mbit):
-    # Integer-only formatting: Starlark's % rejects %.1f, and speeds are whole
-    # Mbit/s anyway. -1 (or 0) means the driver does not report a speed.
-    if mbit <= 0:
-        return "speed unknown"
-    if mbit >= 1000 and mbit % 1000 == 0:
-        return "%d Gbit/s" % (mbit // 1000)
-    if mbit >= 1000:
-        return "%d Mbit/s" % mbit
-    return "%d Mbit/s" % mbit
-
-def _dev_counters(ctx, item):
-    """in/out octets etc. for one interface from /proc/net/dev."""
-    res = ctx.run(["cat", "/proc/net/dev"], mutates=False)
-    for line in res.stdout.splitlines():
-        stripped = line.strip()
-        colon = stripped.find(":")
-        if colon <= 0:
-            continue
-        if stripped[:colon].strip() != item:
-            continue
-        f = stripped[colon + 1:].split()
-        if len(f) >= 16:
-            return [int(x) for x in f]
-    return None
 
 def main(ctx, params):
     if params.get("_discover"):
-        out = []
-        for name in _iface_names(ctx):
-            if not _monitored(ctx, name):
+        ip = ctx.run(["ip", "-o", "link"], mutates=False)
+        if ip.rc != 0:
+            return {"changed": False, "msg": "ip command not available", "data": {"discovery": []}}
+        dev = ctx.file_read("/proc/net/dev") if ctx.file_exists("/proc/net/dev") else ""
+        eth = ctx.run(["ethtool", "--version"], mutates=False)
+        has_ethtool = eth.rc == 0
+
+        dev_counters = {}
+        if dev:
+            dlines = dev.splitlines()
+            if len(dlines) > 2:
+                for dl in dlines[2:]:
+                    parts = dl.split()
+                    if len(parts) < 2:
+                        continue
+                    ifname = parts[0].rstrip(":")
+                    vals = parts[1].split()
+                    if len(vals) >= 16:
+                        ok = True
+                        cnts = []
+                        for v in vals[:16]:
+                            if v.isdigit():
+                                cnts.append(int(v))
+                            else:
+                                ok = False
+                                break
+                        if ok:
+                            dev_counters[ifname] = cnts
+
+        discovery = []
+        for line in ip.stdout.splitlines():
+            fields = line.split()
+            if len(fields) < 2:
                 continue
-            out.append({
-                "item": name,
-                "params": {"target_states": ["up"]},
-                "metrics": ["in_octets", "out_octets", "in_err", "out_err", "in_disc", "out_disc", "speed"],
+            raw = fields[1]
+            cidx = raw.find(":")
+            if cidx < 0:
+                continue
+            ifname = raw[:cidx]
+            if ifname.startswith("veth"):
+                continue
+
+            state_infos = []
+            lt = line.find("<")
+            gt = line.find(">", lt) if lt >= 0 else -1
+            if lt >= 0 and gt > lt:
+                state_infos = line[lt+1:gt].split(",")
+
+            counters = dev_counters.get(ifname)
+            in_oct = 0
+            if counters != None:
+                in_oct = counters[0]
+
+            oper = _get_oper(None, state_infos, in_oct)
+
+            discovery.append({
+                "item": ifname,
+                "params": {"warn": 80, "crit": 90},
+                "metrics": [
+                    "if_in_oct_bytes",
+                    "if_out_oct_bytes",
+                    "if_in_packets",
+                    "if_out_packets",
+                    "if_in_err",
+                    "if_out_err",
+                    "if_in_disc",
+                    "if_out_disc",
+                    "link_up",
+                ],
             })
-        return {"changed": False, "msg": "discovered %d interfaces" % len(out),
-                "data": {"discovery": out}}
+
+        hl = {"cmk/os_family": ctx.facts().get("os_family", "linux")}
+        ipaddr = ctx.run(["ip", "-o", "addr"], mutates=False)
+        n4 = 0
+        n6 = 0
+        if ipaddr.rc == 0:
+            for al in ipaddr.stdout.splitlines():
+                f2 = al.split()
+                if len(f2) < 4:
+                    continue
+                fam = f2[2]
+                if fam == "inet":
+                    n4 = n4 + 1
+                elif fam == "inet6":
+                    n6 = n6 + 1
+        if n4 == 1:
+            hl["cmk/l3v4_topology"] = "singlehomed"
+        elif n4 > 1:
+            hl["cmk/l3v4_topology"] = "multihomed"
+        if n6 == 1:
+            hl["cmk/l3v6_topology"] = "singlehomed"
+        elif n6 > 1:
+            hl["cmk/l3v6_topology"] = "multihomed"
+
+        return {
+            "changed": False,
+            "msg": "discovered %d interfaces" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": hl},
+        }
 
     item = params.get("item", "")
     if not item:
-        return {"changed": False, "msg": "no item specified",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "no item specified", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if _read(ctx, "/sys/class/net/%s/type" % item) == "":
-        return {"changed": False, "msg": "interface %s not found" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    dev = ctx.file_read("/proc/net/dev") if ctx.file_exists("/proc/net/dev") else ""
+    dev_counters = {}
+    if dev:
+        dlines = dev.splitlines()
+        if len(dlines) > 2:
+            for dl in dlines[2:]:
+                parts = dl.split()
+                if len(parts) < 2:
+                    continue
+                ifname = parts[0].rstrip(":")
+                vals = parts[1].split()
+                if len(vals) >= 16:
+                    ok = True
+                    cnts = []
+                    for v in vals[:16]:
+                        if v.isdigit():
+                            cnts.append(int(v))
+                        else:
+                            ok = False
+                            break
+                    if ok:
+                        dev_counters[ifname] = cnts
 
-    operstate = _read(ctx, "/sys/class/net/%s/operstate" % item)
-    carrier = _read(ctx, "/sys/class/net/%s/carrier" % item)
-    up = _oper_up(operstate, carrier)
+    if item not in dev_counters:
+        return {"changed": False, "msg": "interface %s not found" % item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    speed_raw = _read(ctx, "/sys/class/net/%s/speed" % item)
-    mbit = int(speed_raw) if (speed_raw.lstrip("-").isdigit()) else -1
+    counters = dev_counters[item]
+    in_oct = counters[0]
+    in_pkts = counters[1]
+    in_err = counters[2]
+    in_disc = counters[3]
+    out_oct = counters[8]
+    out_pkts = counters[9]
+    out_err = counters[10]
+    out_disc = counters[11]
 
-    # A discovered-up interface that is now down is the alarm case. Target states
-    # come from discovery (params.target_states); default to ["up"].
-    targets = params.get("target_states", ["up"])
-    state = "OK" if (("up" if up else "down") in targets) else "WARN"
+    link_detected = None
+    speed = 0
+    eth = ctx.run(["ethtool", item], mutates=False)
+    if eth.rc == 0 and item != "lo":
+        for el in eth.stdout.splitlines():
+            el = el.strip()
+            if el.startswith("Speed:"):
+                speed = _parse_speed(el.split(":", 1)[1].strip())
+            elif el.startswith("Link detected:"):
+                link_detected = el.split(":", 1)[1].strip()
 
-    # Throughput (net_rx_bytes/net_tx_bytes) is graphed from the agent's own
-    # telemetry, so it is not re-reported here. No honest SCALAR exists for an
-    # interface without two samples to rate against — Checkmk shows in/out
-    # utilisation, which needs state between checks we do not keep — so the
-    # metrics dict is left empty rather than surfacing a raw discard counter as
-    # the service's headline number (which read as a problem on an OK link).
-    # State + speed live in the summary; throughput lives in the graphs.
-    msg = "%s: %s, %s" % (item, "up" if up else "down", _speed_label(mbit))
+    ip = ctx.run(["ip", "-o", "link"], mutates=False)
+    state_infos = []
+    if ip.rc == 0:
+        for il in ip.stdout.splitlines():
+            fields = il.split()
+            if len(fields) >= 2 and fields[1].startswith(item + ":"):
+                lt = il.find("<")
+                gt = il.find(">", lt) if lt >= 0 else -1
+                if lt >= 0 and gt > lt:
+                    state_infos = il[lt+1:gt].split(",")
+                break
 
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+    oper = _get_oper(link_detected, state_infos, in_oct)
+
+    link_up = 0
+    if oper == "1":
+        link_up = 1
+
+    warn = params.get("warn", 80)
+    crit = params.get("crit", 90)
+
+    state = "OK"
+    if oper == "2":
+        state = "CRIT"
+    elif oper == "3":
+        state = "WARN"
+    elif oper == "4":
+        state = "UNKNOWN"
+
+    msg = "Oper %s, Speed %dMb/s, In %d Out %d" % (oper, speed / 1000000, in_oct, out_oct)
+
+    metrics = {
+        "if_in_oct_bytes": in_oct,
+        "if_out_oct_bytes": out_oct,
+        "if_in_packets": in_pkts,
+        "if_out_packets": out_pkts,
+        "if_in_err": in_err,
+        "if_out_err": out_err,
+        "if_in_disc": in_disc,
+        "if_out_disc": out_disc,
+        "link_up": link_up,
+    }
+
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": metrics, "details": ""}}

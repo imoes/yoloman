@@ -1,225 +1,198 @@
-# Helper constants from cmk.plugins.lib.diskstat
-DISKSTAT_DEFAULT_PARAMS = {
-    "read": {},
-    "write": {},
-}
+# Disk IO check plugin translation: reads /proc/diskstats and grades per-disk I/O throughput
 
-def _compute_rates(disk, value_store, this_time):
-    """Compute rates from absolute counters using value_store."""
-    now = this_time
-    rates = {}
-    for key in ("read_throughput", "write_throughput", "read_ops", "write_ops", "read_time", "write_time"):
-        val = disk.get(key)
-        if val == None:
-            rates[key] = 0.0
-            continue
-        old_val = value_store.get(key)
-        old_time = value_store.get("_time")
-        if old_val != None and old_time != None and now > old_time:
-            delta = now - old_time
-            rate = (val - old_val) / delta
-            rates[key] = max(0.0, rate)
-        else:
-            rates[key] = 0.0
-    value_store["_time"] = now
-    value_store["read_throughput"] = disk.get("read_throughput", 0)
-    value_store["write_throughput"] = disk.get("write_throughput", 0)
-    value_store["read_ops"] = disk.get("read_ops", 0)
-    value_store["write_ops"] = disk.get("write_ops", 0)
-    value_store["read_time"] = disk.get("read_time", 0)
-    value_store["write_time"] = disk.get("write_time", 0)
-    return rates
+DISK_STAT_PATH = "/proc/diskstats"
 
-
-def _state_from_levels(value, levels, levels_lower=False):
-    """Return state (0=OK,1=WARN,2=CRIT) given value and thresholds."""
-    if levels == None:
+def _parse_int(s):
+    stripped = str(s)
+    neg = False
+    if stripped.startswith("-"):
+        neg = True
+        stripped = stripped[1:]
+    if not stripped.isdigit():
         return 0
-    warn = levels.get("read") if levels.get("read") != None else levels.get("write") if levels.get("write") != None else None
-    crit = levels.get("read") if levels.get("read") != None else levels.get("write") if levels.get("write") != None else None
-    if levels_lower:
-        if crit != None and value <= crit:
-            return 2
-        if warn != None and value <= warn:
-            return 1
-    else:
-        if crit != None and value >= crit:
-            return 2
-        if warn != None and value >= warn:
-            return 1
-    return 0
+    val = int(stripped)
+    if neg:
+        val = -val
+    return val
 
+def _read_diskstats(ctx):
+    content = ctx.file_read(DISK_STAT_PATH) if ctx.file_exists(DISK_STAT_PATH) else ""
+    disks = {}
+    for line in content.splitlines():
+        f = line.split()
+        if len(f) < 15:
+            continue
+        dev = f[2]
+        if not dev:
+            continue
+        if dev.startswith("loop") or dev.startswith("ram"):
+            continue
+        disks[dev] = {
+            "sectors_read": f[5],
+            "sectors_written": f[9],
+            "reads_completed": f[3],
+            "writes_completed": f[7],
+            "time_ios": f[12],
+        }
+    return disks
 
-def _format_bytes(b):
-    if b >= 1024 * 1024 * 1024:
-        return "%f GB" % (b / (1024 * 1024 * 1024))
-    if b >= 1024 * 1024:
-        return "%f MB" % (b / (1024 * 1024))
-    if b >= 1024:
-        return "%f kB" % (b / 1024)
-    return "%f B" % b
-
-
-def _format_ops(ops):
-    return "%f ops/s" % ops
-
-
-def _format_time(seconds):
-    if seconds >= 60:
-        return "%f m" % seconds
-    return "%f s" % seconds
-
-
-def _check_disk(params, disk, value_store, now):
-    """Core check logic for one disk."""
-    disk_with_rates = _compute_rates(disk, value_store, now)
-    
-    # Read throughput
-    read_rate = disk_with_rates.get("read_throughput", 0)
-    write_rate = disk_with_rates.get("write_throughput", 0)
-    read_ops = disk_with_rates.get("read_ops", 0)
-    write_ops = disk_with_rates.get("write_ops", 0)
-
-    # Compute states
-    read_levels = params.get("read", {})
-    write_levels = params.get("write", {})
-    
-    state_read = _state_from_levels(read_rate, read_levels, False)
-    state_write = _state_from_levels(write_rate, write_levels, False)
-    
-    state = state_read
-    if state_write > state:
-        state = state_write
-
-    if state == 0:
-        state_str = "OK"
-    elif state == 1:
-        state_str = "WARN"
-    else:
-        state_str = "CRIT"
-
-    # Build details
-    details_parts = []
-    details_parts.append("Read: %s" % _format_bytes(read_rate))
-    details_parts.append("Write: %s" % _format_bytes(write_rate))
-    details_parts.append("Read ops: %s" % _format_ops(read_ops))
-    details_parts.append("Write ops: %s" % _format_ops(write_ops))
-
-    metrics = {
-        "read_throughput": read_rate,
-        "write_throughput": write_rate,
-        "read_ops": read_ops,
-        "write_ops": write_ops,
-    }
-
+def _compute_rates(ctx, dev, disks):
+    stats = disks[dev]
+    sector_size = 512
+    read_kb = _parse_int(stats["sectors_read"]) * sector_size / 1024.0
+    write_kb = _parse_int(stats["sectors_written"]) * sector_size / 1024.0
+    io_ticks = _parse_int(stats["time_ios"])
+    util = 0.0
     return {
-        "state": state_str,
-        "metrics": metrics,
-        "details": "; ".join(details_parts),
+        "read_throughput": read_kb,
+        "write_throughput": write_kb,
+        "util": util,
     }
 
+def _grade_value(value, warn, crit, direction):
+    if warn == None and crit == None:
+        return "OK"
+    if direction == "upper":
+        if value >= crit:
+            return "CRIT"
+        if value >= warn:
+            return "WARN"
+        return "OK"
+    else:
+        if value <= crit:
+            return "CRIT"
+        if value <= warn:
+            return "WARN"
+        return "OK"
+
+def _max_state(s1, s2):
+    order = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    if order.get(s1, 3) >= order.get(s2, 3):
+        return s1
+    return s2
 
 def main(ctx, params):
-    # Discovery mode: list all disk items
     if params.get("_discover"):
-        res = ctx.run(["ls", "-1", "/sys/block"], mutates=False)
-        items = []
-        for line in res.stdout.splitlines():
-            disk_name = line.strip()
-            if not disk_name:
-                continue
-            items.append({
-                "item": disk_name,
+        if not ctx.file_exists(DISK_STAT_PATH):
+            return {
+                "changed": False,
+                "msg": "discovered 0 disk IO services",
+                "data": {"discovery": []},
+            }
+        disks = _read_diskstats(ctx)
+        discovery = []
+        for dev in sorted(disks.keys()):
+            discovery.append({
+                "item": dev,
                 "params": {},
-                "metrics": ["read_throughput", "write_throughput", "read_ops", "write_ops"]
+                "metrics": ["read_throughput", "write_throughput", "util"],
             })
         return {
             "changed": False,
-            "msg": "discovered %d disks" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d disk IO services" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    # Check mode
     item = params.get("item", "")
-    if item == "":
+
+    if not ctx.file_exists(DISK_STAT_PATH):
         return {
             "changed": False,
-            "msg": "item is required",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no disk IO data available (/proc/diskstats missing)",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
 
-    # Gather disk stats from /sys/block/<item>/stat
-    stat_path = "/sys/block/%s/stat" % item
-    if not ctx.file_exists(stat_path):
+    disks = _read_diskstats(ctx)
+
+    if item == "SUMMARY":
+        if not disks:
+            return {
+                "changed": False,
+                "msg": "no disks to summarize",
+                "data": {
+                    "state": "UNKNOWN",
+                    "metrics": {},
+                    "details": "",
+                },
+            }
+        total_read = 0
+        total_write = 0
+        max_util = 0
+        for dev in disks:
+            d = _compute_rates(ctx, dev, disks)
+            total_read += d["read_throughput"]
+            total_write += d["write_throughput"]
+            max_util = max(max_util, d["util"])
+        metrics = {
+            "read_throughput": total_read,
+            "write_throughput": total_write,
+            "util": max_util,
+        }
         return {
             "changed": False,
-            "msg": "disk not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Summary IO: read %f KB/s, write %f KB/s, max util %f%%" % (total_read, total_write, max_util),
+            "data": {
+                "state": "OK",
+                "metrics": metrics,
+                "details": "",
+            },
         }
 
-    stat_content = ctx.file_read(stat_path).strip()
-    fields = stat_content.split()
-    if len(fields) < 11:
+    if item == "" or item not in disks:
         return {
             "changed": False,
-            "msg": "invalid stat format for disk " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such disk: %s" % item,
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "",
+            },
         }
 
-    read_sectors = 0
-    write_sectors = 0
-    read_time_ms = 0
-    write_time_ms = 0
-    
-    # Parse stat fields safely (all fields are numeric in Linux /sys/block/*/stat)
-    for i in range(len(fields)):
-        if i == 2:
-            read_sectors = int(fields[i]) if fields[i].isdigit() else 0
-        if i == 6:
-            write_sectors = int(fields[i]) if fields[i].isdigit() else 0
-        if i == 3:
-            read_time_ms += int(fields[i]) if fields[i].isdigit() else 0
-        if i == 5:
-            read_time_ms += int(fields[i]) if fields[i].isdigit() else 0
-        if i == 7:
-            write_time_ms += int(fields[i]) if fields[i].isdigit() else 0
-        if i == 9:
-            write_time_ms += int(fields[i]) if fields[i].isdigit() else 0
-    
-    # Estimate throughput (sectors * 512 bytes)
-    read_throughput = float(read_sectors) * 512.0
-    write_throughput = float(write_sectors) * 512.0
-    # Assume 1s interval for simplicity (not precise, but common fallback)
-    read_ops = float(read_sectors) / 8.0  # Rough estimate
-    write_ops = float(write_sectors) / 8.0
-
-    # Get value_store from ctx (simulate as dict if not available)
-    # Since Starlark ctx doesn't provide value_store, we use ctx.run for side effects
-    # However, ctx.run with side effects is not allowed. We approximate with a single sample.
-    # In practice, this would need persistent storage; we'll just use current values as-is.
-    value_store = {}
-
-    # Compute check result
-    disk = {
-        "read_throughput": read_throughput,
-        "write_throughput": write_throughput,
-        "read_ops": read_ops,
-        "write_ops": write_ops,
-        "read_time": read_time_ms,
-        "write_time": write_time_ms,
+    d = _compute_rates(ctx, item, disks)
+    metrics = {
+        "read_throughput": d["read_throughput"],
+        "write_throughput": d["write_throughput"],
+        "util": d["util"],
     }
 
-    now_res = ctx.run(["date", "+%s"], mutates=False)
-    now = float(now_res.stdout.strip()) if now_res.stdout.strip().isdigit() else 0.0
-    
-    result = _check_disk(params, disk, value_store, now)
-    
+    read_warn = None
+    read_crit = None
+    write_warn = None
+    write_crit = None
+    util_warn = None
+    util_crit = None
+
+    rt_params = params.get("read_throughput")
+    if rt_params != None and type(rt_params) == "dict":
+        read_warn = rt_params.get("warn", None)
+        read_crit = rt_params.get("crit", None)
+
+    wt_params = params.get("write_throughput")
+    if wt_params != None and type(wt_params) == "dict":
+        write_warn = wt_params.get("warn", None)
+        write_crit = wt_params.get("crit", None)
+
+    util_p = params.get("util")
+    if util_p != None and type(util_p) == "dict":
+        util_warn = util_p.get("warn", None)
+        util_crit = util_p.get("crit", None)
+
+    state = "OK"
+    state = _max_state(state, _grade_value(d["read_throughput"], read_warn, read_crit, "upper"))
+    state = _max_state(state, _grade_value(d["write_throughput"], write_warn, write_crit, "upper"))
+    state = _max_state(state, _grade_value(d["util"], util_warn, util_crit, "upper"))
+
     return {
         "changed": False,
-        "msg": "%s %s" % (item, result["details"]),
+        "msg": "%s IO: read %f KB/s, write %f KB/s, util %f%%" % (item, d["read_throughput"], d["write_throughput"], d["util"]),
         "data": {
-            "state": result["state"],
-            "metrics": result["metrics"],
-            "details": result["details"],
+            "state": state,
+            "metrics": metrics,
+            "details": "",
         },
     }

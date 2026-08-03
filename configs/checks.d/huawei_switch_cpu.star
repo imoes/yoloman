@@ -1,159 +1,143 @@
-# ===== Starlark check: huawei_switch_cpu =====
-# Read-only check for Huawei switch CPU utilization via SNMP
-# Translation of Checkmk check: cmk.plugins.huawei.agent_sections.huawei_switch_cpu
-
-# Module-level constants
-_CPU_OID_BASE = ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1"
-_ENTITY_OID_BASE = ".1.3.6.1.2.1.47.1.1.1.1"
-_HUAWEI_MPU_BOARD_NAME_START = "mpu board"
-
-def _snmp_walk(ctx, community, host, base_oid):
-    # Walk a base OID and parse output lines into dict of {oid: value}
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
-        fail("snmpwalk failed for %s: %s" % (base_oid, res.stderr))
-    
-    result = {}
-    for line in res.stdout.splitlines():
-        parts = line.strip().split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        value_part = parts[1].strip()
-        # Extract value after type prefix (e.g., "INTEGER: 22" -> "22")
-        colon_pos = value_part.find(": ")
-        if colon_pos >= 0:
-            value = value_part[colon_pos + 2:].strip().strip('"')
-        else:
-            value = value_part
-        result[oid] = value
-    return result
-
-def _parse_entities_and_values(ctx, community, host):
-    # Walk entityMIB entPhysicalName (base .1.3.6.1.2.1.47.1.1.1.1 + OIDEnd + "7")
-    entity_oids = _snmp_walk(ctx, community, host, _ENTITY_OID_BASE)
-    
-    # Walk Huawei CPU utilization values (base .1.3.6.1.4.1.2011.5.25.31.1.1.1.1 + OIDEnd + "5")
-    value_oids = _snmp_walk(ctx, community, host, _CPU_OID_BASE)
-    
-    # Map physical index to entity name and value
-    entities_per_member = {}
+def _parse_cpu_section(string_table):
+    entities_info = string_table[0]
+    values_info = string_table[1]
     stack_member_number = 0
-    index_to_value = {}   # index -> value string
-    
-    # Process entity entries
-    for oid, name in entity_oids.items():
-        # OID format: base.OIDEnd -> extract last component as index
-        parts = oid.split(".")
-        if len(parts) < 10:
-            continue
-        idx = parts[-1]
-        
-        lower_name = name.lower()
-        
-        # Detect new stack member (mpu board)
-        if lower_name.startswith(_HUAWEI_MPU_BOARD_NAME_START):
+    entities_per_member = {}
+    for entity_line in entities_info:
+        lower_entity_name = entity_line[1].lower()
+        ent_physical_index = entity_line[0]
+        if lower_entity_name.startswith("mpu board"):
             stack_member_number += 1
-            if stack_member_number not in entities_per_member:
-                entities_per_member[stack_member_number] = {}
-        
-        # Track matching entities
-        if lower_name.startswith(_HUAWEI_MPU_BOARD_NAME_START) and stack_member_number > 0:
-            # Find corresponding value
-            val = None
-            # value_oid: base + OIDEnd + "5" -> same base + index + "5"
-            value_oid_prefix = _CPU_OID_BASE + "." + idx + ".5"
-            # Look for exact match in value_oids
-            for v_oid, v_val in value_oids.items():
-                if v_oid == value_oid_prefix:
-                    val = v_val
-                    break
-            
-            entities_per_member[stack_member_number][idx] = val
-    
-    # Build item dict
+            entities_per_member[stack_member_number] = []
+        if lower_entity_name.startswith("mpu board"):
+            value = None
+            for value_line in values_info:
+                if value_line[0] == ent_physical_index:
+                    value = value_line[1]
+            entities_per_member[stack_member_number].append({
+                "physical_index": ent_physical_index,
+                "stack_member": stack_member_number,
+                "value": value,
+            })
     items = {}
-    for member, entities in entities_per_member.items():
-        for idx, val in entities.items():
-            item_name = str(member)
-            # Add sub index
-            item_name += "/" + str(idx)
-            items[item_name] = val
-    
+    for member_number, entities in entities_per_member.items():
+        for entity_idx, entity in enumerate(entities):
+            item_name = str(member_number) + "/" + str(entity_idx + 1)
+            items[item_name] = entity
     return items
 
-def _check_cpu_util(util, params):
-    # Implement check_cpu_util logic: OK/WARN/CRIT based on levels
-    if util == None or util == "":
-        return "UNKNOWN", "no value"
-    
-    # Guard instead of try/except: check if value looks numeric
-    clean_val = util.strip()
-    is_number = clean_val.replace(".", "").replace("-", "").isdigit() and clean_val.count(".") <= 1
-    if not is_number:
-        return "UNKNOWN", "invalid value: %s" % util
-    
-    util_val = float(clean_val)
-    levels = params.get("levels", (80.0, 90.0))
-    warn = levels[0]
-    crit = levels[1]
-    
-    if util_val >= crit:
-        return "CRIT", "%f%%" % util_val
-    elif util_val >= warn:
-        return "WARN", "%f%%" % util_val
-    else:
-        return "OK", "%f%%" % util_val
+def _walk_snmp(ctx, community, host, oid):
+    res = ctx.run([
+        "snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid
+    ], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return {}
+    rows = {}
+    for line in res.stdout.splitlines():
+        idx = line.find(" ")
+        if idx < 0:
+            continue
+        oid_part = line[:idx]
+        val_part = line[idx + 1:]
+        suffix = oid_part[len(oid):]
+        rows[suffix] = val_part
+    return rows
+
+def _get_snmp(ctx, community, host, oid):
+    res = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv", host, oid
+    ], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return None
+    return res.stdout.strip()
 
 def main(ctx, params):
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    # Discovery mode
+
+    sys_oid_res = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"
+    ], mutates=False)
+    if sys_oid_res.rc == 127 or not sys_oid_res.stdout or ".1.3.6.1.4.1.2011.2.23" not in sys_oid_res.stdout:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "not a Huawei switch", "data": {"discovery": []}}
+        return {"changed": False, "msg": "not a Huawei switch", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
     if params.get("_discover"):
-        items = _parse_entities_and_values(ctx, community, host)
-        discovery_items = []
-        for item, value in items.items():
-            # Only discover if value is present
-            if value != None:
-                discovery_items.append({
-                    "item": item,
-                    "params": {"levels": (80.0, 90.0)},
-                    "metrics": ["cpu_util"]
-                })
-        return {
-            "changed": False,
-            "msg": "discovered %d CPU items" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode
+        entity_base = ".1.3.6.1.2.1.47.1.1.1.1"
+        value_base = ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1"
+        entities = _walk_snmp(ctx, community, host, entity_base)
+        values = _walk_snmp(ctx, community, host, value_base)
+        if not entities:
+            return {"changed": False, "msg": "no CPU entities found", "data": {"discovery": []}}
+
+        entities_info = []
+        for idx, name in entities.items():
+            ent_physical_index = idx
+            entity_name = name.strip().strip('"')
+            entities_info.append([ent_physical_index, entity_name])
+
+        values_info = []
+        for idx, raw_val in values.items():
+            val = raw_val.strip().strip('"')
+            values_info.append([idx, val])
+
+        section = _parse_cpu_section([entities_info, values_info])
+        discovery = []
+        for item in section:
+            discovery.append({
+                "item": item,
+                "params": {"levels": params.get("levels", [80.0, 90.0])},
+                "metrics": ["util"],
+            })
+        return {"changed": False, "msg": "discovered %d CPU items" % len(discovery), "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    items = _parse_entities_and_values(ctx, community, host)
-    
-    if item == "" or item not in items:
-        return {
-            "changed": False,
-            "msg": "item not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    util = items[item]
-    state, details = _check_cpu_util(util, params)
-    
-    # Parse value for metrics (if possible)
-    metrics = {}
-    clean_val = util.strip() if util != None else ""
-    is_number = clean_val.replace(".", "").replace("-", "").isdigit() and clean_val.count(".") <= 1 if clean_val else False
-    if is_number:
-        metrics["cpu_util"] = float(clean_val)
-    
+    entity_base = ".1.3.6.1.2.1.47.1.1.1.1"
+    value_base = ".1.3.6.1.4.1.2011.5.25.31.1.1.1.1"
+    entities = _walk_snmp(ctx, community, host, entity_base)
+    values = _walk_snmp(ctx, community, host, value_base)
+
+    entities_info = []
+    for idx, name in entities.items():
+        entity_name = name.strip().strip('"')
+        entities_info.append([idx, entity_name])
+
+    values_info = []
+    for idx, raw_val in values.items():
+        val = raw_val.strip().strip('"')
+        values_info.append([idx, val])
+
+    section = _parse_cpu_section([entities_info, values_info])
+    item_data = section.get(item)
+    if item_data == None:
+        return {"changed": False, "msg": "item not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if item_data["value"] == None:
+        return {"changed": False, "msg": "no CPU value for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    val_str = item_data["value"]
+    if val_str.lstrip("-").replace(".", "", 1).isdigit():
+        util = float(val_str)
+    else:
+        return {"changed": False, "msg": "invalid CPU value for " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    levels = params.get("levels", [80.0, 90.0])
+    warn = levels[0]
+    crit = levels[1]
+    if util >= crit:
+        state = "CRIT"
+    elif util >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
     return {
         "changed": False,
-        "msg": "%s" % details,
+        "msg": "CPU utilization: %f%%" % util,
         "data": {
             "state": state,
-            "metrics": metrics,
-            "details": details
-        }
+            "metrics": {"util": util},
+            "details": "CPU utilization %f%% (warn: %f%%, crit: %f%%)" % (util, warn, crit),
+        },
     }

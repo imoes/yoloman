@@ -1,122 +1,192 @@
-# win_netstat starlark check module
-# Reads TCP/UDP connection state from netstat -an and counts connections
-# matching optional filters (local_ip, local_port, remote_ip, remote_port, proto, state)
-
 def main(ctx, params):
-    # Discovery is disabled (discover_netstat_never), so only check mode runs
-    # Gather TCP/UDP connections using netstat -an (works on Windows via cmd /c)
-    res = ctx.run(["cmd", "/c", "netstat", "-an"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to run netstat: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse netstat output to connections list
-    connections = []
-    lines = res.stdout.splitlines()
-    # Skip header lines (usually 2 for English, but we skip until we see TCP/UDP lines)
-    i = 0
-    while i < len(lines) and not (lines[i].startswith("TCP") or lines[i].startswith("UDP")):
-        i += 1
-    
-    while i < len(lines):
-        line = lines[i].strip()
-        if not line:
-            i += 1
-            continue
-        parts = line.split()
-        if not parts:
-            i += 1
-            continue
-        
-        if parts[0] == "TCP":
-            if len(parts) >= 4:
-                proto = parts[0]
-                local = parts[1]
-                remote = parts[2]
-                state = parts[3]
-                connections.append({"proto": proto, "local": local, "remote": remote, "state": state})
-        elif parts[0] == "UDP":
-            if len(parts) >= 3:
-                proto = parts[0]
-                local = parts[1]
-                remote = parts[2]
-                # UDP has no state in netstat output; Checkmk maps to LISTENING
-                connections.append({"proto": proto, "local": local, "remote": remote, "state": "LISTENING"})
-        i += 1
-    
-    # Extract params with defaults (matching check_default_parameters)
+    if params.get("_discover"):
+        # discover_netstat_never yields nothing — this check is enforced only.
+        # No services are auto-discovered; operators must create them manually.
+        return {
+            "changed": False,
+            "msg": "discovered 0 items (enforced check, no auto-discovery)",
+            "data": {"discovery": []},
+        }
+
+    # Check mode: count connections matching the given parameters.
+    item = params.get("item", "")
+    # Parameters that define which connections to match
+    local_ip = params.get("local_ip", None)
+    local_port = params.get("local_port", None)
+    remote_ip = params.get("remote_ip", None)
+    remote_port = params.get("remote_ip", None)
+    proto = params.get("proto", None)
+    conn_state = params.get("state", None)
+
+    # Thresholds
     min_states = params.get("min_states", ("no_levels", None))
     max_states = params.get("max_states", ("no_levels", None))
-    
-    # Extract filter params if present
-    local_ip = params.get("local_ip")
-    local_port = params.get("local_port")
-    remote_ip = params.get("remote_ip")
-    remote_port = params.get("remote_port")
-    proto_filter = params.get("proto")
-    state_filter = params.get("state")
-    
+
+    # Gather connection data using Linux netstat (equivalent to Windows netstat output)
+    res = ctx.run(["netstat", "-an"], mutates=False)
+    if res.rc != 0:
+        if res.rc == 127:
+            return {
+                "changed": False,
+                "msg": "netstat not found on this host",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        return {
+            "changed": False,
+            "msg": "failed to run netstat: " + res.stderr,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Parse netstat -an output and count matching connections
+    connections = []
+    for line in res.stdout.splitlines():
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        if parts[0] == "Proto":
+            continue  # header
+        if parts[0] in ("tcp", "tcp6", "udp", "udp6"):
+            connections.append(_parse_netstat_line(parts))
+
     # Count matching connections
-    def split_ip(ip_str):
-        # Handle IPv6 addresses: rsplit(':', 1) for port
-        # But IPv6 has multiple colons; use rightmost colon for port separator
-        if ":" in ip_str:
-            idx = ip_str.rfind(":")
-            return (ip_str[:idx], ip_str[idx+1:])
-        return (ip_str, "")
-    
-    count = 0
-    for c in connections:
-        # Apply filters if specified (match only if filter equals current value)
-        if proto_filter != None and c["proto"] != proto_filter:
-            continue
-        if state_filter != None and c["state"] != state_filter:
-            continue
-        
-        # Parse local and remote
-        l_ip, l_port = split_ip(c["local"])
-        r_ip, r_port = split_ip(c["remote"])
-        
-        if local_ip != None and l_ip != local_ip:
-            continue
-        if local_port != None and l_port != local_port:
-            continue
-        if remote_ip != None and r_ip != remote_ip:
-            continue
-        if remote_port != None and r_port != remote_port:
-            continue
-        
-        count += 1
-    
-    # Apply levels
+    count = _count_matching(connections, local_ip, local_port, remote_ip, remote_port, proto, conn_state)
+
+    # Apply threshold logic
     state = "OK"
-    details = ""
-    
-    # Lower level (min_states)
-    if min_states[0] != "no_levels":
-        min_val = min_states[1]
-        if count <= min_val:
+    warn_msg = ""
+
+    # max_states: WARN if value >= warn, CRIT if value >= crit (upper levels)
+    if max_states[0] != "no_levels" and max_states[1] != None:
+        warn_level, crit_level = max_states[1]
+        if count >= crit_level:
             state = "CRIT"
-            details = "below minimum threshold"
-    
-    # Upper level (max_states)
-    if max_states[0] != "no_levels":
-        max_val = max_states[1]
-        if count >= max_val:
-            state = "CRIT" if state == "OK" else "CRIT"
-            details = "above maximum threshold" if not details else details + ", above maximum threshold"
-    
-    # Build message
-    msg = "%d connections" % count
-    if details:
-        msg += ", " + details
-    
+        elif count >= warn_level:
+            state = "WARN"
+
+    # min_states: WARN if value <= warn, CRIT if value <= crit (lower levels)
+    if min_states[0] != "no_levels" and min_states[1] != None:
+        warn_level, crit_level = min_states[1]
+        if count <= crit_level:
+            state = "CRIT"
+        elif count <= warn_level:
+            state = "WARN"
+
+    msg = "Matching connections: %d" % count
+    if state != "OK":
+        msg = msg + " (state: " + state + ")"
+
     return {
         "changed": False,
         "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"connections": count},
-            "details": "",
-        },
+        "data": {"state": state, "metrics": {"connections": count}, "details": ""},
     }
+
+
+def _parse_netstat_line(parts):
+    """Parse a single netstat -an line into a connection dict."""
+    proto = parts[0]
+    local = parts[3] if proto in ("tcp", "tcp6") else parts[2] if proto in ("udp", "udp6") else parts[2]
+    remote = parts[4] if proto in ("tcp", "tcp6") else parts[3] if proto in ("udp", "udp6") else "*"
+    state = ""
+
+    if proto in ("tcp", "tcp6"):
+        # tcp lines: Proto Recv-Q Send-Q Local Address Foreign Address State
+        state = parts[5] if len(parts) > 5 else ""
+        local_addr, local_p = _split_ip(local)
+        remote_addr, remote_p = _split_ip(remote)
+    elif proto in ("udp", "udp6"):
+        # udp lines: Proto Recv-Q Send-Q Local Address Foreign Address
+        local_addr, local_p = _split_ip(local)
+        remote_addr = "*"
+        remote_p = "*"
+        state = "LISTENING"
+    else:
+        local_addr = local
+        local_p = "*"
+        remote_addr = remote
+        remote_p = "*"
+        state = ""
+
+    # Normalize protocol
+    if proto.startswith("tcp"):
+        proto_norm = "TCP"
+    elif proto.startswith("udp"):
+        proto_norm = "UDP"
+    else:
+        proto_norm = proto
+
+    # Normalize state names to match ConnectionState enum
+    state_norm = _normalize_state(state)
+
+    return {
+        "proto": proto_norm,
+        "local_ip": local_addr,
+        "local_port": local_p,
+        "remote_ip": remote_addr,
+        "remote_port": remote_p,
+        "state": state_norm,
+    }
+
+
+def _split_ip(addr):
+    """Split an IP:port address, handling IPv6."""
+    if addr.startswith("*"):
+        return ("*", "*")
+    if addr.startswith("["):
+        # IPv6 format [::1]:port
+        bracket_end = addr.find("]")
+        if bracket_end > 0:
+            ip = addr[1:bracket_end]
+            port_part = addr[bracket_end + 1:]
+            if port_part.startswith(":"):
+                return (ip, port_part[1:])
+            return (ip, "*")
+    # Try splitting on last colon for IPv4 or IPv6 without brackets
+    if ":" in addr:
+        parts = addr.rsplit(":", 1)
+        return (parts[0], parts[1])
+    # No port
+    return (addr, "*")
+
+
+def _normalize_state(state):
+    """Normalize netstat state names to ConnectionState enum values."""
+    state_map = {
+        "ESTABLISHED": "ESTABLISHED",
+        "LISTEN": "LISTENING",
+        "LISTENING": "LISTENING",
+        "SYN_SENT": "SYN_SENT",
+        "SYN_RECV": "SYN_RECV",
+        "LAST_ACK": "LAST_ACK",
+        "CLOSE_WAIT": "CLOSE_WAIT",
+        "TIME_WAIT": "TIME_WAIT",
+        "TIMED_WAIT": "TIME_WAIT",
+        "CLOSED": "CLOSED",
+        "CLOSING": "CLOSING",
+        "FIN_WAIT1": "FIN_WAIT1",
+        "FIN_WAIT2": "FIN_WAIT2",
+        "FIN_WAIT_1": "FIN_WAIT1",
+        "FIN_WAIT_2": "FIN_WAIT2",
+        "": "LISTENING",  # UDP has no state
+    }
+    return state_map.get(state, state)
+
+
+def _count_matching(connections, local_ip, local_port, remote_ip, remote_port, proto, conn_state):
+    """Count connections matching all given (non-None) parameters."""
+    count = 0
+    for conn in connections:
+        if local_ip != None and str(conn["local_ip"]) != str(local_ip):
+            continue
+        if local_port != None and str(conn["local_port"]) != str(local_port):
+            continue
+        if remote_ip != None and str(conn["remote_ip"]) != str(remote_ip):
+            continue
+        if remote_port != None and str(conn["remote_port"]) != str(remote_port):
+            continue
+        if proto != None and str(conn["proto"]) != str(proto):
+            continue
+        if conn_state != None and str(conn["state"]) != str(conn_state):
+            continue
+        count += 1
+    return count

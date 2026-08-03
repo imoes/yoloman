@@ -1,56 +1,44 @@
 name: form_submit
 fqcn: checkmk.form_submit
 collection: checkmk
-short_description: HTML form submit check
-description: Checks that an HTML form on a web page can be located and submitted successfully. The check performs a GET request to verify the page is reachable and contains a form element, then submits the form via HTTP POST with optional query data, and optionally matches the response body against a regular expression. In multi-host mode, warn and crit thresholds control how many hosts must succeed.
+short_description:
+description: Checkmk active check 'form_submit', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
-        type: string
-        description: Name used in the service label (becomes 'FORM <name>')
-        required: true
     host:
         type: string
-        description: Host address to check when 'hosts' list is not provided
-    hosts:
-        type: list
-        description: One or more host addresses to check; overrides 'host' when set
+        default: localhost
+        description: host (from the check's parameters).
+    port:
+        type: string
+        description: port (from the check's parameters).
     uri:
         type: string
-        description: URI path to request (must start with /)
         default: /
-    port:
-        type: number
-        description: TCP port to connect to
-        default: 80
-    tls_configuration:
-        type: string
-        description: TLS mode: no_tls = plain HTTP, tls_standard = HTTPS with cert validation, tls_no_cert_valid = HTTPS without cert validation
-        enum:
-            - no_tls
-            - tls_standard
-            - tls_no_cert_valid
-        default: no_tls
-    timeout_s:
-        type: number
-        description: Seconds before connection times out
-        default: 10
-    expect_regex:
-        type: string
-        description: Regular expression that must match somewhere in the POST response body
+        description: uri (from the check's parameters).
     form_name:
         type: string
-        description: Value of the form's name attribute to locate and submit; leave empty if only one form exists on the page
+        default:
+        description: form_name (from the check's parameters).
+    expect_regex:
+        type: string
+        default:
+        description: expect_regex (from the check's parameters).
+    timeout:
+        type: number
+        default: 30
+        description: timeout (from the check's parameters).
+    tls_configuration:
+        type: string
+        description: tls_configuration (from the check's parameters).
     query:
         type: string
-        description: URL-encoded POST data to submit with the form (e.g. key1=val1&key2=val2)
-    num_succeeded_warn:
-        type: number
-        description: Multi-host: WARN if the number of successful hosts is at or below this threshold
-    num_succeeded_crit:
-        type: number
-        description: Multi-host: CRIT if the number of successful hosts is at or below this threshold
+        description: query (from the check's parameters).
+    num_succeeded:
+        type: string
+        description: num_succeeded (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

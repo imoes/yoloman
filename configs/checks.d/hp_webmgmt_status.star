@@ -1,5 +1,76 @@
+def _walk_table(ctx, host, community, base_oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_oid], mutates=False)
+    if res.rc != 0 and res.rc != 1:
+        return None
+    rows = {}
+    for line in res.stdout.splitlines():
+        sp = line.split(" ", 1)
+        if len(sp) < 2:
+            continue
+        oid = sp[0]
+        value = sp[1]
+        suffix = oid[len(base_oid) + 1:]
+        rows[suffix] = value
+    return rows
+
+def _get_scalar(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return ""
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"'):
+        val = val[1:-1]
+    return val
+
 def main(ctx, params):
-    _STATUS_MAP = {
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    item = params.get("item", "")
+    
+    if params.get("_discover"):
+        sys_oid = _get_scalar(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+        if not sys_oid.startswith(".1.3.6.1.4.1.11"):
+            return {"changed": False, "msg": "not an HP device", "data": {"discovery": []}}
+        
+        exists_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.1"], mutates=False)
+        if exists_res.rc != 0 and exists_res.rc != 1:
+            if exists_res.rc == 2:
+                pass
+            else:
+                return {"changed": False, "msg": "SNMP query failed: rc=%d" % exists_res.rc, "data": {"discovery": []}}
+        else:
+            if exists_res.rc == 1:
+                pass
+        
+        health_base = ".1.3.6.1.4.1.11.2.36.1.1.5.1.1"
+        health_rows = _walk_table(ctx, host, community, health_base)
+        if health_rows == None:
+            return {"changed": False, "msg": "failed to walk health table", "data": {"discovery": []}}
+        
+        if len(health_rows) == 0:
+            return {"changed": False, "msg": "no HP web management status entries", "data": {"discovery": []}}
+        
+        out = []
+        for suffix, _val in health_rows.items():
+            out.append({"item": suffix, "params": {}, "metrics": []})
+        
+        return {"changed": False, "msg": "discovered %d items" % len(out), "data": {"discovery": out}}
+    
+    sys_oid = _get_scalar(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if not sys_oid.startswith(".1.3.6.1.4.1.11"):
+        return {"changed": False, "msg": "not an HP device", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    health_base = ".1.3.6.1.4.1.11.2.36.1.1.5.1.1"
+    health_rows = _walk_table(ctx, host, community, health_base)
+    if health_rows == None:
+        return {"changed": False, "msg": "failed to walk health table", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    if not item in health_rows:
+        return {"changed": False, "msg": "item not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    health = health_rows[item]
+    
+    status_map = {
         "1": ("UNKNOWN", "unknown"),
         "2": ("UNKNOWN", "unused"),
         "3": ("OK", "ok"),
@@ -7,117 +78,19 @@ def main(ctx, params):
         "5": ("CRIT", "critical"),
         "6": ("CRIT", "non-recoverable"),
     }
-
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.11.2.36.1.1.5.1.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed: " + res.stderr,
-                    "data": {"discovery": []}}
-        
-        items = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) < 2:
-                continue
-            oid_path = parts[0].strip()
-            value = parts[1].strip()
-            if ": " in value:
-                value = value.split(": ", 1)[-1].strip()
-            
-            oid_parts = oid_path.split(".")
-            if len(oid_parts) >= 2:
-                last_part = oid_parts[-1]
-                idx = int(last_part) if last_part.isdigit() else 0
-                items.append({"item": str(idx), "params": {}, "metrics": []})
-        return {"changed": False, "msg": "discovered %d items" % len(items),
-                "data": {"discovery": items}}
     
-    item = params.get("item", "")
-    host = params.get("host", "localhost")
-    community = params.get("community", "public")
+    if health in status_map:
+        state, status_msg = status_map[health]
+    else:
+        state = "UNKNOWN"
+        status_msg = "unknown (code %s)" % health
     
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1"
-    ], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed: " + res.stderr,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    summary = "Device status: " + status_msg
     
-    res_model = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.9.1"
-    ], mutates=False)
-    device_model = ""
-    if res_model.rc == 0 and res_model.stdout.strip():
-        parts = res_model.stdout.strip().split(" = ")
-        if len(parts) >= 2:
-            value_part = parts[1].strip()
-            if ": " in value_part:
-                device_model = value_part.split(": ", 1)[-1].strip()
+    model = _get_scalar(ctx, host, community, ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.9.1")
+    serial = _get_scalar(ctx, host, community, ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.10.1")
     
-    res_serial = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On",
-        host,
-        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.10.1"
-    ], mutates=False)
-    serial_number = ""
-    if res_serial.rc == 0 and res_serial.stdout.strip():
-        parts = res_serial.stdout.strip().split(" = ")
-        if len(parts) >= 2:
-            value_part = parts[1].strip()
-            if ": " in value_part:
-                serial_number = value_part.split(": ", 1)[-1].strip()
+    if model and serial:
+        summary += " [Model: " + model + ", Serial Number: " + serial + "]"
     
-    state = "UNKNOWN"
-    status_msg = "unknown"
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) < 2:
-            continue
-        oid_path = parts[0].strip()
-        value = parts[1].strip()
-        if ": " in value:
-            value = value.split(": ", 1)[-1].strip()
-        
-        oid_parts = oid_path.split(".")
-        if len(oid_parts) >= 2:
-            last_part = oid_parts[-1]
-            if last_part.isdigit():
-                idx = int(last_part)
-                if str(idx) == item:
-                    status_code = value
-                    if status_code in _STATUS_MAP:
-                        state, status_msg = _STATUS_MAP[status_code]
-                    else:
-                        state, status_msg = "UNKNOWN", "unknown"
-                    break
-    
-    summary = "Device status: %s" % status_msg
-    if device_model and serial_number:
-        summary += " [Model: %s, Serial Number: %s]" % (device_model, serial_number)
-    
-    return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": {}, "details": ""}}
+    return {"changed": False, "msg": summary, "data": {"state": state, "metrics": {}, "details": ""}}

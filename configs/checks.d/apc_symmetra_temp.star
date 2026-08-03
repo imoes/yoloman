@@ -1,123 +1,149 @@
-# module-level constants for SNMP OIDs
-_BASE_OID_TEMP = ".1.3.6.1.4.1.318.1.1.10.4.2.3.1"
-_OID_TEMP_SENSOR_NAME = "3"
-_OID_TEMP_VALUE = "5"
-
-# Default thresholds from Checkmk plugin
-_DEFAULT_LEVELS_BATTERY = (50, 60)
-_DEFAULT_LEVELS_SENSORS = (25, 30)
-
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), _BASE_OID_TEMP
-        ], mutates=False)
-        
-        items = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part, value_part = parts
-            # Extract OID suffix
-            suffix = oid_part.rsplit(".", 1)[-1]
-            # Extract value (type:value format)
-            if ":" in value_part:
-                value = value_part.split(":", 1)[1].strip()
-            else:
-                value = value_part.strip()
-            
-            # Only process temperature sensor entries
-            if suffix == _OID_TEMP_SENSOR_NAME:
-                sensor_name = value.strip('"')
-                items.append({
-                    "item": sensor_name,
-                    "params": {"levels_battery": _DEFAULT_LEVELS_BATTERY, "levels_sensors": _DEFAULT_LEVELS_SENSORS},
-                    "metrics": ["temp"]
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        # Probe: is this an APC device? Read sysObjectID.
+        oid_sys = ".1.3.6.1.2.1.1.2.0"
+        res_sys = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid_sys],
+            mutates=False,
+        )
+        if res_sys.rc != 0:
+            return {"changed": False, "msg": "SNMP unreachable", "data": {"discovery": []}}
+        sys_oid = res_sys.stdout.strip()
+        if not sys_oid.startswith(".1.3.6.1.4.1.318"):
+            return {"changed": False, "msg": "not an APC device", "data": {"discovery": []}}
+
+        discovery = []
+        # External temp sensors: walk the name column.
+        base_sensors = ".1.3.6.1.4.1.318.1.1.10.4.2.3.1"
+        res_walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_sensors + ".3"],
+            mutates=False,
+        )
+        seen = {}
+        if res_walk.rc == 0:
+            for line in res_walk.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) != 2:
+                    continue
+                oid_full, val = parts[0], parts[1].strip().strip('"')
+                idx = oid_full[len(base_sensors + ".3") + 1:]
+                seen[idx] = val
+
+        for idx, name in sorted(seen.items()):
+            discovery.append({
+                "item": name,
+                "params": {"levels": (25, 30)},
+                "metrics": ["temperature"],
+            })
+
+        # Battery temperature scalar from the main APC enterprise tree.
+        oid_batt_temp = ".1.3.6.1.4.1.318.1.1.1.2.2.2.0"
+        res_bt = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid_batt_temp],
+            mutates=False,
+        )
+        if res_bt.rc == 0:
+            val = res_bt.stdout.strip().strip('"')
+            if val != "":
+                discovery.append({
+                    "item": "Battery",
+                    "params": {"levels": (50, 60)},
+                    "metrics": ["temperature"],
                 })
-        
+
         return {
             "changed": False,
-            "msg": "discovered %d temperature sensors" % len(items),
-            "data": {"discovery": items}
+            "msg": "discovered %d temperature items" % len(discovery),
+            "data": {"discovery": discovery},
         }
-    
-    # Check mode: process one item
+
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), _BASE_OID_TEMP
-    ], mutates=False)
-    
-    # Parse SNMP output to find the requested item's temperature
-    temp_value = None
-    sensor_found = False
-    
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_part, value_part = parts
-        # Extract OID suffix
-        suffix = oid_part.rsplit(".", 1)[-1]
-        # Extract value (type:value format)
-        if ":" in value_part:
-            value = value_part.split(":", 1)[1].strip()
-        else:
-            value = value_part.strip()
-        
-        if suffix == _OID_TEMP_SENSOR_NAME:
-            sensor_name = value.strip('"')
-            if sensor_name == item:
-                sensor_found = True
-        elif suffix == _OID_TEMP_VALUE and sensor_found:
-            # Found the temperature value - parse safely without try/except
-            # Check for integer or float format
-            clean_val = value.replace(".", "", 1).lstrip("-")
-            if clean_val.isdigit() and value.count(".") <= 1:
-                temp_value = float(value)
-            else:
-                temp_value = None
-            break
-    
-    # Determine thresholds based on item name
-    levels_battery = params.get("levels_battery", _DEFAULT_LEVELS_BATTERY)
-    levels_sensors = params.get("levels_sensors", _DEFAULT_LEVELS_SENSORS)
-    
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_sensors = ".1.3.6.1.4.1.318.1.1.10.4.2.3.1"
+    oid_batt_temp = ".1.3.6.1.4.1.318.1.1.1.2.2.2.0"
+
+    reading = None
     if item == "Battery":
-        warn, crit = levels_battery[0], levels_battery[1]
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid_batt_temp],
+            mutates=False,
+        )
+        if res.rc == 0:
+            val = res.stdout.strip().strip('"')
+            if val != "" and val.replace(".", "").replace("-", "").isdigit():
+                reading = float(val)
+        if reading == None:
+            return {
+                "changed": False,
+                "msg": "no battery temperature available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        levels = (50.0, 60.0)
     else:
-        warn, crit = levels_sensors[0], levels_sensors[1]
-    
-    # Determine state based on thresholds
-    if temp_value == None:
-        return {
-            "changed": False,
-            "msg": "temperature sensor '%s' not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    state = "OK"
-    msg_parts = ["%s: %f C" % (item, temp_value)]
-    
-    if temp_value >= crit:
+        # External sensor: walk the name column, find index, query the value column.
+        res_walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_sensors + ".3"],
+            mutates=False,
+        )
+        idx = None
+        if res_walk.rc == 0:
+            for line in res_walk.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) != 2:
+                    continue
+                oid_full = parts[0]
+                val = parts[1].strip().strip('"')
+                if val == item:
+                    idx = oid_full[len(base_sensors + ".3") + 1:]
+                    break
+        if idx == None:
+            return {
+                "changed": False,
+                "msg": "no such temperature sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        res_val = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, base_sensors + ".5." + idx],
+            mutates=False,
+        )
+        if res_val.rc != 0:
+            return {
+                "changed": False,
+                "msg": "failed to read sensor " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        val = res_val.stdout.strip().strip('"')
+        if val == "" or not val.replace(".", "").replace("-", "").isdigit():
+            return {
+                "changed": False,
+                "msg": "no temperature reading for sensor " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            }
+        reading = float(val)
+        levels = (25.0, 30.0)
+
+    # Apply Checkmk defaults if not overridden via params.
+    p_levels = params.get("levels")
+    if p_levels != None:
+        levels = (float(p_levels[0]), float(p_levels[1]))
+    warn, crit = levels[0], levels[1]
+
+    if reading >= crit:
         state = "CRIT"
-        msg_parts.append("(crit at %f C)" % crit)
-    elif temp_value >= warn:
+    elif reading >= warn:
         state = "WARN"
-        msg_parts.append("(warn at %f C)" % warn)
-    
+    else:
+        state = "OK"
+
     return {
         "changed": False,
-        "msg": ", ".join(msg_parts),
+        "msg": "Temperature %f C" % reading,
         "data": {
             "state": state,
-            "metrics": {"temp": temp_value},
-            "details": ""
-        }
+            "metrics": {"temperature": reading},
+            "details": "levels: %s/%s C" % (warn, crit),
+        },
     }

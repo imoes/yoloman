@@ -2,32 +2,19 @@ name: cisco_vss
 fqcn: checkmk.cisco_vss
 collection: checkmk
 short_description: VSS Status
-description:
-    > ## Overview
-    > Monitors the status of Cisco Virtual Switching System (VSS) configurations by checking chassis roles and Virtual Switch Link (VSL) connectivity to ensure high availability.
-    >
-    > ## What it monitors
-    > - Chassis roles (standalone, active, standby) of VSS members  
-    > - VSL connection operational status (up/down)  
-    > - Configured vs. operational port counts per VSL  
-    >
-    > ## How it works
-    > Uses SNMP walk to retrieve chassis and VSL data from Cisco devices via SNMPv2c with community “public”. In discovery mode, it checks if any chassis has role active (2) or standby (3) and yields one service if so. In check mode, it parses chassis and VSL OIDs to determine state: standalone chassis or down VSLs trigger CRIT; mismatched port counts also trigger CRIT.
-    >
-    > ## Parameters
-    > None.
-    >
-    > ## States
-    > - OK: All chassis are active/standby, all VSLs are up, and port counts match  
-    > - CRIT: Any chassis is standalone (1), any VSL is down, or configured ≠ operational port count  
-    > - UNKNOWN: No VSS chassis found (discovery mode only); otherwise no UNKNOWN state is explicitly set  
-    >
-    > ## Metrics
-    > None.
+description: Checkmk check 'cisco_vss' (service: VSS Status), translated to a read-only on-host Starlark check module.
 options:
-    {}
+    community:
+        type: string
+        default: public
+        description: community (from the check's parameters).
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Network
+execution: snmp
+prompt_version: c21f0f5a7229

@@ -1,61 +1,105 @@
 def main(ctx, params):
-    # Discovery mode
+    """VMS Users check — single-service, read-only."""
+    vms_present = _vms_detected(ctx)
+
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/vms_users"], mutates=False, ok_codes=[0, 1])
-        # Agent section <<<vms_users>>> not available -> no service
-        if res.rc != 0 or not res.stdout.strip():
+        if not vms_present:
             return {
                 "changed": False,
-                "msg": "discovered 0 items",
+                "msg": "VMS not detected — check not applicable",
                 "data": {"discovery": []},
             }
         return {
             "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": ["sessions"]}]},
+            "msg": "discovered 1 item",
+            "data": {
+                "discovery": [
+                    {"item": "", "params": {}, "metrics": ["sessions"]}
+                ]
+            },
         }
 
-    # Check mode
-    res = ctx.run(["cat", "/proc/vms_users"], mutates=False, ok_codes=[0, 1])
-    if res.rc != 0 or not res.stdout.strip():
+    if not vms_present:
         return {
             "changed": False,
-            "msg": "no vms_users data available",
+            "msg": "No VMS system found — VMS Users check not applicable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    section = _gather_vms_users(ctx)
+    if section == None:
+        return {
+            "changed": False,
+            "msg": "Failed to read VMS user information",
             "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
     infos = []
     num_sessions = 0
-    for line in res.stdout.splitlines():
-        parts = line.split()
-        if len(parts) == 0:
-            continue
-        username = parts[0]
-        # Pad with zeros if needed (max 5 columns: user + 4 session counts)
-        session_values = []
-        for p in parts[1:]:
-            session_values.append(int(p) if p.isdigit() else 0)
-        # Pad remaining columns with 0s
-        session_values += [0] * (4 - len(session_values))
-        interactive = session_values[0]  # first column after username is interactive
-
-        if interactive > 0:
+    for line in section:
+        padding = [0] * (5 - len(line))
+        rest = _map_saveint(line[1:]) + padding
+        interactive = rest[0]
+        if interactive:
             num_sessions += interactive
-            infos.append("%s: %d" % (username, interactive))
+            infos.append(line[0] + ": " + str(interactive))
 
-    if num_sessions > 0:
+    if num_sessions:
         summary = "Interactive users: " + ", ".join(infos)
-        state = "OK"
     else:
         summary = "No interactive users"
-        state = "OK"
 
     return {
         "changed": False,
         "msg": summary,
         "data": {
-            "state": state,
+            "state": "OK",
             "metrics": {"sessions": float(num_sessions)},
             "details": "",
         },
     }
+
+
+def _map_saveint(fields):
+    out = []
+    for f in fields:
+        out.append(_saveint(f))
+    return out
+
+
+def _saveint(i):
+    if type(i) == "string" and i.isdigit():
+        return int(i)
+    if type(i) == "string" and len(i) > 0 and i[0] == "-" and i[1:].isdigit():
+        return int(i)
+    return 0
+
+
+def _vms_detected(ctx):
+    content = ""
+    if ctx.file_exists("/etc/os_release"):
+        content = ctx.file_read("/etc/os_release")
+    for line in content.splitlines():
+        low = line.lower()
+        if low.startswith("name=") and "vms" in low:
+            return True
+        if low.startswith("id=") and "vms" in low:
+            return True
+    res = ctx.run(["sho", "usr"], mutates=False)
+    if res.rc == 0:
+        return True
+    return False
+
+
+def _gather_vms_users(ctx):
+    res = ctx.run(["sho", "usr"], mutates=False)
+    if res.rc != 0:
+        res = ctx.run(["show", "users"], mutates=False)
+    if res.rc != 0:
+        return None
+    lines = []
+    for raw in res.stdout.splitlines():
+        fields = raw.split()
+        if len(fields) > 0:
+            lines.append(fields)
+    return lines

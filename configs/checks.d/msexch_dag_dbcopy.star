@@ -1,111 +1,109 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        # Discovery: run the same data source the Checkmk agent would use
-        res = ctx.run(["Get-MailboxDatabaseCopyStatus", "-Identity", "*"], mutates=False)
-        # Parse the raw agent output manually: key: value pairs, blank lines separate records
-        records = []
-        current = {}
-        start_key = None
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                if current:
-                    records.append(current)
-                    current = {}
-                continue
-            idx = line.find(":")
-            if idx == -1:
-                continue
-            key = line[:idx].strip()
-            val = line[idx+1:].strip()
-            if not start_key:
-                start_key = key
-            if key == start_key and current:
-                records.append(current)
-                current = {}
-            if key == "DatabaseName":
-                current[key] = val
-                records.append(current)
-                current = {}
-            else:
-                current[key] = val
-        if current:
-            records.append(current)
+# ===== translated check: msexch_dag_dbcopy =====
 
-        # Group records by DatabaseName
-        db_map = {}
-        for rec in records:
-            dbname = rec.get("DatabaseName")
-            if dbname:
-                db_map[dbname] = rec
-
-        items = []
-        status_key = "Status"
-        for dbname, db in db_map.items():
-            status = db.get(status_key)
-            if status != None:
-                items.append({
-                    "item": dbname,
-                    "params": {"inv_key": status_key, "inv_val": status},
-                    "metrics": []
-                })
-        return {"changed": False, "msg": "discovered %d database copies" % len(items),
-                "data": {"discovery": items}}
-
-    # Check mode
-    item = params.get("item", "")
-    inv_key = params.get("inv_key", "Status")
-    inv_val = params.get("inv_val", "")
-
-    res = ctx.run(["Get-MailboxDatabaseCopyStatus", "-Identity", "*"], mutates=False)
-    # Parse the raw agent output manually
-    records = []
+def _parse_dag_section(text):
+    collected = {}
     current = {}
-    start_key = None
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            if current:
-                records.append(current)
-                current = {}
+    lines = text.splitlines()
+    if not lines:
+        return collected
+    start_key = lines[0].split(":", 1)[0].strip()
+    for line in lines:
+        if ":" not in line:
             continue
-        idx = line.find(":")
-        if idx == -1:
-            continue
-        key = line[:idx].strip()
-        val = line[idx+1:].strip()
-        if not start_key:
-            start_key = key
-        if key == start_key and current:
-            records.append(current)
+        key = line.split(":", 1)[0].strip()
+        val = line.split(":", 1)[1].strip()
+        if key == start_key:
             current = {}
         if key == "DatabaseName":
-            current[key] = val
-            records.append(current)
-            current = {}
+            collected[val] = current
         else:
             current[key] = val
-    if current:
-        records.append(current)
+    return collected
 
-    db_map = {}
-    for rec in records:
-        dbname = rec.get("DatabaseName")
-        if dbname:
-            db_map[dbname] = rec
 
-    db = db_map.get(item, {})
-    current_val = db.get(inv_key)
+def _gather_dag_data(ctx):
+    res = ctx.run(
+        [
+            "exch", "dag", "dbcopy", "-format", "keyvalue",
+        ],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return None
+    if res.rc != 0:
+        return None
+    if not res.stdout.strip():
+        return None
+    return _parse_dag_section(res.stdout)
 
-    if current_val == None:
-        return {"changed": False, "msg": "no such database copy: %s" % item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if current_val == inv_val:
-        state = "OK"
-    else:
-        state = "WARN"
+def main(ctx, params):
+    if params.get("_discover"):
+        section = _gather_dag_data(ctx)
+        if section == None:
+            return {
+                "changed": False,
+                "msg": "no Exchange DAG dbcopy data source found",
+                "data": {"discovery": []},
+            }
+        if not section:
+            return {
+                "changed": False,
+                "msg": "discovered 0 items",
+                "data": {"discovery": []},
+            }
+        out = []
+        for dbname, db in section.items():
+            status = db.get("Status")
+            if status == None:
+                continue
+            out.append({
+                "item": dbname,
+                "params": {"inv_key": "Status", "inv_val": status},
+                "metrics": [],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(out),
+            "data": {"discovery": out},
+        }
 
-    return {"changed": False,
-            "msg": "%s is %s" % (inv_key, current_val),
-            "data": {"state": state, "metrics": {}, "details": ""}}
+    item = params.get("item", "")
+    section = _gather_dag_data(ctx)
+    if section == None:
+        return {
+            "changed": False,
+            "msg": "no Exchange DAG dbcopy data source found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    db = section.get(item)
+    if db == None:
+        return {
+            "changed": False,
+            "msg": "no such DAG dbcopy item: %s" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    inv_key = params.get("inv_key", "Status")
+    inv_val = params.get("inv_val")
+    val = db.get(inv_key)
+    if val == None:
+        return {
+            "changed": False,
+            "msg": "%s not available for %s" % (inv_key, item),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    if inv_val != None:
+        state = "OK" if val == inv_val else "WARN"
+        summary = "%s is %s" % (inv_key, val)
+        if state == "WARN":
+            summary = "%s changed from %s to %s" % (inv_key, inv_val, val)
+        return {
+            "changed": False,
+            "msg": summary,
+            "data": {"state": state, "metrics": {}, "details": summary},
+        }
+    return {
+        "changed": False,
+        "msg": "%s is %s" % (inv_key, val),
+        "data": {"state": "OK", "metrics": {}, "details": "Status is %s" % val},
+    }

@@ -1,245 +1,182 @@
-UCD_MEM_BASE = ".1.3.6.1.4.1.2021.4"
-UCD_MEM_OIDS = [
-    "5",  # memTotalReal
-    "6",  # memAvailReal
-    "3",  # memTotalSwap
-    "4",  # memAvailSwap
-    "11",  # MemTotalFree
-    "12",  # memMinimumSwap
-    "13",  # memShared
-    "14",  # memBuffer
-    "15",  # memCached
-    "100",  # memSwapError
-    "2",  # memErrorName
-    "101",  # smemSwapErrorMsg
-]
+# ===== translated check: cmk/plugins/network/agent_based/ucd_mem.py =====
+# UCD-SNMP-MIB memory (UCD-MIB::MEM-MIB) check via SNMP.
+# Produces a single service "Memory" with metrics mem_used (perc),
+# swap_used (bytes) and swap error state.
 
-def _info_str_to_bytes(s):
-    s = s.strip()
+def _info_str_to_bytes(info_str):
+    s = info_str
     if s.endswith("kB"):
-        s = s[:-2].strip()
-    if s == "" or not (s.isdigit() or (s.startswith("-") and s[1:].isdigit())):
+        s = s[:-2]
+    s = s.strip()
+    n = 0
+    if s.isdigit():
+        n = int(s)
+    return n * 1024
+
+def _snmp_get(ctx, community, host, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0 or not res.stdout:
         return None
-    if s.startswith("-"):
-        return -int(s[1:]) * 1024
-    return int(s) * 1024
+    return res.stdout.strip()
+
+def _snmp_walk(ctx, community, host, oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid], mutates=False)
+    out = []
+    if res.rc != 0 or not res.stdout:
+        return out
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        left = line[:sp]
+        right = line[sp + 1:]
+        out.append((left, right))
+    return out
+
+def _level_of(params, *keys, default):
+    for k in keys:
+        v = params.get(k, None)
+        if v != None:
+            return v
+    return default
+
+def _grade(value, total, levels):
+    state = "OK"
+    pct = 0.0
+    if total and total > 0:
+        pct = (value / total) * 100.0
+    if levels:
+        warn = levels[0]
+        crit = levels[1]
+        if pct >= levels[1]:
+            state = "CRIT"
+        elif pct >= levels[0]:
+            state = "WARN"
+    return pct, state
 
 def main(ctx, params):
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {
-                            "levels_ram": ("perc_used", (80.0, 90.0)),
-                            "levels_swap": None,
-                            "levels_virtual": None,
-                            "swap_errors": 0
-                        },
-                        "metrics": [
-                            "mem_used",
-                            "mem_used_percent",
-                            "swap_used",
-                            "swap_used_percent",
-                            "total_used",
-                            "total_used_percent"
-                        ]
-                    }
-                ]
-            }
-        }
-
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    oid_list = ",".join([UCD_MEM_BASE + "." + oid for oid in UCD_MEM_OIDS])
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, oid_list], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "SNMP error"
-            }
-        }
 
-    lines = res.stdout.splitlines() if res.stdout else []
-    oid_values = []
-    for line in lines:
-        parts = line.split(" = ", 1)
-        if len(parts) == 2:
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            suffix_parts = oid_part.rsplit(".", 1)
-            if len(suffix_parts) == 2 and suffix_parts[1].isdigit():
-                oid_values.append((suffix_parts[0], suffix_parts[1], value_part))
+    if params.get("_discover"):
+        # Probe for the real thing: UCD-MIB memTable / MEM scalars.
+        avail = _snmp_get(ctx, community, host, ".1.3.6.1.4.1.2021.4.5.0")
+        if avail == None:
+            return {"changed": False, "msg": "no ucd_mem available",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": ["mem_used", "swap_used"]},
+                ]}}
 
-    value_map = {}
-    for base_oid, suffix, value in oid_values:
-        if base_oid == UCD_MEM_BASE:
-            value_map[suffix] = value
+    # CHECK MODE: gather the section via SNMP (same OIDs as the SNMPTree).
+    base = ".1.3.6.1.4.1.2021.4"
+    oid_total_real = base + ".5.0"
+    oid_avail_real = base + ".6.0"
+    oid_total_swap = base + ".3.0"
+    oid_free_swap  = base + ".4.0"
+    oid_mem_total_free = base + ".11.0"
+    oid_min_swap  = base + ".12.0"
+    oid_shared    = base + ".13.0"
+    oid_buffer    = base + ".14.0"
+    oid_cached    = base + ".15.0"
+    oid_swap_err  = base + ".100.0"
+    oid_err_name  = base + ".2.0"
+    oid_err_msg   = base + ".101.0"
 
-    mem_total_str = value_map.get("5", "")
-    mem_avail_str = value_map.get("6", "")
-    swap_total_str = value_map.get("3", "")
-    swap_avail_str = value_map.get("4", "")
-    mem_total_free_str = value_map.get("11", "")
-    swap_minimum_str = value_map.get("12", "")
-    mem_shared_str = value_map.get("13", "")
-    mem_buffer_str = value_map.get("14", "")
-    mem_cached_str = value_map.get("15", "")
-    swap_error_str = value_map.get("100", "")
-    error_name_str = value_map.get("2", "")
-    swap_error_msg_str = value_map.get("101", "")
+    mem_total_real = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_total_real) or "0")
+    mem_avail_real = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_avail_real) or "0")
+    swap_total = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_total_swap) or "0")
+    swap_free  = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_free_swap) or "0")
+    mem_free = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_mem_total_free) or "0")
+    min_swap = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_min_swap) or "0")
+    shared = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_shared) or "0")
+    buf = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_buffer) or "0")
+    cached = _info_str_to_bytes(_snmp_get(ctx, community, host, oid_cached) or "0")
+    swap_err = _snmp_get(ctx, community, host, oid_swap_err)
+    err_name = _snmp_get(ctx, community, host, oid_err_name) or ""
+    err_msg = _snmp_get(ctx, community, host, oid_err_msg) or ""
 
-    mem_total = _info_str_to_bytes(mem_total_str)
-    mem_avail = _info_str_to_bytes(mem_avail_str)
-    
-    swap_total = _info_str_to_bytes(swap_total_str) if swap_total_str else None
-    swap_free = _info_str_to_bytes(swap_avail_str) if swap_avail_str else None
+    # parse error_swap (int), error name, error msg
+    error_swap_val = 0
+    if swap_err != None:
+        sn = swap_err.strip()
+        if sn.isdigit():
+            error_swap_val = int(sn)
 
-    if mem_total == None or mem_avail == None:
-        return {
-            "changed": False,
-            "msg": "Invalid memory data",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "Could not parse memory values"
-            }
-        }
-
-    mem_used = mem_total - mem_avail
-    mem_total_free = _info_str_to_bytes(mem_total_free_str) if mem_total_free_str else None
-    swap_minimum = _info_str_to_bytes(swap_minimum_str) if swap_minimum_str else None
-    mem_shared = _info_str_to_bytes(mem_shared_str) if mem_shared_str else None
-    mem_buffer = _info_str_to_bytes(mem_buffer_str) if mem_buffer_str else None
-    mem_cached = _info_str_to_bytes(mem_cached_str) if mem_cached_str else None
-
-    if mem_buffer != None:
-        mem_used -= mem_buffer
-    if mem_cached != None:
-        mem_used -= mem_cached
-
-    swap_used = None
-    if swap_total != None and swap_free != None:
-        swap_used = swap_total - swap_free
-
-    total_total = None
-    total_used = None
-    if swap_total != None:
-        total_total = mem_total + swap_total
-        if swap_used != None:
-            total_used = mem_used - swap_used
-
-    swap_error = 0
-    if swap_error_str.isdigit() or (swap_error_str.startswith("-") and swap_error_str[1:].isdigit()):
-        swap_error = int(swap_error_str)
-
-    error_name = error_name_str.strip()
-    swap_error_msg = swap_error_msg_str.strip()
-
-    levels_ram = params.get("levels_ram") or params.get("levels", ("perc_used", (80.0, 90.0)))
-    levels_swap = params.get("levels_swap")
-    levels_virtual = params.get("levels_virtual")
-    swap_errors_state = int(params.get("swap_errors", 0))
-
-    state = "OK"
-    details_parts = []
-
-    if error_name and error_name != "swap":
-        state = "WARN"
-        details_parts.append("Error: " + error_name)
-
-    mem_used_percent = (float(mem_used) / float(mem_total) * 100.0) if mem_total > 0 else 0.0
-
-    if levels_ram:
-        level_type = levels_ram[0]
-        level_values = levels_ram[1] if len(levels_ram) > 1 else (80.0, 90.0)
-        if level_type == "perc_used":
-            warn = level_values[0]
-            crit = level_values[1]
-            if mem_used_percent >= crit:
-                state = "CRIT"
-                details_parts.append("RAM CRIT: %f%% used (warning at %f%%, critical at %f%%)" % (mem_used_percent, warn, crit))
-            elif mem_used_percent >= warn:
-                if state == "OK":
-                    state = "WARN"
-                details_parts.append("RAM WARN: %f%% used (warning at %f%%)" % (mem_used_percent, warn))
-            else:
-                details_parts.append("RAM: %f%% used" % mem_used_percent)
-
-    if swap_total and swap_used != None:
-        swap_used_percent = (float(swap_used) / float(swap_total) * 100.0) if swap_total > 0 else 0.0
-
-        if levels_swap:
-            level_type = levels_swap[0]
-            level_values = levels_swap[1] if len(levels_swap) > 1 else (80.0, 90.0)
-            if level_type == "perc_used":
-                warn = level_values[0]
-                crit = level_values[1]
-                if swap_used_percent >= crit:
-                    state = "CRIT"
-                    details_parts.append("Swap CRIT: %f%% used (warning at %f%%, critical at %f%%)" % (swap_used_percent, warn, crit))
-                elif swap_used_percent >= warn:
-                    if state == "OK":
-                        state = "WARN"
-                    details_parts.append("Swap WARN: %f%% used (warning at %f%%)" % (swap_used_percent, warn))
-                else:
-                    details_parts.append("Swap: %f%% used" % swap_used_percent)
-        else:
-            details_parts.append("Swap: %f%% used" % swap_used_percent)
-
-    if total_total and total_used != None:
-        total_used_percent = (float(total_used) / float(total_total) * 100.0) if total_total > 0 else 0.0
-
-        if levels_virtual:
-            level_type = levels_virtual[0]
-            level_values = levels_virtual[1] if len(levels_virtual) > 1 else (80.0, 90.0)
-            if level_type == "perc_used":
-                warn = level_values[0]
-                crit = level_values[1]
-                if total_used_percent >= crit:
-                    state = "CRIT"
-                    details_parts.append("Total virtual memory CRIT: %f%% used (warning at %f%%, critical at %f%%)" % (total_used_percent, warn, crit))
-                elif total_used_percent >= warn:
-                    if state == "OK":
-                        state = "WARN"
-                    details_parts.append("Total virtual memory WARN: %f%% used (warning at %f%%)" % (total_used_percent, warn))
-                else:
-                    details_parts.append("Total virtual memory: %f%% used" % total_used_percent)
-        else:
-            details_parts.append("Total virtual memory: %f%% used" % total_used_percent)
-
-    if swap_error != 0 and swap_error_msg:
-        state = "WARN" if swap_errors_state == 0 else "CRIT"
-        details_parts.append("Swap error: " + swap_error_msg)
-
-    metrics = {
-        "mem_used": mem_used,
-        "mem_used_percent": mem_used_percent
+    section = {
+        "MemTotal": mem_total_real,
+        "MemAvail": mem_avail_real,
+        "MemUsed": mem_total_real - mem_avail_real,
+        "SwapTotal": swap_total,
+        "SwapFree": swap_free,
+        "MemFree": mem_free,
+        "SwapMinimum": min_swap,
+        "Shared": shared,
+        "Buffer": buf,
+        "Cached": cached,
+        "error_swap": error_swap_val,
+        "error": err_name,
+        "error_swap_msg": err_msg,
     }
-    if swap_total and swap_used != None:
-        metrics["swap_used"] = swap_used
-        metrics["swap_used_percent"] = swap_used_percent
-    if total_total and total_used != None:
-        metrics["total_used"] = total_used
-        metrics["total_used_percent"] = total_used_percent
+    section["MemUsed"] -= section["Buffer"]
+    section["MemUsed"] -= section["Cached"]
+    section["SwapUsed"] = section["SwapTotal"] - section["SwapFree"]
 
-    msg = "; ".join(details_parts) if details_parts else "Memory usage normal"
+    levels_ram = _level_of(params, "levels_ram", "levels", default=(80.0, 90.0))
+    levels_swap = _level_of(params, "levels_swap", default=(80.0, 90.0))
+    levels_virtual = _level_of(params, "levels_virtual", default=(80.0, 90.0))
+    swap_errors_state = params.get("swap_errors", 0)
+
+    # Reproduce check_element('RAM', used, total, levels, mem_used, perc=True)
+    mem_pct, mem_state = _grade(section["MemUsed"], section["MemTotal"], levels_ram)
+
+    swap_pct = 0.0
+    swap_state = "OK"
+    if section["SwapTotal"] and section["SwapTotal"] > 0:
+        swap_pct, swap_state = _grade(section["SwapUsed"], section["SwapTotal"], levels_swap)
+
+    total_pct = 0.0
+    total_state = "OK"
+    total_total = section["MemTotal"] + section["SwapTotal"]
+    total_used = section["MemUsed"] + section["SwapUsed"]
+    total_pct, total_state = _grade(total_used, total_total, levels_virtual)
+
+    # Worst state wins
+    states = [mem_state, swap_state, total_state]
+    if "CRIT" in states:
+        overall = "CRIT"
+    elif "WARN" in states:
+        overall = "WARN"
+    else:
+        overall = "OK"
+
+    summary = "RAM used: %f%% of %d kB" % (mem_pct, section["MemTotal"] / 1024)
+    details = ""
+
+    # Error handling
+    error = section.get("error")
+    if error and error != "swap":
+        overall = "WARN" if overall == "OK" else overall
+        summary = "Error: " + error
+
+    if section.get("error_swap", 0) != 0 and section.get("error_swap_msg"):
+        if swap_errors_state == 2:
+            overall = "CRIT"
+        elif swap_errors_state == 1 and overall == "OK":
+            overall = "WARN"
+        summary = "Swap error: " + section["error_swap_msg"]
 
     return {
         "changed": False,
-        "msg": msg,
+        "msg": summary,
         "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+            "state": overall,
+            "metrics": {
+                "mem_used": mem_pct,
+                "swap_used": float(section["SwapUsed"]),
+                "swap_free": float(section["SwapFree"]),
+            },
+            "details": details,
+        },
     }

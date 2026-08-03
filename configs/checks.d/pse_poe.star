@@ -1,152 +1,135 @@
 def main(ctx, params):
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.2.1.105.1.3.1.1"
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        # Parse OID ends and their values from snmpwalk output:
-        # e.g., ".1.3.6.1.2.1.105.1.3.1.1.1 = INTEGER: 30.0" etc. (we need column 2,3,4 for each OID end)
-        # We must collect columns 2,3,4 together per OID end.
-        # Approach: collect all rows, group by OID end.
-        rows = res.stdout.strip().splitlines()
-        data = {}
-        for row in rows:
-            if not row or "=" not in row:
-                continue
-            parts = row.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_full = parts[0].strip()
-            value_str = parts[1].strip()
-            # Extract OID end: split by '.' and take the last number
-            segments = oid_full.split(".")
-            if len(segments) < 10:
-                continue
-            oid_end = segments[-1]
-            # Determine column index relative to base_oid: base is .1.3.6.1.2.1.105.1.3.1.1 (10 segments)
-            # So oid_full has 10+k segments; column index = k
-            # base_oid segments: 10; we want column 2,3,4 meaning k=1,2,3 (since base ends at 1)
-            # Actually base OID is ".1.3.6.1.2.1.105.1.3.1.1" (length 10), so:
-            # .1.3.6.1.2.1.105.1.3.1.1.1 (column 1) -> k=1 -> column index 1
-            # .1.3.6.1.2.1.105.1.3.1.1.2 (column 2) -> k=2 -> column index 2
-            # .1.3.6.1.2.1.105.1.3.1.1.3 (column 3) -> k=3 -> column index 3
-            # .1.3.6.1.2.1.105.1.3.1.1.4 (column 4) -> k=4 -> column index 4
-            # So column index = len(segments) - 9
-            col_idx = len(segments) - 9
-            # Only columns 2,3,4 (pethMainPsePower, pethMainPseOperStatus, pethMainPseConsumptionPower)
-            if col_idx < 2 or col_idx > 4:
-                continue
-            # Store value keyed by (oid_end, col_idx)
-            key = (oid_end, col_idx)
-            data[key] = value_str
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
 
-        # Now reassemble per oid_end: collect (poe_max, pse_op_status, poe_used)
-        # For each oid_end, look up keys (oid_end,2), (oid_end,3), (oid_end,4)
-        items = []
-        seen_oids = set()
-        for (oid_end, col_idx), value in data.items():
-            if oid_end not in seen_oids:
-                seen_oids.add(oid_end)
-        for oid_end in seen_oids:
-            poe_max_str = data.get((oid_end, 2), "")
-            pse_op_str = data.get((oid_end, 3), "")
-            poe_used_str = data.get((oid_end, 4), "")
-            # Skip if any missing
-            if not poe_max_str or not pse_op_str or not poe_used_str:
-                continue
-            # Parse values
-            if not poe_max_str.isdigit() or not pse_op_str.isdigit() or not poe_used_str.isdigit():
-                continue
-            poe_max = float(poe_max_str)
-            pse_op = int(pse_op_str)
-            poe_used = float(poe_used_str)
-            items.append({
-                "item": oid_end,
-                "params": {"levels": ("fixed", (90.0, 95.0))},
-                "metrics": ["power_usage_percentage"]
-            })
-        return {"changed": False, "msg": "discovered %d items" % len(items),
-                "data": {"discovery": items}}
+    base = "1.3.6.1.2.1.105.1.3.1.1"
+
+    # probe: is POE present on this host?
+    detect = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host,
+         "1.3.6.1.2.1.105.1.3.1.1.2"],
+        mutates=False,
+    )
+    if detect.rc == 127:
+        return {"changed": False,
+                "msg": "snmpget not installed",
+                "data": {"discovery": []}}
+    if detect.rc != 0:
+        return {"changed": False,
+                "msg": "no POE present (snmp detection failed)",
+                "data": {"discovery": []}}
+
+    # walk the pethPseTable: columns 2 (poe_max), 3 (poe_status), 4 (poe_used)
+    # -Oqn => "<col-OID>.<index> <value>"
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".2"],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return {"changed": False,
+                "msg": "snmpwalk not installed",
+                "data": {"discovery": []}}
+    if res.rc != 0 or not res.stdout.strip():
+        return {"changed": False,
+                "msg": "no POE present",
+                "data": {"discovery": []}}
+
+    col_max = {}
+    col_status = {}
+    col_used = {}
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        idx = oid[len(base + ".2") + 1:]
+        col_max[idx] = val
+
+    res2 = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".3"],
+        mutates=False,
+    )
+    for line in res2.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        idx = oid[len(base + ".3") + 1:]
+        col_status[idx] = val
+
+    res3 = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".4"],
+        mutates=False,
+    )
+    for line in res3.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        oid = line[:sp]
+        val = line[sp + 1:]
+        idx = oid[len(base + ".4") + 1:]
+        col_used[idx] = val
+
+    indices = list(col_max.keys())
+
+    if params.get("_discover"):
+        discovery = []
+        for idx in sorted(indices):
+            discovery.append({"item": idx, "params": {"levels": (90.0, 95.0)},
+                              "metrics": ["power_usage_percentage"]})
+        return {"changed": False,
+                "msg": "discovered %d POE instances" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    base_oid = ".1.3.6.1.2.1.105.1.3.1.1"
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    rows = res.stdout.strip().splitlines()
-    data = {}
-    for row in rows:
-        if not row or "=" not in row:
-            continue
-        parts = row.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid_full = parts[0].strip()
-        value_str = parts[1].strip()
-        segments = oid_full.split(".")
-        if len(segments) < 10:
-            continue
-        oid_end = segments[-1]
-        if oid_end != item:
-            continue
-        col_idx = len(segments) - 9
-        if col_idx < 2 or col_idx > 4:
-            continue
-        data[col_idx] = value_str
+    poe_max_s = col_max.get(item)
+    poe_status_s = col_status.get(item)
+    poe_used_s = col_used.get(item)
 
-    if (2,3,4) not in [(2,), (3,), (4,)] and not (2 in data and 3 in data and 4 in data):
-        return {"changed": False, "msg": "no data for item " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    poe_max_str = data.get(2, "")
-    pse_op_str = data.get(3, "")
-    poe_used_str = data.get(4, "")
-
-    # Sanity check
-    if not poe_max_str.isdigit() or not pse_op_str.isdigit() or not poe_used_str.isdigit():
-        return {"changed": False, "msg": "Device returned faulty data: nominal power: %s, power consumption: %s, operational status: %s" % (poe_max_str, poe_used_str, pse_op_str),
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    poe_max = float(poe_max_str)
-    pse_op = int(pse_op_str)
-    poe_used = float(poe_used_str)
-
-    # State checks
-    if pse_op < 1 or pse_op > 3:
-        return {"changed": False, "msg": "Device returned faulty data: nominal power: %s, power consumption: %s, operational status: %s" % (poe_max_str, poe_used_str, pse_op_str),
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    if pse_op == 1:  # ON
-        if poe_max > 0:
-            usage_pct = ((poe_used / poe_max) * 100.0)
-        else:
-            usage_pct = 0.0
-        # Levels: default ("fixed", (90.0, 95.0))
-        levels = params.get("levels", ("fixed", (90.0, 95.0)))
-        if type(levels) == "list" and len(levels) == 2:
-            levels = ("fixed", levels)
-        if levels[0] != "fixed" or len(levels[1]) != 2:
-            return {"changed": False, "msg": "invalid levels config",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        warn, crit = float(levels[1][0]), float(levels[1][1])
-        if usage_pct >= crit:
-            state = "CRIT"
-        elif usage_pct >= warn:
-            state = "WARN"
-        else:
-            state = "OK"
+    if poe_max_s == None or poe_status_s == None or poe_used_s == None:
         return {"changed": False,
-                "msg": "POE usage (%fW/%fW): %f%%" % (poe_used, poe_max, usage_pct),
-                "data": {"state": state, "metrics": {"power_usage_percentage": usage_pct}, "details": ""}}
+                "msg": "no POE instance with index " + item + " found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if pse_op == 2:  # OFF
-        return {"changed": False, "msg": "Operational status of the PSE is OFF",
+    poe_max = int(poe_max_s)
+    poe_used = int(poe_used_s)
+    poe_status = int(poe_status_s)
+
+    if poe_max < 0 or poe_used < 0 or poe_status not in (1, 2, 3):
+        return {"changed": False,
+                "msg": "Device returned faulty data: nominal power: %s, power consumption: %s, operational status: %s" % (
+                    poe_max_s, poe_used_s, poe_status_s),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if poe_status == 2:
+        return {"changed": False,
+                "msg": "Operational status of the PSE is OFF",
                 "data": {"state": "OK", "metrics": {}, "details": ""}}
 
-    if pse_op == 3:  # FAULTY
-        return {"changed": False, "msg": "Operational status of the PSE is FAULTY",
+    if poe_status == 3:
+        return {"changed": False,
+                "msg": "Operational status of the PSE is FAULTY",
                 "data": {"state": "CRIT", "metrics": {}, "details": ""}}
 
-    # Should not happen, but fallback
-    return {"changed": False, "msg": "unknown operational status",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # poe_status == 1 (ON): grade power usage percentage against thresholds
+    if poe_max > 0:
+        used_pct = (float(poe_used) / float(poe_max)) * 100
+    else:
+        used_pct = 0.0
+
+    levels = params.get("levels")
+    if levels == None:
+        warn_pct = 90.0
+        crit_pct = 95.0
+    else:
+        warn_pct = levels[0]
+        crit_pct = levels[1]
+
+    state = "CRIT" if used_pct >= crit_pct else ("WARN" if used_pct >= warn_pct else "OK")
+    return {"changed": False,
+            "msg": "POE usage (%sW/%sW): %f%% used" % (str(poe_used), str(poe_max), used_pct),
+            "data": {"state": state,
+                     "metrics": {"power_usage_percentage": used_pct},
+                     "details": ""}}

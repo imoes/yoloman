@@ -1,158 +1,111 @@
-# ===== module: checkmk.blade_bx_load.star =====
-# Check: blade_bx_load - CPU load (SNMP-based)
-# Discovery: yields one service per host; check mode returns current load and thresholds.
-
 def main(ctx, params):
-    # === DISCOVERY MODE ===
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {
-                "discovery": [
-                    {
-                        "item": "",
-                        "params": {
-                            "levels1": None,
-                            "levels5": None,
-                            "levels15": [5.0, 20.0]
-                        },
-                        "metrics": ["load1", "load5", "load15"]
-                    }
-                ]
-            }
-        }
-
-    # === CHECK MODE ===
-    # Fetch the SNMP data (single OID: .1.3.6.1.4.1.2021.10.1.6)
-    community = params.get("community", "public")
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+        sys_descr = _snmp_get(ctx, host, community, "1.3.6.1.2.1.1.1.0")
+        if "BX600" not in sys_descr:
+            return {"changed": False, "msg": "not a BX600 device",
+                    "data": {"discovery": []}}
+        load1 = _snmp_get(ctx, host, community, "1.3.6.1.4.1.2021.10.1.6")
+        if load1 == "":
+            return {"changed": False, "msg": "no load data",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "discovered 1 item",
+                "data": {"discovery": [
+                    {"item": "", "params": {"levels1": None, "levels5": None, "levels15": (5.0, 20.0)},
+                     "metrics": ["load_avg_1", "load_avg_5", "load_avg_15", "load_avg_1_pct", "load_avg_5_pct", "load_avg_15_pct"]},
+                ]}}
     host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    sys_descr = _snmp_get(ctx, host, community, "1.3.6.1.2.1.1.1.0")
+    if "BX600" not in sys_descr:
+        return {"changed": False, "msg": "not a BX600 device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vals = _snmp_walk_load(ctx, host, community, "1.3.6.1.4.1.2021.10.1.6")
+    if len(vals) < 3:
+        return {"changed": False, "msg": "no load data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    load1 = vals[0]
+    load5 = vals[1]
+    load15 = vals[2]
+    num_cpus = 1
+    l1_pct = load1 / num_cpus * 100
+    l5_pct = load5 / num_cpus * 100
+    l15_pct = load15 / num_cpus * 100
+    lvls1 = params.get("levels1")
+    lvls5 = params.get("levels5")
+    lvls15 = params.get("levels15", (5.0, 20.0))
+    state, worst = _grade(load1, lvls1)
+    s2, w2 = _grade(load5, lvls5)
+    if w2 > worst:
+        state, worst = s2, w2
+    s3, w3 = _grade(load15, lvls15)
+    if w3 > worst:
+        state, worst = s3, w3
+    msg = "load avg: 1min %f, 5min %f, 15min %f pct %d%%/%d%%/%d%%" % (load1, load5, load15, int(l1_pct), int(l5_pct), int(l15_pct))
+    return {"changed": False, "msg": msg,
+            "data": {
+                "state": state,
+                "metrics": {
+                    "load_avg_1": load1,
+                    "load_avg_5": load5,
+                    "load_avg_15": load15,
+                    "load_avg_1_pct": l1_pct,
+                    "load_avg_5_pct": l5_pct,
+                    "load_avg_15_pct": l15_pct,
+                },
+                "details": "",
+            }}
 
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.2021.10.1.6"
-    ], mutates=False)
 
+def _grade(value, levels):
+    if levels == None:
+        return ("OK", 0)
+    warn = levels[0]
+    crit = levels[1]
+    if value >= crit:
+        return ("CRIT", 2)
+    if value >= warn:
+        return ("WARN", 1)
+    return ("OK", 0)
+
+
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP query failed",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "SNMP error: " + res.stderr
-            }
-        }
+        return ""
+    return res.stdout.strip()
 
-    # Parse: expect exactly one line ".1.3.6.1.4.1.2021.10.1.6.0 = INTEGER: <value>"
-    lines = res.stdout.splitlines()
-    if len(lines) != 1:
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP output",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "Expected exactly one SNMP line, got %d" % len(lines)
-            }
-        }
 
-    # Extract numeric value from "INTEGER: <value>" or "INTEGER: <value>\n"
-    line = lines[0].strip()
-    idx = line.rfind("=")
-    if idx == -1:
-        return {
-            "changed": False,
-            "msg": "malformed SNMP response",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "No '=' in SNMP line"
-            }
-        }
+def _snmp_walk_load(ctx, host, community, oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc != 0:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        v = line.strip()
+        if v != "" and _is_num(v):
+            out.append(float(v))
+    return out
 
-    val_part = line[idx + 1:].strip()
-    if val_part.startswith("INTEGER: "):
-        val_part = val_part[len("INTEGER: "):]
-    val_part = val_part.strip()
 
-    # Guard against invalid numeric string before parsing
-    # Accept integer, float, negative numbers (e.g. "-1.23")
-    if not val_part:
-        return {
-            "changed": False,
-            "msg": "empty load value",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "SNMP value is empty"
-            }
-        }
-
-    # Validate numeric string manually (no try/except allowed)
-    def is_valid_float(s):
-        if not s:
+def _is_num(s):
+    if len(s) == 0:
+        return False
+    i = 0
+    if s[0] == "-":
+        i = 1
+        if len(s) == 1:
             return False
-        # Allow optional leading minus, one dot, digits
-        s = s.lstrip('-')
-        if not s:
-            return False
-        parts = s.split('.')
-        if len(parts) > 2:
-            return False
-        for part in parts:
-            if not part.isdigit():
+    seen_dot = False
+    while i < len(s):
+        c = s[i]
+        if c == ".":
+            if seen_dot:
                 return False
-        return True
-
-    if not is_valid_float(val_part):
-        return {
-            "changed": False,
-            "msg": "non-numeric load value",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "Cannot parse load as number: " + val_part
-            }
-        }
-
-    # Safe to parse now (string validated as numeric)
-    load1 = float(val_part)
-
-    # Use Checkmk defaults: levels15 = [5.0, 20.0]; levels1/5 = None
-    levels1 = params.get("levels1")
-    levels5 = params.get("levels5")
-    levels15 = params.get("levels15", [5.0, 20.0])
-
-    # Check CPU load thresholds — single CPU system (num_cpus=1 implied)
-    # levels are absolute load values (not per-CPU)
-    def check_levels(value, levels):
-        if levels == None:
-            return "OK"
-        if len(levels) == 2:
-            warn, crit = levels[0], levels[1]
-            if value >= crit:
-                return "CRIT"
-            if value >= warn:
-                return "WARN"
-            return "OK"
-        return "OK"
-
-    state = "OK"
-    if check_levels(load1, levels1) == "CRIT":
-        state = "CRIT"
-    elif check_levels(load1, levels1) == "WARN" and state == "OK":
-        state = "WARN"
-
-    # Since we only have load1 from the device, report only load1 metrics.
-    # (The Checkmk plugin as written only fetches one OID value.)
-    msg = "Load 1 min: %f" % load1
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"load1": load1},
-            "details": ""
-        }
-    }
+            seen_dot = True
+        elif c < "0" or c > "9":
+            return False
+        i += 1
+    return True

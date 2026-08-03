@@ -1,184 +1,208 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", "public")
-        
-        res_general = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.21239.5.1.1.7"
-        ], mutates=False)
-        
-        temp_unit = "C"
-        if res_general.rc == 0:
-            for line in res_general.stdout.splitlines():
-                if ".1.3.6.1.4.1.21239.5.1.1.7.0" in line:
-                    val = line.split(" = ")
-                    if len(val) > 1:
-                        raw_unit = val[1].strip()
-                        if raw_unit.isdigit():
-                            temp_unit = "C" if raw_unit == "1" else "F"
-                    break
-        
-        res_version = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.21239.5.1.1.2"
-        ], mutates=False)
-        
-        version = 320
-        if res_version.rc == 0:
-            for line in res_version.stdout.splitlines():
-                if ".1.3.6.1.4.1.21239.5.1.1.2.0" in line:
-                    val = line.split(" = ")
-                    if len(val) > 1:
-                        ver_str = val[1].strip().split(".")
-                        if len(ver_str) == 3:
-                            ver_concat = ver_str[0] + ver_str[1] + ver_str[2]
-                            if ver_concat.isdigit():
-                                ver_int = int(ver_concat)
-                                if ver_int <= 300:
-                                    version = 300
-                                else:
-                                    version = 320
-                        break
-        
-        res_sensors = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On", host,
-            ".1.3.6.1.4.1.21239.5.1.2.1"
-        ], mutates=False)
-        
-        discovery_items = []
-        current_sensor = None
-        sensor_data = {}
-        
-        for line in res_sensors.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            parts = line.split(" = ")
-            if len(parts) < 2:
-                continue
-            
-            oid = parts[0].strip()
-            value = parts[1].strip()
-            
-            if oid.endswith(".1"):
-                if current_sensor != None and "dew" in sensor_data:
-                    item_name = "Dew point " + current_sensor
-                    discovery_items.append({
-                        "item": item_name,
-                        "params": {},
-                        "metrics": ["dew_point"]
-                    })
-                current_sensor = value.strip('"')
-                sensor_data = {}
-            elif current_sensor != None:
-                if oid.endswith(".3"):
-                    sensor_data["desc"] = value.strip('"')
-                elif oid.endswith(".5"):
-                    sensor_data["temp"] = value
-                elif oid.endswith(".6"):
-                    sensor_data["humidity"] = value
-                elif oid.endswith(".7"):
-                    sensor_data["dew"] = value
-        
-        if current_sensor != None and "dew" in sensor_data:
-            item_name = "Dew point " + current_sensor
-            discovery_items.append({
-                "item": item_name,
-                "params": {},
-                "metrics": ["dew_point"]
-            })
-        
-        return {"changed": False, "msg": "discovered %d dew points" % len(discovery_items),
-                "data": {"discovery": discovery_items}}
-    
-    item = params.get("item", "")
-    if not item:
-        return {"changed": False, "msg": "no item specified",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
+# watchdog_sensors_dew — translated Checkmk check
+
+# SNMP OIDs for the Watchdog sensors device
+_OID_SYS_DESC = ".1.3.6.1.2.1.1.2.0"
+_OID_GENERAL = ".1.3.6.1.4.1.21239.5.1"
+_OID_GENERAL_VERSION = ".1.3.6.1.4.1.21239.5.1.1.2"
+_OID_GENERAL_TEMP_UNIT = ".1.3.6.1.4.1.21239.5.1.1.7"
+_OID_TABLE_BASE = ".1.3.6.1.4.1.21239.5.1.2.1"
+
+# Temperature check default parameters (Checkmk temperature ruleset)
+_TEMP_DEFAULT_WARN = 60
+_TEMP_DEFAULT_CRIT = 80
+
+
+def _get_version(ctx, params):
+    "Probe the device version via SNMP. Returns (version_str, temp_unit) or None"
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    sensor_id = item.split()[-1]
-    
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.21239.5.1.2.1.7." + sensor_id
-    ], mutates=False)
-    
-    if res.rc != 0 or "No such variable" in res.stderr:
-        return {"changed": False, "msg": "dew point sensor not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    output = res.stdout.strip()
-    if not output:
-        return {"changed": False, "msg": "empty response from SNMP",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    parts = output.split(" = ")
-    if len(parts) < 2:
-        return {"changed": False, "msg": "unexpected SNMP output",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    value_part = parts[1].strip()
-    if value_part.startswith("INTEGER:"):
-        dew_raw = value_part.split(":")[1].strip()
-    else:
-        dew_raw = value_part
-    
-    if not dew_raw.isdigit():
-        return {"changed": False, "msg": "invalid dew point value",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    dew = float(dew_raw) / 10.0
-    
-    res_general = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On", host,
-        ".1.3.6.1.4.1.21239.5.1.1.7"
-    ], mutates=False)
-    
+
+    # Probe for the device first — check sysObjectID
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, _OID_SYS_DESC],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+
+    sys_desc = res.stdout.strip()
+    if not (sys_desc.startswith(".1.3.6.1.4.1.21239.5.1") or
+            sys_desc.startswith(".1.3.6.1.4.1.21239.42.1")):
+        return None
+
+    # Get version
+    res_v = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, _OID_GENERAL_VERSION],
+        mutates=False,
+    )
+    if res_v.rc != 0:
+        return None
+
+    version_str = res_v.stdout.strip()
+
+    # Get temp unit
+    res_u = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, _OID_GENERAL_TEMP_UNIT],
+        mutates=False,
+    )
+    if res_u.rc != 0:
+        return None
+
+    unit_raw = res_u.stdout.strip()
+    return (version_str, unit_raw)
+
+
+def _get_sensor_rows(ctx, params):
+    "Walk the sensor table and return list of (index, row_values)"
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # Walk the sensor table using -Oqn for clean OID.value output
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, _OID_TABLE_BASE + ".1"],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+
+    rows = {}
+    col_oids = {}
+
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) < 2:
+            continue
+        oid = parts[0]
+        val = parts[1].strip().strip('"')
+
+        # Extract index: oid is base.col.index, we want index
+        suffix = oid[len(_OID_TABLE_BASE) + 1:]
+        oid_parts = suffix.split(".")
+        if len(oid_parts) < 2:
+            continue
+        col = oid_parts[0]
+        idx = ".".join(oid_parts[1:])
+
+        if idx not in rows:
+            rows[idx] = {}
+        rows[idx][col] = val
+
+    return rows
+
+
+def _parse_sensors(ctx, params):
+    "Parse all sensor data from the device. Returns dict of dew sensors or None"
+    version_info = _get_version(ctx, params)
+    if version_info == None:
+        return None
+
+    version_str, unit_raw = version_info
+
+    # Determine temp unit
     temp_unit = "C"
-    if res_general.rc == 0:
-        for line in res_general.stdout.splitlines():
-            if ".1.3.6.1.4.1.21239.5.1.1.7.0" in line:
-                val = line.split(" = ")
-                if len(val) > 1:
-                    raw_unit = val[1].strip()
-                    if raw_unit.isdigit():
-                        temp_unit = "C" if raw_unit == "1" else "F"
-                    break
-    
-    if temp_unit == "F":
-        dew = 5.0 / 9.0 * (dew - 32.0)
-    
-    warn_upper = params.get("levels", (None, None))
-    if type(warn_upper) == tuple and len(warn_upper) >= 2:
-        warn_val, crit_val = warn_upper[0], warn_upper[1]
-    else:
-        warn_val, crit_val = None, None
-    
-    state = "OK"
-    msg = ""
-    
-    if warn_val != None and crit_val != None:
-        if dew >= crit_val:
-            state = "CRIT"
-            msg = "%f C (warn/crit at %f/%f C)" % (dew, warn_val, crit_val)
-        elif dew >= warn_val:
-            state = "WARN"
-            msg = "%f C (warn/crit at %f/%f C)" % (dew, warn_val, crit_val)
+    if unit_raw == "1":
+        temp_unit = "C"
+    elif unit_raw == "0":
+        temp_unit = "F"
+
+    # Parse version number
+    version_int = int(version_str.replace(".", "")) if version_str.replace(".", "").isdigit() else 0
+
+    rows = _get_sensor_rows(ctx, params)
+    if rows == None:
+        return None
+
+    # Column mapping: 1=sensor_id, 2=mac, 3=descr, 4=availability, 5=unknown, 6=temp, 7=humidity, 8=dew
+    # For version <= 3.0.0 (300): columns shift
+    dew_sensors = {}
+    for idx in rows:
+        row = rows[idx]
+        if version_int <= 300:
+            # Legacy: col 3=descr, col 4=availability, col 7=temp, col 6=humidity, col 8=dew
+            descr = row.get("3", "")
+            avail = row.get("4", "1")
+            dew_val = row.get("8", "")
         else:
-            msg = "%f C" % dew
+            # Version 3.2.0+: col 3=descr, col 4=availability, col 5=temp, col 6=unknown, col 7=humidity...
+            # But from example: .1.3.6.1.4.1.21239.5.1.2.1.3.1 = descr (RSGLDN Watchdog 15)
+            # .1.3.6.1.4.1.21239.5.1.2.1.4.1 = 1 (availability)
+            # .1.3.6.1.4.1.21239.5.1.2.1.5.1 = 173 (temp)
+            # .1.3.6.1.4.1.21239.5.1.2.1.6.1 = 46 (humidity)
+            # .1.3.6.1.4.1.21239.5.1.2.1.7.1 = 56 (dew)
+            # So columns: 3=descr, 4=availability, 5=temp, 6=humidity, 7=dew
+            descr = row.get("3", "")
+            avail = row.get("4", "1")
+            dew_val = row.get("7", "")
+
+        if dew_val == "":
+            continue
+
+        # Find sensor_id (col 1)
+        sensor_id = row.get("1", idx)
+        item_name = "Dew point %s" % sensor_id
+        dew_sensors[item_name] = (dew_val, temp_unit)
+
+    return dew_sensors
+
+
+def main(ctx, params):
+    # --- DISCOVERY MODE ---
+    if params.get("_discover"):
+        sensors = _parse_sensors(ctx, params)
+        if sensors == None or len(sensors) == 0:
+            return {"changed": False, "msg": "no watchdog sensors found",
+                    "data": {"discovery": []}}
+
+        discovery = []
+        for item_name in sorted(sensors.keys()):
+            discovery.append({
+                "item": item_name,
+                "params": {},
+                "metrics": ["temperature"],
+            })
+
+        return {"changed": False,
+                "msg": "discovered %d dew point sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # --- CHECK MODE ---
+    item = params.get("item", "")
+    sensors = _parse_sensors(ctx, params)
+
+    if sensors == None:
+        return {"changed": False, "msg": "watchdog device not reachable via SNMP",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if len(sensors) == 0 or item not in sensors:
+        return {"changed": False, "msg": "no dew point sensor '%s' found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    dew_raw, unit = sensors[item]
+
+    # Convert dew value: raw is in tenths of a degree
+    dew = float(dew_raw) / 10.0
+    if unit == "F":
+        dew = 5.0 / 9.0 * (dew - 32)
+
+    warn = params.get("warn", _TEMP_DEFAULT_WARN)
+    crit = params.get("crit", _TEMP_DEFAULT_CRIT)
+    # Support levels tuple format
+    levels = params.get("levels")
+    if levels != None:
+        warn = levels[0]
+        crit = levels[1]
+
+    # Temperature: warn/crit are upper thresholds
+    if dew >= crit:
+        state = "CRIT"
+    elif dew >= warn:
+        state = "WARN"
     else:
-        msg = "%f C" % dew
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"dew_point": dew},
-            "details": "",
-        },
-    }
+        state = "OK"
+
+    details = "%s: %f %s" % (item, dew, unit.lower())
+
+    return {"changed": False,
+            "msg": "%s: %f %s" % (item, dew, unit.lower()),
+            "data": {"state": state, "metrics": {"temperature": dew},
+                     "details": details}}

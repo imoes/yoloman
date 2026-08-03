@@ -1,223 +1,432 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.2.1.1.1.0"
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
-        # Detect device by sysObjectID
-        oid = ".1.3.6.1.2.1.1.2.0"
-        # Extract sysObjectID value from walk output
-        sys_objectid = ""
-        for line in res.stdout.splitlines():
-            if line.strip().startswith(oid + " = "):
-                val = line.strip()[len(oid + " = "):].strip()
-                if val.startswith(" enterprises:"):
-                    val = ".1.3.6.1.4" + val[len(" enterprises:"):]
-                elif val.startswith(" iso:"):
-                    val = ".1" + val[len(" iso:"):]
-                sys_objectid = val
-                break
-        # Check for supported OIDs
-        if sys_objectid != ".1.3.6.1.4.1.34187.21501" and sys_objectid != ".1.3.6.1.4.1.34187.74195":
-            return {"changed": False, "msg": "discovered 0 items (not a Wagner Titanus TOPsense device)",
-                    "data": {"discovery": []}}
+# wagner_titanus_topsense_info.star
+# Translated from Checkmk check plugins:
+#   wagner_titanus_topsense_info, _overall_status, _alarm, _smoke,
+#   _chamber_deviation, _airflow_deviation, _temp
+# Source device: Wagner Titanus topsense (environmental monitoring), via SNMP.
+# This is a READ-ONLY monitor: discovery enumerates items; check mode grades them.
 
-        # Perform full walk for data collection
-        sections = {}
-        section_trees = [
-            (".1.3.6.1.2.1.1", [1, 3, 4, 5, 6]),
-            (".1.3.6.1.4.1.34187.21501.1.1", [1, 2, 3, 1000, 1001, 1002, 1003, 1004, 1005, 1006]),
-            (".1.3.6.1.4.1.34187.21501.2.1", [
-                "245810000", "245820000", "245950000", "246090000", "245960000",
-                "246100000", "245970000", "246110000", "24584008"
-            ]),
-            (".1.3.6.1.4.1.34187.74195.1.1", [1, 2, 3, 1000, 1001, 1002, 1003, 1004, 1005, 1006]),
-            (".1.3.6.1.4.1.34187.74195.2.1", [
-                "245790000", "245800000", "245940000", "246060000", "245950000",
-                "246070000", "245960000", "246080000"
-            ]),
-        ]
-        
-        for base, oids in section_trees:
-            oid_str = base + "." + ".".join([str(o) for o in oids])
-            res_walk = ctx.run([
-                "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                "-On", params.get("host", "localhost"), oid_str
-            ], mutates=False)
-            if res_walk.rc == 0:
-                sections[oid_str] = res_walk.stdout
+_OID_SYS = ".1.3.6.1.2.1.1"
+_OID_SYS_OIDS = ["1", "3", "4", "5", "6"]
 
-        # Check for device-specific sections
-        top1_section_exists = False
-        top2_section_exists = False
-        for oid_str in sections:
-            if ".1.3.6.1.4.1.34187.21501." in oid_str:
-                top1_section_exists = True
-            if ".1.3.6.1.4.1.34187.74195." in oid_str:
-                top2_section_exists = True
+_OID_MAIN_BASE = ".1.3.6.1.4.1.34187"
+_OID_21501_BASE = _OID_MAIN_BASE + ".21501.1.1"
+_OID_21501_EXTRA = _OID_MAIN_BASE + ".21501.2.1"
+_OID_74195_BASE = _OID_MAIN_BASE + ".74195.1.1"
+_OID_74195_EXTRA = _OID_MAIN_BASE + ".74195.2.1"
 
-        # Single service check - always discover one service
-        return {"changed": False, "msg": "discovered 1 items",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
+_OID_21501_OIDS = ["1", "2", "3", "1000", "1001", "1002", "1003", "1004", "1005", "1006"]
+_OID_21501_EXTRA_OIDS = [
+    "245810000", "245820000", "245950000", "246090000",
+    "245960000", "246100000", "245970000", "246110000", "24584008",
+]
+_OID_74195_OIDS = ["1", "2", "3", "1000", "1001", "1002", "1003", "1004", "1005", "1006"]
+_OID_74195_EXTRA_OIDS = [
+    "245790000", "245800000", "245940000", "246060000",
+    "245950000", "246070000", "245960000", "246080000",
+]
 
-    # Check mode - item is "" for single-service check
-    item = params.get("item", "")
+_OID_SYSMIB_SYSOID = ".1.3.6.1.2.1.1.2.0"
 
-    # Gather all required SNMP data
-    snmp_comm = params.get("community", "public")
-    snmp_host = params.get("host", "localhost")
+_TEMP_DEFAULT = {"levels": (30.0, 35.0)}
+_AIRFLOW_DEFAULT = {"levels_upper": (20.0, 20.0), "levels_lower": (-20.0, -20.0)}
+_SMOKE_WARN = 3.0
+_SMOKE_CRIT = 5.0
 
-    # Gather sysDescr, sysUpTime, sysContact, sysName, sysLocation
-    base_mib_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", snmp_comm, "-On", snmp_host,
-        ".1.3.6.1.2.1.1.1.0", ".1.3.6.1.2.1.1.3.0", ".1.3.6.1.2.1.1.4.0",
-        ".1.3.6.1.2.1.1.5.0", ".1.3.6.1.2.1.1.6.0"
-    ], mutates=False)
-    if base_mib_res.rc != 0:
-        return {"changed": False, "msg": "SNMP error for base MIB",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    base_data = {}
-    for line in base_mib_res.stdout.splitlines():
-        if " = " in line:
-            oid_part = line.split(" = ")[0].strip()
-            value_part = line.split(" = ")[1].strip()
-            if oid_part == ".1.3.6.1.2.1.1.1.0":
-                base_data["sysDescr"] = value_part
-            elif oid_part == ".1.3.6.1.2.1.1.3.0":
-                # Convert timeticks to seconds (value typically like "1234567")
-                # Extract number from timeticks format like "1234567"
-                if value_part.isdigit():
-                    base_data["sysUpTime"] = int(value_part) // 100
-                else:
-                    base_data["sysUpTime"] = 0
-            elif oid_part == ".1.3.6.1.2.1.1.4.0":
-                contact_val = value_part.strip('"')
-                base_data["sysContact"] = contact_val
-            elif oid_part == ".1.3.6.1.2.1.1.5.0":
-                name_val = value_part.strip('"')
-                base_data["sysName"] = name_val
-            elif oid_part == ".1.3.6.1.2.1.1.6.0":
-                loc_val = value_part.strip('"')
-                base_data["sysLocation"] = loc_val
+_IS_21501 = (_OID_21501_BASE, _OID_21501_OIDS, _OID_21501_EXTRA, _OID_21501_EXTRA_OIDS)
+_IS_74195 = (_OID_74195_BASE, _OID_74195_OIDS, _OID_74195_EXTRA, _OID_74195_EXTRA_OIDS)
 
-    # Gather model info section (both models)
-    model1_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", snmp_comm, "-On", snmp_host,
-        ".1.3.6.1.4.1.34187.21501.1.1.1.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.2.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.3.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1000.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1001.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1002.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1003.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1004.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1005.0",
-        ".1.3.6.1.4.1.34187.21501.1.1.1006.0"
-    ], mutates=False)
-    model1_data = {}
-    if model1_res.rc == 0:
-        for line in model1_res.stdout.splitlines():
-            if " = " in line:
-                oid_part = line.split(" = ")[0].strip()
-                value_part = line.split(" = ")[1].strip()
-                if oid_part.endswith(".1.1.1.0"):
-                    model1_data["1"] = value_part
-                elif oid_part.endswith(".1.1.2.0"):
-                    model1_data["2"] = value_part
-                elif oid_part.endswith(".1.1.3.0"):
-                    model1_data["3"] = value_part
-                elif oid_part.endswith(".1.1.1000.0"):
-                    model1_data["1000"] = value_part
-                elif oid_part.endswith(".1.1.1001.0"):
-                    model1_data["1001"] = value_part
-                elif oid_part.endswith(".1.1.1002.0"):
-                    model1_data["1002"] = value_part
-                elif oid_part.endswith(".1.1.1003.0"):
-                    model1_data["1003"] = value_part
-                elif oid_part.endswith(".1.1.1004.0"):
-                    model1_data["1004"] = value_part
-                elif oid_part.endswith(".1.1.1005.0"):
-                    model1_data["1005"] = value_part
-                elif oid_part.endswith(".1.1.1006.0"):
-                    model1_data["1006"] = value_part
 
-    model2_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", snmp_comm, "-On", snmp_host,
-        ".1.3.6.1.4.1.34187.74195.1.1.1.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.2.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.3.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1000.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1001.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1002.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1003.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1004.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1005.0",
-        ".1.3.6.1.4.1.34187.74195.1.1.1006.0"
-    ], mutates=False)
-    model2_data = {}
-    if model2_res.rc == 0:
-        for line in model2_res.stdout.splitlines():
-            if " = " in line:
-                oid_part = line.split(" = ")[0].strip()
-                value_part = line.split(" = ")[1].strip()
-                if oid_part.endswith(".1.1.1.0"):
-                    model2_data["1"] = value_part
-                elif oid_part.endswith(".1.1.2.0"):
-                    model2_data["2"] = value_part
-                elif oid_part.endswith(".1.1.3.0"):
-                    model2_data["3"] = value_part
-                elif oid_part.endswith(".1.1.1000.0"):
-                    model2_data["1000"] = value_part
-                elif oid_part.endswith(".1.1.1001.0"):
-                    model2_data["1001"] = value_part
-                elif oid_part.endswith(".1.1.1002.0"):
-                    model2_data["1002"] = value_part
-                elif oid_part.endswith(".1.1.1003.0"):
-                    model2_data["1003"] = value_part
-                elif oid_part.endswith(".1.1.1004.0"):
-                    model2_data["1004"] = value_part
-                elif oid_part.endswith(".1.1.1005.0"):
-                    model2_data["1005"] = value_part
-                elif oid_part.endswith(".1.1.1006.0"):
-                    model2_data["1006"] = value_part
+def _snmpget_all(ctx, params, oid):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
 
-    # Prefer model 1 if available, otherwise model 2
-    model_data = model1_data if model1_data else model2_data
 
-    # Gather LSN bus status
-    lsn_res = ctx.run([
-        "snmpwalk", "-v2c", "-c", snmp_comm, "-On", snmp_host,
-        ".1.3.6.1.4.1.34187.21501.2.1.24584008.0"
-    ], mutates=False)
-    lsn_status = ""
-    if lsn_res.rc == 0:
-        for line in lsn_res.stdout.splitlines():
-            if " = " in line:
-                value_part = line.split(" = ")[1].strip()
-                lsn_status = value_part
-                break
-    # Map LSN status
-    if lsn_status == "0":
-        lsn_status = "offline"
-    elif lsn_status == "1":
-        lsn_status = "online"
+def _snmpwalk(ctx, params, oid):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    rows = []
+    if res.rc != 0 or not res.stdout:
+        return rows
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        left = line[:sp]
+        right = line[sp + 1:].strip()
+        rows.append((left, right))
+    return rows
+
+
+def _fetch_tree(ctx, params, base, oids):
+    out = {}
+    for oid in oids:
+        full = base + "." + oid if not oid.startswith(".") else oid
+        out[oid] = _snmpget_all(ctx, params, full)
+    return out
+
+
+def _fetch_system(ctx, params):
+    row = _fetch_tree(ctx, params, _OID_SYS, _OID_SYS_OIDS)
+    vals = [row.get(o, "") for o in _OID_SYS_OIDS]
+    return [vals]
+
+
+def _fetch_model(ctx, params, base, oids):
+    row = _fetch_tree(ctx, params, base, oids)
+    vals = [row.get(o, "") for o in oids]
+    return [vals]
+
+
+def _fetch_extra(ctx, params, base, oids):
+    return _fetch_model(ctx, params, base, oids)
+
+
+def _detect_model(ctx, params):
+    sysOID = _snmpget_all(ctx, params, _OID_SYSMIB_SYSOID)
+    if not sysOID:
+        return None
+    if sysOID == ".1.3.6.1.4.1.34187.21501":
+        return _IS_21501
+    if sysOID == ".1.3.6.1.4.1.34187.74195":
+        return _IS_74195
+    return None
+
+
+def _gather_section(ctx, params):
+    model = _detect_model(ctx, params)
+    if model == None:
+        return None
+    m_base, m_oids, e_base, e_oids = model
+    sys_grp = _fetch_system(ctx, params)
+    m_row = _fetch_model(ctx, params, m_base, m_oids)
+    e_row = _fetch_extra(ctx, params, e_base, e_oids)
+    if model == _IS_21501:
+        s3 = [["" for _ in _OID_74195_OIDS]]
+        s4 = [["" for _ in _OID_74195_EXTRA_OIDS]]
     else:
-        lsn_status = "unknown"
+        s3 = _fetch_model(ctx, params, _OID_74195_BASE, _OID_74195_OIDS)
+        s4 = _fetch_extra(ctx, params, _OID_74195_EXTRA, _OID_74195_EXTRA_OIDS)
+    return [sys_grp, m_row, e_row, s3, s4]
 
-    # Build message
-    message = "System: " + base_data.get("sysDescr", "")
-    message += ", Uptime: " + str(base_data.get("sysUpTime", 0))
-    message += ", System Name: " + base_data.get("sysName", "")
-    message += ", System Contact: " + base_data.get("sysContact", "")
-    message += ", System Location: " + base_data.get("sysLocation", "")
-    message += ", Company: " + model_data.get("1", "")
-    message += ", Model: " + model_data.get("2", "")
-    message += ", Revision: " + model_data.get("3", "")
-    message += ", LSNi bus: " + lsn_status
 
-    return {"changed": False, "msg": message,
-            "data": {"state": "OK", "metrics": {}, "details": ""}}
+def _get_model_data(section):
+    sec1 = section[1]
+    sec3 = section[3]
+
+    def nonempty(tbl):
+        if not tbl:
+            return False
+        row0 = tbl[0]
+        for v in row0:
+            if v != "":
+                return True
+        return False
+
+    model = sec1 if nonempty(sec1) else sec3
+    sec2 = section[2]
+    sec4 = section[4]
+    extra = sec2 if nonempty(sec2) else sec4
+    return [section[0], model, extra]
+
+
+def _fmt_timespan(hundredths):
+    secs = 0
+    if hundredths != "":
+        # accept plain int or numeric string; no try/except
+        if hundredths.lstrip("-").isdigit():
+            secs = int(hundredths) // 100
+        else:
+            # float form "123.45"
+            dot = hundredths.find(".")
+            if dot >= 0:
+                intpart = hundredths[:dot]
+                if intpart.lstrip("-").isdigit():
+                    secs = int(intpart) // 100
+    days = secs // 86400
+    hh = (secs % 86400) // 3600
+    mm = (secs % 3600) // 60
+    ss = secs % 60
+    return "%dd %d:%d:%d" % (days, hh, mm, ss)
+
+
+def _to_float(val):
+    """Return float(val) or 0.0 when not parseable (no try/except)."""
+    if val == None or val == "":
+        return 0.0
+    s = str(val)
+    neg = False
+    body = s
+    if s.startswith("-"):
+        neg = True
+        body = s[1:]
+    if s.startswith("+"):
+        body = s[1:]
+    if body == "":
+        return 0.0
+    if body.isdigit():
+        f = float(int(body))
+        return -f if neg else f
+    dot = body.find(".")
+    if dot >= 0:
+        left = body[:dot]
+        right = body[dot + 1:]
+        ok = (left.isdigit() or left == "") and (right.isdigit() or right == "")
+        if ok:
+            f = float(body)
+            return -f if neg else f
+    return 0.0
+
+
+def _temp_state(value, params):
+    levels = _TEMP_DEFAULT["levels"]
+    if type(params) == "dict":
+        lv = params.get("levels", _TEMP_DEFAULT["levels"])
+        levels = lv if type(lv) == "tuple" else _TEMP_DEFAULT["levels"]
+    warn = levels[0]
+    crit = levels[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+
+def _upper_state(value, params):
+    lu = (20.0, 20.0)
+    if type(params) == "dict":
+        v = params.get("levels_upper", (20.0, 20.0))
+        lu = v if type(v) == "tuple" else (20.0, 20.0)
+    warn = lu[0]
+    crit = lu[1]
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+
+def _lower_state(value, params):
+    ll = (-20.0, -20.0)
+    if type(params) == "dict":
+        v = params.get("levels_lower", (-20.0, -20.0))
+        ll = v if type(v) == "tuple" else (-20.0, -20.0)
+    warn = ll[0]
+    crit = ll[1]
+    if value <= crit:
+        return "CRIT"
+    if value <= warn:
+        return "WARN"
+    return "OK"
+
+
+def _row_val(row, idx):
+    if row == None or idx < 0 or idx >= len(row):
+        return ""
+    return row[idx]
+
+
+def main(ctx, params):
+    name = params.get("check_name", "wagner_titanus_topsense_info")
+    item = params.get("item", "")
+    want_disc = params.get("_discover", False)
+
+    if want_disc:
+        model = _detect_model(ctx, params)
+        if model == None:
+            return {"changed": False, "msg": "no wagner_titanus_topsense device found",
+                    "data": {"discovery": []}}
+        if name == "wagner_titanus_topsense_info":
+            return {"changed": False, "msg": "discovered 1 service",
+                    "data": {"discovery": [
+                        {"item": "", "params": {}, "metrics": []}]}}
+        if name == "wagner_titanus_topsense_overall_status":
+            return {"changed": False, "msg": "discovered 1 service",
+                    "data": {"discovery": [
+                        {"item": "", "params": {}, "metrics": []}]}}
+        if name == "wagner_titanus_topsense_alarm":
+            return {"changed": False, "msg": "discovered 2 services",
+                    "data": {"discovery": [
+                        {"item": "1", "params": {}, "metrics": []},
+                        {"item": "2", "params": {}, "metrics": []}]}}
+        if name == "wagner_titanus_topsense_smoke":
+            return {"changed": False, "msg": "discovered 2 services",
+                    "data": {"discovery": [
+                        {"item": "1", "params": {}, "metrics": ["smoke_perc"]},
+                        {"item": "2", "params": {}, "metrics": ["smoke_perc"]}]}}
+        if name == "wagner_titanus_topsense_chamber_deviation":
+            return {"changed": False, "msg": "discovered 2 services",
+                    "data": {"discovery": [
+                        {"item": "1", "params": {}, "metrics": ["chamber_deviation"]},
+                        {"item": "2", "params": {}, "metrics": ["chamber_deviation"]}]}}
+        if name == "wagner_titanus_topsense_airflow_deviation":
+            lp = {"levels_upper": (20.0, 20.0), "levels_lower": (-20.0, -20.0)}
+            return {"changed": False, "msg": "discovered 2 services",
+                    "data": {"discovery": [
+                        {"item": "1", "params": lp, "metrics": ["airflow_deviation"]},
+                        {"item": "2", "params": lp, "metrics": ["airflow_deviation"]}]}}
+        if name == "wagner_titanus_topsense_temp":
+            lp = {"levels": (30.0, 35.0)}
+            return {"changed": False, "msg": "discovered 2 services",
+                    "data": {"discovery": [
+                        {"item": "Ambient 1", "params": lp, "metrics": []},
+                        {"item": "Ambient 2", "params": lp, "metrics": []}]}}
+        return {"changed": False, "msg": "unknown check name", "data": {"discovery": []}}
+
+    section = _gather_section(ctx, params)
+    if section == None:
+        return {"changed": False,
+                "msg": "no wagner_titanus_topsense device found (sysOID not present)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    parsed = _get_model_data(section)
+
+    if name == "wagner_titanus_topsense_info":
+        sysrow = parsed[0][0]
+        mrow = parsed[1][0]
+        msg = "System: %s" % _row_val(sysrow, 0)
+        msg += ", Uptime: %s" % _fmt_timespan(_row_val(sysrow, 1))
+        msg += ", System Name: %s" % _row_val(sysrow, 3)
+        msg += ", System Contact: %s" % _row_val(sysrow, 2)
+        msg += ", System Location: %s" % _row_val(sysrow, 4)
+        msg += ", Company: %s" % _row_val(mrow, 0)
+        msg += ", Model: %s" % _row_val(mrow, 1)
+        msg += ", Revision: %s" % _row_val(mrow, 2)
+        if len(section) > 8:
+            erow = parsed[2][0]
+            lsn = _row_val(erow, 8) if len(erow) > 8 else ""
+            if lsn == "0":
+                lsn = "offline"
+            elif lsn == "1":
+                lsn = "online"
+            else:
+                lsn = "unknown"
+            msg += ", LSNi bus: %s" % lsn
+        return {"changed": False, "msg": msg,
+                "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+    if name == "wagner_titanus_topsense_overall_status":
+        mrow = parsed[1][0]
+        psw = _row_val(mrow, 9)
+        if psw == "0":
+            return {"changed": False, "msg": "Overall Status reports OK",
+                    "data": {"state": "OK", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "Overall Status reports a problem",
+                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    if name == "wagner_titanus_topsense_alarm":
+        mrow = parsed[1][0]
+        if item == "1":
+            main_a = _row_val(mrow, 3)
+            pre_a = _row_val(mrow, 4)
+            info_a = _row_val(mrow, 5)
+        elif item == "2":
+            main_a = _row_val(mrow, 6)
+            pre_a = _row_val(mrow, 7)
+            info_a = _row_val(mrow, 8)
+        else:
+            return {"changed": False,
+                    "msg": "Alarm Detector %s not found in SNMP" % item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        state = "OK"
+        msg = "No Alarm"
+        if info_a != "0":
+            msg = "Info Alarm"
+            state = "WARN"
+        if pre_a != "0":
+            msg = "Pre Alarm"
+            state = "WARN"
+        if main_a != "0":
+            msg = "Main Alarm: Fire"
+            state = "CRIT"
+        return {"changed": False, "msg": msg,
+                "data": {"state": state, "metrics": {}, "details": ""}}
+
+    if name == "wagner_titanus_topsense_smoke":
+        erow = parsed[2][0]
+        if item == "1":
+            val = _row_val(erow, 0)
+        elif item == "2":
+            val = _row_val(erow, 1)
+        else:
+            return {"changed": False,
+                    "msg": "Smoke Detector %s not found in SNMP" % item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        smoke = _to_float(val)
+        if smoke > _SMOKE_CRIT:
+            state = "CRIT"
+        elif smoke > _SMOKE_WARN:
+            state = "WARN"
+        else:
+            state = "OK"
+        return {"changed": False,
+                "msg": "%f%% smoke detected" % smoke,
+                "data": {"state": state, "metrics": {"smoke_perc": smoke}, "details": ""}}
+
+    if name == "wagner_titanus_topsense_chamber_deviation":
+        erow = parsed[2][0]
+        if item == "1":
+            val = _row_val(erow, 2)
+        elif item == "2":
+            val = _row_val(erow, 3)
+        else:
+            return {"changed": False,
+                    "msg": "Chamber Deviation Detector %s not found in SNMP" % item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        dev = _to_float(val)
+        return {"changed": False,
+                "msg": "%f%% Chamber Deviation" % dev,
+                "data": {"state": "OK", "metrics": {"chamber_deviation": dev}, "details": ""}}
+
+    if name == "wagner_titanus_topsense_airflow_deviation":
+        erow = parsed[2][0]
+        if item == "1":
+            val = _row_val(erow, 4)
+        elif item == "2":
+            val = _row_val(erow, 5)
+        else:
+            return {"changed": False,
+                    "msg": "Airflow Deviation Detector %s not found in SNMP" % item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        af = _to_float(val)
+        up = params.get("levels_upper", (20.0, 20.0))
+        lo = params.get("levels_lower", (-20.0, -20.0))
+        st = _upper_state(af, {"levels_upper": up})
+        if st == "OK":
+            st = _lower_state(af, {"levels_lower": lo})
+        msg = "%f%% Airflow deviation" % (af,)
+        return {"changed": False, "msg": msg,
+                "data": {"state": st, "metrics": {"airflow_deviation": af}, "details": ""}}
+
+    if name == "wagner_titanus_topsense_temp":
+        erow = parsed[2][0]
+        if not item.startswith("Ambient"):
+            item = "Ambient %s" % item
+        if item == "Ambient 1":
+            val = _row_val(erow, 6)
+        elif item == "Ambient 2":
+            val = _row_val(erow, 7)
+        else:
+            return {"changed": False,
+                    "msg": "Temperature %s: unknown item" % item,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        temp = _to_float(val)
+        tparams = params
+        st = _temp_state(temp, tparams)
+        return {"changed": False,
+                "msg": "%f C" % temp,
+                "data": {"state": st, "metrics": {}, "details": ""}}
+
+    return {"changed": False,
+            "msg": "unknown check name: %s" % name,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}

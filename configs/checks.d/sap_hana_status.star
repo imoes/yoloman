@@ -1,111 +1,133 @@
-# SAP HANA status check - read-only Starlark translation
-# No imports, no mutations, no exceptions
-
-def _get_state_from_name(state_name):
-    lower = state_name.lower()
-    if lower == "ok" or lower == "connected":
-        return "OK"
-    if lower == "unknown" or lower == "error":
-        return "CRIT"
-    return "WARN"
+# Translated Checkmk check: checkmk.sap_hana_status -> read-only Starlark check module
 
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(["hdbsql", "-n", "localhost", "-u", "SYSTEM", "-p", "", "-I", "-A", "SELECT 'all started' FROM DUMMY"], mutates=False)
-        # Fallback for hosts without default credentials - try to get SID from filesystem
-        if res.rc != 0:
-            res = ctx.run(["ls", "-1", "/usr/sap/"], mutates=False)
-            lines = res.stdout.split("\n") if res.stdout else []
-            instances = [line.strip() for line in lines if line.strip() and len(line.strip()) == 3]
-            items = []
-            for inst in instances:
-                items.append({"item": "Status " + inst, "params": {}, "metrics": []})
-                items.append({"item": "Version " + inst, "params": {}, "metrics": []})
-            return {"changed": False, "msg": "discovered %d items" % len(items), 
-                    "data": {"discovery": items}}
-        
-        # Parse the hdbsql output for status
-        output = res.stdout.strip() if res.stdout else ""
-        if "all started" in output.lower():
-            # Extract instance from output or assume localhost
-            sid_instance = "localhost"
-            items = [
-                {"item": "Status " + sid_instance, "params": {}, "metrics": []},
-                {"item": "all started " + sid_instance, "params": {}, "metrics": []}
-            ]
-            return {"changed": False, "msg": "discovered %d items" % len(items),
-                    "data": {"discovery": items}}
-        
-        # Generic fallback - try to discover via filesystem
-        res = ctx.run(["ls", "-1", "/usr/sap/"], mutates=False)
-        lines = res.stdout.split("\n") if res.stdout else []
-        instances = [line.strip() for line in lines if line.strip() and len(line.strip()) == 3]
-        items = []
-        for inst in instances:
-            items.append({"item": "Status " + inst, "params": {}, "metrics": []})
-            items.append({"item": "Version " + inst, "params": {}, "metrics": []})
-        return {"changed": False, "msg": "discovered %d items" % len(items),
+        items = _discover_status(ctx)
+        return {"changed": False,
+                "msg": "discovered %d SAP HANA status items" % len(items),
                 "data": {"discovery": items}}
-    
-    # Check mode
-    item = params.get("item", "")
-    if not item:
-        return {"changed": False, "msg": "item required", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse item to determine type
-    is_status = item.startswith("Status")
-    sid_instance = item.split(" ", 1)[1] if " " in item else "localhost"
-    
-    # Try to get status via hdbsql - handle common error patterns
-    res = ctx.run(["hdbsql", "-n", "localhost", "-u", "SYSTEM", "-p", "", "-I", "-A", "SELECT 'all started' FROM DUMMY"], mutates=False)
-    
-    # If login fails, try filesystem detection for status
+    return _check_status(ctx, params)
+
+
+def _hdbsql_available(ctx):
+    res = ctx.run(["hdbsql", "--version"], mutates=False)
+    return res.rc == 0
+
+
+def _parse_instances(ctx):
+    instances = []
+    res = ctx.run(["ls", "/hana/shared"], mutates=False)
+    if res.rc == 0:
+        for line in res.stdout.splitlines():
+            sid = line.strip()
+            if sid and len(sid) == 3 and sid.isalpha() and sid.isupper():
+                instances.append(sid)
+    res2 = ctx.run(["ls", "/usr/sap"], mutates=False)
+    if res2.rc == 0:
+        for line in res2.stdout.splitlines():
+            sid = line.strip()
+            if sid and len(sid) == 3 and sid.isalpha() and sid.isupper():
+                instances.append(sid)
+    seen = {}
+    out = []
+    for i in instances:
+        if i not in seen:
+            seen[i] = 1
+            out.append(i)
+    return out
+
+
+def _probe_instance(ctx, sid):
+    key = sid + " KEY"
+    res = ctx.run(["hdbsql", "-U", key, "SELECT 1 FROM M_DATABASES"], mutates=False)
+    if res.rc == 0 and "all started" in res.stdout:
+        parts = res.stdout.strip().split()
+        if len(parts) >= 3:
+            return {"instance": sid, "state_name": parts[1],
+                    "message": " ".join(parts[2:])}
+        return {"instance": sid, "state_name": "ok", "message": "all started"}
     if res.rc != 0:
-        # Check if instance exists in /usr/sap/ directory
-        res = ctx.run(["ls", "-1", "/usr/sap/"], mutates=False)
-        lines = res.stdout.split("\n") if res.stdout else []
-        instances = [line.strip() for line in lines if line.strip() and len(line.strip()) == 3]
-        
-        if sid_instance not in instances:
-            return {"changed": False, "msg": "instance not found: " + sid_instance,
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        
-        # Return status based on filesystem presence
-        state = "OK" if is_status else "OK"
-        summary = "Status: connected" if is_status else "Version: filesystem detected"
-        return {"changed": False, "msg": summary,
-                "data": {"state": state, "metrics": {}, "details": ""}}
-    
-    # Parse the successful hdbsql output
-    output = res.stdout.strip() if res.stdout else ""
-    
-    if "all started" in output.lower():
-        state_name = "started"
-        message = "all services are running"
-    elif "hdbsql ERROR" in output:
-        state_name = "error"
-        message = output
-    elif "all started" not in output.lower():
-        # Try to get version info instead
-        ver_res = ctx.run(["hdbsql", "-n", "localhost", "-u", "SYSTEM", "-p", "", "-V"], mutates=False)
-        version = ver_res.stdout.strip() if ver_res.rc == 0 and ver_res.stdout else "unknown"
-        if is_status:
-            return {"changed": False, "msg": "Status: connected",
-                    "data": {"state": "OK", "metrics": {}, "details": ""}}
-        else:
-            return {"changed": False, "msg": "Version: %s" % version,
-                    "data": {"state": "OK", "metrics": {}, "details": ""}}
+        if res.rc == 127:
+            return None
+        return {"instance": sid, "state_name": "error",
+                "message": res.stdout.strip() + " " + res.stderr.strip()}
+    vres = ctx.run(["hdbsql", "-U", key, "SELECT * FROM M_DATABASES"], mutates=False)
+    if vres.rc == 0 and vres.stdout.strip():
+        parts = vres.stdout.strip().split()
+        version = parts[2] if len(parts) >= 3 else parts[0]
+        return {"instance": sid, "state_name": "connected",
+                "version": version}
+    return None
+
+
+def _discover_status(ctx):
+    if not _hdbsql_available(ctx):
+        return []
+    instances = _parse_instances(ctx)
+    if not instances:
+        return []
+    out = []
+    for sid in instances:
+        data = _probe_instance(ctx, sid)
+        if data == None:
+            continue
+        out.append({"item": "Status " + sid,
+                    "params": {},
+                    "metrics": []})
+        if "version" in data:
+            out.append({"item": data["instance"] + " " + sid,
+                        "params": {},
+                        "metrics": []})
+    return out
+
+
+def _grade(data):
+    state_name = data.get("state_name", "")
+    low = state_name.lower()
+    if low in ("ok", "connected"):
+        state = "OK"
+    elif low in ("unknown", "error"):
+        state = "CRIT"
     else:
-        state_name = "connected"
-        message = ""
-    
-    # Determine state
-    state = _get_state_from_name(state_name)
+        state = "WARN"
     summary = "Status: %s" % state_name
-    if message:
-        summary += ", Details: %s" % message
-    
+    if "message" in data:
+        summary = summary + ", Details: " + data["message"]
+    return state, summary
+
+
+def _check_status(ctx, params):
+    item = params.get("item", "")
+    if not _hdbsql_available(ctx):
+        return {"changed": False,
+                "msg": "no SAP HANA found: hdbsql not installed",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sid = ""
+    if item.startswith("Status "):
+        sid = item[len("Status "):]
+    elif " " in item:
+        parts = item.split(" ")
+        if len(parts) >= 2:
+            sid = parts[-1]
+    else:
+        sid = item
+    if not sid:
+        return {"changed": False,
+                "msg": "no SAP HANA instance specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    data = _probe_instance(ctx, sid)
+    if data == None:
+        return {"changed": False,
+                "msg": "no SAP HANA data for instance " + sid,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if "Status" in item:
+        state, summary = _grade(data)
+    else:
+        if "version" not in data:
+            return {"changed": False,
+                    "msg": "no version data for " + sid,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        state = "OK"
+        summary = "Version: %s" % data["version"]
     return {"changed": False, "msg": summary,
             "data": {"state": state, "metrics": {}, "details": ""}}

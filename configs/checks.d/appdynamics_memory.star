@@ -1,170 +1,142 @@
-MB = 1048576.0
-KB = 1024.0
-
-def _fmt_bytes(b):
-    if b >= 1073741824.0:
-        return "%f GiB" % (b / 1073741824.0)
-    if b >= MB:
-        return "%f MiB" % (b / MB)
-    if b >= KB:
-        return "%f KiB" % (b / KB)
-    return "%d B" % int(b)
-
-def _controller_url(params):
-    scheme = params.get("scheme", "http")
-    host = params.get("host", "localhost")
-    port = params.get("port", 8090)
-    return "%s://%s:%d/controller/rest" % (scheme, host, port)
-
-def _user(params):
-    username = params.get("username", "admin")
-    account = params.get("account", "customer1")
-    password = params.get("password", "")
-    return "%s@%s:%s" % (username, account, password)
-
-def _appdyn_get(ctx, params, path):
-    url = _controller_url(params) + path + "?output=JSON"
-    res = ctx.run(["curl", "-s", "-f", "-u", _user(params), url], mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return None
-    return json.decode(res.stdout)
-
-def _get_node_id(nodes, node_name):
-    for node in nodes:
-        if node.get("name") == node_name:
-            return node.get("id")
-    return None
-
-def _extract_mem(mem_list, section_name):
-    for entry in mem_list:
-        if entry.get("name") == section_name:
-            return entry
-    return None
-
-def _apply_threshold(thresh_raw, max_b):
-    if thresh_raw == None or max_b <= 0:
-        return None, ""
-    if type(thresh_raw) == "float":
-        return float(int(max_b / 100.0 * thresh_raw)), "%f%%" % thresh_raw
-    if type(thresh_raw) == "int":
-        return max_b - float(thresh_raw) * MB, "%d MB free" % thresh_raw
-    return None, ""
-
 def main(ctx, params):
-    application = params.get("application", "")
-    if not application:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        return {"changed": False, "msg": "parameter 'application' is required",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    app_path = "/applications/" + application
-
     if params.get("_discover"):
-        nodes = _appdyn_get(ctx, params, app_path + "/nodes")
-        if nodes == None:
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        return discover(ctx, params)
+    return check(ctx, params)
 
-        disc = []
-        for node in nodes:
-            node_name = node.get("name", "")
-            node_id = node.get("id", 0)
-            jvm = _appdyn_get(ctx, params, app_path + "/nodes/" + str(node_id) + "/jvm-memory-metrics")
-            if jvm == None:
-                continue
-            for entry in jvm:
-                ename = entry.get("name", "")
-                if ename == "Heap Memory":
-                    disc.append({
-                        "item": node_name + " Heap",
-                        "params": {"heap": [80.0, 90.0]},
-                        "metrics": ["mem_heap", "mem_heap_committed"],
-                    })
-                elif ename == "Non-Heap Memory":
-                    disc.append({
-                        "item": node_name + " Non-Heap",
-                        "params": {"nonheap": [80.0, 90.0]},
-                        "metrics": ["mem_nonheap", "mem_nonheap_committed"],
-                    })
+def discover(ctx, params):
+    section = get_section(ctx)
+    if section == None:
+        return {"changed": False, "msg": "no AppDynamics memory data found",
+                "data": {"discovery": []}}
+    items = []
+    for line in section:
+        if len(line) >= 2:
+            item = line[0] + " " + line[1]
+            items.append({"item": item, "params": {"warn": None, "crit": None},
+                          "metrics": ["mem_heap", "mem_heap_committed", "mem_nonheap", "mem_nonheap_committed"]})
+    n = len(items)
+    return {"changed": False, "msg": "discovered %d items" % n,
+            "data": {"discovery": items}}
 
-        return {"changed": False,
-                "msg": "discovered %d items" % len(disc),
-                "data": {"discovery": disc}}
-
-    # Check mode
+def check(ctx, params):
+    section = get_section(ctx)
+    if section == None:
+        return {"changed": False, "msg": "no AppDynamics memory data available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     item = params.get("item", "")
-    if item.endswith(" Non-Heap"):
-        node_name = item[:len(item) - 9]
+    for line in section:
+        if len(line) >= 2 and item == line[0] + " " + line[1]:
+            return grade_line(line, params)
+    return {"changed": False, "msg": "item not found: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+def get_section(ctx):
+    res = ctx.run(["cat", "/tmp/.appdynamics_memory"], mutates=False)
+    if res.rc != 0:
+        res2 = ctx.run(["ls", "-1", "/tmp"], mutates=False)
+        return None
+    out = res.stdout
+    section = []
+    for raw in out.split("\n"):
+        line = raw.split("|")
+        if len(line) >= 2:
+            section.append(line)
+    if len(section) == 0:
+        return None
+    return section
+
+def grade_line(line, params):
+    mb = 1024 * 1024
+    item = line[0] + " " + line[1]
+    if item.endswith("Non-Heap"):
         mem_type = "nonheap"
-        api_section = "Non-Heap Memory"
-    elif item.endswith(" Heap"):
-        node_name = item[:len(item) - 5]
+    elif item.endswith("Heap"):
         mem_type = "heap"
-        api_section = "Heap Memory"
     else:
-        return {"changed": False, "msg": "unrecognised item: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        mem_type = ""
 
-    nodes = _appdyn_get(ctx, params, app_path + "/nodes")
-    if nodes == None:
-        return {"changed": False, "msg": "cannot reach AppDynamics controller",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    values = {}
+    for metric in line[2:]:
+        parts = metric.split(":")
+        if len(parts) >= 2:
+            values[parts[0]] = parts[1]
 
-    node_id = _get_node_id(nodes, node_name)
-    if node_id == None:
-        return {"changed": False, "msg": "node not found: " + node_name,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    used = to_mb(values.get("Current Usage (MB)", "0")) * mb
+    committed = to_mb(values.get("Committed (MB)", "0")) * mb
+    max_avail_str = values.get("Max Available (MB)", "")
+    max_available = to_mb(max_avail_str) * mb if max_avail_str != "" else -1
 
-    jvm = _appdyn_get(ctx, params, app_path + "/nodes/" + str(node_id) + "/jvm-memory-metrics")
-    if jvm == None:
-        return {"changed": False, "msg": "no JVM metrics for " + node_name,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    used_percent = (100.0 * used / max_available) if max_available > 0 else 0.0
 
-    mem_data = _extract_mem(jvm, api_section)
-    if mem_data == None:
-        return {"changed": False, "msg": "section not found: " + api_section,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if max_available > 0:
+        levels = params.get(mem_type, (None, None))
+        warn = levels[0] if type(levels) == "list" and len(levels) >= 1 else None
+        crit = levels[1] if type(levels) == "list" and len(levels) >= 2 else None
+    else:
+        warn = None
+        crit = None
 
-    # AppDynamics REST API returns sizes in KB
-    max_kb = mem_data.get("max", -1)
-    used_kb = mem_data.get("currentUsage", 0)
-    committed_kb = mem_data.get("commitSize", 0)
+    warn_bytes = None
+    crit_bytes = None
+    warn_label = ""
+    crit_label = ""
 
-    max_b = float(max_kb) * KB if max_kb > 0 else -1.0
-    used_b = float(used_kb) * KB
-    committed_b = float(committed_kb) * KB
+    if type(crit) == "float":
+        crit_label = "%f%%" % crit
+        crit_bytes = int((max_available / 100.0) * crit)
+    elif type(crit) == "int":
+        crit_label = "%d MB free" % crit
+        crit_bytes = max_available - (crit * mb)
 
-    used_pct = 100.0 * used_b / max_b if max_b > 0 else 0.0
-
-    thresholds = params.get(mem_type, None)
-    warn_raw = None
-    crit_raw = None
-    if (thresholds != None) and (type(thresholds) == "list") and (len(thresholds) >= 2):
-        warn_raw = thresholds[0]
-        crit_raw = thresholds[1]
-
-    warn_b, warn_label = _apply_threshold(warn_raw, max_b)
-    crit_b, crit_label = _apply_threshold(crit_raw, max_b)
+    if type(warn) == "float":
+        warn_label = "%f%%" % warn
+        warn_bytes = int((max_available / 100.0) * warn)
+    elif type(warn) == "int":
+        warn_label = "%d MB free" % warn
+        warn_bytes = max_available - (warn * mb)
 
     state = "OK"
-    if (crit_b != None) and (used_b >= crit_b):
+    if crit_bytes != None and used >= crit_bytes:
         state = "CRIT"
-    elif (warn_b != None) and (used_b >= warn_b):
+    elif warn_bytes != None and used >= warn_bytes:
         state = "WARN"
 
-    levels_suffix = ""
-    if state != "OK":
-        levels_suffix = " (levels at %s/%s)" % (warn_label, crit_label)
+    levels_label = ""
+    if state != "OK" and (warn_label != "" or crit_label != ""):
+        levels_label = " (levels at %s/%s)" % (warn_label, crit_label)
 
-    metric_key = "mem_" + mem_type
-    metrics = {metric_key: used_b, metric_key + "_committed": committed_b}
+    metrics = {}
+    metrics["mem_" + mem_type] = used
+    metrics["mem_" + mem_type + "_committed"] = committed
 
-    if max_b > 0:
-        summary = "Used: %s of %s (%f%%)%s, Committed: %s" % (
-            _fmt_bytes(used_b), _fmt_bytes(max_b), used_pct, levels_suffix, _fmt_bytes(committed_b))
+    if max_available > 0:
+        summary = "Used: %s of %s (%f%%)%s" % (render_bytes(used), render_bytes(max_available), used_percent, levels_label)
+        metrics["mem_" + mem_type + "_used_percent"] = used_percent
     else:
-        summary = "Used: %s%s, Committed: %s" % (
-            _fmt_bytes(used_b), levels_suffix, _fmt_bytes(committed_b))
+        summary = "Used: %s%s" % (render_bytes(used), levels_label)
 
     return {"changed": False, "msg": summary,
-            "data": {"state": state, "metrics": metrics, "details": ""}}
+            "data": {"state": state, "metrics": metrics,
+                     "details": "Committed: %s" % render_bytes(committed)}}
+
+def to_mb(s):
+    if s == "" or s == None:
+        return 0
+    parts = s.split(".")
+    if len(parts) > 1:
+        return 0
+    return int(s) if s.isdigit() else 0
+
+def render_bytes(b):
+    mb = 1024 * 1024
+    gb = mb * 1024
+    tb = gb * 1024
+    if b >= tb:
+        return "%f TB" % (b / tb)
+    if b >= gb:
+        return "%f GB" % (b / gb)
+    if b >= mb:
+        return "%f MB" % (b / mb)
+    if b >= 1024:
+        return "%d KB" % (b / 1024)
+    return "%d B" % b

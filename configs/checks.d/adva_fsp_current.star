@@ -1,164 +1,154 @@
-# Module-level constants (no imports allowed)
-SNMP_BASE = ".1.3.6.1.4.1.2544"
-OID_CURRENT = ".1.11.2.4.2.2.1.1"
-OID_THRESHOLD = ".1.11.2.4.2.2.1.2"
-OID_POWER = ".1.11.2.4.2.2.1.3"
-OID_UNIT_NAME = ".2.5.5.1.1.1"
-OID_INDEX_AID = ".2.5.5.2.1.5"
+# Translated Checkmk check: adva_fsp_current (Power Supply current)
+# SNMP-based check for ADVA Fiber Service Platform F7 power supplies.
+
+def _to_float(s):
+    s = s.strip()
+    if s == "" or s == None:
+        return 0.0
+    neg = False
+    if s.startswith("-"):
+        neg = True
+        s = s[1:]
+    if s.startswith("+"):
+        s = s[1:]
+    if s == "":
+        return 0.0
+    dot_seen = False
+    for ch in s:
+        if ch >= "0" and ch <= "9":
+            continue
+        if ch == ".":
+            if dot_seen:
+                return 0.0
+            dot_seen = True
+            continue
+        return 0.0
+    val = 0.0
+    dot_pos = -1
+    for i in range(len(s)):
+        if s[i] == ".":
+            dot_pos = i
+    if dot_pos == -1:
+        for ch in s:
+            val = val * 10 + (ord(ch) - ord("0"))
+        return val if not neg else -val
+    int_part = s[:dot_pos]
+    frac_part = s[dot_pos + 1:]
+    for ch in int_part:
+        val = val * 10 + (ord(ch) - ord("0"))
+    f = 0.0
+    for ch in frac_part:
+        f = f * 10 + (ord(ch) - ord("0"))
+    for _ in range(len(frac_part)):
+        f = f / 10.0
+    val = val + f
+    return val if not neg else -val
 
 def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"), SNMP_BASE
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    # --- Detection: this check only applies to ADVA FSP devices ---
+    sys_descr = ctx.run([
+        "snmpget", "-v2c", "-c", community, "-Oqv",
+        host, ".1.3.6.1.2.1.1.1.0",
+    ], mutates=False)
+    if sys_descr.rc != 0:
+        if not params.get("_discover"):
+            return {"changed": False, "msg": "SNMP unavailable for " + host,
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "device not reachable",
+                "data": {"discovery": [], "host_labels": {}}}
+
+    descr = sys_descr.stdout.strip()
+    if "Fiber Service Platform F7" not in descr:
+        if not params.get("_discover"):
+            return {"changed": False, "msg": "not an ADVA FSP device",
+                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "device not an ADVA FSP",
+                "data": {"discovery": [], "host_labels": {}}}
+
+    # --- Fetch the SNMP table columns by index ---
+    cols = {
+        "current": "1.11.2.4.2.2.1.1",
+        "crit": "1.11.2.4.2.2.1.2",
+        "power": "1.11.2.4.2.2.1.3",
+        "name": "2.5.5.1.1.1",
+        "index": "2.5.5.1.1.5",
+    }
+    raw = {}
+    for cname in cols:
+        r = ctx.run([
+            "snmpwalk", "-v2c", "-c", community, "-Oqn",
+            host, ".1.3.6.1.4.1.2544." + cols[cname],
         ], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", 
-                    "data": {"discovery": []}}
-        
-        # Parse SNMP output: lines like ".1.3.6.1.4.1.2544.1.11.2.4.2.2.1.1.101318912  8110"
-        # Extract 5-tuples: current, threshold, power, unit_name, index_aid
-        records = []
-        i = 0
-        lines = res.stdout.splitlines()
-        while i + 4 < len(lines):
-            # Check for consecutive OIDs in expected pattern
-            parts0 = lines[i].strip().split()
-            parts1 = lines[i+1].strip().split()
-            parts2 = lines[i+2].strip().split()
-            parts3 = lines[i+3].strip().split()
-            parts4 = lines[i+4].strip().split()
-            
-            # Validate format: [oid, '=', type':', value]
-            if len(parts0) >= 3 and len(parts1) >= 3 and len(parts2) >= 3 and len(parts3) >= 3 and len(parts4) >= 3:
-                oid0 = parts0[0].rstrip(":")
-                oid1 = parts1[0].rstrip(":")
-                oid2 = parts2[0].rstrip(":")
-                oid3 = parts3[0].rstrip(":")
-                oid4 = parts4[0].rstrip(":")
-                
-                if (oid0.startswith(OID_CURRENT) and 
-                    oid1.startswith(OID_THRESHOLD) and 
-                    oid2.startswith(OID_POWER) and 
-                    oid3.startswith(OID_UNIT_NAME) and 
-                    oid4.startswith(OID_INDEX_AID)):
-                    
-                    current_str = parts0[-1].strip().rstrip('"')
-                    threshold_str = parts1[-1].strip().rstrip('"')
-                    power_str = parts2[-1].strip().rstrip('"')
-                    unit_name = parts3[-1].strip().rstrip('"')
-                    index_aid = parts4[-1].strip().rstrip('"')
-                    
-                    # Ignore non-connected sensors (power_str must be non-empty)
-                    if index_aid and power_str:
-                        records.append({
-                            "current": current_str,
-                            "threshold": threshold_str,
-                            "power": power_str,
-                            "unit_name": unit_name,
-                            "index_aid": index_aid
-                        })
-            
-            i += 1
-        
-        discovery_items = []
-        for rec in records:
-            item = rec["index_aid"]
-            
-            # Suggested params (empty as Checkmk source has no levels)
-            discovery_items.append({
+        col_data = {}
+        if r.rc == 0:
+            for line in r.stdout.splitlines():
+                parts = line.split(" ", 1)
+                if len(parts) != 2:
+                    continue
+                oid = parts[0]
+                val = parts[1]
+                idx = oid[len(".1.3.6.1.4.1.2544." + cols[cname]) + 1:]
+                col_data[idx] = val
+        raw[cname] = col_data
+
+    # --- Build SensorData for connected sensors (index_aid and power present) ---
+    sensors = {}
+    for idx in raw.get("power", {}):
+        power_val = raw["power"].get(idx, "")
+        index_aid = idx
+        if not index_aid or not power_val:
+            continue
+        current_str = raw.get("current", {}).get(idx, "0")
+        crit_str = raw.get("crit", {}).get(idx, "0")
+        unit_name = raw.get("name", {}).get(idx, "")
+        current = _to_float(current_str) / 1000.0
+        crit = _to_float(crit_str) / 1000.0
+        sensors[index_aid] = {"name": unit_name, "crit": crit, "current": current}
+
+    # --- Discovery ---
+    if params.get("_discover"):
+        discovery = []
+        for item in sorted(sensors.keys()):
+            discovery.append({
                 "item": item,
                 "params": {},
-                "metrics": ["current"]
+                "metrics": ["current"],
             })
-        
         return {
             "changed": False,
-            "msg": "discovered %d power supplies" % len(discovery_items),
-            "data": {"discovery": discovery_items}
+            "msg": "discovered %d power supplies" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
         }
-    
-    # Check mode (not discovery)
+
+    # --- Check single item ---
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), SNMP_BASE
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed", 
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse SNMP output for the specific item
-    sensor = None
-    # Re-scan for complete record matching item
-    lines = res.stdout.splitlines()
-    i = 0
-    while i + 4 < len(lines):
-        parts0 = lines[i].strip().split()
-        parts1 = lines[i+1].strip().split()
-        parts2 = lines[i+2].strip().split()
-        parts3 = lines[i+3].strip().split()
-        parts4 = lines[i+4].strip().split()
-        
-        if len(parts0) >= 3 and len(parts1) >= 3 and len(parts2) >= 3 and len(parts3) >= 3 and len(parts4) >= 3:
-            oid0 = parts0[0].rstrip(":")
-            oid1 = parts1[0].rstrip(":")
-            oid2 = parts2[0].rstrip(":")
-            oid3 = parts3[0].rstrip(":")
-            oid4 = parts4[0].rstrip(":")
-            
-            if (oid0.startswith(OID_CURRENT) and 
-                oid1.startswith(OID_THRESHOLD) and 
-                oid2.startswith(OID_POWER) and 
-                oid3.startswith(OID_UNIT_NAME) and 
-                oid4.startswith(OID_INDEX_AID)):
-                
-                index_aid = parts4[-1].strip().rstrip('"')
-                if index_aid == item:
-                    current_str = parts0[-1].strip().rstrip('"')
-                    threshold_str = parts1[-1].strip().rstrip('"')
-                    power_str = parts2[-1].strip().rstrip('"')
-                    unit_name = parts3[-1].strip().rstrip('"')
-                    
-                    # Only use if valid and connected
-                    if index_aid and power_str and current_str.isdigit() and threshold_str.isdigit():
-                        current = float(current_str) / 1000.0
-                        crit = float(threshold_str) / 1000.0
-                        sensor = {"name": unit_name, "current": current, "crit": crit}
-                        break
-        
-        i += 1
-    
-    # If sensor not found
-    if sensor == None:
+    if item not in sensors:
         return {
             "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no such power supply: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    # Apply check logic (no levels in Checkmk source, so use sensor's crit as threshold)
-    # Checkmk uses check_levels with levels_upper=("fixed", (crit, crit))
-    current_val = sensor["current"]
+
+    sensor = sensors[item]
+    current = sensor["current"]
     crit = sensor["crit"]
-    
-    # Determine state: WARN/CRIT if current >= crit (fixed thresholds)
-    if current_val >= crit:
+
+    state = "OK"
+    if current >= crit and crit > 0:
         state = "CRIT"
-    else:
-        state = "OK"
-    
-    # Build message string
-    msg = "[%s] %f A" % (sensor["name"], current_val)
-    
+
+    label = "[" + sensor["name"] + "]" if sensor["name"] else ""
+    msg = label + " " + "%f A" % current
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": msg.strip(),
         "data": {
             "state": state,
-            "metrics": {"current": current_val},
-            "details": ""
-        }
+            "metrics": {"current": current},
+            "details": "",
+        },
     }

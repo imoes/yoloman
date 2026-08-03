@@ -1,17 +1,6 @@
-# Status string from CSV -> params key
-STATUS_TO_KEY = {
-    "UP": "UP",
-    "DOWN": "DOWN",
-    "NOLB": "NOLB",
-    "MAINT": "MAINT",
-    "MAINT (via)": "MAINT_VIA",
-    "MAINT (resolution)": "MAINT_RES",
-    "DRAIN": "DRAIN",
-    "no check": "NO_CHECK",
-}
-
-# Default check states: 0=OK 1=WARN 2=CRIT 3=UNKNOWN
-DEFAULT_STATES = {
+# Default server states: status_name -> state value (0=OK, 1=WARN, 2=CRIT, 3=UNKNOWN)
+# From check_default_parameter for haproxy_server/backend
+_DEFAULT_SERVER_PARAMS = {
     "UP": 0,
     "DOWN": 2,
     "NOLB": 2,
@@ -22,145 +11,183 @@ DEFAULT_STATES = {
     "NO_CHECK": 2,
 }
 
-STATE_NAMES = ["OK", "WARN", "CRIT", "UNKNOWN"]
+# HAProxy show stat CSV column indices (per HAProxy documentation)
+_COL_STATUS = 17
+_COL_STOT = 7
+_COL_UPTIME = 23
+_COL_ACTIVE = 19
+_COL_BACKUP = 20
+_COL_TYPE = 32
 
-def _is_digits(s):
-    if len(s) == 0:
-        return False
-    for i in range(len(s)):
-        c = s[i]
-        if not (("0" <= c) and (c <= "9")):
-            return False
-    return True
-
-def _parse_int(s):
-    if s == None or s == "":
+def _parse_int(val):
+    if val == None or val == "":
         return None
-    neg = s.startswith("-")
-    digits = s[1:] if neg else s
-    if not _is_digits(digits):
+    cleaned = val.lstrip("-")
+    if cleaned.isdigit():
+        return int(val)
+    return None
+
+def _get_stats_via_python(ctx, socket_path):
+    script_lines = [
+        "import socket, sys, time",
+        "s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)",
+        "s.settimeout(5)",
+        "s.connect(sys.argv[1])",
+        "s.send(b'show stat\\n')",
+        "time.sleep(1)",
+        "data = b''",
+        "while True:",
+        "    chunk = s.recv(65536)",
+        "    if not chunk:",
+        "        break",
+        "    data += chunk",
+        "sys.stdout.write(data.decode('utf-8', 'replace'))",
+        "s.close()",
+    ]
+    script = "\n".join(script_lines)
+    res = ctx.run(["python3", "-c", script, socket_path], mutates=False)
+    if res.rc != 0 or res.stdout == "":
         return None
-    return int(s)
+    return res.stdout
 
-def _format_timespan(seconds):
-    if seconds < 60:
-        return "%d s" % seconds
-    if seconds < 3600:
-        return "%d m %d s" % (seconds // 60, seconds % 60)
-    if seconds < 86400:
-        return "%d h %d m" % (seconds // 3600, (seconds % 3600) // 60)
-    return "%d d %d h" % (seconds // 86400, (seconds % 86400) // 3600)
+def _find_haproxy_socket(ctx, explicit_path):
+    if explicit_path != None and ctx.file_exists(explicit_path):
+        return explicit_path
+    for path in ["/var/run/haproxy/haproxy.sock", "/var/run/haproxy.sock", "/run/haproxy/haproxy.sock", "/tmp/haproxy.sock"]:
+        if ctx.file_exists(path):
+            return path
+    return None
 
-def _get_stats(ctx, params):
-    socket = params.get("socket", "/var/run/haproxy/admin.sock")
-    cmd = "echo 'show stat' | socat STDIO unix-connect:" + socket
-    return ctx.run(["bash", "-c", cmd], mutates=False)
-
-def _parse_backends(output):
-    backends = {}
-    for line in output.splitlines():
-        line = line.strip()
-        if line.startswith("#") or len(line) == 0:
+def _parse_haproxy_csv(csv_text):
+    rows = []
+    for line in csv_text.splitlines():
+        stripped = line.strip()
+        if stripped == "" or stripped.startswith("#"):
             continue
         fields = line.split(",")
-        if len(fields) <= 32:
+        rows.append(fields)
+    return rows
+
+def _build_backend_dict(rows):
+    backends = {}
+    for fields in rows:
+        if len(fields) <= _COL_TYPE:
             continue
-        if fields[32] != "1":
+        if fields[_COL_TYPE] != "1":
             continue
-        stot = _parse_int(fields[7])
+
+        stot_str = fields[_COL_STOT]
+        if not _parse_int(stot_str) != None and not stot_str.lstrip("-").isdigit():
+            continue
+        stot = _parse_int(stot_str)
         if stot == None:
             continue
+
         name = fields[0]
-        status = fields[17]
-        uptime = _parse_int(fields[23]) if len(fields) > 23 else None
-        active = _parse_int(fields[19]) if len(fields) > 19 else None
-        backup = _parse_int(fields[20]) if len(fields) > 20 else None
+        if name == "" or name.startswith("~"):
+            continue
+
+        status_str = fields[_COL_STATUS]
+        uptime = _parse_int(fields[_COL_UPTIME])
+        active = _parse_int(fields[_COL_ACTIVE])
+        backup = _parse_int(fields[_COL_BACKUP])
         backends[name] = {
-            "status": status,
-            "stot": stot,
+            "status": status_str,
             "uptime": uptime,
             "active": active,
             "backup": backup,
+            "stot": stot,
         }
     return backends
 
+def _state_from_level(level_val):
+    if level_val == 0:
+        return "OK"
+    if level_val == 1:
+        return "WARN"
+    if level_val == 2:
+        return "CRIT"
+    return "UNKNOWN"
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = _get_stats(ctx, params)
-        if res.rc != 0:
-            return {
-                "changed": False,
-                "msg": "haproxy stats unavailable",
-                "data": {"discovery": []},
-            }
-        backends = _parse_backends(res.stdout)
-        items = [
-            {
+        socket_path = _find_haproxy_socket(ctx, params.get("socket"))
+        if socket_path == None:
+            return {"changed": False, "msg": "no HAProxy socket found",
+                    "data": {"discovery": []}}
+
+        csv_text = _get_stats_via_python(ctx, socket_path)
+        if csv_text == None:
+            return {"changed": False, "msg": "HAProxy not reachable",
+                    "data": {"discovery": []}}
+
+        rows = _parse_haproxy_csv(csv_text)
+        backends = _build_backend_dict(rows)
+
+        discovery = []
+        for name in backends.keys():
+            p = {}
+            for k in _DEFAULT_SERVER_PARAMS.keys():
+                p[k] = _DEFAULT_SERVER_PARAMS[k]
+            discovery.append({
                 "item": name,
-                "params": {},
-                "metrics": ["active_backends", "stot"],
-            }
-            for name in sorted(backends.keys())
-        ]
-        return {
-            "changed": False,
-            "msg": "discovered %d backends" % len(items),
-            "data": {"discovery": items},
-        }
+                "params": p,
+                "metrics": ["active", "backup", "stot"],
+            })
+
+        return {"changed": False,
+                "msg": "discovered %d backends" % len(discovery),
+                "data": {"discovery": discovery}}
 
     item = params.get("item", "")
-    res = _get_stats(ctx, params)
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "haproxy stats unavailable: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    socket_path = _find_haproxy_socket(ctx, params.get("socket"))
 
-    backends = _parse_backends(res.stdout)
-    data = backends.get(item)
-    if data == None:
-        return {
-            "changed": False,
-            "msg": "backend not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    if socket_path == None:
+        return {"changed": False,
+                "msg": "no HAProxy socket found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "no HAProxy socket found"}}
 
-    status = data["status"]
-    param_key = STATUS_TO_KEY.get(status)
-    if param_key == None:
-        state_num = 3
+    csv_text = _get_stats_via_python(ctx, socket_path)
+    if csv_text == None:
+        return {"changed": False,
+                "msg": "HAProxy not reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "HAProxy not reachable"}}
+
+    rows = _parse_haproxy_csv(csv_text)
+    backends = _build_backend_dict(rows)
+    backend = backends.get(item)
+
+    if backend == None:
+        return {"changed": False,
+                "msg": "backend %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": "backend %s not found" % item}}
+
+    params_map = {}
+    for k in _DEFAULT_SERVER_PARAMS.keys():
+        params_map[k] = _DEFAULT_SERVER_PARAMS[k]
+    for k in params.keys():
+        params_map[k] = params[k]
+
+    status = backend["status"]
+    state_val = "WARN"
+    summary = "Status: %s" % status
+
+    canonical = status
+    if canonical in _DEFAULT_SERVER_PARAMS:
+        level = params_map[canonical]
+        state_val = _state_from_level(level)
+        summary = "Status: %s" % canonical
     else:
-        state_num = params.get(param_key, DEFAULT_STATES.get(param_key, 2))
-    state_str = STATE_NAMES[state_num] if ((0 <= state_num) and (state_num <= 3)) else "UNKNOWN"
+        state_val = "WARN"
+        summary = "Status: %s" % status
 
-    parts = ["Status: " + status]
     metrics = {}
+    if backend["active"] != None and backend["active"] > 0:
+        metrics["active"] = backend["active"]
+    if backend["backup"] != None:
+        metrics["backup"] = backend["backup"]
+    if backend["stot"] != None:
+        metrics["stot"] = backend["stot"]
 
-    active = data["active"]
-    backup = data["backup"]
-    if active != None and active > 0:
-        parts.append("Active: %d" % active)
-        metrics["active_backends"] = active
-    elif backup != None and backup > 0:
-        parts.append("Backup")
-    else:
-        parts.append("Neither active nor backup")
-
-    uptime = data["uptime"]
-    if uptime != None:
-        parts.append("%s since %s" % (status, _format_timespan(uptime)))
-
-    stot = data["stot"]
-    if stot != None:
-        metrics["stot"] = stot
-
-    return {
-        "changed": False,
-        "msg": ", ".join(parts),
-        "data": {
-            "state": state_str,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    return {"changed": False, "msg": summary,
+            "data": {"state": state_val, "metrics": metrics, "details": summary}}

@@ -1,240 +1,252 @@
+# ===== checkmk.infoblox_temp → read-only Starlark check module =====
+# Source: Checkmk check mk.infoblox_temp (SNMP, IB-PLATFORMONE-MIB temperature sensors)
+# Translated for the yolo-man agent Starlark runtime.
+
+# State code mapping (from the Checkmk parse function)
+# SNMP value -> (numeric devstate, name)
+_STATES = {
+    "1": (0, "working"),
+    "2": (1, "warning"),
+    "3": (2, "failed"),
+    "4": (1, "inactive"),
+    "5": (3, "unknown"),
+}
+
+# SNMP OIDs
+_SYS_DESCR_OID = ".1.3.6.1.4.1.7779.3.1.1.2.1.7"
+_STATUS_BASE = ".1.3.6.1.4.1.7779.3.1.1.2.1.10.1.2"
+_TEMP_BASE = ".1.3.6.1.4.1.7779.3.1.1.2.1.10.1.3"
+_SYSOID_OID = ".1.3.6.1.2.1.1.2.0"
+_SYSDESCR_OID = ".1.3.6.1.2.1.1.1.0"
+
+# The five sensor columns, in order: cpu1, cpu2, sys, plus two trailing
+# columns (.37, .38) that exist in the table but are not temperature sensors.
+_SENSOR_OID_SUFS = ["37", "38", "39", "40", "41"]
+
+
+def _parse_version(version_raw):
+    parts = version_raw.split(".")
+    major = 0
+    minor = 0
+    if len(parts) >= 1 and parts[0].isdigit():
+        major = int(parts[0])
+    if len(parts) >= 2 and parts[1].isdigit():
+        minor = int(parts[1])
+    return major, minor
+
+
+def _snmp_get(ctx, oid, community, host):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout == "":
+        return None
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        val = val[1:-1]
+    return val
+
+
+def _snmp_walk(ctx, base, community, host):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base],
+        mutates=False,
+    )
+    out = {}
+    if res.rc != 0 or res.stdout == "":
+        return out
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp < 0:
+            continue
+        full_oid = line[:sp]
+        value = line[sp + 1:]
+        suffix = full_oid[len(base) + 1:] if full_oid.startswith(base + ".") else ""
+        out[suffix] = value
+    return out
+
+
+def _parse_section(ctx, community, host):
+    version_raw = _snmp_get(ctx, _SYS_DESCR_OID + ".0", community, host)
+    if version_raw == None or version_raw == "":
+        return None
+
+    major, minor = _parse_version(version_raw)
+
+    status_vals = {}
+    temp_vals = {}
+    for suf in _SENSOR_OID_SUFS:
+        s = _snmp_get(ctx, _STATUS_BASE + "." + suf, community, host)
+        t = _snmp_get(ctx, _TEMP_BASE + "." + suf, community, host)
+        if s != None:
+            status_vals[suf] = s
+        if t != None:
+            temp_vals[suf] = t
+
+    # The Checkmk code indexes: string_table[1][0][1:4] or [3:] depending on
+    # version. Both effectively target cpu1(.39), cpu2(.40), sys(.41).
+    suffixes = ["39", "40", "41"]
+
+    state_table = [status_vals.get(s, "5") for s in suffixes]
+    temp_table = [temp_vals.get(s, "") for s in suffixes]
+
+    return _parse_infoblox_temp(state_table, temp_table)
+
+
+def _parse_infoblox_temp(state_table, temp_table):
+    parsed = {}
+    names = ["1", "2", ""]
+    for index, state, descr in zip(names, state_table, temp_table):
+        if descr == None or ":" not in descr:
+            continue
+        name, val_str = descr.split(":", 1)
+        parts = val_str.strip().split()
+        if len(parts) < 2:
+            continue
+        r_val = parts[0]
+        unit = parts[1]
+        r_val_clean = r_val.lstrip("+")
+        if not _is_float(r_val_clean):
+            continue
+        val = float(r_val_clean)
+        what_name = (name + " " + index).strip()
+        st = _STATES.get(state, "5")
+        parsed.setdefault(what_name, {
+            "state": st,
+            "reading": val,
+            "unit": unit.lower(),
+        })
+    return parsed
+
+
+def _is_float(s):
+    if s == None or s == "":
+        return False
+    # Guard: try float conversion without try/except by validating char-by-char
+    # Allow leading + or -, digits, one optional dot
+    if len(s) == 0:
+        return False
+    start = 0
+    if s[0] == "+" or s[0] == "-":
+        start = 1
+        if len(s) == 1:
+            return False
+    has_dot = False
+    has_digit = False
+    for i in range(start, len(s)):
+        ch = s[i]
+        if ch >= "0" and ch <= "9":
+            has_digit = True
+        elif ch == ".":
+            if has_dot:
+                return False
+            has_dot = True
+        else:
+            return False
+    return has_digit
+
+
+def _grade_temperature(reading, warn, crit):
+    if reading >= crit:
+        return "CRIT"
+    if reading >= warn:
+        return "WARN"
+    return "OK"
+
+
 def main(ctx, params):
-    BASE_STATUS = ".1.3.6.1.4.1.7779.3.1.1.2.1.10.1.2"
-    BASE_DESCR = ".1.3.6.1.4.1.7779.3.1.1.2.1.10.1.3"
-    INDICES = ["37", "38", "39", "40", "41"]
-    
-    MAP_STATES = {
-        "1": (0, "working"),
-        "2": (1, "warning"),
-        "3": (2, "failed"),
-        "4": (1, "inactive"),
-        "5": (3, "unknown"),
-    }
-    
     if params.get("_discover"):
-        res_version = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.7779.3.1.1.2.1.7.0"
-        ], mutates=False)
-        
-        if not res_version.stdout.strip():
-            return {
-                "changed": False,
-                "msg": "discovered 0 items",
-                "data": {"discovery": []}
-            }
-        
-        version_line = res_version.stdout.strip().split("\n")[0]
-        use_new_format = False
-        if "=" in version_line:
-            version_raw = version_line.split()[-1].split(".")
-            if len(version_raw) >= 2:
-                major_str = version_raw[0]
-                minor_str = version_raw[1]
-                if major_str.isdigit() and minor_str.isdigit():
-                    major_version = int(major_str)
-                    minor_version = int(minor_str)
-                    use_new_format = major_version > 8 or (major_version == 8 and minor_version > 6)
-        
-        offset = 0 if use_new_format else 3
-        indices_to_use = INDICES[offset:]
-        
-        res_status = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            BASE_STATUS
-        ], mutates=False)
-        
-        res_descr = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            BASE_DESCR
-        ], mutates=False)
-        
-        status_map = {}
-        for line in res_status.stdout.strip().split("\n"):
-            if not line:
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_end = parts[0].rsplit(".", 1)[-1]
-            val_str = parts[1].split(":")[-1].strip() if ":" in parts[1] else ""
-            if oid_end in INDICES:
-                status_map[oid_end] = val_str
-        
-        descr_map = {}
-        for line in res_descr.stdout.strip().split("\n"):
-            if not line:
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_end = parts[0].rsplit(".", 1)[-1]
-            val_str = parts[1].split(":")[-1].strip() if ":" in parts[1] else ""
-            if oid_end in INDICES:
-                descr_map[oid_end] = val_str
-        
-        out = []
-        for idx in indices_to_use:
-            state_val = status_map.get(idx)
-            descr_val = descr_map.get(idx)
-            if state_val == None or descr_val == None:
-                continue
-            
-            if ":" not in descr_val:
-                continue
-            
-            name_part, val_str = descr_val.split(":", 1)
-            name_map = {
-                "37": "cpu1",
-                "38": "cpu2",
-                "39": "sys",
-                "40": "mem",
-                "41": "other"
-            }
-            sensor_name = name_map.get(idx, idx)
-            item_name = (name_part.strip() + " " + sensor_name).strip()
-            
-            out.append({
-                "item": item_name,
-                "params": {"levels": [40.0, 50.0]},
-                "metrics": ["temp"]
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
+
+        sysoid = _snmp_get(ctx, _SYSOID_OID, community, host)
+        if sysoid == None:
+            return {"changed": False, "msg": "no SNMP response from host", "data": {"discovery": []}}
+
+        is_infoblox = False
+        if sysoid != None and sysoid.startswith(".1.3.6.1.4.1.7779.1"):
+            is_infoblox = True
+
+        if not is_infoblox:
+            descr = _snmp_get(ctx, _SYSDESCR_OID, community, host)
+            if descr != None and "infoblox" in descr.lower():
+                is_infoblox = True
+
+        if not is_infoblox:
+            return {"changed": False, "msg": "not an Infoblox device", "data": {"discovery": []}}
+
+        section = _parse_section(ctx, community, host)
+        if section == None or len(section) == 0:
+            return {"changed": False, "msg": "no Infoblox temperature sensors found", "data": {"discovery": []}}
+
+        discovery = []
+        for name in section:
+            discovery.append({
+                "item": name,
+                "params": {"levels": (40.0, 50.0)},
+                "metrics": ["temperature"],
             })
-        
+
         return {
             "changed": False,
-            "msg": "discovered %d items" % len(out),
-            "data": {"discovery": out}
+            "msg": "discovered %d temperature sensors" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {"cmk/os_family": "infoblox"}},
         }
-    
+
     item = params.get("item", "")
-    warn = 40.0
-    crit = 50.0
-    if params.get("levels") != None:
-        levels = params.get("levels")
-        if type(levels) == "list" and len(levels) >= 2:
-            warn = float(levels[0])
-            crit = float(levels[1])
-        elif type(levels) == "int" or type(levels) == "float":
-            warn = float(levels)
-            crit = float(levels) * 1.25
-    
-    res_version = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.7779.3.1.1.2.1.7.0"
-    ], mutates=False)
-    
-    use_new_format = False
-    if res_version.stdout.strip():
-        version_line = res_version.stdout.strip().split("\n")[0]
-        if "=" in version_line:
-            version_raw = version_line.split()[-1].split(".")
-            if len(version_raw) >= 2:
-                major_str = version_raw[0]
-                minor_str = version_raw[1]
-                if major_str.isdigit() and minor_str.isdigit():
-                    major_version = int(major_str)
-                    minor_version = int(minor_str)
-                    use_new_format = major_version > 8 or (major_version == 8 and minor_version > 6)
-    
-    offset = 0 if use_new_format else 3
-    indices_to_use = INDICES[offset:]
-    
-    res_status = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        BASE_STATUS
-    ], mutates=False)
-    
-    res_descr = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        BASE_DESCR
-    ], mutates=False)
-    
-    status_map = {}
-    for line in res_status.stdout.strip().split("\n"):
-        if not line:
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_end = parts[0].rsplit(".", 1)[-1]
-        val_str = parts[1].split(":")[-1].strip() if ":" in parts[1] else ""
-        if oid_end in INDICES:
-            status_map[oid_end] = val_str
-    
-    descr_map = {}
-    for line in res_descr.stdout.strip().split("\n"):
-        if not line:
-            continue
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_end = parts[0].rsplit(".", 1)[-1]
-        val_str = parts[1].split(":")[-1].strip() if ":" in parts[1] else ""
-        if oid_end in INDICES:
-            descr_map[oid_end] = val_str
-    
-    sensor_reading = None
-    sensor_unit = "celsius"
-    
-    for idx in indices_to_use:
-        state_val = status_map.get(idx)
-        descr_val = descr_map.get(idx)
-        if state_val == None or descr_val == None:
-            continue
-        
-        if ":" not in descr_val:
-            continue
-        
-        name_part, val_str = descr_val.split(":", 1)
-        name_map = {
-            "37": "cpu1",
-            "38": "cpu2",
-            "39": "sys",
-            "40": "mem",
-            "41": "other"
-        }
-        sensor_name = name_map.get(idx, idx)
-        check_item = (name_part.strip() + " " + sensor_name).strip()
-        
-        if check_item == item:
-            parts_val = val_str.strip().split()
-            if len(parts_val) >= 2:
-                r_val = parts_val[0]
-                unit = parts_val[1]
-                # Guard against non-numeric string
-                clean_r_val = r_val.replace(".", "").replace("-", "")
-                if clean_r_val.isdigit():
-                    sensor_reading = float(r_val)
-                    sensor_unit = unit.lower()
-            break
-    
-    if sensor_reading == None:
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    sysoid = _snmp_get(ctx, _SYSOID_OID, community, host)
+    if sysoid == None:
         return {
             "changed": False,
-            "msg": "sensor not found: %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "no SNMP response from host",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
-    
-    state = "OK"
-    if sensor_reading >= crit:
+
+    section = _parse_section(ctx, community, host)
+    if section == None or len(section) == 0:
+        return {
+            "changed": False,
+            "msg": "no Infoblox temperature sensors found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    sensor = section.get(item)
+    if sensor == None:
+        return {
+            "changed": False,
+            "msg": "no such sensor: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    devstate_tuple = sensor["state"]
+    devstate = devstate_tuple[0]
+    devstatename = devstate_tuple[1]
+    reading = sensor["reading"]
+    unit = sensor["unit"]
+
+    if devstate == 2 and devstatename == "failed":
         state = "CRIT"
-    elif sensor_reading >= warn:
+    elif devstate == 1 and devstatename == "warning":
         state = "WARN"
-    
-    msg = "Temperature: %f C" % sensor_reading
-    
+    else:
+        levels = params.get("levels", (40.0, 50.0))
+        warn = levels[0]
+        crit = levels[1]
+        state = _grade_temperature(reading, warn, crit)
+
+    metric_name = "temperature"
+    summary = "Temperature %s: %f %s" % (item, reading, unit)
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": summary,
         "data": {
             "state": state,
-            "metrics": {"temp": sensor_reading},
-            "details": ""
-        }
+            "metrics": {metric_name: reading},
+            "details": "devstate=%s reading=%f unit=%s" % (devstatename, reading, unit),
+        },
     }

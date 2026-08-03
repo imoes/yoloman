@@ -1,146 +1,164 @@
 def main(ctx, params):
-    # === Constants ===
-    DEFAULT_LEVELS_MAX = (5.0, 10.0)
-    DEFAULT_LEVELS_AVE = (5.0, 10.0)
-
-    def _parse_section():
-        # Read agent section data from /proc or via direct command.
-        # The Checkmk plugin reads the agent section 'corosync_latency',
-        # which comes from the corosync agent plugin that executes 'corosync-quorumtool -l'.
-        # We replicate that command: corosync-quorumtool -l
-        res = ctx.run(["corosync-quorumtool", "-l"], mutates=False)
-        if res.rc != 0:
-            # Quorumtool not available or error — return empty section
-            return {}
-        # Parse the output: lines like:
-        #   ring_0 192.168.1.1 latency_min=0.010 latency_max=0.025 latency_ave=0.015 connected=1 samples=100
-        # Note: Checkmk plugin uses dot-separated metric keys, but raw output is space-separated key=value.
-        lines = [l.strip() for l in res.stdout.splitlines() if l.strip()]
-        data = {}
-        for line in lines:
-            parts = line.split()
-            if len(parts) < 3:
-                continue
-            # First part is interface name (e.g., "ring_0"), second is IP
-            link_name = parts[0]
-            hostname = parts[1]
-            metrics = {}
-            for p in parts[2:]:
-                if "=" in p:
-                    k, v = p.split("=", 1)
-                    metrics[k] = float(v)
-            # Map keys: connected, latency_min, latency_max, latency_ave, samples
-            if "connected" in metrics and "latency_max" in metrics and "latency_ave" in metrics and "latency_min" in metrics:
-                key = hostname + "." + link_name
-                data.setdefault(hostname, {}).setdefault(link_name, {}).update({
-                    "connected": int(metrics["connected"]),
-                    "latency_ave": metrics["latency_ave"],
-                    "latency_max": metrics["latency_max"],
-                    "latency_min": metrics["latency_min"],
-                    "latency_samples": metrics["samples"] if "samples" in metrics else 0.0,
-                })
-        # Build section
-        section = {}
-        for host, links in data.items():
-            for link_name, link_data in links.items():
-                item = host + "." + link_name
-                section[item] = {
-                    "hostname": host,
-                    "name": link_name,
-                    "connected": bool(link_data["connected"]),
-                    "latency_ave": link_data["latency_ave"],
-                    "latency_max": link_data["latency_max"],
-                    "latency_min": link_data["latency_min"],
-                    "latency_samples": link_data["latency_samples"],
-                }
-        return section
-
-    def _check_levels(value, levels):
-        # Checkmk's check_levels logic for upper levels:
-        # - levels is a tuple: ("fixed", (warn, crit))
-        if levels[0] != "fixed":
-            return "OK", 0.0, 0.0
-        warn, crit = levels[1]
-        if value >= crit:
-            return "CRIT", warn, crit
-        elif value >= warn:
-            return "WARN", warn, crit
-        else:
-            return "OK", warn, crit
-
-    def _format_time(val):
-        # Checkmk uses render.timespan
-        # val in seconds; format as human readable
-        if val < 1:
-            return "%f ms" % (val * 1000)
-        return "%f s" % val
-
-    # === Discovery mode ===
     if params.get("_discover"):
-        section = _parse_section()
-        items = []
-        for item in section:
-            items.append({
-                "item": item,
-                "params": {"latency_max": ("fixed", DEFAULT_LEVELS_MAX), "latency_ave": ("fixed", DEFAULT_LEVELS_AVE)},
-                "metrics": ["latency_max", "latency_ave"]
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d items" % len(items),
-            "data": {"discovery": items}
-        }
+        probe = ctx.run(["corosync-cfgtool", "-s"], mutates=False)
+        if probe.rc == 127 or probe.rc != 0:
+            return {"changed": False, "msg": "no corosync latency data", "data": {"discovery": []}}
+        links = {}
+        current_host = None
+        lines = probe.stdout.splitlines()
+        i = 0
+        n = len(lines)
+        while i < n:
+            line = lines[i]
+            i = i + 1
+            if line.find("link connected") != -1 or line.find(" link ") != -1:
+                if current_host != None:
+                    pass
+            if line.strip().startswith("link ") or line.strip().startswith("Link "):
+                parts = line.split()
+                if len(parts) >= 2:
+                    link_name = parts[1]
+                    host_part = line.strip()
+                    links[current_host + "." + link_name] = {
+                        "item": current_host + "." + link_name,
+                        "params": {
+                            "latency_max": params.get("latency_max", ("fixed", (5.0, 10.0))),
+                            "latency_ave": params.get("latency_ave", ("fixed", (5.0, 10.0))),
+                        },
+                        "metrics": ["latency_max", "latency_ave", "latency_min"],
+                    }
+        if len(links) == 0:
+            return {"changed": False, "msg": "no corosync latency data", "data": {"discovery": []}}
+        discovery = []
+        for k in links:
+            discovery.append(links[k])
+        return {"changed": False, "msg": "discovered %d links" % len(discovery), "data": {"discovery": discovery}}
 
-    # === Check mode ===
     item = params.get("item", "")
-    if item == None:
-        item = ""
+    if item == "":
+        return {"changed": False, "msg": "no item specified", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    section = _parse_section()
-    link = section.get(item)
-    if link == None:
-        return {
-            "changed": False,
-            "msg": "item not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    probe = ctx.run(["corosync-cfgtool", "-s"], mutates=False)
+    if probe.rc == 127 or probe.rc != 0:
+        return {"changed": False, "msg": "corosync-cfgtool not available or failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if not link["connected"]:
-        return {
-            "changed": False,
-            "msg": "Link is not connected or down",
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
-        }
+    # Parse corosync-cfgtool -s output to find the link and latency stats
+    # Format includes lines like:
+    #   "link 0 (10.0.0.1): connected" and "link 0 (10.0.0.1): 0.000 sec total latency"
+    host_name = item
+    link_name = ""
+    dot = item.find(".")
+    if dot != -1:
+        host_name = item[:dot]
+        link_name = item[dot + 1:]
 
-    latency_max_sec = link["latency_max"] / 1000000.0
-    latency_ave_sec = link["latency_ave"] / 1000000.0
+    found_latency_max = 0.0
+    found_latency_ave = 0.0
+    found_latency_min = 0.0
+    connected = False
+    found_item = False
 
-    # Extract levels from params with defaults
-    latency_max_levels = params.get("latency_max", ("fixed", DEFAULT_LEVELS_MAX))
-    latency_ave_levels = params.get("latency_ave", ("fixed", DEFAULT_LEVELS_AVE))
+    lines = probe.stdout.splitlines()
+    for line in lines:
+        if line.find("link " + link_name + " ") != -1 or line.find("link " + link_name + "\t") != -1:
+            found_item = True
+            if line.find("connected") != -1:
+                connected = True
+        if found_item and line.find("latency") != -1:
+            # e.g. "link 0 (IP): 0.000123 sec average latency, 0.000456 sec max latency"
+            # extract numbers
+            nums = []
+            parts = line.split()
+            idx = 0
+            while idx < len(parts):
+                token = parts[idx]
+                token_stripped = token
+                if token_stripped == "sec":
+                    idx = idx + 1
+                    continue
+                try_parse = token_stripped
+                if try_parse == None or len(try_parse) == 0:
+                    idx = idx + 1
+                    continue
+                is_num = True
+                for ch in try_parse:
+                    if ch != "." and not (ch >= "0" and ch <= "9") and ch != "-":
+                        is_num = False
+                        break
+                if is_num:
+                    nums.append(float(try_parse))
+                idx = idx + 1
+            if len(nums) >= 1:
+                found_latency_ave = nums[0]
+            if len(nums) >= 2:
+                found_latency_max = nums[1]
+            found_latency_min = nums[0] if len(nums) >= 1 else 0.0
 
-    state_max, _, _ = _check_levels(latency_max_sec, latency_max_levels)
-    state_ave, _, _ = _check_levels(latency_ave_sec, latency_ave_levels)
+    if not found_item:
+        return {"changed": False, "msg": "link not found: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Final state: CRIT > WARN > OK
-    state = "OK"
+    if not connected:
+        return {"changed": False, "msg": "Link is not connected or down", "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    # latency values from corosync-cfgtool are already in seconds
+    latency_max = found_latency_max
+    latency_ave = found_latency_ave
+
+    # Apply thresholds — params give ("fixed", (warn, crit))
+    latency_max_levels = params.get("latency_max", ("fixed", (5.0, 10.0)))
+    latency_ave_levels = params.get("latency_ave", ("fixed", (5.0, 10.0)))
+
+    state_max = "OK"
+    state_ave = "OK"
+
+    if type(latency_max_levels) == "list" or type(latency_max_levels) == "tuple":
+        if len(latency_max_levels) >= 2:
+            level_type = latency_max_levels[0]
+            if level_type == "fixed" and len(latency_max_levels) >= 2:
+                warn_crit = latency_max_levels[1]
+                if type(warn_crit) == "list" or type(warn_crit) == "tuple":
+                    if len(warn_crit) >= 2:
+                        warn_val = warn_crit[0]
+                        crit_val = warn_crit[1]
+                        if latency_max >= crit_val:
+                            state_max = "CRIT"
+                        elif latency_max >= warn_val:
+                            state_max = "WARN"
+                    elif len(warn_crit) == 1:
+                        warn_val = warn_crit[0]
+                        if latency_max >= warn_val:
+                            state_max = "WARN"
+
+    if type(latency_ave_levels) == "list" or type(latency_ave_levels) == "tuple":
+        if len(latency_ave_levels) >= 2:
+            level_type = latency_ave_levels[0]
+            if level_type == "fixed" and len(latency_ave_levels) >= 2:
+                warn_crit = latency_ave_levels[1]
+                if type(warn_crit) == "list" or type(warn_crit) == "tuple":
+                    if len(warn_crit) >= 2:
+                        warn_val = warn_crit[0]
+                        crit_val = warn_crit[1]
+                        if latency_ave >= crit_val:
+                            state_ave = "CRIT"
+                        elif latency_ave >= warn_val:
+                            state_ave = "WARN"
+                    elif len(warn_crit) == 1:
+                        warn_val = warn_crit[0]
+                        if latency_ave >= warn_val:
+                            state_ave = "WARN"
+
+    overall_state = "OK"
     if state_max == "CRIT" or state_ave == "CRIT":
-        state = "CRIT"
+        overall_state = "CRIT"
     elif state_max == "WARN" or state_ave == "WARN":
-        state = "WARN"
+        overall_state = "WARN"
 
-    msg_parts = []
-    msg_parts.append("Latency Max: " + _format_time(latency_max_sec))
-    msg_parts.append("Latency Ave: " + _format_time(latency_ave_sec))
-    msg = ", ".join(msg_parts)
+    msg = "Latency Max: %s, Latency Ave: %s" % (_render_timespan(latency_max), _render_timespan(latency_ave))
+    details = ""
+    return {"changed": False, "msg": msg, "data": {"state": overall_state, "metrics": {"latency_max": latency_max, "latency_ave": latency_ave}, "details": details}}
 
-    metrics = {
-        "latency_max": latency_max_sec,
-        "latency_ave": latency_ave_sec,
-    }
 
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {"state": state, "metrics": metrics, "details": ""}
-    }
+def _render_timespan(seconds):
+    if seconds < 1.0:
+        return "%d ms" % int(seconds * 1000)
+    return "%f s" % seconds

@@ -1,112 +1,94 @@
 def main(ctx, params):
-    # Discovery mode: enumerate fan items
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.25506.8.35.9.1.1.1.2"
-        ], mutates=False)
-        
-        items = []
-        for line in res.stdout.splitlines():
-            # Format: .1.3.6.1.4.1.25506.8.35.9.1.1.1.2.<fan_id> = INTEGER: <status>
-            parts = line.strip().split(" = INTEGER: ")
+        # Probe for HP/H3C device presence via sysObjectID
+        symoid_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+             params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+            mutates=False)
+        if symoid_res.rc != 0 or not symoid_res.stdout.startswith(".1.3.6.1.4.1.25506"):
+            return {"changed": False, "msg": "not an HP/H3C device",
+                    "data": {"discovery": []}}
+
+        # Fetch sysDescr to confirm presence of H3C or HPE
+        sysdesc_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+             params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0"],
+            mutates=False)
+        if sysdesc_res.rc != 0:
+            return {"changed": False, "msg": "failed to fetch sysDescr",
+                    "data": {"discovery": []}}
+
+        desc = sysdesc_res.stdout.upper()
+        if "H3C" not in desc and "HPE" not in desc:
+            return {"changed": False, "msg": "device is not H3C or HPE",
+                    "data": {"discovery": []}}
+
+        # Walk fan table to discover items (OIDs: 1=number, 2=status)
+        fan_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"), "-Oqn",
+             params.get("host", "localhost"), ".1.3.6.1.4.1.25506.8.35.9.1.1.1"],
+            mutates=False)
+        if fan_res.rc != 0 or not fan_res.stdout:
+            return {"changed": False, "msg": "no fan data found",
+                    "data": {"discovery": []}}
+
+        base_oid = ".1.3.6.1.4.1.25506.8.35.9.1.1.1"
+        fan_data = {}
+        for line in fan_res.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) != 2:
                 continue
-            oid_with_suffix = parts[0]
-            fan_id = oid_with_suffix.rsplit(".", 1)[-1]
-            status_str = parts[1]
-            if status_str.isdigit():
-                status = int(status_str)
-                # Only include fans that are not unsupported or not installed
-                if status not in (4, 3):  # UNSUPPORTED=4, NOT_INSTALLED=3
-                    items.append({
-                        "item": fan_id,
-                        "params": {},
-                        "metrics": []
-                    })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d fans" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode: verify a specific fan
+            oid_suffix = parts[0][len(base_oid) + 1:]
+            value = parts[1].strip()
+            sub_id = oid_suffix.split(".")[0]
+            index = oid_suffix[len(sub_id) + 1:]
+            if sub_id == "1":
+                fan_data[index] = int(value)
+
+        discovery = []
+        for num, status in fan_data.items():
+            # UNSUPPORTED=4, NOT_INSTALLED=3 are skipped in discovery
+            if status not in (3, 4):
+                discovery.append({"item": num, "params": {},
+                                  "metrics": []})
+
+        return {"changed": False,
+                "msg": "discovered %d fans" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # Check mode
     item = params.get("item", "")
-    
-    # Get sysDescr and sysObjectID for device detection verification
-    sysdesc_res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0"
-    ], mutates=False)
-    
-    sysobj_res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"
-    ], mutates=False)
-    
-    # Verify device matches HP/H3C detection criteria
-    sysdesc = sysdesc_res.stdout.strip()
-    sysobj = sysobj_res.stdout.strip()
-    
-    # Check if device is H3C or HPE (checkmk uses startswith for OID, contains for desc)
-    is_h3c = "H3C" in sysdesc or "HPE" in sysdesc
-    is_hh3c = sysobj.startswith(".1.3.6.1.4.1.25506")
-    
-    if not (is_h3c and is_hh3c):
-        return {
-            "changed": False,
-            "msg": "device not a supported H3C/HPE device",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get fan status
-    fan_oid = ".1.3.6.1.4.1.25506.8.35.9.1.1.1.2." + item
-    fan_res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"), fan_oid
-    ], mutates=False)
-    
-    fan_line = fan_res.stdout.strip()
-    
-    # Parse fan status from SNMP output
-    # Format: .1.3.6.1.4.1.25506.8.35.9.1.1.1.2.<id> = INTEGER: <status>
-    parts = fan_line.split(" = INTEGER: ")
-    if len(parts) != 2:
-        return {
-            "changed": False,
-            "msg": "could not parse fan status for item %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    status_str = parts[1].strip()
-    if not status_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid fan status for item %s" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    status = int(status_str)
-    
-    # Status mapping: 1=ACTIVE, 2=DEACTIVE, 3=NOT_INSTALLED, 4=UNSUPPORTED
+    base_oid = ".1.3.6.1.4.1.25506.8.35.9.1.1.1"
+
+    # Probe for HP/H3C device to validate presence
+    symoid_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+         params.get("host", "localhost"), ".1.3.6.1.2.1.1.2.0"],
+        mutates=False)
+    if symoid_res.rc != 0 or not symoid_res.stdout.startswith(".1.3.6.1.4.1.25506"):
+        return {"changed": False, "msg": "not an HP/H3C device: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Fetch fan status via snmpget on column .2 (status) for the item index
+    get_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+         params.get("host", "localhost"), base_oid + ".2." + item],
+        mutates=False)
+    if get_res.rc != 0:
+        return {"changed": False, "msg": "fan " + item + " not found or unreachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    status = int(get_res.stdout)
+    # DEACTIVE=2 -> CRIT, ACTIVE=1 -> OK, others -> UNKNOWN
     if status == 2:
-        return {
-            "changed": False,
-            "msg": "Fan %s Status: deactive" % item,
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
-        }
+        state = "CRIT"
+        summary = "Status: deactive"
     elif status == 1:
-        return {
-            "changed": False,
-            "msg": "Fan %s Status: active" % item,
-            "data": {"state": "OK", "metrics": {}, "details": ""}
-        }
+        state = "OK"
+        summary = "Status: active"
     else:
-        # status in (3, 4)
-        summary = "Fan %s Status: not installed" % item if status == 3 else "Fan %s Status: unsupported" % item
-        return {
-            "changed": False,
-            "msg": summary,
-            "data": {"state": "WARN", "metrics": {}, "details": ""}
-        }
+        state = "UNKNOWN"
+        summary = "Status: unknown (%d)" % status
+
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {}, "details": ""}}

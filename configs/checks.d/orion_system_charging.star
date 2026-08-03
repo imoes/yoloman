@@ -1,151 +1,128 @@
-# Mapping of charge state codes to (state_int, state_readable)
-CHARGE_STATE_MAP = {
-    "1": (0, "float charging"),
-    "2": (0, "discharge"),
-    "3": (0, "equalize"),
-    "4": (0, "boost"),
-    "5": (0, "battery test"),
-    "6": (0, "recharge"),
-    "7": (0, "separate charge"),
-    "8": (0, "event control charge"),
-}
+# Translation of Checkmk check: checkmk.orion_system_charging
+# Source: cmk/plugins/orion/agent_based/orion_system.py
+# SNMP section orion_system: base .1.3.6.1.4.1.20246.2.3.1.1.1.2.3
+# OIDs (indexed 1..8): system_voltage(1), load_current(2), battery_current(3),
+# battery_temp(4), charge_state(5), _battery_current_limit(6),
+# rectifier_current(7), system_power(8)
+#
+# This is the "Charge %s" check (check_plugin_orion_system_charging).
+# It reports the charge state of the "Battery" entity.
 
-def main(ctx, params):
-    # Determine mode
-    if params.get("_discover"):
-        # Discovery mode: fetch SNMP data and enumerate charging entities
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", params.get("community", "public"),
-            "-On",
-            params.get("host", "localhost"),
-            ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
-        ], mutates=False)
-        
-        if res.rc != 0 or not res.stdout:
-            return {
-                "changed": False,
-                "msg": "SNMP walk failed or returned no data",
-                "data": {"discovery": []}
-            }
-        
-        # Parse first line (only one row expected)
-        lines = res.stdout.splitlines()
-        if len(lines) < 8:
-            return {
-                "changed": False,
-                "msg": "SNMP data incomplete (expected 8 OIDs)",
-                "data": {"discovery": []}
-            }
-        
-        # Extract values (line format: OID = STRING: "value")
-        values = []
-        for line in lines[:8]:
-            parts = line.strip().split(" = ", 1)
-            if len(parts) == 2 and parts[1].startswith('STRING: "'):
-                val = parts[1][8:-1]  # Remove 'STRING: "' and trailing '"'
-                values.append(val)
-            else:
-                values.append("2147483647")
-        
-        if len(values) < 8:
-            values = values + ["2147483647"] * (8 - len(values))
-        
-        charge_state = values[4]
-        
-        # Build section-like data
-        map_charge_states = CHARGE_STATE_MAP
-        state_tuple = map_charge_states.get(charge_state, (3, "unknown[" + charge_state + "]"))
-        
-        # Only Battery entity is exposed in charging section
-        charging_entity = "Battery"
-        
-        # Return discovery list
-        return {
-            "changed": False,
-            "msg": "discovered 1 charging item",
-            "data": {"discovery": [
-                {"item": charging_entity, "params": {}, "metrics": []}
-            ]}
-        }
-    
-    # Check mode: verify charging state of requested item
-    item = params.get("item", "")
-    if item == "":
-        # For backward compatibility, default to Battery if item is empty
-        item = "Battery"
-    
-    # Fetch SNMP data
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
-    ], mutates=False)
-    
-    if res.rc != 0 or not res.stdout:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed or returned no data",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "Failed to retrieve SNMP data"
-            }
-        }
-    
-    # Parse first line (only one row expected)
-    lines = res.stdout.splitlines()
-    if len(lines) < 8:
-        return {
-            "changed": False,
-            "msg": "SNMP data incomplete (expected 8 OIDs)",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "Expected 8 SNMP values"
-            }
-        }
-    
-    # Extract values
-    values = []
-    for line in lines[:8]:
-        parts = line.strip().split(" = ", 1)
-        if len(parts) == 2 and parts[1].startswith('STRING: "'):
-            val = parts[1][8:-1]
-            values.append(val)
-        else:
-            values.append("2147483647")
-    
-    if len(values) < 8:
-        values = values + ["2147483647"] * (8 - len(values))
-    
-    charge_state = values[4]
-    state_tuple = CHARGE_STATE_MAP.get(charge_state, (3, "unknown[" + charge_state + "]"))
-    
-    # Map Checkmk State ints: 0->OK, 1->WARN, 2->CRIT, 3->UNKNOWN
-    state_int, state_readable = state_tuple
+def _discover(ctx, params):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"),
+         ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    # sysObjectID must start with the Orion enterprise prefix
+    sysoid = res.stdout.strip() if res.rc == 0 else ""
+    if not sysoid.startswith(".1.3.6.1.4.1.20246"):
+        return {"changed": False, "msg": "no Orion device",
+                "data": {"discovery": []}}
+
+    # Fetch the 8 OIDs of the orion_system table row via snmpwalk on the base.
+    # Each OID line is "<base>.<n> <value>".
+    base = ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
+    wres = ctx.run(
+        ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+         "-Oqn", "-On", params.get("host", "localhost"), base],
+        mutates=False,
+    )
+    values = {}
+    if wres.rc == 0:
+        for line in wres.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp+1:].strip()
+            suffix = oid[len(base)+1:]
+            if suffix.isdigit():
+                values[int(suffix)] = val
+
+    charge_state = values.get(5, "")
+    parsed = _parse_charge_state(charge_state)
+    state_int, state_readable = parsed
+
+    discovery = []
+    metrics = []
     if state_int == 0:
-        state_name = "OK"
+        discovery.append({
+            "item": "Battery",
+            "params": {},
+            "metrics": metrics,
+        })
+
+    return {"changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery}}
+
+
+def _parse_charge_state(cs):
+    # Mirrors map_charge_states; unknown -> (3, "unknown[...]")
+    states = {
+        "1": (0, "float charging"),
+        "2": (0, "discharge"),
+        "3": (0, "equalize"),
+        "4": (0, "boost"),
+        "5": (0, "battery test"),
+        "6": (0, "recharge"),
+        "7": (0, "separate charge"),
+        "8": (0, "event control charge"),
+    }
+    if cs in states:
+        return states[cs]
+    return (3, "unknown[%s]" % cs)
+
+
+def _check(ctx, params):
+    item = params.get("item", "")
+    base = ".1.3.6.1.4.1.20246.2.3.1.1.1.2.3"
+
+    # Re-fetch the row to read the charge state OID (.5).
+    wres = ctx.run(
+        ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+         "-Oqn", "-On", params.get("host", "localhost"), base],
+        mutates=False,
+    )
+    values = {}
+    if wres.rc == 0:
+        for line in wres.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            val = line[sp+1:].strip()
+            suffix = oid[len(base)+1:]
+            if suffix.isdigit():
+                values[int(suffix)] = val
+
+    charge_state = values.get(5, "")
+    state_int, state_readable = _parse_charge_state(charge_state)
+
+    # Map state_int: 0 OK, 1 WARN, 2 CRIT, 3 UNKNOWN
+    if state_int == 0:
+        state = "OK"
     elif state_int == 1:
-        state_name = "WARN"
+        state = "WARN"
     elif state_int == 2:
-        state_name = "CRIT"
+        state = "CRIT"
     else:
-        state_name = "UNKNOWN"
-    
-    # Build message
-    msg = "Status: " + state_readable
-    
+        state = "UNKNOWN"
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Status: %s" % state_readable,
         "data": {
-            "state": state_name,
+            "state": state,
             "metrics": {},
-            "details": ""
-        }
+            "details": "Item: %s, Charge state: %s" % (item, state_readable),
+        },
     }
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        return _discover(ctx, params)
+    return _check(ctx, params)

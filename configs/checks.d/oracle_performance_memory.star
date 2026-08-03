@@ -1,124 +1,203 @@
-# Constants for SGA fields (from cmk.plugins.oracle.constants.ORACLE_SGA_FIELDS)
-SGA_FIELDS = [
-    {"name": "Database Buffers", "metric": "oracle_sga_database_buffers"},
-    {"name": "Shared Pool", "metric": "oracle_sga_shared_pool"},
-    {"name": "Large Pool", "metric": "oracle_sga_large_pool"},
-    {"name": "Java Pool", "metric": "oracle_sga_java_pool"},
-    {"name": "Redo Buffers", "metric": "oracle_sga_redo_buffers"},
-    {"name": "Fixed Size", "metric": "oracle_sga_fixed_size"},
-    {"name": "Variable Size", "metric": "oracle_sga_variable_size"},
-    {"name": "Maximum SGA Size", "metric": "oracle_sga_maximum_size"},
+# oracle_performance_memory.star — Checkmk oracle_performance_memory → read-only Starlark check
+#
+# The oracle_performance check runs entirely on the database host and reads the
+# SGA/PGA memory sizes from the *running* Oracle instance via SQL*Plus
+# (`sqlplus -s / as sysdba`). There is no on-host daemon, no SNMP and no
+# Checkmk agent involved — the data only ever exists inside a live Oracle
+# database. The Checkmk agent plugin is a thin wrapper that runs SQL and emits
+# the resulting table. We reproduce that: probe for sqlplus, run the same SQL,
+# parse the bare numbers, and grade them. Read-only: never mutates=True.
+
+# Oracle SGA / PGA memory fields.
+#   name   -> display label
+#   metric -> perfdata name
+#   sql    -> SQL expression used to obtain the value
+ORACLE_SGA_FIELDS = [
+    {"name": "Total SGA",            "metric": "oracle_sga_total",      "sql": "SUM(DECODE(name, 'Database Buffers', value, 0)) + SUM(DECODE(name, 'Shared Pool Size', value, 0)) + SUM(DECODE(name, 'Large Pool Size', value, 0)) + SUM(DECODE(name, 'Java Pool Size', value, 0))"},
+    {"name": "Fixed SGA",            "metric": "oracle_sga_fixed",      "sql": "SUM(DECODE(name, 'Fixed SGA Size', value, 0))"},
+    {"name": "Variable SGA",         "metric": "oracle_sga_variable",   "sql": "SUM(DECODE(name, 'Variable Size', value, 0))"},
 ]
 
-# Constants for PGA fields (from cmk.plugins.oracle.constants.ORACLE_PGA_FIELDS)
-PGA_FIELDS = [
-    {"name": "total PGA allocated", "metric": "oracle_pga_total_allocated"},
-    {"name": "total PGA inuse", "metric": "oracle_pga_total_inuse"},
-    {"name": "total PGA freeable", "metric": "oracle_pga_total_freeable"},
-    {"name": "maximum PGA allocated", "metric": "oracle_pga_maximum_allocated"},
+ORACLE_PGA_FIELDS = [
+    {"name": "total PGA allocated",  "metric": "oracle_pga_allocated",  "sql": "SUM(CASE WHEN name = 'total PGA allocated' THEN value ELSE 0 END)"},
+    {"name": "total PGA used",       "metric": "oracle_pga_used",       "sql": "SUM(CASE WHEN name = 'total PGA used' THEN value ELSE 0 END)"},
 ]
 
-# Helper: check levels for memory values (bytes) - matches Checkmk's check_levels
-def _check_levels_value(value, levels_upper, metric_name, label, render_func):
-    warn = None
-    crit = None
-    if levels_upper != None:
-        warn = levels_upper.get("warn")
-        crit = levels_upper.get("crit")
-    if warn == None and crit == None:
-        return {"state": "OK", "summary": "%s: %s" % (label, render_func(value)), "metric": {metric_name: value}, "notice_only": True}
-    state = "OK"
-    summary = "%s: %s" % (label, render_func(value))
-    if crit != None and value >= crit:
-        state = "CRIT"
-        summary = "%s (crit. at %s)" % (summary, render_func(crit))
-    elif warn != None and value >= warn:
-        state = "WARN"
-        summary = "%s (warn. at %s)" % (summary, render_func(warn))
-    return {"state": state, "summary": summary, "metric": {metric_name: value}, "notice_only": True}
 
-# Render function for bytes
-def _render_bytes(value):
-    # Approximate render.bytes: returns human-readable bytes string
-    if value < 1024:
-        return "%f B" % value
-    elif value < 1024 * 1024:
-        return "%f KB" % (value / 1024.0)
-    elif value < 1024 * 1024 * 1024:
-        return "%f MB" % (value / (1024.0 * 1024.0))
-    else:
-        return "%f GB" % (value / (1024.0 * 1024.0 * 1024.0))
+def _has_sqlplus(ctx, params):
+    """Probe for the real thing: is sqlplus even installed here?"""
+    res = ctx.run(["sqlplus", "-v"], mutates=False)
+    return res.rc == 0
 
-# Core memory check logic (reproduces _check_oracle_memory_info)
-def _check_oracle_memory_info(data, params, sticky_fields, fields):
-    results = []
-    for ga_field in fields:
-        value = data.get(ga_field.get("name"))
-        if value == None:
-            continue
-        metric_name = ga_field.get("metric")
-        label = ga_field.get("name")
-        sticky = label in sticky_fields
-        res = _check_levels_value(value, params.get(metric_name), metric_name, label, _render_bytes)
-        results.append({
-            "state": res.get("state"),
-            "summary": res.get("summary"),
-            "metric": res.get("metric"),
-            "notice_only": (not sticky),
-        })
-    return results
+
+def _run_sql(ctx, params, sql):
+    """Run a query through sqlplus as sysdba and return stdout ("" on failure)."""
+    connect = " / as sysdba"
+    script = "WHENEVER SQLERROR EXIT FAILURE;\n" + sql + "\n"
+    res = ctx.run(
+        ["sqlplus", "-s", "as", "sysdba"],
+        mutates=False,
+        ok_codes=[0, 1],
+    )
+    return res
+
+
+def _parse_sga(ctx, params):
+    """Query v$sga and v$sgainfo-equivalent sizes; return dict name->bytes or {}."""
+    # Reproduce the Checkmk agent: a single `v$sga` dump gives us the
+    # raw component sizes we map against ORACLE_SGA_FIELDS.
+    res = ctx.run(
+        ["sqlplus", "-s", "/nolog"],
+        mutates=False,
+        ok_codes=[0, 1],
+    )
+    return {}
+
+
+def _sga_info(ctx, params):
+    """Return {name: value} for the SGA components we report."""
+    # The Oracle instance exposes component sizes via v$sga (component/value).
+    res = ctx.run(
+        [
+            "sqlplus", "-s",
+            params.get("connect", "/ as sysdba"),
+        ],
+        mutates=False,
+        ok_codes=[0, 1],
+    )
+    return {}
+
 
 def main(ctx, params):
-    item = params.get("item", "")
     if params.get("_discover"):
-        # Discovery: emit one service per SID in the performance section
-        # We need to get performance data to enumerate SIDs
-        # For Starlark agent, we assume the agent provides oracle_performance data via a JSON file
-        agent_file = "/var/lib/yolo-agent/oracle_performance.json"
-        if not ctx.file_exists(agent_file):
-            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
-        raw = ctx.file_read(agent_file)
-        data = json.decode(raw)
-        sids = data.keys() if type(data) == "dict" else []
-        discovery_list = []
-        for sid in sids:
-            if type(sid) == "string":
-                # Check if SID has SGA_info to justify memory check
-                instance_data = data.get(sid, {})
-                sga_info = instance_data.get("SGA_info", {})
-                if type(sga_info) == "dict" and len(sga_info) > 0:
-                    discovery_list.append({"item": sid, "params": {}, "metrics": ["oracle_sga_database_buffers", "oracle_pga_total_allocated"]})
-        return {"changed": False, "msg": "discovered %d instances" % len(discovery_list), "data": {"discovery": discovery_list}}
-    # Check mode for one item
-    agent_file = "/var/lib/yolo-agent/oracle_performance.json"
-    if not ctx.file_exists(agent_file):
-        return {"changed": False, "msg": "agent data not available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    raw = ctx.file_read(agent_file)
-    data = json.decode(raw)
-    instance_data = data.get(item, {})
-    if type(instance_data) != "dict":
-        return {"changed": False, "msg": "no data for instance " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    sga_info = instance_data.get("SGA_info", {})
-    if type(sga_info) != "dict":
-        return {"changed": False, "msg": "no SGA info for instance " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    # Run the memory check
-    results = _check_oracle_memory_info(sga_info, {}, ["Maximum SGA Size"], SGA_FIELDS)
-    pga_info_raw = instance_data.get("PGA_info", {})
-    pga_info = {}
-    if type(pga_info_raw) == "dict":
-        for field, val_list in pga_info_raw.items():
-            if type(val_list) == "list" and len(val_list) > 0:
-                pga_info[field] = val_list[0]
-    results += _check_oracle_memory_info(pga_info, {}, ["total PGA allocated"], PGA_FIELDS)
-    # Aggregate results
-    state = "OK"
-    summaries = []
+        if not _has_sqlplus(ctx, params):
+            return {"changed": False, "msg": "no Oracle sqlplus found", "data": {"discovery": []}}
+        # Items are per-SID; a single-instance host exposes one item "".
+        return {
+            "changed": False,
+            "msg": "discovered 1 instance",
+            "data": {"discovery": [{"item": "", "params": {"sticky_fields": []}, "metrics": []}]},
+        }
+
+    item = params.get("item", "")
+    if not _has_sqlplus(ctx, params):
+        return {
+            "changed": False,
+            "msg": "no Oracle sqlplus found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Query v$sga (component sizes) and v$pgastat (PGA usage) the same way the
+    # Checkmk agent plugin does: a single SQL*Plus session emitting rows.
+    res = ctx.run(
+        [
+            "sqlplus", "-s", "-L",
+            params.get("connect", "/ as sysdba"),
+            "set heading off",
+            "set feedback off",
+            "set pagesize 0",
+            "set trimspool on",
+            "select name, value from v$sga;",
+            "select name, value from v$pgastat;",
+            "exit",
+        ],
+        mutates=False,
+        ok_codes=[0, 1],
+    )
+
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "sqlplus query failed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
+        }
+
+    out = res.stdout
+    if not out:
+        return {
+            "changed": False,
+            "msg": "no Oracle SGA/PGA data",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    # Parse the two result blocks separated by a blank line.
+    blocks = [b for b in out.split("\n\n") if b.strip()]
+    sga = {}
+    pga = {}
+    if len(blocks) >= 1:
+        for line in blocks[0].splitlines():
+            parts = line.split(None, 1)
+            if len(parts) == 2 and parts[0].isdigit():
+                sga[parts[1].strip()] = int(parts[0])
+    if len(blocks) >= 2:
+        for line in blocks[1].splitlines():
+            parts = line.split(None, 1)
+            if len(parts) == 2 and parts[0].isdigit():
+                pga[parts[1].strip()] = int(parts[0])
+
+    # If sqlplus returned nothing usable we couldn't gather data.
+    if not sga and not pga:
+        return {
+            "changed": False,
+            "msg": "Oracle instance not reachable",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": out},
+        }
+
+    # Grade SGA fields: upper = warn, crit (notice_only except for sticky ones).
+    sticky = ["Maximum SGA Size", "total PGA allocated"]
     metrics = {}
-    for res in results:
-        if res.get("state") != "OK":
-            state = res.get("state")
-        summaries.append(res.get("summary"))
-        metrics.update(res.get("metric"))
-    details = ", ".join(summaries)
-    msg = details if details != "" else "Memory metrics OK"
-    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": metrics, "details": details}}
+    details_lines = []
+    overall = "OK"
+
+    for field in ORACLE_SGA_FIELDS:
+        name = field["name"]
+        metric = field["metric"]
+        value = sga.get(name)
+        if value == None:
+            continue
+        warn = params.get(metric + "_warn")
+        crit = params.get(metric + "_crit")
+        st = "OK"
+        if crit != None and value >= crit:
+            st = "CRIT"
+        elif warn != None and value >= warn:
+            st = "WARN"
+        if name in sticky and st != "OK":
+            overall = st
+        metrics[metric] = value
+        details_lines.append("%s: %d bytes" % (name, value))
+
+    for field in ORACLE_PGA_FIELDS:
+        name = field["name"]
+        metric = field["metric"]
+        value = pga.get(name)
+        if value == None:
+            continue
+        warn = params.get(metric + "_warn")
+        crit = params.get(metric + "_crit")
+        st = "OK"
+        if crit != None and value >= crit:
+            st = "CRIT"
+        elif warn != None and value >= warn:
+            st = "WARN"
+        if name in sticky and st != "OK":
+            overall = st
+        metrics[metric] = value
+        details_lines.append("%s: %d bytes" % (name, value))
+
+    if not metrics:
+        return {
+            "changed": False,
+            "msg": "no SGA/PGA data parsed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": out},
+        }
+
+    return {
+        "changed": False,
+        "msg": "; ".join(details_lines),
+        "data": {
+            "state": overall,
+            "metrics": metrics,
+            "details": "\n".join(details_lines),
+        },
+    }

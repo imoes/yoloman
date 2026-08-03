@@ -1,203 +1,231 @@
-def main(ctx, params):
-    # Get parameters with Checkmk defaults
-    status_expected = params.get("status", "Registered")
-    subscription_status_expected = params.get("subscription_status", "ACTIVE")
+# suseconnect check — reads SUSE registration data from /etc/SUSEconnect and
+# subscription data from `SUSEConnect` CLI, grading SLES license status.
+# READ-ONLY: never mutates=True, never ctx.file_write, always changed=False.
 
-    # Discovery mode
-    if params.get("_discover"):
-        res = ctx.run(["suse-manager-channel-info", "-s"], mutates=False)
-        if res.rc != 0:
-            res = ctx.run(["suseconnect", "-s"], mutates=False)
-        if res.rc == 0:
-            return {
-                "changed": False,
-                "msg": "discovered 1 item",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": ["days_to_expiry"]}]}
-            }
+def _parse_suseconnect_file(ctx, path):
+    if not ctx.file_exists(path):
+        return {}
+    content = ctx.file_read(path)
+    lines = content.splitlines()
+    if len(lines) == 0:
+        return {}
+    first = lines[0].split(":")[0].strip()
+    if first == "identifier":
+        return _parse_pre_v15(lines)
+    return _parse_v15(lines)
+
+def _join_line(toks):
+    return ":".join(toks).strip()
+
+def _parse_header(h):
+    inner = h[1:-1]
+    fields = inner.split("/")
+    keys = ["identifier", "version", "architecture"]
+    out = {}
+    for i in range(len(keys)):
+        if i < len(fields):
+            out[keys[i]] = fields[i]
         else:
-            return {
-                "changed": False,
-                "msg": "no suseconnect data available",
-                "data": {"discovery": []}
-            }
+            out[keys[i]] = ""
+    return out
 
-    # Check mode: one service (item = "")
-    res = ctx.run(["suse-manager-channel-info", "-s"], mutates=False)
-    if res.rc != 0:
-        res = ctx.run(["suseconnect", "-s"], mutates=False)
-    if res.rc != 0 or res.stdout.strip() == "":
-        return {
-            "changed": False,
-            "msg": "SLES license information unavailable",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Parse the output
-    specs = {}
-    lines = res.stdout.strip().split("\n")
-    mode_v15 = False
-
-    # Detect mode: if first non-empty line starts with '(' it's v15+ format
-    i = 0
-    while i < len(lines):
-        if lines[i].strip() != "":
-            if lines[i].strip().startswith("("):
-                mode_v15 = True
-            break
-        i = i + 1
-
-    if mode_v15:
-        # Parse V15+ format
-        i = 0
-        while i < len(lines):
-            stripped = lines[i].strip()
-            # Header line like "(SLES/12/x86_64)"
-            if stripped.startswith("(") and stripped.endswith(")"):
-                header = stripped[1:-1]
-                parts = header.split("/")
-                if len(parts) >= 1:
-                    identifier = parts[0]
-                    if i + 1 < len(lines):
-                        status_line = lines[i+1].strip()
-                        if "Registered" in status_line or "Not Registered" in status_line:
-                            specs["registration_status"] = "Registered" if "Registered" in status_line else "Not Registered"
-                            i = i + 2
-                            continue
-            elif stripped.startswith("    ") and len(stripped) > 0:
-                idx = stripped.find(":")
-                if idx != -1:
-                    key = stripped[4:idx].strip()
-                    value = stripped[idx+1:].strip()
-                    if key == "Regcode":
-                        specs["registration_code"] = value
-                    elif key == "Starts at":
-                        specs["starts_at"] = value
-                    elif key == "Expires at":
-                        specs["expires_at"] = value
-                    elif key == "Status":
-                        specs["subscription_status"] = value
-                    elif key == "Type":
-                        specs["subscription_type"] = value
-            i = i + 1
-    else:
-        # Pre-V15 format
-        for line in lines:
-            if line.strip() == "" or ":" not in line:
-                continue
-            idx = line.find(":")
-            key = line[:idx].strip()
-            value = line[idx+1:].strip()
-            if key == "identifier":
-                specs["identifier"] = value
-            elif key == "version":
-                specs["version"] = value
-            elif key == "arch":
-                specs["architecture"] = value
-            elif key == "status":
-                specs["registration_status"] = value
-            elif key == "regcode":
-                specs["registration_code"] = value
-            elif key == "starts_at":
-                specs["starts_at"] = value
-            elif key == "expires_at":
-                specs["expires_at"] = value
-            elif key == "subscription_status":
-                specs["subscription_status"] = value
-            elif key == "type":
-                specs["subscription_type"] = value
-
-    # Ensure we have SLES-related data
-    if specs == {}:
-        return {
-            "changed": False,
-            "msg": "No SLES license data found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Build return state and details
-    state = "OK"
-    details_parts = []
-
-    # Registration status
-    if "registration_status" in specs:
-        if status_expected != "Ignore" and specs["registration_status"] != status_expected:
-            state = "CRIT"
-        details_parts.append("Status: " + specs["registration_status"])
-    else:
-        details_parts.append("Status: unknown")
-
-    # Subscription status
-    if "subscription_status" in specs:
-        if subscription_status_expected != "Ignore" and specs["subscription_status"] != subscription_status_expected:
-            state = "CRIT"
-        details_parts.append("Subscription: " + specs["subscription_status"])
-    else:
-        details_parts.append("Subscription: unknown")
-
-    # Expiration time calculation
-    metrics = {}
-    if "expires_at" in specs:
-        expires_str = specs["expires_at"]
-        date_parts = expires_str.split(" ")[0].split("-")
-        time_parts = ["00","00","00"]
-        if " " in expires_str:
-            time_parts = expires_str.split(" ")[1].split(":")
-        if len(date_parts) == 3 and len(time_parts) == 3:
-            year = 0
-            month = 0
-            day = 0
-            if date_parts[0].isdigit() and date_parts[1].isdigit() and date_parts[2].isdigit():
-                year = int(date_parts[0])
-                month = int(date_parts[1])
-                day = int(date_parts[2])
-            # Approximate days since epoch
-            days_since_epoch = (year - 1970) * 365.25 + (month - 1) * 30.44 + (day - 1)
-            # Get current date via date command
-            date_res = ctx.run(["date", "+%Y-%m-%d"], mutates=False)
-            current_date = "1970-01-01"
-            if date_res.rc == 0 and date_res.stdout.strip() != "":
-                current_date = date_res.stdout.strip()
-            curr_parts = current_date.split("-")
-            if len(curr_parts) == 3 and curr_parts[0].isdigit() and curr_parts[1].isdigit() and curr_parts[2].isdigit():
-                curr_year = int(curr_parts[0])
-                curr_month = int(curr_parts[1])
-                curr_day = int(curr_parts[2])
-                days_since_epoch_curr = (curr_year - 1970) * 365.25 + (curr_month - 1) * 30.44 + (curr_day - 1)
-                days_to_expiry = int(days_since_epoch - days_since_epoch_curr)
-                # Apply levels: warn at <= 14 days, crit at <= 7 days
-                if days_to_expiry <= 7:
-                    state = "CRIT"
-                    details_parts.append("Expires in: %d days" % days_to_expiry)
-                elif days_to_expiry <= 14:
-                    state = "WARN"
-                    details_parts.append("Expires in: %d days" % days_to_expiry)
-                else:
-                    details_parts.append("Expires in: %d days" % days_to_expiry)
-                metrics["days_to_expiry"] = days_to_expiry
-            else:
-                details_parts.append("Expiration: unknown")
-        else:
-            details_parts.append("Expiration: unknown")
-    else:
-        details_parts.append("Expiration: missing data")
-
-    # Subscription details if all present
-    all_present = True
-    for k in ["subscription_type", "registration_code", "starts_at", "expires_at"]:
-        if not (k in specs):
-            all_present = False
-            break
-    if all_present:
-        details_parts.append("Subscription type: " + specs["subscription_type"] + ", Registration code: " + specs["registration_code"] + ", Starts at: " + specs["starts_at"] + ", Expires at: " + specs["expires_at"])
-
-    summary = ", ".join(details_parts)
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+def _parse_v15(lines):
+    map_keys = {
+        "Regcode": "registration_code",
+        "Starts at": "starts_at",
+        "Expires at": "expires_at",
+        "Status": "subscription_status",
+        "Type": "subscription_type",
     }
+    parsed = {}
+    specs = {}
+    pending_reg = False
+    for raw in lines:
+        toks = raw.split(":")
+        toks = [t.strip() for t in toks]
+        if len(toks) == 0 or toks[0] == "":
+            continue
+        if toks[0].startswith("(") and toks[0].endswith(")"):
+            hdr = _parse_header(toks[0])
+            specs = parsed.setdefault(hdr["identifier"], dict(hdr))
+            pending_reg = True
+            continue
+        if pending_reg:
+            specs["registration_status"] = _join_line(toks)
+            pending_reg = False
+            continue
+        if len(toks) > 1:
+            key = toks[0]
+            if key in map_keys:
+                specs[map_keys[key]] = _join_line(toks[1:])
+    return parsed
+
+def _parse_pre_v15(lines):
+    map_keys = {
+        "identifier": "identifier",
+        "version": "version",
+        "arch": "architecture",
+        "status": "registration_status",
+        "type": "subscription_type",
+        "starts_at": "starts_at",
+        "expires_at": "expires_at",
+        "subscription_status": "subscription_status",
+        "regcode": "registration_code",
+    }
+    parsed = {}
+    for raw in lines:
+        toks = raw.split(":")
+        toks = [t.strip() for t in toks]
+        if len(toks) == 0 or toks[0] == "":
+            continue
+        key = toks[0]
+        if key in map_keys and len(toks) > 1:
+            parsed[map_keys[key]] = _join_line(toks[1:])
+    if "identifier" in parsed:
+        return {parsed["identifier"]: parsed}
+    return {}
+
+def _get_data(section):
+    for key in section:
+        value = section[key]
+        if "SLES" in key:
+            return value
+    return None
+
+def _now_epoch(ctx):
+    res = ctx.run(["date", "+%s"], mutates=False)
+    if res.rc != 0:
+        return None
+    s = res.stdout.strip()
+    if not s.isdigit():
+        return None
+    return int(s)
+
+def _to_epoch(ctx, date_str):
+    res = ctx.run(["date", "-d", date_str, "+%s"], mutates=False)
+    if res.rc != 0:
+        return None
+    s = res.stdout.strip()
+    if not s.isdigit():
+        return None
+    return int(s)
+
+def _days_left(ctx, expires_at, now):
+    epoch = _to_epoch(ctx, expires_at)
+    if epoch == None or now == None:
+        return None
+    return float(epoch - now)
+
+def _grade_days(days, days_left_param):
+    warn = days_left_param[0]
+    crit = days_left_param[1]
+    if days == None:
+        return "UNKNOWN"
+    if days < crit:
+        return "CRIT"
+    if days < warn:
+        return "WARN"
+    return "OK"
+
+def _normalize_cli(decoded):
+    out = {}
+    items = decoded if type(decoded) == "list" else [decoded]
+    for entry in items:
+        if type(entry) != "dict":
+            continue
+        ident = entry.get("identifier", entry.get("product", ""))
+        if "SLES" not in str(ident):
+            continue
+        specs = {}
+        specs["identifier"] = ident
+        specs["version"] = str(entry.get("version", ""))
+        specs["architecture"] = str(entry.get("arch", ""))
+        if entry.get("register"):
+            specs["registration_status"] = "Registered"
+        else:
+            specs["registration_status"] = "Not Registered"
+        specs["subscription_status"] = str(entry.get("subscription_status", ""))
+        specs["subscription_type"] = str(entry.get("subscription_type", ""))
+        specs["registration_code"] = str(entry.get("regcode", ""))
+        specs["starts_at"] = str(entry.get("starts_at", ""))
+        specs["expires_at"] = str(entry.get("expires_at", ""))
+        out[ident] = specs
+    return out
+
+def _gather_data(ctx):
+    path = "/etc/SUSEconnect"
+    if ctx.file_exists(path):
+        return _parse_suseconnect_file(ctx, path)
+    res = ctx.run(["SUSEConnect", "--status", "--json"], mutates=False)
+    if res.rc == 0 and res.stdout.strip():
+        decoded = json.decode(res.stdout.strip())
+        return _normalize_cli(decoded)
+    return {}
+
+def main(ctx, params):
+    if params.get("_discover"):
+        data = _gather_data(ctx)
+        if _get_data(data) == None:
+            return {"changed": False, "msg": "no SLES registration found",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered SLES license",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": []}]}}
+
+    data = _gather_data(ctx)
+    specs = _get_data(data)
+    if specs == None:
+        return {"changed": False, "msg": "no SLES registration found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    parts = []
+    states = []
+
+    status_param = params.get("status", "Registered")
+    sub_param = params.get("subscription_status", "ACTIVE")
+    days_left_param = params.get("days_left", (14.0, 7.0))
+
+    if "registration_status" in specs:
+        state, infotext = "OK", "Status: %s" % specs["registration_status"]
+        if status_param != "Ignore" and status_param != specs["registration_status"]:
+            state = "CRIT"
+        parts.append(infotext)
+        states.append(state)
+
+    if "subscription_status" in specs:
+        state, infotext = "OK", "Subscription: %s" % specs["subscription_status"]
+        if sub_param != "Ignore" and sub_param != specs["subscription_status"]:
+            state = "CRIT"
+        parts.append(infotext)
+        states.append(state)
+
+    if ("subscription_type" in specs and "registration_code" in specs
+            and "starts_at" in specs and "expires_at" in specs):
+        sub_type = specs["subscription_type"]
+        reg_code = specs["registration_code"]
+        starts_at = specs["starts_at"]
+        expires_at = specs["expires_at"]
+        parts.append("Subscription type: %s, Registration code: %s, Starts at: %s, Expires at: %s" % (sub_type, reg_code, starts_at, expires_at))
+        now = _now_epoch(ctx)
+        days = _days_left(ctx, expires_at, now)
+        if days == None:
+            states.append("UNKNOWN")
+        elif days > 0:
+            grade = _grade_days(days, days_left_param)
+            states.append(grade)
+        else:
+            states.append("CRIT")
+
+    overall = "OK"
+    for st in states:
+        if st == "CRIT":
+            overall = "CRIT"
+            break
+        if st == "WARN" and overall != "CRIT":
+            overall = "WARN"
+        if st == "UNKNOWN":
+            if overall not in ("CRIT", "WARN"):
+                overall = "UNKNOWN"
+
+    return {"changed": False, "msg": "; ".join(parts),
+            "data": {"state": overall, "metrics": {}, "details": ""}}

@@ -1,56 +1,67 @@
-# Module for checkmk.hp_eml_sum (HP EML Summary Status) - read-only Starlark check
-
-_STATUS_MAP = {
-    "1": ("UNKNOWN", "unknown"),
-    "2": ("OK", "unused"),
-    "3": ("OK", "ok"),
-    "4": ("WARN", "warning"),
-    "5": ("CRIT", "critical"),
-    "6": ("CRIT", "nonrecoverable"),
-}
-
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery: always yield exactly one service if the section exists
-        # (the SNMP table exists if the host matches the detection OID)
-        return {
-            "changed": False,
-            "msg": "discovered 1 service",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
-
-    # Check mode (single service, item is always "")
-    res = ctx.run(["snmpget", "-Oqv", "-v2c", "-c", "public", "localhost",
-                   ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.3",  # opStatus
-                   ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.7",  # manufacturer
-                   ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.9",  # model
-                   ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.10", # serial
-                   ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.11", # version
-                  ], mutates=False)
-
-    lines = res.stdout.splitlines()
+        res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                       "-OvQ", "-m", "NONE", params.get("host", "localhost"),
+                       ".1.3.6.1.2.1.1.2.0"], mutates=False)
+        if res.rc != 0 or res.stdout.strip() == "":
+            return {"changed": False, "msg": "not an HP EML device (sysOID mismatch or unreachable)",
+                    "data": {"discovery": []}}
+        sys_oid = res.stdout.strip()
+        if sys_oid != ".1.3.6.1.4.1.11.10.2.1.3.20":
+            return {"changed": False, "msg": "not an HP EML device (sysOID does not match)",
+                    "data": {"discovery": []}}
+        walk = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                        "-OvQ", "-m", "NONE", "-Oq", params.get("host", "localhost"),
+                        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.3",
+                        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.7",
+                        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.9",
+                        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.10",
+                        ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.11"], mutates=False)
+        if walk.rc != 0:
+            return {"changed": False, "msg": "HP EML device detected but summary OIDs unreachable",
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "discovered 1 item",
+                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]}}
+    res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                   "-OvQ", "-m", "NONE", params.get("host", "localhost"),
+                   ".1.3.6.1.2.1.1.2.0"], mutates=False)
+    if res.rc != 0 or res.stdout.strip() == "":
+        return {"changed": False, "msg": "not an HP EML device (sysOID unreachable)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    sys_oid = res.stdout.strip()
+    if sys_oid != ".1.3.6.1.4.1.11.10.2.1.3.20":
+        return {"changed": False, "msg": "not an HP EML device (sysOID does not match)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    walk = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
+                    "-OvQ", "-m", "NONE", "-Oq", params.get("host", "localhost"),
+                    ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.3",
+                    ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.7",
+                    ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.9",
+                    ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.10",
+                    ".1.3.6.1.4.1.11.2.36.1.1.5.1.1.11"], mutates=False)
+    if walk.rc != 0:
+        return {"changed": False, "msg": "summary OIDs unreachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    lines = walk.stdout.splitlines()
     if len(lines) < 5:
-        return {
-            "changed": False,
-            "msg": "Summary status information missing",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-
-    op_status = lines[0].strip() if lines[0].strip() else "0"
-    manufacturer = lines[1].strip() if len(lines) > 1 else ""
-    model = lines[2].strip() if len(lines) > 2 else ""
-    serial = lines[3].strip() if len(lines) > 3 else ""
-    version = lines[4].strip() if len(lines) > 4 else ""
-
-    state_txt = _STATUS_MAP.get(op_status, ("UNKNOWN", "unhandled op_status (" + op_status + ")"))
-    state = state_txt[0]
-    status_txt = state_txt[1]
-
-    summary = 'Summary State is "' + status_txt + '", Manufacturer: ' + manufacturer + \
-              ', Model: ' + model + ', Serial: ' + serial + ', Version: ' + version
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {"state": state, "metrics": {}, "details": ""},
+        return {"changed": False, "msg": "summary status information missing",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    values = [line.split(None, 1)[1].strip() if " " in line else line.strip() for line in lines[:5]]
+    op_status = values[0].strip('"')
+    manufacturer = values[1].strip('"')
+    model = values[2].strip('"')
+    serial = values[3].strip('"')
+    version = values[4].strip('"')
+    status_map = {
+        "1": ("UNKNOWN", "unknown"),
+        "2": ("OK", "unused"),
+        "3": ("OK", "ok"),
+        "4": ("WARN", "warning"),
+        "5": ("CRIT", "critical"),
+        "6": ("CRIT", "nonrecoverable"),
     }
+    state_val, status_txt = status_map.get(op_status, ("UNKNOWN", "unhandled op_status (%s)" % op_status))
+    summary = 'Summary State is "%s", Manufacturer: %s, Model: %s, Serial: %s, Version: %s' % (
+        status_txt, manufacturer, model, serial, version)
+    return {"changed": False, "msg": summary,
+            "data": {"state": state_val, "metrics": {}, "details": ""}}

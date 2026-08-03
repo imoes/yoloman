@@ -1,292 +1,249 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.3854.2.3.3.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        # Parse snmpwalk output: ".OID = TYPE: value" format
-        lines = res.stdout.splitlines()
-        # Map OID suffixes to values
-        # base: .1.3.6.1.4.1.3854.2.3.3.1
-        # oids: 2 (description), 4 (percent), 6 (status), 8 (online)
-        # Expected full OIDs: .1.3.6.1.4.1.3854.2.3.3.1.2, .1.3.6.1.4.1.3854.2.3.3.1.4, ...
-        description_map = {}
-        percent_map = {}
-        status_map = {}
-        online_map = {}
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            # Split OID and value
-            parts = line.split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid = parts[0].strip()
-            value = parts[1].strip()
-            # Extract numeric OID (remove leading dot)
-            if oid.startswith("."):
-                oid_num = oid[1:]
-            else:
-                oid_num = oid
-            
-            # Match suffixes: 2, 4, 6, 8
-            suffix = oid_num.rsplit(".", 1)[-1] if "." in oid_num else oid_num
-            if suffix == "2":
-                # Description: value is in quotes or plain
-                # Remove quotes if present
-                if value.startswith('"') and value.endswith('"'):
-                    val = value[1:-1]
-                elif value.startswith('STRING:'):
-                    val = value[7:].strip().strip('"')
-                else:
-                    val = value
-                description_map[oid_num.rsplit(".", 1)[0]] = val
-            elif suffix == "4":
-                # Percent
-                if value.startswith('INTEGER:'):
-                    val = int(value[8:])
-                elif value.startswith('Gauge32:'):
-                    val = int(value[8:])
-                else:
-                    val = int(value) if value.isdigit() else 0
-                percent_map[oid_num.rsplit(".", 1)[0]] = val
-            elif suffix == "6":
-                # Status
-                if value.startswith('INTEGER:'):
-                    val = int(value[8:])
-                else:
-                    val = int(value) if value.isdigit() else 1
-                status_map[oid_num.rsplit(".", 1)[0]] = str(val)
-            elif suffix == "8":
-                # Online
-                if value.startswith('INTEGER:'):
-                    val = int(value[8:])
-                else:
-                    val = int(value) if value.isdigit() else 2
-                online_map[oid_num.rsplit(".", 1)[0]] = str(val)
-        
-        # Build sections: for each description key
-        discovered = []
-        for desc_oid in description_map:
-            online = online_map.get(desc_oid, "2")
-            if online == "1":
-                item = description_map[desc_oid]
-                # Suggested default params: levels and levels_lower
-                params_sugg = {"warn": 60.0, "crit": 65.0, "warn_lower": 30.0, "crit_lower": 35.0}
-                discovered.append({
-                    "item": item,
-                    "params": params_sugg,
-                    "metrics": ["humidity"]
-                })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d humidity sensors" % len(discovered),
-            "data": {"discovery": discovered}
-        }
-    
-    # CHECK MODE
-    item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.3854.2.3.3.1"
-    ], mutates=False)
+AKCP_BASE_OID = ".1.3.6.1.4.1.3854"
+AKCP_EXP_BASE = ".1.3.6.1.4.1.3854.2"
+SYSOID_OID = ".1.3.6.1.2.1.1.2.0"
+
+HUMIDITY_OID_BASE = ".1.3.6.1.4.1.3854.2.3.3.1"
+COL_DESCRIPTION = "2"
+COL_PERCENT = "4"
+COL_STATUS = "6"
+COL_ONLINE = "8"
+
+AKCP_LEVEL_STATES = {
+    "1": (2, "no status"),
+    "2": (0, "normal"),
+    "3": (1, "high warning"),
+    "4": (2, "high critical"),
+    "5": (1, "low warning"),
+    "6": (2, "low critical"),
+    "7": (2, "sensor error"),
+}
+
+STATE_NAMES = {0: "OK", 1: "WARN", 2: "CRIT", 3: "UNKNOWN"}
+STATE_MAP = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+
+
+def _strip_type_tag(value):
+    idx = value.find(": ")
+    if idx != -1:
+        return value[idx + 2:]
+    return value
+
+
+def _strip_quotes(value):
+    if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+        return value[1:-1]
+    return value
+
+
+def _snmp_get_scalar(ctx, params, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c",
+                   params.get("community", "public"),
+                   "-Oqv",
+                   params.get("host", "localhost"),
+                   oid], mutates=False)
+    if res.rc == 127:
+        return None, True
     if res.rc != 0:
-        return {"changed": False, "msg": "SNMP walk failed for item " + item,
+        return None, False
+    raw = res.stdout.strip()
+    raw = _strip_quotes(raw)
+    raw = _strip_type_tag(raw)
+    return raw, False
+
+
+def _snmp_walk(ctx, params, oid):
+    res = ctx.run(["snmpwalk", "-v2c", "-c",
+                   params.get("community", "public"),
+                   "-Oqn",
+                   params.get("host", "localhost"),
+                   oid], mutates=False)
+    if res.rc == 127:
+        return None, True
+    if res.rc != 0:
+        return None, False
+    rows = []
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        full_oid = line[:sp].strip()
+        rest = line[sp + 1:].strip()
+        rest = _strip_quotes(rest)
+        rest = _strip_type_tag(rest)
+        index = full_oid[len(oid):]
+        if index.startswith("."):
+            index = index[1:]
+        rows.append((index, rest))
+    return rows, False
+
+
+def _check_humidity_value(value, params):
+    levels = params.get("levels", (60.0, 65.0))
+    lower_levels = params.get("levels_lower", (30.0, 35.0))
+    warn_hi = levels[0]
+    crit_hi = levels[1]
+    warn_lo = lower_levels[0]
+    crit_lo = lower_levels[1]
+
+    if value >= crit_hi:
+        return "CRIT", "above crit"
+    if value >= warn_hi:
+        return "WARN", "above warn"
+    if value <= crit_lo:
+        return "CRIT", "below crit"
+    if value <= warn_lo:
+        return "WARN", "below warn"
+    return "OK", ""
+
+
+def _is_akcp_exp(ctx, params):
+    sysval, not_installed = _snmp_get_scalar(ctx, params, SYSOID_OID)
+    if not_installed:
+        return False
+    if sysval == None or not sysval.startswith(AKCP_BASE_OID + ".1"):
+        return False
+    res = ctx.run(["snmpwalk", "-v2c", "-c",
+                   params.get("community", "public"),
+                   "-Oqn",
+                   params.get("host", "localhost"),
+                   AKCP_EXP_BASE], mutates=False)
+    if res.rc == 127:
+        return False
+    if res.rc == 0:
+        return True
+    return False
+
+
+def _to_int_safe(s):
+    if s == None or s == "":
+        return 0
+    if s.isdigit():
+        return int(s)
+    # strip any non-digit prefix/suffix that might remain
+    digits = ""
+    for ch in s:
+        if ch.isdigit():
+            digits = digits + ch
+        elif ch == "-":
+            digits = digits + ch
+    if digits == "" or digits == "-":
+        return 0
+    return int(digits)
+
+
+def main(ctx, params):
+    if not _is_akcp_exp(ctx, params):
+        if params.get("_discover"):
+            return {"changed": False,
+                    "msg": "host is not an AKCP EXP device or not reachable",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no AKCP EXP device found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse response
-    section = []
-    lines = res.stdout.splitlines()
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        value = parts[1].strip()
-        if oid.startswith("."):
-            oid_num = oid[1:]
-        else:
-            oid_num = oid
-        
-        # Find base OID and suffix
-        base_oid = ".1.3.6.1.4.1.3854.2.3.3.1"
-        if oid_num.startswith(base_oid[1:]):
-            suffix = oid_num[len(base_oid):].lstrip(".")
-            if suffix in ["2", "4", "6", "8"]:
-                # Get common prefix for this entry
-                entry_oid = oid_num.rsplit(".", 1)[0] if "." in oid_num else oid_num
-                # We need to group by entry_oid
-                pass
-    
-    # Alternative: parse by building rows manually
-    # We'll collect all entries with their fields
-    entries = {}
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            continue
-        oid = parts[0].strip()
-        value = parts[1].strip()
-        if oid.startswith("."):
-            oid_num = oid[1:]
-        else:
-            oid_num = oid
-        
-        # Check if this is an akcp_exp_humidity OID
-        if not oid_num.startswith(".1.3.6.1.4.1.3854.2.3.3.1"):
-            continue
-        
-        # Get base index
-        suffix = oid_num.rsplit(".", 1)[-1]
-        if suffix in ["2", "4", "6", "8"]:
-            # Extract index: .1.3.6.1.4.1.3854.2.3.3.1.2.1 -> 1
-            parts_oid = oid_num.split(".")
-            if len(parts_oid) >= 9:
-                index = parts_oid[-1]
-            else:
-                continue
-            if index not in entries:
-                entries[index] = ["", 0, "1", "2"]  # description, percent, status, online
-            # Map suffix to field: 2->0, 4->1, 6->2, 8->3
-            field_map = {"2": 0, "4": 1, "6": 2, "8": 3}
-            field = field_map[suffix]
-            if suffix == "2":
-                if value.startswith('"') and value.endswith('"'):
-                    val = value[1:-1]
-                elif value.startswith('STRING:'):
-                    val = value[7:].strip().strip('"')
-                else:
-                    val = value
-                entries[index][0] = val
-            elif suffix == "4":
-                if value.startswith('INTEGER:'):
-                    val = int(value[8:])
-                elif value.startswith('Gauge32:'):
-                    val = int(value[8:])
-                else:
-                    val = int(value) if value.isdigit() else 0
-                entries[index][1] = val
-            elif suffix == "6":
-                if value.startswith('INTEGER:'):
-                    val = int(value[8:])
-                else:
-                    val = int(value) if value.isdigit() else 1
-                entries[index][2] = str(val)
-            elif suffix == "8":
-                if value.startswith('INTEGER:'):
-                    val = int(value[8:])
-                else:
-                    val = int(value) if value.isdigit() else 2
-                entries[index][3] = str(val)
-    
-    section = []
-    for idx in entries:
-        section.append(entries[idx])
-    
-    # Find matching item
+
+    if params.get("_discover"):
+        rows_desc, _ = _snmp_walk(ctx, params, HUMIDITY_OID_BASE + "." + COL_DESCRIPTION)
+        if rows_desc == None:
+            return {"changed": False,
+                    "msg": "could not retrieve AKCP EXP humidity table",
+                    "data": {"discovery": []}}
+
+        rows_on, _ = _snmp_walk(ctx, params, HUMIDITY_OID_BASE + "." + COL_ONLINE)
+
+        indices = []
+        for idx, desc in rows_desc:
+            if idx not in indices:
+                indices.append(idx)
+
+        discovery = []
+        for idx in indices:
+            desc = ""
+            on = ""
+            for o_idx, o_val in rows_desc:
+                if o_idx == idx:
+                    desc = o_val
+                    break
+            if rows_on != None:
+                for o_idx, o_val in rows_on:
+                    if o_idx == idx:
+                        on = o_val
+                        break
+            if on == "1":
+                discovery.append({"item": desc,
+                                  "params": {"levels": (60.0, 65.0),
+                                             "levels_lower": (30.0, 35.0)},
+                                  "metrics": ["humidity"]})
+
+        return {"changed": False,
+                "msg": "discovered %d items" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    item = params.get("item", "")
+
+    rows_desc, _ = _snmp_walk(ctx, params, HUMIDITY_OID_BASE + "." + COL_DESCRIPTION)
+    if rows_desc == None:
+        return {"changed": False,
+                "msg": "could not retrieve AKCP EXP humidity table",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    rows_pct, _ = _snmp_walk(ctx, params, HUMIDITY_OID_BASE + "." + COL_PERCENT)
+    rows_stat, _ = _snmp_walk(ctx, params, HUMIDITY_OID_BASE + "." + COL_STATUS)
+    rows_on, _ = _snmp_walk(ctx, params, HUMIDITY_OID_BASE + "." + COL_ONLINE)
+
     found = False
-    for desc, percent, status, online in section:
-        if desc == item:
+    pct_val = ""
+    stat_val = ""
+    on_val = ""
+
+    for idx, d_val in rows_desc:
+        if d_val == item:
+            if rows_pct != None:
+                for o_idx, o_val in rows_pct:
+                    if o_idx == idx:
+                        pct_val = o_val
+                        break
+            if rows_stat != None:
+                for o_idx, o_val in rows_stat:
+                    if o_idx == idx:
+                        stat_val = o_val
+                        break
+            if rows_on != None:
+                for o_idx, o_val in rows_on:
+                    if o_idx == idx:
+                        on_val = o_val
+                        break
             found = True
-            # Online check
-            if online != "1":
-                return {
-                    "changed": False,
-                    "msg": "sensor is offline",
-                    "data": {"state": "CRIT", "metrics": {}, "details": ""}
-                }
-            
-            # Status check
-            akcp_sensor_level_states = {
-                "1": ("CRIT", "no status"),
-                "2": ("OK", "normal"),
-                "3": ("WARN", "high warning"),
-                "4": ("CRIT", "high critical"),
-                "5": ("WARN", "low warning"),
-                "6": ("CRIT", "low critical"),
-                "7": ("CRIT", "sensor error"),
-            }
-            if status in ["1", "7"]:
-                state_name = akcp_sensor_level_states[status][1]
-                state = akcp_sensor_level_states[status][0]
-                return {
-                    "changed": False,
-                    "msg": "State: " + state_name,
-                    "data": {"state": state, "metrics": {}, "details": ""}
-                }
-            
-            # Humidity check
-            if percent:
-                # Extract levels from params
-                # Checkmk uses 'levels' (upper) and 'levels_lower' (lower)
-                # Default: levels=(60.0,65.0), levels_lower=(30.0,35.0)
-                warn_upper = params.get("warn", params.get("levels", (60.0, 65.0))[0] if isinstance(params.get("levels", (60.0, 65.0)), tuple) else 60.0)
-                crit_upper = params.get("crit", params.get("levels", (60.0, 65.0))[1] if isinstance(params.get("levels", (60.0, 65.0)), tuple) else 65.0)
-                warn_lower = params.get("warn_lower", params.get("levels_lower", (30.0, 35.0))[0] if isinstance(params.get("levels_lower", (30.0, 35.0)), tuple) else 30.0)
-                crit_lower = params.get("crit_lower", params.get("levels_lower", (30.0, 35.0))[1] if isinstance(params.get("levels_lower", (30.0, 35.0)), tuple) else 35.0)
-                
-                # Handle tuple params
-                levels = params.get("levels")
-                if levels != None and isinstance(levels, list):
-                    warn_upper = levels[0]
-                    crit_upper = levels[1]
-                levels_lower = params.get("levels_lower")
-                if levels_lower != None and isinstance(levels_lower, list):
-                    warn_lower = levels_lower[0]
-                    crit_lower = levels_lower[1]
-                
-                humidity_val = int(percent)
-                state = "OK"
-                summary_parts = []
-                
-                # Check upper levels first
-                if humidity_val >= crit_upper:
-                    state = "CRIT"
-                    summary_parts.append("CRIT (at %d%%, threshold %d%%)" % (humidity_val, crit_upper))
-                elif humidity_val >= warn_upper:
-                    state = "WARN"
-                    summary_parts.append("WARN (at %d%%, threshold %d%%)" % (humidity_val, warn_upper))
-                elif humidity_val <= crit_lower:
-                    state = "CRIT"
-                    summary_parts.append("CRIT (at %d%%, lower threshold %d%%)" % (humidity_val, crit_lower))
-                elif humidity_val <= warn_lower:
-                    state = "WARN"
-                    summary_parts.append("WARN (at %d%%, lower threshold %d%%)" % (humidity_val, warn_lower))
-                
-                summary_parts.insert(0, "Humidity %d%%" % humidity_val)
-                msg = ", ".join(summary_parts)
-                return {
-                    "changed": False,
-                    "msg": msg,
-                    "data": {"state": state, "metrics": {"humidity": humidity_val}, "details": ""}
-                }
-            
-            return {
-                "changed": False,
-                "msg": "no humidity data",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-            }
-    
+            break
+
     if not found:
-        return {
-            "changed": False,
-            "msg": "item not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return {"changed": False,
+                "msg": "no such humidity sensor: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    summaries = []
+    worst_state = 0
+
+    if on_val != "1":
+        summaries.append("sensor is offline")
+        worst_state = max(worst_state, 2)
+
+    if stat_val in ["1", "7"] and stat_val in AKCP_LEVEL_STATES:
+        st, name = AKCP_LEVEL_STATES[stat_val]
+        summaries.append("State: " + name)
+        worst_state = max(worst_state, st)
+
+    metrics = {}
+    if pct_val != "" and pct_val != None:
+        pct_num = _to_int_safe(pct_val)
+        hum_state, hum_detail = _check_humidity_value(pct_num, params)
+        summaries.append("Humidity: %d%%" % pct_num)
+        worst_state = max(worst_state, STATE_MAP[hum_state])
+        metrics["humidity"] = pct_num
+
+    final_state = STATE_NAMES[worst_state]
+
+    return {"changed": False,
+            "msg": ", ".join(summaries) if summaries else "Humidity sensor OK",
+            "data": {"state": final_state,
+                     "metrics": metrics,
+                     "details": ", ".join(summaries)}}

@@ -1,150 +1,180 @@
-# Starlark check module for Checkmk safenet_hsm check
-# Read-only: never mutates, always changed=False
+# ===== safenet_hsm.star =====
+# READ-ONLY Starlark translation of Checkmk check "safenet_hsm".
+# Probes a SafeNet HSM over SNMP: operation stats (operation requests,
+# operation errors, critical/non-critical events) and rates.
+# Never mutates, never writes files; always changed=False.
 
-# Constants
-METRIC_OPS_ERRORS = "operation_errors"
-METRIC_OPS_REQUESTS = "operation_requests"
-METRIC_EVENTS_CRITICAL = "critical_events"
-METRIC_EVENTS_NONCRITICAL = "noncritical_events"
+OIDS = [".1.3.6.1.4.1.12383.3.1.1.1", ".1.3.6.1.4.1.12383.3.1.1.2",
+        ".1.3.6.1.4.1.12383.3.1.1.3", ".1.3.6.1.4.1.12383.3.1.1.4"]
+BASE_OID = ".1.3.6.1.4.1.12383.3.1.1"
+
+def _snmpget(ctx, host, community, oid):
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, oid], mutates=False)
+    if res.rc == 0:
+        return res.stdout.strip()
+    return None
+
+def _probe_values(ctx, host, community):
+    vals = []
+    for oid in OIDS:
+        v = _snmpget(ctx, host, community, oid)
+        if v == None:
+            return None
+        vals.append(v)
+    return vals
+
+def _detect(ctx, host, community):
+    sys_oid = _snmpget(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if sys_oid == None:
+        return False
+    so = sys_oid.strip()
+    return so.startswith(".1.3.6.1.4.1.12383") or so.startswith(".1.3.6.1.4.1.8072")
+
+def _grade(value, levels):
+    # levels is a tuple ("no_levels", None) or (warn, crit) style.
+    # Upper levels: WARN if >= warn, CRIT if >= crit.
+    # levels can be ("no_levels", None) meaning no thresholds -> always OK.
+    if levels == None:
+        return "OK"
+    if type(levels) == "string" and levels == "no_levels":
+        return "OK"
+    if type(levels) == "tuple" and len(levels) == 2 and levels[0] == "no_levels":
+        return "OK"
+    if type(levels) != "tuple" or len(levels) < 2:
+        return "OK"
+    warn = levels[0]
+    crit = levels[1]
+    if warn == None or crit == None:
+        return "OK"
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+def _levels_from_params(params, key):
+    v = params.get(key, None)
+    if v == None:
+        return None
+    if type(v) == "list":
+        v = tuple(v)
+    return v
 
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
     if params.get("_discover"):
-        # Discovery mode: probe SNMP to detect if HSM section exists
-        # For checkmk.safenet_hsm, discovery is always "one service" (item "")
-        # We assume the agent provides the data; if not, we return empty discovery.
-        res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost", ".1.3.6.1.4.1.12383.3.1.1.1"], mutates=False)
-        # If the first OID returns data, section exists
-        if res.rc == 0 and res.stdout.strip():
-            return {
-                "changed": False,
-                "msg": "discovered HSM Operation Stats service",
-                "data": {"discovery": [{"item": "", "params": {}, "metrics": [
-                    "operation_errors",
-                    "operation_requests",
-                    "critical_events",
-                    "noncritical_events",
-                    "error_rate",
-                    "request_rate",
-                    "critical_event_rate",
-                    "noncritical_event_rate",
-                ]}]}
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no HSM data found",
-                "data": {"discovery": []}
-            }
+        if not _detect(ctx, host, community):
+            return {"changed": False, "msg": "no SafeNet HSM detected",
+                    "data": {"discovery": [], "host_labels": {}}}
+        vals = _probe_values(ctx, host, community)
+        if vals == None:
+            return {"changed": False, "msg": "no SafeNet HSM values",
+                    "data": {"discovery": [], "host_labels": {}}}
+        # Operation stats check - single service (item "")
+        op_metrics = ["operation_requests", "operation_errors", "operation_errors_rate",
+                      "operation_requests_rate"]
+        op_entry = {"item": "",
+                    "params": {"operation_errors": _levels_from_params(params, "operation_errors"),
+                               "error_rate": _levels_from_params(params, "error_rate"),
+                               "request_rate": _levels_from_params(params, "request_rate")},
+                    "metrics": op_metrics}
+        # Event stats check - single service (item "")
+        ev_metrics = ["critical_events", "noncritical_events", "critical_events_rate",
+                      "noncritical_events_rate"]
+        ev_entry = {"item": "",
+                    "params": {"critical_events": _levels_from_params(params, "critical_events"),
+                               "noncritical_events": _levels_from_params(params, "noncritical_events"),
+                               "critical_event_rate": _levels_from_params(params, "critical_event_rate"),
+                               "noncritical_event_rate": _levels_from_params(params, "noncritical_event_rate")},
+                    "metrics": ev_metrics}
+        discovery = [op_entry, ev_entry]
+        return {"changed": False,
+                "msg": "discovered %d SafeNet HSM services" % len(discovery),
+                "data": {"discovery": discovery, "host_labels": {}}}
 
-    # Check mode: item == "" for this single-service check
-    # Gather HSM section data: .1.3.6.1.4.1.12383.3.1.1.1..4 (operation_requests, operation_errors, critical_events, noncritical_events)
-    oid_base = ".1.3.6.1.4.1.12383.3.1.1"
-    oids = [
-        oid_base + ".1",  # operation_requests
-        oid_base + ".2",  # operation_errors
-        oid_base + ".3",  # critical_events
-        oid_base + ".4",  # noncritical_events
-    ]
+    # CHECK MODE
+    if not _detect(ctx, host, community):
+        return {"changed": False, "msg": "no SafeNet HSM detected",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vals = _probe_values(ctx, host, community)
+    if vals == None:
+        return {"changed": False, "msg": "no SafeNet HSM values",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    res = ctx.run(["snmpwalk", "-On", "-v2c", "-c", "public", "localhost"] + oids, mutates=False)
-    if res.rc != 0 or not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "no HSM data available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": "",
-            },
-        }
+    op_requests = int(vals[0]) if vals[0].isdigit() else 0
+    op_errors = int(vals[1]) if vals[1].isdigit() else 0
+    crit_events = int(vals[2]) if vals[2].isdigit() else 0
+    noncrit_events = int(vals[3]) if vals[3].isdigit() else 0
 
-    # Parse SNMP output — each line is OID = INTEGER:value
-    # We need the four values in order
-    lines = res.stdout.strip().splitlines()
-    values = {}
-    for i in range(len(oids)):
-        if i < len(lines):
-            line = lines[i].strip()
-            # Find last colon to extract value (e.g., ".1.3.6.1.4.1.12383.3.1.1.1 = INTEGER: 12345")
-            val_part = line.rsplit(":", 1)[-1].strip()
-            if val_part.isdigit() or (val_part.startswith("-") and val_part[1:].isdigit()):
-                values[oids[i]] = int(val_part)
+    section = {"operation_requests": op_requests, "operation_errors": op_errors,
+               "critical_events": crit_events, "noncritical_events": noncrit_events}
+
+    item = params.get("item", "")
+    # item is empty for these single-service checks; we always run both
+    # "safenet_hsm" (operation stats) and "safenet_hsm_events" (event stats).
+    # We identify which by a param hint if provided.
+    check_name = params.get("_check_name", "safenet_hsm")
+
+    if check_name == "safenet_hsm_events":
+        errors = []
+        states = {}
+        metrics = {}
+
+        for event in [("critical", "critical_events", "Critical Events",
+                       "critical_events", "critical_event_rate"),
+                      ("noncritical", "noncritical_events", "Noncritical Events",
+                       "noncritical_events", "noncritical_event_rate")]:
+            ev_key = event[0]
+            val_key = event[1]
+            label = event[2]
+            val_param = event[3]
+            rate_param = event[4]
+            val = section[val_key]
+            metrics[val_key] = val
+            lv = _levels_from_params(params, val_param)
+            st = _grade(val, lv)
+            states[val_key] = st
+            if st == "CRIT":
+                errors.append("CRIT")
+            elif st == "WARN":
+                errors.append("WARN")
+            if st == "CRIT":
+                states["rate_" + rate_param] = "UNKNOWN"
             else:
-                values[oids[i]] = 0
-        else:
-            values[oids[i]] = 0
+                states["rate_" + rate_param] = "UNKNOWN"
 
-    operation_requests = values.get(oid_base + ".1", 0)
-    operation_errors = values.get(oid_base + ".2", 0)
-    critical_events = values.get(oid_base + ".3", 0)
-    noncritical_events = values.get(oid_base + ".4", 0)
+        worst = "OK"
+        for e in errors:
+            if e == "CRIT":
+                worst = "CRIT"
+            elif e == "WARN" and worst == "OK":
+                worst = "WARN"
 
-    # Build section dict
-    section = {
-        "operation_requests": operation_requests,
-        "operation_errors": operation_errors,
-        "critical_events": critical_events,
-        "noncritical_events": noncritical_events,
-    }
+        msg = ("Critical Events: %d, Noncritical Events: %d" %
+               (section["critical_events"], section["noncritical_events"]))
+        return {"changed": False, "msg": msg,
+                "data": {"state": worst, "metrics": metrics,
+                         "details": "Counter rate metrics require historical data from the agent (not available in this read-only translation)."}}
 
-    # Threshold logic (Checkmk default: "no_levels" -> ignore, else upper levels)
-    def _check_levels(value, param_name, label):
-        warn = params.get(param_name, ("no_levels", None))
-        crit = params.get(param_name + "_rate" if "rate" in param_name else param_name, ("no_levels", None))
-        # Simplify: if param is tuple, ignore unless it's ("levels", (warn_val, crit_val))
-        # For simplicity, assume only no_levels or levels tuple in Checkmk style
-        # We'll handle only the tuple form ("levels", (w, c)) if provided
-        if isinstance(warn, (list, tuple)) and isinstance(crit, (list, tuple)):
-            if len(warn) == 2 and len(crit) == 2:
-                warn_val, crit_val = warn[1], crit[1]
-                if value >= crit_val:
-                    return "CRIT", "%f " % value + label
-                elif value >= warn_val:
-                    return "WARN", "%f " % value + label
-        # no_levels or invalid param -> OK
-        return "OK", "%f " % value + label
+    # default: safenet_hsm (operation stats)
+    metrics = {"operation_requests": section["operation_requests"],
+               "operation_errors": section["operation_errors"]}
+    states = {}
+    states["operation_errors"] = _grade(section["operation_errors"],
+                                        _levels_from_params(params, "operation_errors"))
 
-    # For rates: use first-check detection via value store simulation
-    # Since Starlark agent has no per-check value_store, we approximate:
-    # In practice, the agent stores previous values in the agent cache.
-    # For check_mode, we assume second run and return a verdict based on current value only.
-    # We'll report the absolute values as metrics (no rate computation in pure Starlark without store).
-    metrics = {
-        "operation_errors": operation_errors,
-        "operation_requests": operation_requests,
-        "critical_events": critical_events,
-        "noncritical_events": noncritical_events,
-    }
+    worst = "OK"
+    for k in ["operation_errors"]:
+        st = states[k]
+        if st == "CRIT":
+            worst = "CRIT"
+        elif st == "WARN" and worst == "OK":
+            worst = "WARN"
 
-    state = "OK"
-    messages = []
-
-    # Check absolute errors and events
-    for key, param_name, label in [
-        (METRIC_OPS_ERRORS, "operation_errors", "Errors"),
-        (METRIC_EVENTS_CRITICAL, "critical_events", "Critical Events"),
-        (METRIC_EVENTS_NONCRITICAL, "noncritical_events", "Noncritical Events"),
-    ]:
-        val = section.get(key, 0)
-        s, m = _check_levels(val, param_name, label)
-        if s != "OK":
-            state = s if s == "CRIT" else (state if state == "CRIT" else "WARN")
-        messages.append(m.strip())
-
-    # For rates: we omit rate computation in Starlark (requires persistent store)
-    # Instead, we report "0.00" as placeholder or omit them (per checkmk practice, first run = rate unavailable)
-    # Per check source, rates are only available on second run; in check_mode, we simulate a second run.
-    # Return OK for rates if not explicitly configured, or placeholder.
-    # Since Starlark has no store, we will not emit rate metrics; the check plugin in Checkmk would handle that.
-
-    # Build summary
-    summary = ", ".join(messages) if messages else "No data"
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": "",
-        },
-    }
+    msg = ("Operation Requests: %d, Operation Errors: %d" %
+           (section["operation_requests"], section["operation_errors"]))
+    return {"changed": False, "msg": msg,
+            "data": {"state": worst, "metrics": metrics,
+                     "details": "Request/error rate metrics require historical data from the agent (not available in this read-only translation)."}}

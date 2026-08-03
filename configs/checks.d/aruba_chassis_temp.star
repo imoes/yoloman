@@ -1,210 +1,180 @@
-# Module-level constants
-DEFAULT_WARN = 50.0
-DEFAULT_CRIT = 60.0
-
-def _string_to_celsius(temp_str):
-    """Convert temperature string (e.g., '25C') to Celsius float."""
-    if temp_str == None or len(temp_str) < 2:
-        return 0.0
-    unit = temp_str[-1].lower()
-    value_str = temp_str[:-1]
-    # Guard: ensure value_str is numeric before converting
-    if not value_str.replace(".", "").replace("-", "").replace("+", "").isdigit() and value_str != "-" and value_str != "." and value_str != "-." and value_str != "+.":
-        return 0.0
-    value = float(value_str)
-    
+def _to_celsius(temp_val, unit):
+    unit = unit.lower()
     if unit == "c":
-        return value
-    elif unit == "f":
-        return (value - 32) * 5.0 / 9.0
-    elif unit == "k":
-        return value - 273.15
-    else:
-        return value
+        return temp_val
+    if unit == "f":
+        return (temp_val - 32.0) * 5.0 / 9.0
+    if unit == "k":
+        return temp_val - 273.15
+    return temp_val
 
-def _get_temp_unitsym(unit):
-    """Return unit symbol."""
-    if unit == "c":
-        return "C"
-    elif unit == "f":
-        return "F"
-    elif unit == "k":
-        return "K"
-    else:
-        return unit.upper()
+
+def _render_temp(val, unit):
+    unit_lower = unit.lower()
+    if unit_lower == "c":
+        return "%f" % val
+    if unit_lower == "f":
+        return "%f" % val
+    if unit_lower == "k":
+        return "%f" % val
+    return str(val)
+
+
+def _safe_float_parse(raw):
+    s = raw.strip()
+    if not s:
+        return (0.0, "C")
+    unit = s[-1:].lower()
+    num = s[:-1]
+    f = float(num) if num.lstrip("-").replace(".", "").isdigit() else 0.0
+    return (f, unit)
+
 
 def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover") == True:
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host,
-            ".1.3.6.1.4.1.11.2.14.11.1.2.8.1.1"
-        ], mutates=False)
-        
-        if res.rc != 0:
-            return {"changed": False, "msg": "SNMP walk failed", "data": {"discovery": []}}
-        
-        lines = res.stdout.splitlines()
-        chassis_entries = {}
-        
-        for line in lines:
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
+    if params.get("_discover"):
+        sys_descr = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), ".1.3.6.1.2.1.1.1.0"],
+            mutates=False,
+        )
+        if sys_descr.rc == 127:
+            return {"changed": False, "msg": "snmpget not installed",
+                    "data": {"discovery": []}}
+        if sys_descr.rc != 0:
+            return {"changed": False, "msg": "no SNMP (rc=%d)" % sys_descr.rc,
+                    "data": {"discovery": []}}
+        descr = sys_descr.stdout.strip()
+        is_2930m = False
+        for token in descr.split():
+            if token.find("Aruba") != -1 and token.find("2930M") != -1:
+                is_2930m = True
+                break
+        if not is_2930m:
+            return {"changed": False, "msg": "not Aruba 2930M",
+                    "data": {"discovery": []}}
+
+        exists = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.11.2.14.11.1.2.8.1.1.1"],
+            mutates=False,
+        )
+        if exists.rc != 0:
+            return {"changed": False, "msg": "no chassis temp data",
+                    "data": {"discovery": []}}
+
+        walk = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.11.2.14.11.1.2.8.1.1.2"],
+            mutates=False,
+        )
+        if walk.rc != 0 or not walk.stdout:
+            return {"changed": False, "msg": "empty walk",
+                    "data": {"discovery": []}}
+
+        seen = {}
+        for line in walk.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
                 continue
-            oid_end = parts[0].split(".")[-1]
-            value = parts[1].split(": ", 1)[-1].strip()
-            
-            # Map OIDs: 2=name, 3=current, 4=max, 5=min, 7=threshold, 8=avg
-            if oid_end == "2":
-                chassis_name = value.strip('"')
-            elif oid_end == "3":
-                curr_temp_str = value.strip('"')
-            elif oid_end == "4":
-                max_temp_str = value.strip('"')
-            elif oid_end == "5":
-                min_temp_str = value.strip('"')
-            elif oid_end == "7":
-                threshold_temp_str = value.strip('"')
-            elif oid_end == "8":
-                avg_temp_str = value.strip('"') if value.strip('"') != "" else None
-            else:
-                continue
-            
-            # When we have all data for an entry, add to chassis_entries
-            # This simplistic parsing assumes OID order matches the tree structure
-            if oid_end == "8":
-                item_name = chassis_name + " " + oid_end
-                chassis_entries[item_name] = {
-                    "name": chassis_name,
-                    "curr_temp": _string_to_celsius(curr_temp_str),
-                    "max_temp": _string_to_celsius(max_temp_str),
-                    "min_temp": _string_to_celsius(min_temp_str),
-                    "threshold_temp": _string_to_celsius(threshold_temp_str),
-                    "avg_temp": _string_to_celsius(avg_temp_str) if avg_temp_str != None else None,
-                    "dev_unit": curr_temp_str[-1].lower() if len(curr_temp_str) > 0 else "c",
-                }
-        
-        discovery_items = []
-        for item in chassis_entries:
-            chassis = chassis_entries[item]
-            discovery_items.append({
-                "item": item,
-                "params": {"levels": (DEFAULT_WARN, DEFAULT_CRIT)},
-                "metrics": ["temperature"]
-            })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d chassis temperature items" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-    
-    # Check mode
+            oid = line[:sp]
+            val = line[sp + 1:].strip().strip('"')
+            idx = oid[len(".1.3.6.1.4.1.11.2.14.11.1.2.8.1.1.2") + 1:]
+            if idx not in seen:
+                seen[idx] = val
+
+        discovery = []
+        for idx in sorted(seen.keys()):
+            name = seen[idx]
+            discovery.append({"item": "%s %s" % (name, idx),
+                              "params": {"levels": (50.0, 60.0)},
+                              "metrics": ["temperature"]})
+        return {"changed": False,
+                "msg": "discovered %d chassis temperature sensors" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host,
-        ".1.3.6.1.4.1.11.2.14.11.1.2.8.1.1"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP walk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse the SNMP data for the requested item
-    lines = res.stdout.splitlines()
-    chassis_data = {}
-    
-    for line in lines:
-        parts = line.strip().split(" = ")
-        if len(parts) != 2:
-            continue
-        oid_end = parts[0].split(".")[-1]
-        value = parts[1].split(": ", 1)[-1].strip()
-        
-        # Map OIDs: 2=name, 3=current, 4=max, 5=min, 7=threshold, 8=avg
-        if oid_end == "2":
-            chassis_name = value.strip('"')
-        elif oid_end == "3":
-            curr_temp_str = value.strip('"')
-        elif oid_end == "4":
-            max_temp_str = value.strip('"')
-        elif oid_end == "5":
-            min_temp_str = value.strip('"')
-        elif oid_end == "7":
-            threshold_temp_str = value.strip('"')
-        elif oid_end == "8":
-            avg_temp_str = value.strip('"') if value.strip('"') != "" else None
-        else:
-            continue
-        
-        # When we have all data for an entry, add to chassis_data
-        if oid_end == "8":
-            item_name = chassis_name + " " + oid_end
-            chassis_data[item_name] = {
-                "name": chassis_name,
-                "curr_temp": _string_to_celsius(curr_temp_str),
-                "max_temp": _string_to_celsius(max_temp_str),
-                "min_temp": _string_to_celsius(min_temp_str),
-                "threshold_temp": _string_to_celsius(threshold_temp_str),
-                "avg_temp": _string_to_celsius(avg_temp_str) if avg_temp_str != None else None,
-                "dev_unit": curr_temp_str[-1].lower() if len(curr_temp_str) > 0 else "c",
-            }
-    
-    chassis = chassis_data.get(item)
-    if chassis == None:
-        return {
-            "changed": False,
-            "msg": "chassis temperature item not found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get thresholds
-    warn = params.get("levels", (DEFAULT_WARN, DEFAULT_CRIT))
-    if isinstance(warn, int) or isinstance(warn, float):
-        warn = (warn, params.get("levels_crit", DEFAULT_CRIT))
-    warn = float(warn[0])
-    crit = float(warn[1]) if isinstance(warn[1], int) or isinstance(warn[1], float) else DEFAULT_CRIT
-    
-    # Check temperature
-    curr_temp = chassis["curr_temp"]
-    threshold_temp = chassis["threshold_temp"]
-    
-    # Determine state using worst device levels handling (default)
-    state = "OK"
-    if curr_temp >= crit:
-        state = "CRIT"
-    elif curr_temp >= warn:
-        state = "WARN"
-    
-    # Build metrics
-    metrics = {"temperature": curr_temp}
-    
-    # Build details
-    details = "%s: %fC, Max: %fC, Min: %fC" % (
-        chassis["name"], curr_temp, chassis["max_temp"], chassis["min_temp"]
+    idx = item.split(" ")[-1] if item else ""
+    base = ".1.3.6.1.4.1.11.2.14.11.1.2.8.1.1"
+
+    name_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + ".2." + idx],
+        mutates=False,
     )
-    if chassis["avg_temp"] != None:
-        details += ", Avg: %fC" % chassis["avg_temp"]
-    
-    msg = "Temperature %fC" % curr_temp
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": details,
-        },
-    }
+    curr_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + ".3." + idx],
+        mutates=False,
+    )
+    max_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + ".4." + idx],
+        mutates=False,
+    )
+    min_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + ".5." + idx],
+        mutates=False,
+    )
+    thresh_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + ".7." + idx],
+        mutates=False,
+    )
+    avg_res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), base + ".8." + idx],
+        mutates=False,
+    )
+
+    if curr_res.rc != 0 or not curr_res.stdout.strip():
+        return {"changed": False, "msg": "no current temp for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    curr_raw = curr_res.stdout.strip()
+    curr_val, dev_unit = _safe_float_parse(curr_raw)
+    curr_c = _to_celsius(curr_val, dev_unit)
+
+    warn = 50.0
+    crit = 60.0
+    levels = params.get("levels")
+    if levels:
+        warn = levels[0]
+        crit = levels[1]
+    else:
+        warn = params.get("warn", 50.0)
+        crit = params.get("crit", 60.0)
+
+    if curr_c >= crit:
+        state = "CRIT"
+    elif curr_c >= warn:
+        state = "WARN"
+    else:
+        state = "OK"
+
+    details = "Item: %s\nCurrent: %s °C\n" % (
+        item, _render_temp(curr_c, "C"))
+    if max_res.rc == 0 and max_res.stdout.strip():
+        mv = max_res.stdout.strip()
+        fval, unit = _safe_float_parse(mv)
+        details += "Max: %s °C\n" % _render_temp(_to_celsius(fval, unit), "C")
+    if min_res.rc == 0 and min_res.stdout.strip():
+        mv = min_res.stdout.strip()
+        fval, unit = _safe_float_parse(mv)
+        details += "Min: %s °C\n" % _render_temp(_to_celsius(fval, unit), "C")
+    if avg_res.rc == 0 and avg_res.stdout.strip():
+        av = avg_res.stdout.strip()
+        fval, unit = _safe_float_parse(av)
+        details += "Average: %s °C\n" % _render_temp(_to_celsius(fval, unit), "C")
+    if thresh_res.rc == 0 and thresh_res.stdout.strip():
+        tv = thresh_res.stdout.strip()
+        fval, unit = _safe_float_parse(tv)
+        details += "Threshold: %s °C\n" % _render_temp(_to_celsius(fval, unit), "C")
+
+    msg = "%s: %f°C" % (item, curr_c)
+    return {"changed": False, "msg": msg,
+            "data": {"state": state,
+                     "metrics": {"temperature": curr_c},
+                     "details": details}}

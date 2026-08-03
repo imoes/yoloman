@@ -1,93 +1,115 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        # Discover DB2 databases by listing the DB2 directory
-        res = ctx.run(["db2", "list", "db", "directory"], mutates=False)
-        dbs = []
-        for line in res.stdout.splitlines():
-            if line.strip().startswith("Database name"):
-                db_name = line.split()[-1]
-                if db_name:
-                    dbs.append(db_name)
-        
-        # For each database, try to get sort overflow data
-        items = []
-        for db in dbs:
-            # Try to get sort data via db2pd
-            res = ctx.run(["db2pd", "-d", db, "-sort"], mutates=False)
-            if res.rc == 0:
-                total_sorts = 0
-                sort_overflows = 0
-                for line in res.stdout.splitlines():
-                    if "Total sorts" in line:
-                        parts = line.split()
-                        for p in parts:
-                            if p.isdigit():
-                                total_sorts = int(p)
-                                break
-                    if "Sort overflows" in line:
-                        parts = line.split()
-                        for p in parts:
-                            if p.isdigit():
-                                sort_overflows = int(p)
-                                break
-                # Only add if we found valid data
-                if total_sorts > 0 or sort_overflows >= 0:
-                    items.append({"item": db, "params": {"levels_perc": [2.0, 4.0]},
-                                  "metrics": ["sort_overflow"]})
-        
-        return {"changed": False, "msg": "discovered %d DB2 databases" % len(items),
-                "data": {"discovery": items}}
-    
-    # Check mode
+def _empty_section():
+    return (None, {})
+
+
+def _parse_db2_dbs(raw_section):
+    current_instance = None
+    dbs = {}
+    global_timestamp = None
+    for line in raw_section:
+        if len(line) < 2:
+            continue
+        first = line[0]
+        if first.startswith("TIMESTAMP") and current_instance == None:
+            global_timestamp = int(first[1])
+            continue
+        if first.startswith("[[["):
+            current_instance = first[3:-3]
+            dbs[current_instance] = []
+        else:
+            if current_instance != None:
+                dbs[current_instance].append(line)
+    return (global_timestamp, dbs)
+
+
+def _to_float(value):
+    s = str(value)
+    neg = s.startswith("-")
+    body = s[1:] if neg else s
+    if body == "" or body == "." or body.count(".") > 1:
+        return 0.0
+    for ch in body:
+        if ch < "0" or ch > "9":
+            if ch != ".":
+                return 0.0
+    return float(s)
+
+
+def _gather_db2_sort_data(ctx):
+    res2 = ctx.run(["db2", "list", "applications"], mutates=False)
+    if res2.rc == 127:
+        return _empty_section()
+    res = ctx.run(["db2", "get", "db2", "sort", "statistics"], mutates=False)
+    if res.rc != 0 or not res.stdout:
+        return _empty_section()
+    raw = []
+    for ln in res.stdout.splitlines():
+        raw.append(ln.split())
+    return _parse_db2_dbs(raw)
+
+
+def _discover(ctx, params):
+    section = _gather_db2_sort_data(ctx)
+    discovery = []
+    for key in section[1].keys():
+        discovery.append({
+            "item": key,
+            "params": {"levels_perc": params.get("levels_perc", (2.0, 4.0))},
+            "metrics": ["sort_overflow"],
+        })
+    return {
+        "changed": False,
+        "msg": "discovered %d items" % len(discovery),
+        "data": {"discovery": discovery},
+    }
+
+
+def _check(ctx, params):
     item = params.get("item", "")
-    levels = params.get("levels_perc", [2.0, 4.0])
-    warn = levels[0]
-    crit = levels[1]
-    
-    # Get sort data for the specific database
-    res = ctx.run(["db2pd", "-d", item, "-sort"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "Failed to get data for database " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    total_sorts = 0
-    sort_overflows = 0
-    found_total = False
-    found_overflow = False
-    
-    for line in res.stdout.splitlines():
-        if found_total and found_overflow:
-            break
-        if "Total sorts" in line and not found_total:
-            parts = line.split()
-            for p in parts:
-                if p.isdigit():
-                    total_sorts = int(p)
-                    found_total = True
-                    break
-        if "Sort overflows" in line and not found_overflow:
-            parts = line.split()
-            for p in parts:
-                if p.isdigit():
-                    sort_overflows = int(p)
-                    found_overflow = True
-                    break
-    
-    if total_sorts > 0:
-        overflow_perc = sort_overflows * 100.0 / total_sorts
+    section = _gather_db2_sort_data(ctx)
+    dbs = section[1]
+    db = dbs.get(item)
+    if not db:
+        return {
+            "changed": False,
+            "msg": "Login into database failed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    total = 0.0
+    overflows = 0.0
+    for x in db:
+        last = x[-1]
+        label = x[-2] if len(x) >= 2 else ""
+        if label == "sorts":
+            total = _to_float(last)
+        elif label == "overflows":
+            overflows = _to_float(last)
+    warn, crit = params.get("levels_perc", (2.0, 4.0))
+    if total > 0:
+        overflow_perc = overflows * 100.0 / total
     else:
         overflow_perc = 0.0
-    
     if overflow_perc >= crit:
         state = "CRIT"
-        summary = "%f%% sort overflow (levels at %f%%/%f%%)" % (overflow_perc, warn, crit)
     elif overflow_perc >= warn:
         state = "WARN"
-        summary = "%f%% sort overflow (levels at %f%%/%f%%)" % (overflow_perc, warn, crit)
     else:
         state = "OK"
-        summary = "%f%% sort overflow" % overflow_perc
-    
-    return {"changed": False,
-            "msg": "%s, Sort overflows: %d, Total sorts: %d" % (summary, int(sort_overflows), int(total_sorts)),
-            "data": {"state": state, "metrics": {"sort_overflow": overflow_perc}, "details": ""}}
+    msg = "%f%% sort overflow" % overflow_perc
+    if state != "OK":
+        msg = msg + " (levels at %f%%/%f%%)" % (warn, crit)
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": state,
+            "metrics": {"sort_overflow": overflow_perc},
+            "details": "Sort overflows: %d, Total sorts: %d" % (int(overflows), int(total)),
+        },
+    }
+
+
+def main(ctx, params):
+    if params.get("_discover"):
+        return _discover(ctx, params)
+    return _check(ctx, params)

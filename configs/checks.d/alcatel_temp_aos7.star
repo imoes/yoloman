@@ -1,158 +1,88 @@
-# Top-level constant: board names in order of the SNMP OIDs
-BOARDS = (
-    "CPMA",
-    "CFMA",
-    "CPMB",
-    "CFMB",
-    "CFMC",
-    "CFMD",
-    "FTA",
-    "FTB",
-    "NI1",
-    "NI2",
-    "NI3",
-    "NI4",
-    "NI5",
-    "NI6",
-    "NI7",
-    "NI8",
-)
-
 def main(ctx, params):
     if params.get("_discover"):
-        # Discovery mode: fetch SNMP data and enumerate boards
-        base_oid = ".1.3.6.1.4.1.6486.801.1.1.1.3.1.1.3.1"
-        board_oids = ["8", "9", "10", "11", "12", "13", "14", "15",
-                      "16", "17", "18", "19", "20", "21", "22", "23"]
-        # Build full OID list for snmpwalk
-        oids_list = [base_oid + "." + oid for oid in board_oids]
-        res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                       "-On", params.get("host", "localhost")] + oids_list,
-                      mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.6486.801.1.1.1.3.1.1.3.1"],
+            mutates=False,
+        )
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "host not an Alcatel AOS7 device",
+                    "data": {"discovery": [], "host_labels": {}}}
 
-        # Parse output: map board index to temperature value
-        temperature_map = {}
-        lines = res.stdout.splitlines()
-        for i, line in enumerate(lines):
-            if i >= len(BOARDS):
+        boards = ["CPMA", "CFMA", "CPMB", "CFMB", "CFMC", "CFMD",
+                  "FTA", "FTB",
+                  "NI1", "NI2", "NI3", "NI4", "NI5", "NI6", "NI7", "NI8"]
+        values = {}
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
                 continue
-            # Format: ".1.3.6.1.4.1.6486.801.1.1.1.3.1.1.3.1.N = INTEGER: value"
-            parts = line.split()
-            if len(parts) < 4:
+            oid_part = parts[0]
+            raw = parts[1]
+            base_oid = ".1.3.6.1.4.1.6486.801.1.1.1.3.1.1.3.1."
+            suffix = oid_part[len(base_oid):]
+            if not suffix.isdigit():
                 continue
-            value_str = parts[-1].strip()
-            if not value_str.isdigit():
-                continue
-            temperature = int(value_str)
-            # Skip board_not_connected_value (0)
-            if temperature != 0:
-                temperature_map[BOARDS[i]] = temperature
+            i = int(suffix)
+            if i >= 8 and i <= 23 and i - 8 < len(boards):
+                board = boards[i - 8]
+                cleaned = raw.split(":")[0].strip().strip('"')
+                if cleaned != "" and cleaned.lstrip("-").isdigit():
+                    v = int(cleaned)
+                    if v != 0:
+                        values[board] = v
 
-        # Build discovery list
-        discovery_list = []
-        for item in temperature_map:
-            discovery_list.append({
-                "item": item,
-                "params": {"levels": (45.0, 50.0)},
-                "metrics": ["temperature"]
-            })
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature boards" % len(discovery_list),
-            "data": {"discovery": discovery_list}
-        }
+        out = []
+        for b in boards:
+            if b in values:
+                out.append({"item": b, "params": {"levels": (45.0, 50.0)},
+                            "metrics": ["temperature"]})
+        return {"changed": False,
+                "msg": "discovered %d temperature boards" % len(out),
+                "data": {"discovery": out, "host_labels": {"cmk/os_family": "network"}}}
 
-    # Check mode: examine one board
     item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    boards = ["CPMA", "CFMA", "CPMB", "CFMB", "CFMC", "CFMD",
+              "FTA", "FTB",
+              "NI1", "NI2", "NI3", "NI4", "NI5", "NI6", "NI7", "NI8"]
 
-    # Gather data via SNMP for this single OID
-    base_oid = ".1.3.6.1.4.1.6486.801.1.1.1.3.1.1.3.1"
-    if item not in BOARDS:
-        return {
-            "changed": False,
-            "msg": "unknown board: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    board_index = BOARDS.index(item)
-    oid = base_oid + "." + str(board_index + 8)  # OIDs start at 8 for CPMA
+    if item not in boards:
+        return {"changed": False, "msg": "unknown board item: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    res = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                   "-On", params.get("host", "localhost"), oid],
-                  mutates=False)
+    idx = boards.index(item) + 8
+    oid = ".1.3.6.1.4.1.6486.801.1.1.1.3.1.1.3.1.%d" % idx
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"), oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return {"changed": False, "msg": "snmp not available",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "SNMP get failed for " + item + ": " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+        return {"changed": False, "msg": "no temperature for board %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Parse snmpget output: "OID = INTEGER: value"
-    line = res.stdout.strip()
-    parts = line.split()
-    if len(parts) < 4:
-        return {
-            "changed": False,
-            "msg": "unexpected SNMP output for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
+    raw = res.stdout.strip().strip('"')
+    if raw == "" or not raw.lstrip("-").isdigit():
+        return {"changed": False, "msg": "cannot parse temperature for %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    value_str = parts[-1].strip()
-    if not value_str.isdigit():
-        return {
-            "changed": False,
-            "msg": "invalid temperature value for " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    temperature = int(value_str)
-    # Skip board_not_connected_value (0)
-    if temperature == 0:
-        return {
-            "changed": False,
-            "msg": "board " + item + " not connected",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-
-    # Extract thresholds
-    warn = 45.0
-    crit = 50.0
+    reading = float(int(raw))
     levels = params.get("levels", (45.0, 50.0))
-    if isinstance(levels, list):
-        if len(levels) == 2:
-            warn = float(levels[0])
-            crit = float(levels[1])
-    elif isinstance(levels, dict):
-        upper_levels = levels.get("upper_levels", (45.0, 50.0))
-        if isinstance(upper_levels, list) and len(upper_levels) == 2:
-            warn = float(upper_levels[0])
-            crit = float(upper_levels[1])
-        elif isinstance(upper_levels, (float, int)):
-            warn = float(upper_levels)
-            crit = float(upper_levels)
-    # Use defaults if parsing failed (already set above)
+    warn = levels[0] if type(levels) == "list" or type(levels) == "tuple" else 45.0
+    crit = levels[1] if type(levels) == "list" or type(levels) == "tuple" else 50.0
 
-    # Determine state
-    if temperature >= crit:
+    if reading >= crit:
         state = "CRIT"
-    elif temperature >= warn:
+    elif reading >= warn:
         state = "WARN"
     else:
         state = "OK"
 
-    return {
-        "changed": False,
-        "msg": "Temperature Board %s: %f C" % (item, float(temperature)),
-        "data": {
-            "state": state,
-            "metrics": {"temperature": float(temperature)},
-            "details": ""
-        }
-    }
+    return {"changed": False,
+            "msg": "Temperature Board %s: %f C" % (item, reading),
+            "data": {"state": state, "metrics": {"temperature": reading},
+                     "details": ""}}

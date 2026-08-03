@@ -1,192 +1,194 @@
+def _sanitize_item(item):
+    return item.replace("\x00", "\\x00")
+
 def main(ctx, params):
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            ".1.3.6.1.4.1.232.1.2.2.1.1"
-        ], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "snmpwalk failed", "data": {"discovery": []}}
-        
-        items = []
-        # Parse snmpwalk output: OID = TYPE: value
-        current_index = ""
-        current_slot = ""
-        current_name = ""
-        current_status = ""
+        # Verify this is an HPE ProLiant / StoreEasy / Synergy system via the product name OID.
+        res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.232.2.2.4.2.0"],
+            mutates=False,
+        )
+        if res.rc != 0 or res.stdout == "":
+            return {"changed": False, "msg": "not an HPE ProLiant/StoreEasy/Synergy system",
+                    "data": {"discovery": []}}
+        product = res.stdout.strip().strip('"').lower()
+        is_hpe = False
+        for kw in ("proliant", "storeeasy", "synergy"):
+            if kw in product:
+                is_hpe = True
+                break
+        if not is_hpe:
+            return {"changed": False, "msg": "not an HPE ProLiant/StoreEasy/Synergy system",
+                    "data": {"discovery": []}}
+
+        # Walk the CPU status table: base .1.3.6.1.4.1.232.1.2.2.1.1, columns 1,2,3,6.
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", "-On", params.get("host", "localhost"),
+             ".1.3.6.1.4.1.232.1.2.2.1.1.1"],
+            mutates=False,
+        )
+        if res.rc != 0 or res.stdout == "":
+            return {"changed": False, "msg": "no HPE ProLiant CPU entries found",
+                    "data": {"discovery": []}}
+
+        rows = {}
+        col_base = ".1.3.6.1.4.1.232.1.2.2.1.1"
         for line in res.stdout.splitlines():
-            if not line.strip():
+            sp = line.find(" ")
+            if sp == -1:
                 continue
-            # Split into OID and value part
-            if "=" not in line:
+            oid = line[:sp]
+            val = line[sp + 1:]
+            idx = oid[len(col_base) + 1:]
+            if idx not in rows:
+                rows[idx] = {}
+            rows[idx]["1"] = val
+
+        res2 = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", "-On", params.get("host", "localhost"),
+             col_base + ".2"],
+            mutates=False,
+        )
+        if res2.stdout != "":
+            for line in res2.stdout.splitlines():
+                sp = line.find(" ")
+                if sp == -1:
+                    continue
+                oid = line[:sp]
+                val = line[sp + 1:]
+                idx = oid[len(col_base) + 1:]
+                if idx in rows:
+                    rows[idx]["2"] = val
+
+        res3 = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", "-On", params.get("host", "localhost"),
+             col_base + ".3"],
+            mutates=False,
+        )
+        if res3.stdout != "":
+            for line in res3.stdout.splitlines():
+                sp = line.find(" ")
+                if sp == -1:
+                    continue
+                oid = line[:sp]
+                val = line[sp + 1:]
+                idx = oid[len(col_base) + 1:]
+                if idx in rows:
+                    rows[idx]["3"] = val
+
+        res6 = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", "-On", params.get("host", "localhost"),
+             col_base + ".6"],
+            mutates=False,
+        )
+        if res6.stdout != "":
+            for line in res6.stdout.splitlines():
+                sp = line.find(" ")
+                if sp == -1:
+                    continue
+                oid = line[:sp]
+                val = line[sp + 1:]
+                idx = oid[len(col_base) + 1:]
+                if idx in rows:
+                    rows[idx]["6"] = val
+
+        out = []
+        for idx in sorted(rows.keys()):
+            r = rows[idx]
+            if "1" not in r or "2" not in r or "3" not in r or "6" not in r:
                 continue
-            parts = line.split("=", 1)
-            if len(parts) != 2:
-                continue
-            oid = parts[0].strip()
-            value_part = parts[1].strip()
-            # Extract value after type indicator (e.g., "STRING:" or "INTEGER:")
-            value = value_part
-            for prefix in ["STRING:", "INTEGER:", "OctetString:"]:
-                if value.startswith(prefix):
-                    value = value[len(prefix):].strip().strip('"')
-                    break
-            
-            # Map OID suffix to field
-            suffix = oid.rsplit(".", 1)[-1] if "." in oid else ""
-            if oid.endswith(".1"):
-                current_index = value
-            elif oid.endswith(".2"):
-                current_slot = value
-            elif oid.endswith(".3"):
-                current_name = value.replace("\x00", r"\x00")
-            elif oid.endswith(".6"):
-                current_status = value
-                # All fields collected, yield item
-                if current_index and current_slot and current_name:
-                    items.append({
-                        "item": current_name,
-                        "params": {},
-                        "metrics": []
-                    })
-                    current_index = ""
-                    current_slot = ""
-                    current_name = ""
-                    current_status = ""
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d CPUs" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode
+            name = _sanitize_item(r["3"])
+            out.append({"item": name, "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d HPE ProLiant CPU entries" % len(out),
+                "data": {"discovery": out}}
+
+    # CHECK MODE
     item = params.get("item", "")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        ".1.3.6.1.4.1.232.1.2.2.1.1"
-    ], mutates=False)
-    
-    if res.rc != 0:
-        return {
-            "changed": False,
-            "msg": "snmpwalk failed",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Parse snmpwalk output to find matching CPU
+
+    # Product-name detection
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", params.get("host", "localhost"),
+         ".1.3.6.1.4.1.232.2.2.4.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout == "":
+        return {"changed": False, "msg": "not an HPE ProLiant/StoreEasy/Synergy system",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Get the index for this item by walking column 3 (name)
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+         "-Oqv", "-On", params.get("host", "localhost"),
+         ".1.3.6.1.4.1.232.1.2.2.1.1.3"],
+        mutates=False,
+    )
+    if res.rc != 0 or res.stdout == "":
+        return {"changed": False, "msg": "no CPU data found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    col_base = ".1.3.6.1.4.1.232.1.2.2.1.1"
+    target_idx = None
     for line in res.stdout.splitlines():
-        if not line.strip():
+        sp = line.find(" ")
+        if sp == -1:
             continue
-        if "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        
-        oid = parts[0].strip()
-        value_part = parts[1].strip()
-        value = value_part
-        for prefix in ["STRING:", "INTEGER:", "OctetString:"]:
-            if value.startswith(prefix):
-                value = value[len(prefix):].strip().strip('"')
-                break
-        
-        # We need to reconstruct the CPU record from the four OIDs
-        # Process line by line and collect fields as we go
-        pass  # We'll handle this below with a different parsing strategy
-    
-    # Let's restructure parsing: collect all lines, then group by index
-    lines = res.stdout.splitlines()
-    cpu_data = {}
-    current_index = ""
-    current_slot = ""
-    current_name = ""
-    current_status = ""
-    
-    for line in lines:
-        if not line.strip():
-            continue
-        if "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        
-        oid = parts[0].strip()
-        value_part = parts[1].strip()
-        value = value_part
-        for prefix in ["STRING:", "INTEGER:", "OctetString:"]:
-            if value.startswith(prefix):
-                value = value[len(prefix):].strip().strip('"')
-                break
-        
-        # Map OID suffix to field
-        if oid.endswith(".1"):
-            if current_index:
-                # Save previous record
-                if current_name.replace("\x00", r"\x00") == item:
-                    return format_result(current_index, current_slot, current_name, current_status)
-                current_index = ""
-                current_slot = ""
-                current_name = ""
-                current_status = ""
-            current_index = value
-        elif oid.endswith(".2"):
-            current_slot = value
-        elif oid.endswith(".3"):
-            current_name = value.replace("\x00", r"\x00")
-        elif oid.endswith(".6"):
-            current_status = value
-            # All fields collected for this CPU
-            if current_name == item:
-                return format_result(current_index, current_slot, current_name, current_status)
-            # Reset for next CPU
-            current_index = ""
-            current_slot = ""
-            current_name = ""
-            current_status = ""
-    
-    # Also check the last collected CPU if we didn't find a match earlier
-    if current_name == item:
-        return format_result(current_index, current_slot, current_name, current_status)
-    
-    return {
-        "changed": False,
-        "msg": "CPU %s not found" % item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-    }
+        oid = line[:sp]
+        val = line[sp + 1:].strip().strip('"')
+        idx = oid[len(col_base) + 1:]
+        if _sanitize_item(val) == item:
+            target_idx = idx
+            break
 
+    if target_idx == None:
+        return {"changed": False, "msg": "no CPU entry found for item " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-def format_result(index, slot, name, status):
-    # Map status value to Checkmk state
     status_map = {
         "1": "unknown",
         "2": "ok",
         "3": "degraded",
         "4": "failed",
-        "5": "disabled"
+        "5": "disabled",
     }
-    snmp_status = status_map.get(status, "unknown")
-    
-    # Checkmk status map from lib
     state_map = {
         "unknown": "UNKNOWN",
         "other": "UNKNOWN",
         "ok": "OK",
         "degraded": "CRIT",
         "failed": "CRIT",
-        "disabled": "WARN"
+        "disabled": "WARN",
     }
+
+    def _get(oid_suffix):
+        r = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"),
+             col_base + "." + oid_suffix + "." + target_idx],
+            mutates=False,
+        )
+        if r.rc != 0:
+            return ""
+        return r.stdout.strip()
+
+    index_v = _get("1")
+    slot = _get("2")
+    name = _get("3")
+    status_str = _get("6")
+
+    if status_str == "":
+        return {"changed": False, "msg": "no CPU status found for index " + str(target_idx),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    snmp_status = status_map.get(status_str, "unknown")
     state = state_map.get(snmp_status, "UNKNOWN")
-    
-    return {
-        "changed": False,
-        "msg": 'CPU%s "%s" in slot %s is in state "%s"' % (index, name, slot, snmp_status),
-        "data": {
-            "state": state,
-            "metrics": {},
-            "details": ""
-        }
-    }
+    summary = 'CPU%s "%s" in slot %s is in state "%s"' % (index_v, name, slot, snmp_status)
+
+    return {"changed": False, "msg": summary,
+            "data": {"state": state, "metrics": {}, "details": ""}}

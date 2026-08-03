@@ -1,157 +1,148 @@
 def main(ctx, params):
-    # Discovery mode: single-service check, always yields exactly one Service
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        base_oid = ".1.3.6.1.4.1.534.1.6"
-        
-        res = ctx.run([
-            "snmpwalk",
-            "-v2c",
-            "-c", community,
-            "-On", host,
-            base_oid
-        ], mutates=False)
-        
-        if res.rc != 0 or not res.stdout.strip():
-            return {"changed": False, "msg": "no SNMP data available",
-                    "data": {"discovery": []}}
-        
-        lines = res.stdout.strip().split("\n")
-        values = {}
-        for line in lines:
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ", 1)
-            if len(parts) != 2:
-                continue
-            oid_full = parts[0].strip()
-            value_str = parts[1].strip()
-            last_part = oid_full.rsplit(".", 1)[-1]
-            if last_part in ("1", "5", "6"):
-                if ":" in value_str:
-                    value_str = value_str.split(":", 1)[1].strip()
-                # Guard instead of try/except: check if numeric
-                if value_str.isdigit() or (value_str.startswith("-") and value_str[1:].isdigit()):
-                    values[last_part] = int(value_str)
-        
-        if len(values) == 3 and "1" in values and "5" in values and "6" in values:
-            return {"changed": False, "msg": "discovered environment service",
-                    "data": {"discovery": [{
-                        "item": "",
-                        "params": {
-                            "temp": params.get("temp", (40, 50)),
-                            "remote_temp": params.get("remote_temp", (40, 50)),
-                            "humidity": params.get("humidity", (65, 80)),
-                        },
-                        "metrics": ["temp", "remote_temp", "humidity"]
-                    }]}
-                    }
-        else:
-            return {"changed": False, "msg": "incomplete SNMP data",
-                    "data": {"discovery": []}}
-    
-    # Check mode: single service (item == "")
-    temp_raw = params.get("temp")
-    remote_temp_raw = params.get("remote_temp")
-    humidity_raw = params.get("humidity")
-    
-    community = params.get("community", "public")
-    host = params.get("host", "localhost")
-    
-    res_temp = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On", host,
-        ".1.3.6.1.4.1.534.1.6.1"
-    ], mutates=False)
-    
-    res_remote = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On", host,
-        ".1.3.6.1.4.1.534.1.6.5"
-    ], mutates=False)
-    
-    res_hum = ctx.run([
-        "snmpget",
-        "-v2c",
-        "-c", community,
-        "-On", host,
-        ".1.3.6.1.4.1.534.1.6.6"
-    ], mutates=False)
-    
-    def parse_snmp_value(res):
-        if res.rc != 0 or not res.stdout.strip():
-            return None
-        line = res.stdout.strip()
-        parts = line.split(" = ", 1)
-        if len(parts) != 2:
-            return None
-        value_str = parts[1].strip()
-        if ":" in value_str:
-            value_str = value_str.split(":", 1)[1].strip()
-        if value_str.isdigit() or (value_str.startswith("-") and value_str[1:].isdigit()):
-            return int(value_str)
-        return None
-    
-    temp = parse_snmp_value(res_temp)
-    remote_temp = parse_snmp_value(res_remote)
-    humidity = parse_snmp_value(res_hum)
-    
-    if temp == None or remote_temp == None or humidity == None:
-        return {
-            "changed": False,
-            "msg": "unable to retrieve all environment values",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    def apply_levels(value, levels_tuple):
-        if levels_tuple == None:
-            return "OK"
-        warn, crit = levels_tuple
+    # --- helpers ----------------------------------------------------------
+    # Checkmk check_levels_legacy_compatible: WARN if value >= warn (upper),
+    # CRIT if value >= crit. Levels tuple default from check_default_parameters.
+    def grade_upper(value, levels, sensor):
+        if levels == None or len(levels) < 2:
+            return ("OK", "")
+        warn = levels[0]
+        crit = levels[1]
         if value >= crit:
-            return "CRIT"
+            return ("CRIT", " (warn=%f, crit=%f)" % (warn, crit))
         if value >= warn:
-            return "WARN"
-        return "OK"
-    
-    state_temp = apply_levels(temp, temp_raw)
-    state_remote = apply_levels(remote_temp, remote_temp_raw)
-    state_humidity = apply_levels(humidity, humidity_raw)
-    
-    if state_temp == "CRIT" or state_remote == "CRIT" or state_humidity == "CRIT":
-        overall_state = "CRIT"
-    elif state_temp == "WARN" or state_remote == "WARN" or state_humidity == "WARN":
-        overall_state = "WARN"
-    else:
-        overall_state = "OK"
-    
-    msg_parts = [
-        "Temperature: %d C" % temp,
-        "Remote-Temperature: %d C" % remote_temp,
-        "Humidity: %d %%" % humidity
-    ]
-    if overall_state != "OK":
-        msg_parts.append("Status: " + overall_state)
-    msg = ", ".join(msg_parts)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": overall_state,
-            "metrics": {
-                "temp": temp,
-                "remote_temp": remote_temp,
-                "humidity": humidity
-            },
-            "details": ""
+            return ("WARN", " (warn=%f, crit=%f)" % (warn, crit))
+        return ("OK", " (warn=%f, crit=%f)" % (warn, crit))
+
+    def saveint(s):
+        if s == None:
+            return 0
+        stripped = s.strip()
+        if stripped.lstrip("-").isdigit():
+            return int(stripped)
+        return 0
+
+    # --- data source: Eaton UPS environment via SNMP ---------------------
+    # Checkmk detect: sysObjectID equals one of the Eaton enterprise IDs.
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    version = params.get("version", "2c")
+
+    def sysdescr_oid():
+        return ".1.3.6.1.2.1.1.2.0"
+
+    # The monitored product is an Eaton UPS. Verify presence first via
+    # sysObjectID; absence => empty discovery / UNKNOWN, never OK.
+    probe = ctx.run([
+        "snmpget", "-v" + version, "-c", community, "-Oqv",
+        host, sysdescr_oid(),
+    ], mutates=False)
+    if probe.rc != 0 or probe.stdout.strip() == "":
+        # No SNMP device / not installed / unreachable -> not an Eaton UPS.
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no Eaton UPS found (not installed)",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no Eaton UPS reachable (no sysObjectID)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    sysObj = probe.stdout.strip()
+    eaton_ids = [".1.3.6.1.4.1.705.1.2", ".1.3.6.1.4.1.534.1", ".1.3.6.1.4.1.705.1"]
+    if sysObj not in eaton_ids:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "device is not an Eaton UPS",
+                    "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "device is not an Eaton UPS (sysObjectID mismatch)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # --- DISCOVERY MODE --------------------------------------------------
+    if params.get("_discover"):
+        # SimpleSNMPSection fetch: SNMPTree base=.1.3.6.1.4.1.534.1.6, oids 1,5,6
+        res = ctx.run([
+            "snmpget", "-v" + version, "-c", community, "-Oqv",
+            host,
+            ".1.3.6.1.4.1.534.1.6.1",  # temp
+            ".1.3.6.1.4.1.534.1.6.5",  # remote temp
+            ".1.3.6.1.4.1.534.1.6.6",  # humidity
+        ], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no Eaton enviroment data found",
+                    "data": {"discovery": []}}
+        # Single-service check: one item with empty name, metrics are the
+        # three sensor perfdata names.
+        defaults = {
+            "temp": (40, 50),
+            "remote_temp": (40, 50),
+            "humidity": (65, 80),
         }
+        entry = {
+            "item": "",
+            "params": {
+                "temp": params.get("temp", defaults["temp"]),
+                "remote_temp": params.get("remote_temp", defaults["remote_temp"]),
+                "humidity": params.get("humidity", defaults["humidity"]),
+            },
+            "metrics": ["temp", "remote_temp", "humidity"],
+        }
+        return {"changed": False, "msg": "discovered 1 environment item",
+                "data": {"discovery": [entry]}}
+
+    # --- CHECK MODE ------------------------------------------------------
+    # params from Checkmk check_default_parameters:
+    # temp=(40,50), remote_temp=(40,50), humidity=(65,80)
+    # SNMPTree oids [1]=temp, [5]=remote_temp, [6]=humidity
+    res = ctx.run([
+        "snmpget", "-v" + version, "-c", community, "-Oqv",
+        host,
+        ".1.3.6.1.4.1.534.1.6.1",  # temp
+        ".1.3.6.1.4.1.534.1.6.5",  # remote temp
+        ".1.3.6.1.4.1.534.1.6.6",  # humidity
+    ], mutates=False)
+    if res.rc != 0:
+        return {"changed": False,
+                "msg": "could not read Eaton environment sensors",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    values = res.stdout.splitlines()
+    if len(values) < 3:
+        return {"changed": False,
+                "msg": "incomplete Eaton environment sensor data",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    wert = [saveint(values[0]), saveint(values[1]), saveint(values[2])]
+
+    defaults = {
+        "temp": (40, 50),
+        "remote_temp": (40, 50),
+        "humidity": (65, 80),
     }
+    # Order: temp, remote_temp, humidity (mirrors SNMPTree oids 1,5,6)
+    sensors = [
+        ("temp", "Temperature", " °C", defaults["temp"]),
+        ("remote_temp", "Remote-Temperature", " °C", defaults["remote_temp"]),
+        ("humidity", "Humidity", "%", defaults["humidity"]),
+    ]
+
+    details = ""
+    msg_parts = []
+    overall = "OK"
+    metrics = {}
+    for i, (sensor, sensor_name, unit_symbol, default_levels) in enumerate(sensors):
+        levels = params.get(sensor)
+        if levels == None:
+            levels = default_levels
+        value = wert[i]
+        state, suffix = grade_upper(value, levels, sensor)
+        metrics[sensor] = float(value)
+        readable = "%f%s" % (value, unit_symbol)
+        details = details + "%s: %s%s\n" % (sensor_name, readable, suffix)
+        msg_parts.append("%s: %s%s" % (sensor_name, readable, suffix))
+        if state == "CRIT":
+            overall = "CRIT"
+        elif state == "WARN" and overall != "CRIT":
+            overall = "WARN"
+
+    msg = "; ".join(msg_parts)
+    return {"changed": False,
+            "msg": msg,
+            "data": {"state": overall, "metrics": metrics, "details": details}}

@@ -1,150 +1,231 @@
 def main(ctx, params):
-    if params.get("_discover"):
-        host = params.get("host", "localhost")
-        community = params.get("community", "public")
-        base_oid = ".1.3.6.1.4.1.35491.30"
-        res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-        if res.rc != 0:
-            fail("SNMP walk failed: " + res.stderr)
-
-        items = {}
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            parts = line.strip().split(" = ")
-            if len(parts) != 2:
-                continue
-            oid_part, val_part = parts
-            oid_tokens = oid_part.split(".")
-            if len(oid_tokens) >= 13:
-                sensor_num_str = oid_tokens[11]
-                sensor_num = int(sensor_num_str) if sensor_num_str.isdigit() else -1
-                if sensor_num >= 0 and oid_tokens[-1] == "5":
-                    sensor_name = val_part.strip().strip('"')
-                    item_name = str(sensor_num) + " " + sensor_name
-                    items[sensor_num] = item_name
-
-        out = []
-        for sensor_num in sorted(items.keys()):
-            item_name = items[sensor_num]
-            out.append({"item": item_name, "params": {}, "metrics": []})
-
-        return {
-            "changed": False,
-            "msg": "discovered %d humidity sensors" % len(out),
-            "data": {"discovery": out},
-        }
-
-    item = params.get("item", "")
-    if not item:
-        fail("item is required for check mode")
-
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    base_oid = ".1.3.6.1.4.1.35491.30"
+    item = params.get("item", "")
 
-    res = ctx.run(["snmpwalk", "-v2c", "-c", community, "-On", host, base_oid], mutates=False)
-    if res.rc != 0:
+    if params.get("_discover"):
+        detect = _snmp_get_raw(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+        if detect == None:
+            return {"changed": False, "msg": "security_master device not present",
+                    "data": {"discovery": []}}
+        if not detect.startswith("1.3.6.1.4.1.35491"):
+            return {"changed": False, "msg": "not a security_master device",
+                    "data": {"discovery": []}}
+
+        rows = _walk_humidity_names(ctx, host, community)
+        discovery = []
+        for idx, name in rows:
+            discovery.append({
+                "item": name,
+                "params": {"levels": [30, 70], "levels_lower": [0, 0]},
+                "metrics": ["humidity"],
+            })
+
         return {
             "changed": False,
-            "msg": "SNMP walk failed for item %s: %s" % (item, res.stderr),
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+            "msg": "discovered %d sensors" % len(discovery),
+            "data": {"discovery": discovery},
         }
 
-    parts = item.split(" ", 1)
-    if len(parts) < 2:
-        return {
-            "changed": False,
-            "msg": "invalid item format: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    num_str = parts[0]
-    sensor_num_expected = int(num_str) if num_str.isdigit() else -1
+    detect = _snmp_get_raw(ctx, host, community, ".1.3.6.1.2.1.1.2.0")
+    if detect == None:
+        return {"changed": False, "msg": "not a security_master device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if not detect.startswith("1.3.6.1.4.1.35491"):
+        return {"changed": False, "msg": "not a security_master device",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    sensor_data = {}
-    for line in res.stdout.splitlines():
-        if not line.strip():
-            continue
-        parts_line = line.strip().split(" = ")
-        if len(parts_line) != 2:
-            continue
-        oid_part, val_part = parts_line
-        oid_tokens = oid_part.split(".")
-        if len(oid_tokens) < 13:
-            continue
-        num_str_token = oid_tokens[11]
-        if not num_str_token.isdigit():
-            continue
-        n = int(num_str_token)
-        if n != sensor_num_expected:
-            continue
+    sensor_num = _find_sensor_by_name(ctx, host, community, item)
+    if sensor_num == "":
+        return {"changed": False,
+                "msg": "sensor '%s' not found in SNMP output" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-        suffix = oid_tokens[-1]
-        val = val_part.strip().strip('"')
-        if suffix == "2":
-            sensor_data["value"] = float(val) if val.replace(".", "", 1).isdigit() else None
-        elif suffix == "6":
-            sensor_data["alarm"] = int(val) if val.lstrip("-").isdigit() else -1
-        elif suffix == "7":
-            try_val = val if val.lstrip("-").isdigit() else ""
-            sensor_data["crit_low"] = int(try_val) / 1000.0 if try_val else None
-        elif suffix == "8":
-            try_val = val if val.lstrip("-").isdigit() else ""
-            sensor_data["warn_low"] = int(try_val) / 1000.0 if try_val else None
-        elif suffix == "9":
-            try_val = val if val.lstrip("-").isdigit() else ""
-            sensor_data["warn_high"] = int(try_val) / 1000.0 if try_val else None
-        elif suffix == "10":
-            try_val = val if val.lstrip("-").isdigit() else ""
-            sensor_data["crit_high"] = int(try_val) / 1000.0 if try_val else None
+    sensor_id = _snmp_get_int(ctx, host, community,
+                              ".1.3.6.1.4.1.35491.30.3.%s.1.0" % sensor_num)
+    if sensor_id != 60:
+        return {"changed": False,
+                "msg": "sensor '%s' is not a humidity sensor" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    if not sensor_data or sensor_data.get("value") == None:
-        return {
-            "changed": False,
-            "msg": "Sensor not found in SNMP output",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
+    value = _snmp_get_float(ctx, host, community,
+                            ".1.3.6.1.4.1.35491.30.3.%s.2.0" % sensor_num)
+    alarm = _snmp_get_int(ctx, host, community,
+                          ".1.3.6.1.4.1.35491.30.3.%s.6.0" % sensor_num)
+    crit_low = _snmp_get_int(ctx, host, community,
+                             ".1.3.6.1.4.1.35491.30.3.%s.7.0" % sensor_num) / 1000.0
+    warn_low = _snmp_get_int(ctx, host, community,
+                             ".1.3.6.1.4.1.35491.30.3.%s.8.0" % sensor_num) / 1000.0
+    warn_high = _snmp_get_int(ctx, host, community,
+                              ".1.3.6.1.4.1.35491.30.3.%s.9.0" % sensor_num) / 1000.0
+    crit_high = _snmp_get_int(ctx, host, community,
+                              ".1.3.6.1.4.1.35491.30.3.%s.10.0" % sensor_num) / 1000.0
 
-    value = sensor_data["value"]
-    warn_high = params.get("levels", (None, None))
-    warn_low = params.get("levels_lower", (None, None))
-    if warn_high == None:
-        warn_high = (sensor_data.get("warn_high"), sensor_data.get("crit_high"))
-    else:
-        warn_high = (warn_high[0], warn_high[1])
-    if warn_low == None:
-        warn_low = (sensor_data.get("warn_low"), sensor_data.get("crit_low"))
-    else:
-        warn_low = (warn_low[0], warn_low[1])
+    p_levels = params.get("levels")
+    p_levels_lower = params.get("levels_lower")
 
-    warn_high = (warn_high[0] if warn_high[0] != None else None, warn_high[1] if warn_high[1] != None else None)
-    warn_low = (warn_low[0] if warn_low[0] != None else None, warn_low[1] if warn_low[1] != None else None)
+    if alarm != None and alarm > -1:
+        if not p_levels:
+            p_levels = [warn_high, crit_high]
+        if not p_levels_lower:
+            p_levels_lower = [warn_low, crit_low]
 
     state = "OK"
-    details_parts = ["Humidity: %f%%" % value]
-    metrics = {"humidity": value}
-
-    if warn_high[1] != None and value >= warn_high[1]:
-        state = "CRIT"
-        details_parts.append("(warn at %f%%, crit at %f%%)" % (warn_high[0] if warn_high[0] != None else 0, warn_high[1]))
-    elif warn_high[0] != None and value >= warn_high[0]:
-        state = "WARN"
-        details_parts.append("(warn at %f%%, crit at %f%%)" % (warn_high[0], warn_high[1] if warn_high[1] != None else 0))
-
-    if warn_low[1] != None and value <= warn_low[1]:
-        state = "CRIT"
-        details_parts.append("(warn low at %f%%, crit low at %f%%)" % (warn_low[0] if warn_low[0] != None else 0, warn_low[1]))
-    elif warn_low[0] != None and value <= warn_low[0]:
-        state = "WARN"
-        details_parts.append("(warn low at %f%%, crit low at %f%%)" % (warn_low[0], warn_low[1] if warn_low[1] != None else 0))
-
-    alarm = sensor_data.get("alarm")
-    if alarm == 99:
+    msg = "Humidity: %s %%" % _fmt(value)
+    if value == None:
         state = "UNKNOWN"
-        details_parts = ["Smoke Sensor is not ready or bus element removed"]
+        msg = "No value for sensor"
+    else:
+        upper_warn = _level(p_levels, 0)
+        upper_crit = _level(p_levels, 1)
+        lower_warn = _level(p_levels_lower, 0)
+        lower_crit = _level(p_levels_lower, 1)
+        if _above(upper_crit, value) or _below(lower_crit, value):
+            state = "CRIT"
+        elif _above(upper_warn, value) or _below(lower_warn, value):
+            state = "WARN"
 
     return {
         "changed": False,
-        "msg": ", ".join(details_parts),
-        "data": {"state": state, "metrics": metrics, "details": ""},
+        "msg": msg,
+        "data": {
+            "state": state,
+            "metrics": {"humidity": value if value != None else 0},
+            "details": "",
+        },
     }
+
+def _to_int(s):
+    s = str(s).strip()
+    if s == "" or s == None:
+        return 0
+    neg = False
+    body = s
+    if body.startswith("-"):
+        neg = True
+        body = body[1:]
+    if not body.isdigit():
+        return 0
+    v = 0
+    for c in body:
+        v = v * 10 + _DIGITS_ORD.get(c, 0)
+    return -v if neg else v
+
+_DIGITS_ORD = {"0": 0, "1": 1, "2": 2, "3": 3, "4": 4,
+               "5": 5, "6": 6, "7": 7, "8": 8, "9": 9}
+
+def _fmt(v):
+    if v == None:
+        return "none"
+    return str(v)
+
+def _level(levels, idx):
+    if levels == None:
+        return None
+    if idx < 0 or idx >= len(levels):
+        return None
+    return levels[idx]
+
+def _above(crit, value):
+    if crit == None or value == None:
+        return False
+    return value >= crit
+
+def _below(crit, value):
+    if crit == None or value == None:
+        return False
+    return value <= crit
+
+def _snmp_get_raw(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ovqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    return res.stdout.strip()
+
+def _snmp_get_int(ctx, host, community, oid):
+    raw = _snmp_get_raw(ctx, host, community, oid)
+    if raw == None or raw == "":
+        return None
+    parts = raw.split(" ")
+    if len(parts) > 1:
+        return _to_int(parts[-1])
+    return _to_int(raw)
+
+def _snmp_get_float(ctx, host, community, oid):
+    raw = _snmp_get_raw(ctx, host, community, oid)
+    if raw == None or raw == "":
+        return None
+    val = raw
+    # Strip a possible trailing type tag like 'INTEGER: 42'
+    colon = val.find(": ")
+    if colon != -1:
+        val = val[colon + 2:]
+    num = val.strip()
+    if num == "" or num == None:
+        return None
+    if _is_float(num):
+        return float(num)
+    return None
+
+def _is_float(s):
+    s = str(s).strip()
+    if s == "":
+        return False
+    if s.startswith("-") or s.startswith("+"):
+        s = s[1:]
+    if s == "":
+        return False
+    if "." in s:
+        parts = s.split(".")
+        if len(parts) != 2:
+            return False
+        int_part = parts[0]
+        frac_part = parts[1]
+        if int_part != "" and not int_part.isdigit():
+            return False
+        if frac_part == "":
+            return False
+        return frac_part.isdigit()
+    return s.isdigit()
+
+def _walk_humidity_names(ctx, host, community):
+    base = ".1.3.6.1.4.1.35491.30.3"
+    walk_oid = base + ".5"
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, walk_oid],
+        mutates=False,
+    )
+    out = []
+    if res.rc != 0:
+        return out
+    for line in res.stdout.splitlines():
+        line = line.strip()
+        if line == "":
+            continue
+        space = line.find(" ")
+        if space == -1:
+            continue
+        full_oid = line[:space]
+        value = line[space + 1:]
+        # index is the suffix after the column base
+        suffix = full_oid[len(walk_oid):]
+        if suffix == "" or suffix == None:
+            continue
+        # suffix looks like ".<num>.5.0" -> extract sensor number
+        idx = suffix.split(".")
+        # idx[0] is empty (leading dot), idx[1] is the sensor number
+        if len(idx) < 2:
+            continue
+        sensor_num = idx[1]
+        out.append((sensor_num, value))
+    return out
+
+def _find_sensor_by_name(ctx, host, community, target_name):
+    rows = _walk_humidity_names(ctx, host, community)
+    for sensor_num, name in rows:
+        if name == target_name:
+            return sensor_num
+    return ""

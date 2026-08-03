@@ -1,202 +1,146 @@
-# Constants for SNMP OIDs
-BROCADE_MLX_POWER_TREE1_BASE = ".1.3.6.1.4.1.1991.1.1.1.2.1.1"
-BROCADE_MLX_POWER_TREE2_BASE = ".1.3.6.1.4.1.1991.1.1.1.2.2.1"
+# brocade_mlx_power — translated from Checkmk check plugin
+# Monitors Brocade MLX power supply states via SNMP (read-only).
 
-# State mappings
-POWER_STATE_NORMAL = "2"
-POWER_STATE_FAILURE = "3"
-POWER_STATE_OTHER = "1"
+OID_OLD = ".1.3.6.1.4.1.1991.1.1.1.2.1.1"
+OID_NEW = ".1.3.6.1.4.1.1991.1.1.1.2.2.1"
 
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        # Try tree2 first, fall back to tree1 if empty
-        res2 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), 
-                       "-On", params.get("host", "localhost"), 
-                       BROCADE_MLX_POWER_TREE2_BASE + ".2", 
-                       BROCADE_MLX_POWER_TREE2_BASE + ".3", 
-                       BROCADE_MLX_POWER_TREE2_BASE + ".4"], mutates=False)
-        res1 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                       "-On", params.get("host", "localhost"),
-                       BROCADE_MLX_POWER_TREE1_BASE + ".1",
-                       BROCADE_MLX_POWER_TREE1_BASE + ".2",
-                       BROCADE_MLX_POWER_TREE1_BASE + ".3"], mutates=False)
+STATE_OK = "OK"
+STATE_CRIT = "CRIT"
+STATE_UNKNOWN = "UNKNOWN"
 
-        # Parse tree2 output
-        parsed_tree2 = _parse_snmp_output(res2.stdout, 3)
-        parsed_tree1 = _parse_snmp_output(res1.stdout, 3)
-
-        # Use tree2 if it has entries, otherwise tree1
-        entries = parsed_tree2 if len(parsed_tree2) > 0 else parsed_tree1
-        
-        # Build discovery result for power supplies with non-normal state (state != "1")
-        discovery_items = []
-        for power_id, data in entries.items():
-            if data["state"] != POWER_STATE_OTHER:
-                discovery_items.append({
-                    "item": power_id,
-                    "params": {},
-                    "metrics": []
-                })
-
-        return {
-            "changed": False,
-            "msg": "discovered %d power supplies" % len(discovery_items),
-            "data": {"discovery": discovery_items}
-        }
-
-    # Check mode (normal path)
-    item = params.get("item", "")
-    
-    # Run SNMP walk for both trees to find the item
-    res2 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"), 
-                   "-On", params.get("host", "localhost"), 
-                   BROCADE_MLX_POWER_TREE2_BASE + ".2", 
-                   BROCADE_MLX_POWER_TREE2_BASE + ".3", 
-                   BROCADE_MLX_POWER_TREE2_BASE + ".4"], mutates=False)
-    res1 = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                   "-On", params.get("host", "localhost"),
-                   BROCADE_MLX_POWER_TREE1_BASE + ".1",
-                   BROCADE_MLX_POWER_TREE1_BASE + ".2",
-                   BROCADE_MLX_POWER_TREE1_BASE + ".3"], mutates=False)
-
-    parsed_tree2 = _parse_snmp_output(res2.stdout, 3)
-    parsed_tree1 = _parse_snmp_output(res1.stdout, 3)
-    
-    # Use tree2 if it has entries, otherwise tree1
-    section = parsed_tree2 if len(parsed_tree2) > 0 else parsed_tree1
-    
-    # Get power supply data
-    if item not in section:
-        return {
-            "changed": False,
-            "msg": "Power supply %s not found" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-
-    powersupply_data = section[item]
-    state = powersupply_data["state"]
-    
-    # Determine state based on power supply state
-    if state == POWER_STATE_NORMAL:
-        state_name = "OK"
-        summary = "Power supply reports state: normal"
-    elif state == POWER_STATE_FAILURE:
-        state_name = "CRIT"
-        summary = "Power supply reports state: failure"
-    elif state == POWER_STATE_OTHER:
-        state_name = "UNKNOWN"
-        summary = "Power supply reports state: other"
-    else:
-        state_name = "UNKNOWN"
-        summary = "Power supply reports an unknown state (%s)" % state
-
-    return {
-        "changed": False,
-        "msg": summary,
-        "data": {
-            "state": state_name,
-            "metrics": {},
-            "details": ""
-        }
-    }
+MLX_SYS_OID_PREFIX = ".1.3.6.1.4.1.1991.1."
 
 
-def _parse_snmp_output(output, num_fields):
-    """Parse SNMP walk output into dict of power_id -> {desc, state}."""
+def _walk_table(ctx, host, community, base_oid, wanted_cols):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base_oid],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return {}
+
+    wanted = {}
+    for w in wanted_cols:
+        wanted[w] = True
+
+    rows = {}
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        full_oid = parts[0]
+        value = parts[1]
+
+        suffix = full_oid
+        if suffix.startswith(base_oid + "."):
+            suffix = suffix[len(base_oid) + 1:]
+        else:
+            continue
+
+        oid_parts = suffix.split(".")
+        if len(oid_parts) < 2:
+            continue
+        col_str = oid_parts[0]
+        row_index = ".".join(oid_parts[1:])
+
+        if not wanted.get(col_str):
+            continue
+
+        row = rows.get(row_index, {})
+        row[col_str] = value
+        rows[row_index] = row
+
+    return rows
+
+
+def _parse_tables(ctx, host, community):
+    new_rows = _walk_table(ctx, host, community, OID_NEW, ["2", "3", "4"])
+
     parsed = {}
-    
-    # Parse each line of the output
-    lines = output.splitlines()
-    if not lines:
-        return parsed
-
-    # Build power_id -> {desc, state} mapping
-    # We need to correlate OID index values across the fields
-    # Power ID comes from tree1.1 / tree2.2
-    # Power description from tree1.2 / tree2.3
-    # Power state from tree1.3 / tree2.4
-    
-    power_ids = {}
-    power_descs = {}
-    power_states = {}
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-            
-        # Parse OID = TYPE: value
-        if "=" not in line:
-            continue
-            
-        oid_part, value_part = line.split("=", 1)
-        oid_part = oid_part.strip()
-        value_part = value_part.strip()
-        
-        # Extract value (remove TYPE: prefix if present)
-        if ":" in value_part:
-            value = value_part.split(":", 1)[1].strip()
-        else:
-            value = value_part
-        
-        # Extract index from OID
-        # OID format: base.oid_index
-        base_oid = None
-        if BROCADE_MLX_POWER_TREE1_BASE in oid_part:
-            base_oid = BROCADE_MLX_POWER_TREE1_BASE
-        elif BROCADE_MLX_POWER_TREE2_BASE in oid_part:
-            base_oid = BROCADE_MLX_POWER_TREE2_BASE
-            
-        if base_oid == None:
-            continue
-        
-        # Get relative OID part
-        rel_oid = oid_part[len(base_oid):].strip()
-        if not rel_oid:
-            continue
-            
-        # Extract index
-        parts = rel_oid.split(".")
-        if len(parts) < 2:
-            continue
-            
-        # The last part is the index
-        index = parts[-1]
-        
-        # Determine field type (1, 2, 3)
-        if rel_oid.startswith(".1") and base_oid == BROCADE_MLX_POWER_TREE1_BASE:
-            field_type = 1
-        elif rel_oid.startswith(".2") and base_oid == BROCADE_MLX_POWER_TREE2_BASE:
-            field_type = 2
-        elif rel_oid.startswith(".3") and base_oid == BROCADE_MLX_POWER_TREE1_BASE:
-            field_type = 3
-        elif rel_oid.startswith(".4") and base_oid == BROCADE_MLX_POWER_TREE2_BASE:
-            field_type = 4
-        else:
-            continue
-            
-        if field_type == 1:
-            power_ids[index] = value
-        elif field_type == 2:
-            power_ids[index] = value
-        elif field_type == 3:
-            power_descs[index] = value
-        elif field_type == 4:
-            power_states[index] = value
-    
-    # Combine data
-    for idx in power_ids:
-        if idx in power_states:
-            state = power_states[idx]
-            # Only include non-normal states
-            parsed[power_ids[idx]] = {
-                "desc": power_descs.get(idx, ""),
-                "state": state
-            }
+    if len(new_rows) > 0:
+        for row_index, row in new_rows.items():
+            power_id = row.get("2", "")
+            power_desc = row.get("3", "")
+            power_state = row.get("4", "")
+            if power_state != "1" and power_id:
+                parsed[power_id] = {"desc": power_desc, "state": power_state}
+    else:
+        old_rows = _walk_table(ctx, host, community, OID_OLD, ["1", "2", "3"])
+        for row_index, row in old_rows.items():
+            power_id = row.get("1", "")
+            power_desc = row.get("2", "")
+            power_state = row.get("3", "")
+            if power_state != "1" and power_id:
+                parsed[power_id] = {"desc": power_desc, "state": power_state}
 
     return parsed
+
+
+def _grade_state(power_state):
+    if power_state == "2":
+        return STATE_OK, "Power supply reports state: normal"
+    if power_state == "3":
+        return STATE_CRIT, "Power supply reports state: failure"
+    if power_state == "1":
+        return STATE_UNKNOWN, "Power supply reports state: other"
+    return STATE_UNKNOWN, "Power supply reports an unknown state (%s)" % power_state
+
+
+def _is_brocade_mlx(ctx, host, community):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+        mutates=False,
+    )
+    if res.rc != 0 or not res.stdout:
+        return False
+    val = res.stdout.strip().strip('"').strip("'")
+    return val.startswith(MLX_SYS_OID_PREFIX)
+
+
+def main(ctx, params):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+
+    if params.get("_discover"):
+        if not _is_brocade_mlx(ctx, host, community):
+            return {"changed": False, "msg": "not a Brocade MLX device", "data": {"discovery": []}}
+
+        section = _parse_tables(ctx, host, community)
+        discovery = []
+        for power_id, info in section.items():
+            discovery.append({
+                "item": power_id,
+                "params": {},
+                "metrics": [],
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d power supplies" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+
+    item = params.get("item", "")
+
+    if not _is_brocade_mlx(ctx, host, community):
+        return {
+            "changed": False,
+            "msg": "not a Brocade MLX device (no power supply data)",
+            "data": {"state": STATE_UNKNOWN, "metrics": {}, "details": ""},
+        }
+
+    section = _parse_tables(ctx, host, community)
+    psu = section.get(item)
+    if psu == None:
+        return {
+            "changed": False,
+            "msg": "no such power supply: " + item,
+            "data": {"state": STATE_UNKNOWN, "metrics": {}, "details": ""},
+        }
+
+    state, msg = _grade_state(psu["state"])
+    details = "power supply %s (%s): state %s" % (item, psu.get("desc", "?"), psu["state"])
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {"state": state, "metrics": {}, "details": details},
+    }

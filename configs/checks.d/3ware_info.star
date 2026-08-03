@@ -1,44 +1,50 @@
 def main(ctx, params):
-    # Discovery mode: enumerate controllers from tw_cli show output
     if params.get("_discover"):
         res = ctx.run(["tw_cli", "show"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "failed to run tw_cli show",
-                    "data": {"discovery": []}}
-        
-        out = []
+        if res.rc == 127 or res.rc != 0:
+            return {"changed": False, "msg": "tw_cli not available", "data": {"discovery": []}}
         lines = res.stdout.splitlines()
-        # Skip header (first 2 lines: title and separator)
-        for line in lines[2:]:
-            parts = line.split()
-            if len(parts) == 8 and parts[0].startswith("c"):
-                item = parts[0]
-                out.append({"item": item, "params": {}, "metrics": []})
-        return {"changed": False, "msg": "discovered %d controllers" % len(out),
-                "data": {"discovery": out}}
-    
-    # Check mode: single item
+        controllers = []
+        started = False
+        for line in lines:
+            f = line.split()
+            if not started:
+                if len(f) == 8 and f[0].startswith("c"):
+                    started = True
+                    controllers.append({"item": f[0], "params": {}, "metrics": []})
+                continue
+            if len(f) == 8 and f[0].startswith("c"):
+                controllers.append({"item": f[0], "params": {}, "metrics": []})
+        return {"changed": False, "msg": "discovered %d controllers" % len(controllers),
+                "data": {"discovery": controllers}}
+
     item = params.get("item", "")
     res = ctx.run(["tw_cli", "show"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "failed to run tw_cli show",
+    if res.rc == 127 or res.rc != 0:
+        return {"changed": False, "msg": "tw_cli not available",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
     lines = res.stdout.splitlines()
-    found = False
     infotext = ""
-    for line in lines[2:]:  # Skip header
-        parts = line.split()
-        if len(parts) >= 8 and parts[0] == item:
-            found = True
-            # Build Checkmk-style summary from columns 1..7
-            parts_text = " ".join(parts[1:])
-            infotext = parts_text + ";"
-            break
-    
+    found = False
+    started = False
+    for line in lines:
+        f = line.split()
+        if not started:
+            if len(f) == 8 and f[0].startswith("c"):
+                started = True
+                if f[0] == item:
+                    found = True
+                    infotext = infotext + " ".join(f[1:]) + ";"
+            continue
+        if len(f) == 8 and f[0].startswith("c"):
+            if f[0] == item:
+                found = True
+                infotext = infotext + " ".join(f[1:]) + ";"
     if not found:
-        return {"changed": False, "msg": "controller not found: " + item,
+        return {"changed": False, "msg": "no such controller: " + item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
+    if infotext == "":
+        return {"changed": False, "msg": "no data for controller " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     return {"changed": False, "msg": infotext,
             "data": {"state": "OK", "metrics": {}, "details": ""}}

@@ -1,4 +1,6 @@
-hp_proliant_locale = {
+# hp_proliant_temp.star — read-only Checkmk check (SNMP temperature) for yolo-man
+
+HP_PROLIANT_LOCALE = {
     1: "other",
     2: "unknown",
     3: "system",
@@ -19,7 +21,7 @@ hp_proliant_locale = {
     18: "virtual",
 }
 
-hp_proliant_status_map = {
+HP_PROLIANT_STATUS_MAP = {
     1: "unknown",
     2: "ok",
     3: "degraded",
@@ -27,177 +29,210 @@ hp_proliant_status_map = {
     5: "disabled",
 }
 
-# Checkmk STATUS_MAP (State enum mapping)
-status_to_state = {
-    "unknown": 3,  # UNKNOWN
-    "other": 3,    # UNKNOWN
-    "ok": 0,       # OK
-    "degraded": 2, # CRIT
-    "failed": 2,   # CRIT
-    "disabled": 1, # WARN
+DEV_STATUS_TO_STATE = {
+    "ok": "OK",
+    "unknown": "UNKNOWN",
+    "other": "UNKNOWN",
+    "degraded": "CRIT",
+    "failed": "CRIT",
+    "disabled": "WARN",
 }
 
+BASE_OID = ".1.3.6.1.4.1.232.6.2.6.8.1"
+COL_NAME = "2"
+COL_LOCALE = "3"
+COL_VALUE = "4"
+COL_THRESHOLD = "5"
+COL_STATUS = "6"
+PRODUCT_NAME_OID = ".1.3.6.1.4.1.232.2.2.4.2.0"
 
-def _format_name(name, locale_code):
-    # locale_code is a string from SNMP
-    loc = hp_proliant_locale.get(int(locale_code), "unknown")
+
+def _safe_int(s):
+    return int(s) if (type(s) == "string" and s.isdigit()) else 0
+
+
+def _format_name(name, locale_str):
+    loc_int = _safe_int(locale_str)
+    loc = HP_PROLIANT_LOCALE.get(loc_int, "unknown")
     return name + " (" + loc + ")"
 
 
-def main(ctx, params):
-    # Discovery mode
-    if params.get("_discover"):
-        community = params.get("community", "public")
-        host = params.get("host", "localhost")
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.232.6.2.6.8.1"
-        ], mutates=False)
-        
-        lines = res.stdout.splitlines()
-        items = []
-        # Parse OID lines: ".1.3.6.1.4.1.232.6.2.6.8.1.x = STRING: \"value\""
-        # Expected 5 OIDs per row: name(2), location(3), temp(4), threshold(5), status(6)
-        # Group them as 5-tuples per row
-        entries = []
-        current = []
-        for line in lines:
-            # Extract OID value after '='
-            if "=" in line:
-                parts = line.split("=", 1)
-                if len(parts) == 2:
-                    oid_val = parts[1].strip()
-                    # Strip quotes if present
-                    if oid_val.startswith('"') and oid_val.endswith('"'):
-                        oid_val = oid_val[1:-1]
-                    current.append(oid_val)
-                    if len(current) == 5:
-                        entries.append(current)
-                        current = []
-        
-        # Discover entries with status != 1 (not "other")
-        for e in entries:
-            if len(e) >= 5:
-                name, locale_code, temp_val, threshold, status = e[0], e[1], e[2], e[3], e[4]
-                if status != "1":  # status 1 = "other" -> skip
-                    item = _format_name(name, locale_code)
-                    items.append({
-                        "item": item,
-                        "params": {},
-                        "metrics": ["temp"]
-                    })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d temperature sensors" % len(items),
-            "data": {"discovery": items}
-        }
-    
-    # Check mode
-    item = params.get("item", "")
-    if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    community = params.get("community", "public")
+def _strip_snmpval(val):
+    v = val.strip()
+    if ": " in v:
+        v = v.split(": ", 1)[1]
+    if len(v) >= 2 and v[0] == '"' and v[-1] == '"':
+        v = v[1:-1]
+    return v
+
+
+def _detect(ctx, params):
     host = params.get("host", "localhost")
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.232.6.2.6.8.1"
-    ], mutates=False)
-    
-    lines = res.stdout.splitlines()
-    
-    # Parse rows as before
-    entries = []
-    current = []
-    for line in lines:
-        if "=" in line:
-            parts = line.split("=", 1)
-            if len(parts) == 2:
-                oid_val = parts[1].strip()
-                if oid_val.startswith('"') and oid_val.endswith('"'):
-                    oid_val = oid_val[1:-1]
-                current.append(oid_val)
-                if len(current) == 5:
-                    entries.append(current)
-                    current = []
-    
-    # Find matching item
-    for e in entries:
-        if len(e) >= 5:
-            name, locale_code, temp_val, threshold, status = e[0], e[1], e[2], e[3], e[4]
-            check_item = _format_name(name, locale_code)
-            if check_item != item:
+    community = params.get("community", "public")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ov", host, PRODUCT_NAME_OID],
+        mutates=False,
+    )
+    if res.rc == 127 or res.rc != 0 or not res.stdout:
+        return False
+    val_lower = _strip_snmpval(res.stdout).lower()
+    return ("proliant" in val_lower or "storeeasy" in val_lower or "synergy" in val_lower)
+
+
+def _walk_table(ctx, params, col):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    oid = BASE_OID + "." + col
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return []
+    rows = []
+    prefix = oid + "."
+    for line in res.stdout.splitlines():
+        sp = line.find(" ")
+        if sp == -1:
+            continue
+        full_oid = line[:sp]
+        val = line[sp + 1:]
+        idx = full_oid[len(prefix):] if full_oid.startswith(prefix) else full_oid[len(oid):].lstrip(".")
+        rows.append((idx, val))
+    return rows
+
+
+def _get_col(ctx, params, col, idx):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    oid = BASE_OID + "." + col + "." + idx
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Ov", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127 or res.rc != 0 or not res.stdout:
+        return ""
+    return _strip_snmpval(res.stdout)
+
+
+def _to_float(s):
+    if not s or s == "N/A":
+        return None
+    neg = s.startswith("-")
+    body = s[1:] if neg else s
+    parts = body.split(".", 1)
+    if len(parts) == 2:
+        if not (parts[0].isdigit() and parts[1].isdigit()):
+            return None
+    elif not body.isdigit():
+        return None
+    return float(s)
+
+
+def _lookup_rows(ctx, params, idx):
+    name = _get_col(ctx, params, COL_NAME, idx)
+    locale = _get_col(ctx, params, COL_LOCALE, idx)
+    value = _get_col(ctx, params, COL_VALUE, idx)
+    threshold = _get_col(ctx, params, COL_THRESHOLD, idx)
+    status = _get_col(ctx, params, COL_STATUS, idx)
+    return (name, locale, value, threshold, status)
+
+
+def main(ctx, params):
+    if not _detect(ctx, params):
+        return {
+            "changed": False,
+            "msg": "HP ProLiant/StoreEasy/Synergy device not detected on " + params.get("host", "localhost"),
+            "data": {"discovery": [], "host_labels": {}},
+        }
+
+    if params.get("_discover"):
+        names = _walk_table(ctx, params, COL_NAME)
+        discovery = []
+        for idx, name in names:
+            _, locale, _, _, status = _lookup_rows(ctx, params, idx)
+            loc_int = _safe_int(locale)
+            if loc_int == 1:
                 continue
-            
-            # Parse temperature value
-            value = float(temp_val) if temp_val.lstrip('-').replace('.', '', 1).isdigit() else 0.0
-            
-            # Threshold handling
-            if threshold == "-99" or threshold == "0":
-                dev_levels = None
-            else:
-                threshold_f = float(threshold) if threshold.replace('.', '', 1).lstrip('-').isdigit() else None
-                if threshold_f != None:
-                    dev_levels = (threshold_f, threshold_f)
-                else:
-                    dev_levels = None
-            
-            # SNMP status to Checkmk state
-            snmp_status = hp_proliant_status_map.get(int(status), "unknown")
-            dev_status = status_to_state.get(snmp_status, 3)  # default UNKNOWN
-            
-            # Determine result state and message using thresholds from params
-            warn = params.get("levels", (None, None))
-            crit = params.get("levels_lower", (None, None))
-            # Checkmk temperature check uses warn and crit as (warn, crit) tuple
-            # But in this simplified implementation, we use default Checkmk levels:
-            warn_val = params.get("levels", (70.0, 80.0))
-            crit_val = params.get("levels", (75.0, 90.0))
-            
-            # Simplified temperature logic: check against warn/crit thresholds
-            # If dev_levels present, override default thresholds
-            if dev_levels != None:
-                warn_val = dev_levels[0]
-                crit_val = dev_levels[1]
-            
-            # Check levels (upper bounds: warn, crit thresholds)
-            state = "OK"
-            if value >= crit_val:
-                state = "CRIT"
-            elif value >= warn_val:
-                state = "WARN"
-            
-            # If dev_status indicates non-OK, use worst between dev_status and value-based state
-            if dev_status == 2:  # CRIT
-                state = "CRIT"
-            elif dev_status == 1 and state != "CRIT":  # WARN
-                state = "WARN"
-            elif dev_status == 3 and state == "OK":  # UNKNOWN
-                state = "UNKNOWN"
-            
-            details = "Unit: " + snmp_status
-            msg = "Temperature: %f °C" % value
-            if details:
-                msg += ", " + details
-            
-            return {
-                "changed": False,
-                "msg": msg,
-                "data": {
-                    "state": state,
-                    "metrics": {"temp": value},
-                    "details": details
-                }
-            }
-    
-    # Item not found
+            st_int = _safe_int(status)
+            if st_int == 1:
+                continue
+            item_name = _format_name(name, locale)
+            discovery.append({
+                "item": item_name,
+                "params": {},
+                "metrics": ["temperature"],
+                "service_labels": {"hp_proliant_locale": HP_PROLIANT_LOCALE.get(loc_int, "unknown")},
+            })
+        return {
+            "changed": False,
+            "msg": "discovered %d temperature sensors" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {"cmk/hp_proliant": "true"}},
+        }
+
+    item = params.get("item", "")
+    warn = params.get("warn", 70)
+    crit = params.get("crit", 80)
+    levels = params.get("levels", None)
+    if levels != None and len(levels) >= 2:
+        warn = levels[0]
+        crit = levels[1]
+
+    names = _walk_table(ctx, params, COL_NAME)
+    found_idx = None
+    for idx, name in names:
+        if _format_name(name, _get_col(ctx, params, COL_LOCALE, idx)) == item:
+            found_idx = idx
+            break
+
+    if found_idx == None:
+        return {
+            "changed": False,
+            "msg": "no such temperature sensor: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    value_str, threshold_str, status_str = _get_col(ctx, params, COL_VALUE, found_idx), "", ""
+    _, _, _, threshold_str, status_str = _lookup_rows(ctx, params, found_idx)
+    value_str = _get_col(ctx, params, COL_VALUE, found_idx)
+
+    value_f = _to_float(value_str)
+    if value_f == None:
+        return {
+            "changed": False,
+            "msg": "no temperature value available for: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    st_int = _safe_int(status_str)
+    snmp_status = HP_PROLIANT_STATUS_MAP.get(st_int, "unknown")
+    dev_state = DEV_STATUS_TO_STATE.get(snmp_status, "UNKNOWN")
+
+    dev_levels = None
+    if threshold_str not in ("-99", "0", "", "N/A"):
+        thr_f = _to_float(threshold_str)
+        if thr_f != None:
+            dev_levels = (thr_f, thr_f)
+
+    state = "OK"
+    if dev_state == "CRIT":
+        state = "CRIT"
+    elif dev_state == "WARN":
+        state = "WARN"
+    elif dev_state == "UNKNOWN":
+        state = "UNKNOWN"
+    else:
+        if value_f >= crit:
+            state = "CRIT"
+        elif value_f >= warn:
+            state = "WARN"
+
+    details = "Name: " + item + ", Value: %s C" % str(value_f) + ", Status: " + snmp_status
+    if dev_levels != None:
+        details = details + ", Dev threshold: %s C" % str(dev_levels[0])
+
     return {
         "changed": False,
-        "msg": "temperature item not found: " + item,
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+        "msg": item + " " + str(value_f) + " C (status: " + snmp_status + ")",
+        "data": {"state": state, "metrics": {"temperature": value_f}, "details": details},
     }

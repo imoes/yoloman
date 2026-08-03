@@ -1,148 +1,123 @@
 def main(ctx, params):
-    _WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
-    KENTIX_BASE_OID_1 = ".1.3.6.1.4.1.37954.2.1.5"
-    KENTIX_BASE_OID_2 = ".1.3.6.1.4.1.37954.3.1.5"
-    KENTIX_OID_END = ".1.3.6.1.2.1.1.2.0"
-    KENTIX_MODEL_OID = ".1.3.6.1.4.1.332.11.6"
-
-    # Detect Kentix devices
-    res_sysobj = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                          params.get("host", "localhost"), KENTIX_OID_END], mutates=False)
-    sysobj_line = res_sysobj.stdout.strip()
-    if not sysobj_line.startswith(KENTIX_MODEL_OID):
-        if params.get("_discover"):
-            return {"changed": False, "msg": "discovered 0 items",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "not a Kentix device",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Collect all indices from both trees
-    indices = set()
-    for base_oid in [KENTIX_BASE_OID_1, KENTIX_BASE_OID_2]:
-        res = ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-                       params.get("host", "localhost"), base_oid], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            continue
-        for line in res.stdout.splitlines():
-            if "=" not in line:
-                continue
-            left = line.split("=", 1)[0].strip()
-            parts = left.split(".")
-            if len(parts) >= 10:
-                idx_str = parts[-1]
-                if idx_str.isdigit():
-                    indices.add(int(idx_str))
-
-    # Build sensors dict
-    sensors = {}
-    for idx in indices:
-        for base_oid in [KENTIX_BASE_OID_1, KENTIX_BASE_OID_2]:
-            value_oid = "%s.1.%d" % (base_oid, idx)
-            max_oid = "%s.2.%d" % (base_oid, idx)
-
-            res_val = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                               params.get("host", "localhost"), value_oid], mutates=False)
-            res_max = ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"),
-                               params.get("host", "localhost"), max_oid], mutates=False)
-
-            if res_val.rc != 0 or not res_val.stdout:
-                continue
-            if res_max.rc != 0 or not res_max.stdout:
-                continue
-
-            val_line = res_val.stdout.strip()
-            max_line = res_max.stdout.strip()
-
-            # Extract integer values
-            val = 0
-            if val_line.startswith("INTEGER:"):
-                v_str = val_line.split(":", 1)[1].strip()
-                val = int(v_str) if v_str.lstrip("-").isdigit() else 0
-
-            maximum = 0
-            if max_line.startswith("INTEGER:"):
-                m_str = max_line.split(":", 1)[1].strip()
-                maximum = int(m_str) if m_str.lstrip("-").isdigit() else 0
-
-            # Update sensor entry (use the first valid reading we get)
-            if str(idx) not in sensors:
-                sensors[str(idx)] = {"value": val, "maximum": maximum}
-            else:
-                # Prefer non-zero values
-                if val > 0:
-                    sensors[str(idx)]["value"] = val
-                if maximum > 0:
-                    sensors[str(idx)]["maximum"] = maximum
-
-    # Discovery mode
     if params.get("_discover"):
-        items = []
-        for idx_str in sensors:
-            items.append({"item": idx_str, "params": {}, "metrics": ["motion"]})
-        return {"changed": False, "msg": "discovered %d motion detectors" % len(items),
-                "data": {"discovery": items}}
+        host = params.get("host", "localhost")
+        community = params.get("community", "public")
 
-    # Check mode
+        sys_res = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, ".1.3.6.1.2.1.1.2.0"],
+            mutates=False,
+        )
+        if sys_res.rc != 0 or sys_res.rc == 127:
+            return {"changed": False, "msg": "kentix not present",
+                    "data": {"discovery": []}}
+
+        sys_oid = sys_res.stdout.strip()
+        if not sys_oid.startswith(".1.3.6.1.4.1.332.11.6"):
+            return {"changed": False, "msg": "kentix not present",
+                    "data": {"discovery": []}}
+
+        sensors = _read_motion_sensors(ctx, host, community)
+        out = []
+        for index in sensors:
+            out.append({"item": index, "params": {}, "metrics": ["motion"]})
+        return {"changed": False,
+                "msg": "discovered %d sensors" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
-    sensor = sensors.get(item)
-    if sensor == None:
-        return {"changed": False, "msg": "motion detector not found: " + item,
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    sensors = _read_motion_sensors(ctx, host, community)
+    if item == "" or item not in sensors:
+        return {"changed": False, "msg": "no such sensor: %s" % item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Get current time
-    res_time = ctx.run(["date", "+%H %M"], mutates=False)
-    hour = 0
-    minute = 0
-    if res_time.rc == 0 and res_time.stdout:
-        parts = res_time.stdout.strip().split()
-        if len(parts) == 2:
-            if parts[0].isdigit() and parts[1].isdigit():
-                hour = int(parts[0])
-                minute = int(parts[1])
-
-    today_minutes = hour * 60 + minute
-
-    # Determine active time period
-    time_periods = params.get("time_periods")
-    if time_periods != None and type(time_periods) == "dict":
-        res_day = ctx.run(["date", "+%u"], mutates=False)
-        day_num = 0
-        if res_day.rc == 0 and res_day.stdout.strip().isdigit():
-            day_num = int(res_day.stdout.strip()) - 1
-            if day_num < 0 or day_num > 6:
-                day_num = 0
-        periods = time_periods.get(_WEEKDAYS[day_num], [((0, 0), (24, 0))])
+    sensor = sensors[item]
+    today = _localtime(ctx)
+    weekdays = ("monday", "tuesday", "wednesday", "thursday",
+                "friday", "saturday", "sunday")
+    if "time_periods" in params:
+        periods = params["time_periods"].get(weekdays[today["wday"]], [((0, 0), (24, 0))])
     else:
         periods = [((0, 0), (24, 0))]
 
-    in_period = False
-    for per in periods:
-        if type(per) != "list" or len(per) != 2:
-            continue
-        start = per[0]
-        end = per[1]
-        if type(start) != "list" or len(start) != 2:
-            continue
-        if type(end) != "list" or len(end) != 2:
-            continue
-        start_h = start[0]
-        start_m = start[1]
-        end_h = end[0]
-        end_m = end[1]
-        if type(start_h) == "int" and type(start_m) == "int" and type(end_h) == "int" and type(end_m) == "int":
-            per_low = start_h * 60 + start_m
-            per_high = end_h * 60 + end_m
-            if per_low <= today_minutes and today_minutes < per_high:
-                in_period = True
-                break
-
-    value = sensor.get("value", 0)
-    maximum = sensor.get("maximum", 100)
-
-    if value >= maximum:
+    if sensor["value"] >= sensor["maximum"]:
+        in_period = _test_in_period((today["hour"], today["min"]), periods)
         state = "WARN" if in_period else "OK"
+        msg = "Motion detected"
     else:
         state = "OK"
+        msg = "No motion detected"
 
-    return {"changed": False, "msg": "Motion detected" if value >= maximum else "No motion detected",
-            "data": {"state": state, "metrics": {"motion": value}, "details": ""}}
+    return {"changed": False, "msg": msg,
+            "data": {"state": state,
+                     "metrics": {"motion": sensor["value"]},
+                     "details": msg}}
+
+
+def _read_motion_sensors(ctx, host, community):
+    sensors = {}
+    bases = [
+        ".1.3.6.1.4.1.37954.2.1.5",
+        ".1.3.6.1.4.1.37954.3.1.5",
+    ]
+    for base in bases:
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base],
+            mutates=False,
+        )
+        if res.rc != 0:
+            continue
+        rows = {}
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            oid = line[:sp]
+            value = line[sp + 1:]
+            suffix = oid[len(base):]
+            parts = suffix.split(".")
+            if len(parts) < 3:
+                continue
+            col = parts[1]
+            index = parts[2]
+            if index not in rows:
+                rows[index] = {}
+            rows[index][col] = value
+        for index in rows:
+            r = rows[index]
+            if "0" in r and "1" in r and "2" in r:
+                sensors[index] = {
+                    "value": int(r["1"]) if _is_int(r["1"]) else 0,
+                    "maximum": int(r["2"]) if _is_int(r["2"]) else 0,
+                }
+    return sensors
+
+
+def _test_in_period(time_tuple, periods):
+    time_mins = time_tuple[0] * 60 + time_tuple[1]
+    for per in periods:
+        low = per[0]
+        high = per[1]
+        per_mins_low = low[0] * 60 + low[1]
+        per_mins_high = high[0] * 60 + high[1]
+        if per_mins_low <= time_mins and time_mins < per_mins_high:
+            return True
+    return False
+
+
+def _localtime(ctx):
+    res = ctx.run(["date", "+%w %H %M %S"], mutates=False)
+    parts = res.stdout.strip().split()
+    if len(parts) < 4:
+        return {"wday": 0, "hour": 0, "min": 0, "sec": 0}
+    wday = int(parts[0])
+    wday_adj = (wday - 1) % 7
+    return {"wday": wday_adj, "hour": int(parts[1]), "min": int(parts[2]), "sec": int(parts[3])}
+
+
+def _is_int(s):
+    s2 = s
+    if s2.startswith("-"):
+        s2 = s2[1:]
+    return s2.isdigit() and len(s2) > 0

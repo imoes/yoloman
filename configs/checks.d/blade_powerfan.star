@@ -1,168 +1,177 @@
-def main(ctx, params):
-    # Constants for SNMP OIDs (base + offsets)
-    OID_BASE = ".1.3.6.1.4.1.2.3.51.2.2.6.1.1"
-    OID_INDEX = OID_BASE + ".1"
-    OID_PRESENT = OID_BASE + ".2"
-    OID_STATUS = OID_BASE + ".3"
-    OID_FANCOUNT = OID_BASE + ".4"
-    OID_SPEEDPERC = OID_BASE + ".5"
-    OID_RPM = OID_BASE + ".6"
-    OID_CTRLSTATE = OID_BASE + ".7"
+def _snmp_get_oid_value(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return None
+    if res.rc != 0 or not res.stdout:
+        return None
+    val = res.stdout.strip()
+    if val.startswith('"') and val.endswith('"') and len(val) >= 2:
+        val = val[1:-1]
+    return val
 
-    # Discovery mode
+def _snmp_get_int(ctx, community, host, oid):
+    val = _snmp_get_oid_value(ctx, community, host, oid)
+    if val == None:
+        return None
+    return int(val) if val.isdigit() else None
+
+def _snmp_get_float(ctx, community, host, oid):
+    val = _snmp_get_oid_value(ctx, community, host, oid)
+    if val == None:
+        return None
+    try_val = float(val) if (val.lstrip("-").replace(".", "", 1).isdigit()) else None
+    return try_val
+
+def _snmpwalk(ctx, community, host, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc == 127:
+        return []
+    if res.rc != 0 or not res.stdout:
+        return []
+    out = []
+    for line in res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
+            continue
+        out.append((parts[0], parts[1].strip()))
+    return out
+
+def _fetch_fan(ctx, community, host, index):
+    base = ".1.3.6.1.4.1.2.3.51.2.2.6.1.1"
+    present = _snmp_get_int(ctx, community, host, base + ".1." + index)
+    if present == None:
+        return None
+    status = _snmp_get_oid_value(ctx, community, host, base + ".2." + index)
+    if status == None:
+        return None
+    fancount = _snmp_get_oid_value(ctx, community, host, base + ".3." + index)
+    if fancount == None:
+        return None
+    speedperc = _snmp_get_int(ctx, community, host, base + ".4." + index)
+    if speedperc == None:
+        return None
+    rpm = _snmp_get_float(ctx, community, host, base + ".5." + index)
+    if rpm == None:
+        return None
+    ctrlstate = _snmp_get_oid_value(ctx, community, host, base + ".6." + index)
+    if ctrlstate == None:
+        return None
+    extra = _snmp_get_oid_value(ctx, community, host, base + ".7." + index)
+    if extra == None:
+        return None
+    return {
+        "index": index,
+        "present": str(present),
+        "status": status,
+        "fancount": fancount,
+        "speedperc": speedperc,
+        "rpm": rpm,
+        "ctrlstate": ctrlstate,
+    }
+
+def main(ctx, params):
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+    base = ".1.3.6.1.4.1.2.3.51.2.2.6.1.1"
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            OID_BASE
-        ], mutates=False)
-        if res.rc != 0:
-            fail("snmpwalk failed: " + res.stderr)
-        
-        # Parse snmpwalk output lines like: OID.1 = STRING: "value"
-        lines = res.stdout.splitlines()
-        fans = {}
-        
-        for line in lines:
-            if "=" not in line:
-                continue
-            parts = line.split("=", 1)
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + ".1"],
+            mutates=False,
+        )
+        if res.rc == 127:
+            return {"changed": False, "msg": "snmpwalk not installed", "data": {"discovery": [], "host_labels": {}}}
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "no blade powerfan data", "data": {"discovery": [], "host_labels": {}}}
+
+        discovery = []
+        for line in res.stdout.splitlines():
+            parts = line.split(" ", 1)
             if len(parts) != 2:
                 continue
-            oid_part = parts[0].strip()
-            value_part = parts[1].strip()
-            # Extract OID index suffix (last number after last dot)
-            suffix = oid_part.rsplit(".", 1)[-1]
-            # Strip type prefix like "INTEGER: " or "STRING: "
-            value = value_part.split(":", 1)[-1].strip().strip('"')
-            
-            # Map OIDs to fields based on offset
-            # base.1=index, .2=present, .3=status, .4=fancount, .5=speedperc, .6=rpm, .7=ctrlstate
-            if oid_part.endswith(".1"):  # index
-                fans[suffix] = {"index": value, "present": "0"}
-            elif oid_part.endswith(".2"):  # present
-                fans[suffix] = fans.get(suffix, {})
-                fans[suffix]["present"] = value
-            elif oid_part.endswith(".3"):  # status
-                fans[suffix] = fans.get(suffix, {})
-                fans[suffix]["status"] = value
-            elif oid_part.endswith(".4"):  # fancount
-                fans[suffix] = fans.get(suffix, {})
-                fans[suffix]["fancount"] = value
-            elif oid_part.endswith(".5"):  # speedperc
-                fans[suffix] = fans.get(suffix, {})
-                fans[suffix]["speedperc"] = value
-            elif oid_part.endswith(".6"):  # rpm
-                fans[suffix] = fans.get(suffix, {})
-                fans[suffix]["rpm"] = value
-            elif oid_part.endswith(".7"):  # ctrlstate
-                fans[suffix] = fans.get(suffix, {})
-                fans[suffix]["ctrlstate"] = value
-        
-        discovery = []
-        for index, fan_data in fans.items():
-            present = fan_data.get("present", "0")
-            if index and present == "1":
+            oid = parts[0]
+            index = oid[len(base + ".1"):]
+            if not index or not oid.startswith(base + ".1."):
+                continue
+            fan = _fetch_fan(ctx, community, host, index)
+            if fan == None:
+                continue
+            if fan["present"] == "1" and fan["index"]:
                 discovery.append({
-                    "item": index,
+                    "item": fan["index"],
                     "params": {},
-                    "metrics": ["perc", "rpm"]
+                    "metrics": ["perc", "rpm"],
                 })
         return {
             "changed": False,
-            "msg": "discovered %d fans" % len(discovery),
-            "data": {"discovery": discovery}
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery, "host_labels": {}},
         }
-    
-    # Check mode
+
     item = params.get("item", "")
-    if not item:
-        fail("item is required for check mode")
-    
-    # Gather data via snmpget for specific OIDs (faster and cleaner)
-    res = ctx.run([
-        "snmpget", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        OID_INDEX + "." + item,
-        OID_PRESENT + "." + item,
-        OID_STATUS + "." + item,
-        OID_SPEEDPERC + "." + item,
-        OID_RPM + "." + item,
-        OID_CTRLSTATE + "." + item
-    ], mutates=False)
-    
-    if res.rc != 0:
+    fan = _fetch_fan(ctx, community, host, item)
+    if fan == None:
         return {
             "changed": False,
-            "msg": "snmpget failed: " + res.stderr,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "Fan not found or not present: " + item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": "Fan not present"},
         }
-    
-    # Parse snmpget output: OID.1 = STRING: "value" per line
-    values = {}
-    lines = res.stdout.splitlines()
-    for line in lines:
-        if "=" not in line:
-            continue
-        parts = line.split("=", 1)
-        if len(parts) != 2:
-            continue
-        oid_part = parts[0].strip()
-        value_part = parts[1].strip()
-        # Determine which OID this is by suffix
-        if oid_part.endswith(".1"):
-            values["index"] = value_part.split(":", 1)[-1].strip().strip('"')
-        elif oid_part.endswith(".2"):
-            values["present"] = value_part.split(":", 1)[-1].strip().strip('"')
-        elif oid_part.endswith(".3"):
-            values["status"] = value_part.split(":", 1)[-1].strip().strip('"')
-        elif oid_part.endswith(".5"):
-            val = value_part.split(":", 1)[-1].strip().strip('"')
-            values["speedperc"] = int(val) if val.isdigit() else 0
-        elif oid_part.endswith(".6"):
-            val = value_part.split(":", 1)[-1].strip().strip('"')
-            values["rpm"] = float(val) if val.replace('.', '').replace('-', '').isdigit() else 0.0
-        elif oid_part.endswith(".7"):
-            values["ctrlstate"] = value_part.split(":", 1)[-1].strip().strip('"')
-    
-    # Check fan presence
-    present = values.get("present", "0")
-    if present != "1":
+
+    if fan["present"] != "1":
         return {
             "changed": False,
             "msg": "Fan not present",
-            "data": {"state": "CRIT", "metrics": {}, "details": ""}
+            "data": {"state": "CRIT", "metrics": {}, "details": "Fan not present"},
         }
-    
-    # Extract metrics
-    speedperc = values.get("speedperc", 0)
-    rpm = values.get("rpm", 0.0)
-    status = values.get("status", "0")
-    ctrlstate = values.get("ctrlstate", "0")
-    
-    # Determine state based on thresholds (fixed levels: lower warn=50, crit=40)
-    # Checkmk uses levels_lower=("fixed", (50, 40)) → WARN if <=50, CRIT if <=40
+
+    warn = params.get("warn", 50)
+    crit = params.get("crit", 40)
+    speedperc = fan["speedperc"]
     state = "OK"
-    if speedperc <= 40:
+    if speedperc <= crit:
         state = "CRIT"
-    elif speedperc <= 50:
+    elif speedperc <= warn:
         state = "WARN"
-    
-    # Also check status and ctrlstate
-    if status != "1":
-        state = "CRIT"
-    if ctrlstate != "1":
-        state = "CRIT"
-    
-    # Build summary message
-    msg = "Speed: %d%%, RPM: %d" % (speedperc, int(rpm))
-    
+
+    rpm = fan["rpm"]
+    rpm_state = "OK"
+    rpm_warn = params.get("rpm_warn")
+    rpm_crit = params.get("rpm_crit")
+    if rpm_warn != None and rpm_crit != None:
+        if rpm <= rpm_crit:
+            rpm_state = "CRIT"
+        elif rpm <= rpm_warn:
+            rpm_state = "WARN"
+
+    overall_state = "OK"
+    for s in [state, rpm_state]:
+        if s == "CRIT":
+            overall_state = "CRIT"
+        elif s == "WARN" and overall_state != "CRIT":
+            overall_state = "WARN"
+    if fan["status"] != "1":
+        overall_state = "CRIT"
+    if fan["ctrlstate"] != "1":
+        overall_state = "CRIT"
+
+    detail_lines = []
+    detail_lines.append("Speed: %s%%" % speedperc)
+    detail_lines.append("RPM: %s" % rpm)
+    detail_lines.append("Status: %s" % ("OK" if fan["status"] == "1" else "not OK"))
+    detail_lines.append("Controller state: %s" % ("OK" if fan["ctrlstate"] == "1" else "not OK"))
+
     return {
         "changed": False,
-        "msg": msg,
+        "msg": "Speed: %s%%, RPM: %s" % (speedperc, rpm),
         "data": {
-            "state": state,
+            "state": overall_state,
             "metrics": {"perc": speedperc, "rpm": rpm},
-            "details": ""
+            "details": "\n".join(detail_lines),
         },
     }

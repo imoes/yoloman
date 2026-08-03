@@ -1,190 +1,130 @@
 def main(ctx, params):
-    # SNMP base OID for fortimail_queue section
-    base_oid = ".1.3.6.1.4.1.12356.105.1.103.2.1"
-    
-    # Discovery mode: enumerate all queue items
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-            "-On", params.get("host", "localhost"),
-            base_oid + ".2"  # fmlMailQueueName
-        ], mutates=False)
-        
-        # Build list of queue names from the walk output
-        queue_names = []
-        for line in res.stdout.splitlines():
-            if not line.strip():
-                continue
-            # Format: OID = STRING: "queue name"
-            idx = line.find('"')
-            if idx >= 0:
-                # Extract the string value between quotes
-                value = line[idx+1:]
-                end = value.find('"')
-                if end > 0:
-                    queue_name = value[:end]
-                    queue_names.append(queue_name)
-        
-        # Return discovery results with suggested params (from check_default_parameters)
+        # Probe for FortiMail device via sysObjectID
+        sys_oid = ".1.3.6.1.2.1.1.2.0"
+        sys_res = ctx.run(
+            ["snmpget", "-v2c", "-c", params.get("community", "public"),
+             "-Oqv", params.get("host", "localhost"), sys_oid],
+            mutates=False)
+        if sys_res.rc != 0:
+            return {"changed": False, "msg": "FortiMail not found (SNMP not reachable)",
+                    "data": {"discovery": []}}
+
+        expected_sysid = ".1.3.6.1.4.1.12356.105"
+        is_fortimail = sys_res.stdout.strip() == expected_sysid
+        if not is_fortimail:
+            return {"changed": False, "msg": "not a FortiMail device",
+                    "data": {"discovery": []}}
+
+        # Walk the queue name column (OID .2) to discover queues
+        name_oid = ".1.3.6.1.4.1.12356.105.1.103.2.1.2"
+        walk_res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", params.get("community", "public"),
+             "-Oqn", params.get("host", "localhost"), name_oid],
+            mutates=False)
+        if walk_res.rc != 0:
+            return {"changed": False, "msg": "FortiMail queue table not accessible",
+                    "data": {"discovery": []}}
+
         discovery = []
-        for name in queue_names:
+        for line in walk_res.stdout.splitlines():
+            parts = line.split(" ", 1)
+            if len(parts) != 2:
+                continue
+            full_oid = parts[0]
+            queue_name = parts[1].strip().strip('"')
+            # index is the OID suffix after the column base
+            index = full_oid[len(name_oid) + 1:]
             discovery.append({
-                "item": name,
+                "item": queue_name,
                 "params": {"queue_length": (100, 200)},
-                "metrics": ["mail_queue_active_length", "mail_queue_active_size"]
+                "metrics": ["mail_queue_active_length", "mail_queue_active_size"],
             })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d queues" % len(queue_names),
-            "data": {"discovery": discovery}
-        }
-    
-    # Check mode: verify one item
+
+        return {"changed": False,
+                "msg": "discovered %d mail queues" % len(discovery),
+                "data": {"discovery": discovery}}
+
+    # --- CHECK MODE ---
     item = params.get("item", "")
-    if item == None:
-        item = ""
-    
-    # Fetch all three OID columns (name, count, size) in one go
-    # We'll use snmpwalk on the base OID and parse all entries together
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", params.get("community", "public"),
-        "-On", params.get("host", "localhost"),
-        base_oid
-    ], mutates=False)
-    
-    # Parse the output: group by queue index
-    # OIDs look like: .1.3.6.1.4.1.12356.105.1.103.2.1.2.1 = "queue name"
-    #                                               .3.1 = INTEGER: 31
-    #                                               .4.1 = INTEGER: 534
-    queues = {}
-    current_index = ""
-    name = ""
-    count = ""
-    size = ""
-    
-    for line in res.stdout.splitlines():
-        if not line.strip():
+    name_oid = ".1.3.6.1.4.1.12356.105.1.103.2.1.2"
+    count_oid = ".1.3.6.1.4.1.12356.105.1.103.2.1.3"
+    size_oid = ".1.3.6.1.4.1.12356.105.1.103.2.1.4"
+    community = params.get("community", "public")
+    host = params.get("host", "localhost")
+
+    # Find the index for this queue by walking the name column
+    walk_res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, name_oid],
+        mutates=False)
+    if walk_res.rc != 0:
+        return {"changed": False, "msg": "no mail queues found (SNMP walk failed)",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    target_index = None
+    for line in walk_res.stdout.splitlines():
+        parts = line.split(" ", 1)
+        if len(parts) != 2:
             continue
-        
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        
-        oid_full = parts[0]
-        # Extract the index: the last numeric component after base OID
-        # e.g. .1.3.6.1.4.1.12356.105.1.103.2.1.2.1 -> index 1, OID suffix .2.1
-        # Find position of base_oid and extract index part
-        suffix = oid_full[len(base_oid):]
-        if not suffix.startswith("."):
-            continue
-        suffix = suffix[1:]  # strip leading dot
-        
-        # Split suffix: type.index (e.g., "2.1", "3.1", "4.1")
-        idx_dot = suffix.find(".")
-        if idx_dot < 0:
-            continue
-        
-        oid_type = int(suffix[:idx_dot])
-        idx = int(suffix[idx_dot+1:])
-        
-        # Extract value (everything after the type string)
-        # Format: OID = STRING: "..." / INTEGER: N / GAUGE: N
-        value_part = "=".join(parts[1:]).strip()
-        
-        # Determine value
-        val = ""
-        if value_part.startswith('"'):
-            # STRING type: extract quoted string
-            end_quote = value_part.find('"', 1)
-            if end_quote > 0:
-                val = value_part[1:end_quote]
-        else:
-            # INTEGER/GAUGE: take numeric part
-            if value_part.startswith("INTEGER:"):
-                val = value_part[8:].strip()
-            elif value_part.startswith("Gauge:"):
-                val = value_part[6:].strip()
-            elif value_part.startswith("INTEGER:"):
-                val = value_part[8:].strip()
-        
-        # Store value in queues dict
-        if idx != current_index:
-            # New queue entry: finalize previous if exists
-            if current_index != "" and name != "" and count != "" and size != "":
-                queues[current_index] = {
-                    "name": name,
-                    "length": int(count) if count.isdigit() else 0,
-                    "size": int(size) * 1024 if size.isdigit() else 0
-                }
-            current_index = str(idx)
-            name = ""
-            count = ""
-            size = ""
-        
-        # Update current record based on OID type
-        if oid_type == 2:
-            name = val
-        elif oid_type == 3:
-            count = val
-        elif oid_type == 4:
-            size = val
-    
-    # Finalize last queue
-    if current_index != "" and name != "" and count != "" and size != "":
-        queues[current_index] = {
-            "name": name,
-            "length": int(count) if count.isdigit() else 0,
-            "size": int(size) * 1024 if size.isdigit() else 0
-        }
-    
-    # Find the queue matching the item
-    queue_data = None
-    for q in queues.values():
-        if q["name"] == item:
-            queue_data = {"length": q["length"], "size": q["size"]}
+        full_oid = parts[0]
+        queue_name = parts[1].strip().strip('"')
+        if queue_name == item:
+            target_index = full_oid[len(name_oid) + 1:]
             break
-    
-    # If item not found, return UNKNOWN
-    if queue_data == None:
-        return {
-            "changed": False,
-            "msg": "queue not found: %s" % item,
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Extract thresholds from params (default from check_default_parameters)
-    warn_len = 100
-    crit_len = 200
-    if "queue_length" in params:
-        levels = params["queue_length"]
-        if levels != None and type(levels) == "list":
-            warn_len = float(levels[0])
-            crit_len = float(levels[1])
-    
-    # Compute state based on queue length (upper levels)
-    length = queue_data["length"]
-    if length >= crit_len:
+
+    if target_index == None:
+        return {"changed": False, "msg": "queue not found: " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    # Fetch count and size by index
+    count_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, count_oid + "." + target_index],
+        mutates=False)
+    size_res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, size_oid + "." + target_index],
+        mutates=False)
+
+    if count_res.rc != 0 or size_res.rc != 0:
+        return {"changed": False, "msg": "failed to fetch queue data for " + item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    count_str = count_res.stdout.strip()
+    size_str = size_res.stdout.strip()
+
+    # Guard against non-numeric output
+    count = int(count_str) if count_str.isdigit() else 0
+    size_kb = int(size_str) if size_str.isdigit() else 0
+    size_bytes = size_kb * 1024
+
+    # Thresholds
+    levels = params.get("queue_length", (100, 200))
+    warn = levels[0] if levels else 100
+    crit = levels[1] if levels else 200
+
+    # Grade length (upper levels: WARN if >= warn, CRIT if >= crit)
+    state = "OK"
+    if count >= crit:
         state = "CRIT"
-    elif length >= warn_len:
+    elif count >= warn:
         state = "WARN"
+
+    # Format size for display
+    if size_bytes >= 1048576:
+        size_disp = "%f MB" % (size_bytes / 1048576.0)
+    elif size_bytes >= 1024:
+        size_disp = "%f KB" % (size_bytes / 1024.0)
     else:
-        state = "OK"
-    
-    # Format message
-    return {
-        "changed": False,
-        "msg": "Length: %d, Size: %d" % (length, queue_data["size"]),
-        "data": {
-            "state": state,
-            "metrics": {
-                "mail_queue_active_length": length,
-                "mail_queue_active_size": queue_data["size"]
-            },
-            "details": ""
-        }
-    }
+        size_disp = "%d B" % size_bytes
+
+    msg = "%s: length %d, size %s" % (item, count, size_disp)
+    details = "Length: %d (warn: %d, crit: %d)" % (count, warn, crit)
+
+    return {"changed": False, "msg": msg,
+            "data": {
+                "state": state,
+                "metrics": {
+                    "mail_queue_active_length": count,
+                    "mail_queue_active_size": size_bytes,
+                },
+                "details": details,
+            }}

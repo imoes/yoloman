@@ -1,50 +1,63 @@
 def main(ctx, params):
-    # Discovery mode: checkmk.decru_cpu yields one service per host if section exists
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    base_oid = ".1.3.6.1.4.1.12962.1.1"
+    col_oid = "8"
+
     if params.get("_discover"):
-        # Detect decru by checking if host has "datafort" in uname output
-        uname_res = ctx.run(["uname", "-a"], mutates=False)
-        if uname_res.rc != 0 or "datafort" not in uname_res.stdout.lower():
-            return {"changed": False, "msg": "discovered 0 services", "data": {"discovery": []}}
-        return {"changed": False, "msg": "discovered 1 service", "data": {"discovery": [{"item": "", "params": {}, "metrics": ["user", "system", "interrupt"]}]}}
+        sys_oid = ".1.3.6.1.2.1.1.1.0"
+        sys_res = ctx.run(["snmpget", "-v2c", "-c", community, "-Ov", host, sys_oid], mutates=False)
+        if sys_res.rc != 0 or sys_res.skipped:
+            return {"changed": False, "msg": "no Decru device found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        sys_val = sys_res.stdout.strip()
+        if "datafort" not in sys_val:
+            return {"changed": False, "msg": "no Decru device found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        full_oid = base_oid + "." + col_oid
+        res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, full_oid], mutates=False)
+        if res.rc != 0 or res.skipped:
+            return {"changed": False, "msg": "no Decru CPU data found",
+                    "data": {"discovery": [], "host_labels": {}}}
+        vals = res.stdout.splitlines()
+        if len(vals) != 5:
+            return {"changed": False, "msg": "incomplete CPU data",
+                    "data": {"discovery": [], "host_labels": {}}}
+        return {"changed": False, "msg": "discovered cpu",
+                "data": {"discovery": [
+                    {"item": "", "params": {}, "metrics": ["user", "system", "interrupt"]}
+                ]}}
 
-    # Check mode: process single item (always "" for this check)
-    # Fetch decru_cpu section data
-    res = ctx.run(["agentctl", "get", "decru_cpu"], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "agent data for decru_cpu not available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Guard before json.decode: validate output is non-empty
-    if not res.stdout:
-        return {"changed": False, "msg": "agent data for decru_cpu not available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Parse JSON output
-    section = json.decode(res.stdout)
-
-    # Validate section structure
-    if type(section) != "list" or len(section) != 5:
-        return {"changed": False, "msg": "invalid decru_cpu section: expected 5 rows, got %d" % len(section), "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    # Convert values to floats
-    values = []
-    for row in section:
-        if type(row) != "list" or len(row) != 1:
-            return {"changed": False, "msg": "invalid row in decru_cpu", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-        v = row[0]
-        # Guard against non-numeric values
-        if type(v) == "string":
-            if not v.replace(".", "").replace("-", "").isdigit():
-                return {"changed": False, "msg": "decru_cpu values are not numbers", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-            values.append(float(v))
-        elif type(v) == "float" or type(v) == "int":
-            values.append(float(v))
+    item = params.get("item", "")
+    full_oid = base_oid + "." + col_oid
+    res = ctx.run(["snmpget", "-v2c", "-c", community, "-Oqv", host, full_oid], mutates=False)
+    if res.rc != 0 or res.skipped:
+        return {"changed": False, "msg": "no Decru device found",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    vals = res.stdout.splitlines()
+    if len(vals) != 5:
+        return {"changed": False, "msg": "incomplete CPU data: got %d values" % len(vals),
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    try_val = []
+    ok = True
+    for v in vals:
+        v = v.strip()
+        if v == "" or (v.startswith("-") and v[1:].isdigit()) or v.isdigit():
+            try_val.append(v)
         else:
-            return {"changed": False, "msg": "decru_cpu values are not numbers", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    user, nice, system, interrupt, idle = values
-    user += nice  # user + nice
-
-    # Checkmk defaults: no warn/crit thresholds; always OK if data present
-    state = "OK"
-    summary = "user %d%%, sys %d%%, interrupt %d%%, idle %d%%" % (user, system, interrupt, idle)
-
-    return {"changed": False, "msg": summary, "data": {"state": state, "metrics": {"user": user, "system": system, "interrupt": interrupt}, "details": ""}}
+            ok = False
+            break
+    if not ok:
+        return {"changed": False, "msg": "non-numeric CPU value",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    user = float(vals[0]) / 10.0
+    nice = float(vals[1]) / 10.0
+    system = float(vals[2]) / 10.0
+    interrupt = float(vals[3]) / 10.0
+    idle = float(vals[4]) / 10.0
+    user += nice
+    return {"changed": False,
+            "msg": "user %f%%, sys %f%%, interrupt %f%%, idle %f%%" % (user, system, interrupt, idle),
+            "data": {"state": "OK",
+                     "metrics": {"user": user, "system": system, "interrupt": interrupt, "idle": idle},
+                     "details": ""}}

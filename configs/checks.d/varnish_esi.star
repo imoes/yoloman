@@ -1,82 +1,63 @@
+def _parse_varnishstats(output):
+    sections = {}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) < 4:
+            continue
+        key = parts[0]
+        val_str = parts[1]
+        val = int(val_str) if val_str.lstrip("-").isdigit() else None
+        # parts[2] is type (e.g. 'MAIN', 'MGT', or blank)
+        # parts[3:] is description
+        sections[key] = val
+    return sections
+
+VARNISH_STATS_KEYS = {
+    "esi_errors": "varnish_esi_errors",
+    "esi_warnings": "varnish_esi_warnings",
+}
+
+ESI_KEYS = ["esi_errors", "esi_warnings"]
+
 def main(ctx, params):
-    # Discovery mode: detect if ESI data is available
+    # Probe for varnishstat
+    res = ctx.run(["varnishstat", "-1"], mutates=False)
+    if res.rc == 127 or res.rc == 1:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "varnishstat not installed", "data": {"discovery": []}}
+        return {"changed": False, "msg": "Varnish not installed (varnishstat not found)", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    stats = _parse_varnishstats(res.stdout)
+
     if params.get("_discover"):
-        res = ctx.run(["varnishstat", "-1", "-j"], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "Varnish not available or varnishstat failed",
-                    "data": {"discovery": []}}
-        data = json.decode(res.stdout) if res.stdout else None
-        if not isinstance(data, dict):
-            return {"changed": False, "msg": "Invalid varnishstat JSON format",
-                    "data": {"discovery": []}}
-        # Check for ESI-related keys at top level (after MAIN prefix removal)
-        section = data.get("MAIN", {})
-        has_esi = isinstance(section, dict) and "esi_errors" in section
-        if has_esi:
-            return {"changed": False, "msg": "discovered 1 Varnish ESI service",
-                    "data": {"discovery": [{"item": "", "params": {"errors": [1.0, 2.0]}, "metrics": ["esi_errors", "esi_warnings"]}]}}
-        else:
-            return {"changed": False, "msg": "no Varnish ESI data available",
-                    "data": {"discovery": []}}
+        if stats.get("esi_errors") != None:
+            return {"changed": False, "msg": "discovered 1 item", "data": {"discovery": [{"item": "", "params": {"errors": (1.0, 2.0)}, "metrics": ["esi_errors", "esi_warnings"]}]}}
+        return {"changed": False, "msg": "no ESI statistics found", "data": {"discovery": []}}
 
-    # Check mode: process ESI metrics
-    item = params.get("item", "")
-    if item != "":
-        return {"changed": False, "msg": "unexpected item: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    # Check mode
+    errors = stats.get("esi_errors")
+    warnings = stats.get("esi_warnings")
 
-    res = ctx.run(["varnishstat", "-1", "-j"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "varnishstat failed with code " + str(res.rc),
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not res.stdout:
-        return {"changed": False, "msg": "varnishstat produced no output",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    data = json.decode(res.stdout) if res.stdout else None
-    if not isinstance(data, dict):
-        return {"changed": False, "msg": "could not parse varnishstat JSON",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    default_levels = (1.0, 2.0)
+    warn, crit = params.get("errors", default_levels)
 
-    section = data.get("MAIN", {})
-    if not isinstance(section, dict):
-        return {"changed": False, "msg": "invalid MAIN section format",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    errors = section.get("esi_errors", {})
-    warnings = section.get("esi_warnings", {})
-
-    if not isinstance(errors, dict) or "value" not in errors:
-        return {"changed": False, "msg": "esi_errors data missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    if not isinstance(warnings, dict) or "value" not in warnings:
-        return {"changed": False, "msg": "esi_warnings data missing",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-
-    err_val = errors["value"]
-    warn_val = warnings["value"]
-
-    # Use default thresholds from Checkmk source: {"errors": (1.0, 2.0)}
-    err_warn, err_crit = 1.0, 2.0
-    warn_levels = params.get("errors", (err_warn, err_crit))
-    if isinstance(warn_levels, list) and len(warn_levels) == 2:
-        err_warn = float(warn_levels[0])
-        err_crit = float(warn_levels[1])
-    elif isinstance(warn_levels, tuple) and len(warn_levels) == 2:
-        err_warn = float(warn_levels[0])
-        err_crit = float(warn_levels[1])
-
+    metrics = {}
     state = "OK"
-    if err_val >= err_crit:
-        state = "CRIT"
-    elif err_val >= err_warn:
-        state = "WARN"
+    details = []
 
-    msg_parts = []
-    msg_parts.append("Errors: %d" % err_val)
-    msg_parts.append("Warnings: %d" % warn_val)
-    msg = "; ".join(msg_parts)
+    if errors != None:
+        metrics["esi_errors"] = float(errors)
+        if errors >= crit:
+            state = "CRIT"
+        elif errors >= warn:
+            state = "WARN"
+        details.append("ESI errors: %d" % errors)
 
-    return {"changed": False, "msg": msg,
-            "data": {"state": state,
-                     "metrics": {"esi_errors": err_val, "esi_warnings": warn_val},
-                     "details": ""}}
+    if warnings != None:
+        metrics["esi_warnings"] = float(warnings)
+        details.append("ESI warnings: %d" % warnings)
+
+    if errors == None and warnings == None:
+        return {"changed": False, "msg": "no ESI statistics available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    return {"changed": False, "msg": ", ".join(details), "data": {"state": state, "metrics": metrics, "details": "\n".join(details)}}

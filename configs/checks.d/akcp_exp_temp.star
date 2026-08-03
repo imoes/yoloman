@@ -1,287 +1,158 @@
-# Module constants (defined at top level as required)
-AKCP_TEMP_CHECK_DEFAULT_PARAMETERS = {
-    "levels": (32.0, 35.0),
-}
+def _snmpget_oid(ctx, params, oid):
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0:
+        return None
+    val = res.stdout.strip()
+    if not val:
+        return None
+    return val
 
-# SNMP OID mapping for akcp_exp_temp section
-SNMP_BASE_OID = ".1.3.6.1.4.1.3854.2.3.2.1"
-OID_DESCRIPTION = "2"
-OID_DEGREE = "4"
-OID_UNIT = "5"
-OID_STATUS = "6"
-OID_LOW_CRIT = "9"
-OID_LOW_WARN = "10"
-OID_HIGH_WARN = "11"
-OID_HIGH_CRIT = "12"
-OID_DEGREE_RAW = "19"
-OID_ONLINE = "8"
+def _akcp_exp_present(ctx, params):
+    sys_oid = _snmpget_oid(ctx, params, ".1.3.6.1.2.1.1.2.0")
+    if sys_oid == None:
+        return False
+    if not sys_oid.startswith(".1.3.6.1.4.1.3854.1"):
+        return False
+    probe = _snmpget_oid(ctx, params, ".1.3.6.1.4.1.3854.2")
+    if probe == None:
+        return False
+    return True
 
-# Sensor status states mapping (from Checkmk source)
-AKCP_SENSOR_LEVEL_STATES = {
-    "1": ("no status", 2),
-    "2": ("normal", 0),
-    "3": ("high warning", 1),
-    "4": ("high critical", 2),
-    "5": ("low warning", 1),
-    "6": ("low critical", 2),
-    "7": ("sensor error", 2),
-}
-
+def _walk_temp_table(ctx, params):
+    base = ".1.3.6.1.4.1.3854.2.3.2.1"
+    cols = ["2", "4", "5", "6", "9", "10", "11", "12", "19", "8"]
+    host = params.get("host", "localhost")
+    community = params.get("community", "public")
+    by_index = {}
+    for ci, col in enumerate(cols):
+        res = ctx.run(
+            ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, base + "." + col],
+            mutates=False,
+        )
+        if res.rc != 0:
+            continue
+        for line in res.stdout.splitlines():
+            sp = line.find(" ")
+            if sp < 0:
+                continue
+            oid = line[:sp].strip()
+            val = line[sp + 1:].strip()
+            suffix = oid[len(base) + 1:]
+            idx_part = suffix.rsplit(".", 1)
+            if len(idx_part) < 2:
+                continue
+            index = idx_part[1]
+            if index not in by_index:
+                by_index[index] = ["", "", "", "", "", "", "", "", "", ""]
+            by_index[index][ci] = val
+    rows = []
+    for index in sorted(by_index.keys()):
+        rows.append(by_index[index])
+    return rows
 
 def main(ctx, params):
-    if params.get("_discover") == True:
-        return _discovery_mode(ctx, params)
-
-    return _check_mode(ctx, params)
-
-
-def _discovery_mode(ctx, params):
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        SNMP_BASE_OID
-    ], mutates=False)
-    
-    items = []
-    # Parse snmpwalk output: OID = TYPE: value
-    lines = res.stdout.splitlines()
-    # Build lookup tables by OID suffix
-    descriptions = {}
-    online_states = {}
-    
-    for line in lines:
-        if line.find("=") < 0:
-            continue
-        parts = line.split("=", 1)
-        oid = parts[0].strip()
-        value = parts[1].strip().lstrip(" ").lstrip('"').rstrip('"').rstrip()
-        
-        # Extract suffix after base OID
-        if oid.startswith(SNMP_BASE_OID + "."):
-            suffix = oid[len(SNMP_BASE_OID) + 1:]
-            
-            if suffix == OID_DESCRIPTION:
-                descriptions[value] = True
-            elif suffix == OID_ONLINE:
-                # Extract numeric index from OID
-                idx = oid.rsplit(".", 1)[-1]
-                online_states[idx] = value
-    
-    # Re-parse to correlate items with online status
-    sensor_data = {}
-    for line in lines:
-        if line.find("=") < 0:
-            continue
-        parts = line.split("=", 1)
-        oid = parts[0].strip()
-        value = parts[1].strip().lstrip(" ").lstrip('"').rstrip('"').rstrip()
-        
-        if oid.startswith(SNMP_BASE_OID + "."):
-            suffix = oid[len(SNMP_BASE_OID) + 1:]
-            idx = oid.rsplit(".", 1)[-1]
-            
-            # Initialize sensor data dict if not exists
-            if idx not in sensor_data:
-                sensor_data[idx] = {}
-            
-            if suffix == OID_DESCRIPTION:
-                sensor_data[idx]["description"] = value
-            elif suffix == OID_ONLINE:
-                sensor_data[idx]["online"] = value
-    
-    # Build items list - only online sensors (online == "1")
-    for idx, data in sensor_data.items():
-        if data.get("online") == "1":
-            desc = data.get("description", "")
-            if desc != "":
-                items.append({
-                    "item": desc,
-                    "params": AKCP_TEMP_CHECK_DEFAULT_PARAMETERS,
-                    "metrics": ["temperature"]
+    if params.get("_discover"):
+        if not _akcp_exp_present(ctx, params):
+            return {"changed": False, "msg": "no AKCP EXP device found", "data": {"discovery": []}}
+        rows = _walk_temp_table(ctx, params)
+        out = []
+        for line in rows:
+            if len(line) < 10:
+                continue
+            if line[-1] == "1":
+                out.append({
+                    "item": line[0],
+                    "params": {"levels": (32.0, 35.0)},
+                    "metrics": ["temperature"],
                 })
-    
-    return {
-        "changed": False,
-        "msg": "discovered %d temperature sensors" % len(items),
-        "data": {"discovery": items},
-    }
+        return {"changed": False, "msg": "discovered %d sensors" % len(out), "data": {"discovery": out}}
 
-
-def _check_mode(ctx, params):
     item = params.get("item", "")
-    if item == "":
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+    if not _akcp_exp_present(ctx, params):
+        return {"changed": False, "msg": "no AKCP EXP device found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    rows = _walk_temp_table(ctx, params)
+    target = None
+    for line in rows:
+        if len(line) >= 10 and line[0] == item:
+            target = line
+            break
+    if target == None:
+        return {"changed": False, "msg": "no such sensor: " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    (description, degree, unit, status, low_crit, low_warn, high_warn, high_crit, degreeraw, online) = target
+
+    if online != "1":
+        return {"changed": False, "msg": "sensor is offline", "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    if status in ["1", "7"]:
+        akcp_states = {
+            "1": (2, "no status"),
+            "7": (2, "sensor error"),
         }
-    
-    res = ctx.run([
-        "snmpwalk",
-        "-v2c",
-        "-c", params.get("community", "public"),
-        "-On",
-        params.get("host", "localhost"),
-        SNMP_BASE_OID
-    ], mutates=False)
-    
-    # Parse snmpwalk output
-    lines = res.stdout.splitlines()
-    sensor_data = {}
-    
-    for line in lines:
-        if line.find("=") < 0:
-            continue
-        parts = line.split("=", 1)
-        oid = parts[0].strip()
-        value = parts[1].strip().lstrip(" ").lstrip('"').rstrip('"').rstrip()
-        
-        if oid.startswith(SNMP_BASE_OID + "."):
-            suffix = oid[len(SNMP_BASE_OID) + 1:]
-            idx = oid.rsplit(".", 1)[-1]
-            
-            # Initialize sensor data dict if not exists
-            if idx not in sensor_data:
-                sensor_data[idx] = {}
-            
-            if suffix == OID_DESCRIPTION:
-                sensor_data[idx]["description"] = value
-            elif suffix == OID_DEGREE:
-                sensor_data[idx]["degree"] = value
-            elif suffix == OID_UNIT:
-                sensor_data[idx]["unit"] = value
-            elif suffix == OID_STATUS:
-                sensor_data[idx]["status"] = value
-            elif suffix == OID_LOW_CRIT:
-                sensor_data[idx]["low_crit"] = value
-            elif suffix == OID_LOW_WARN:
-                sensor_data[idx]["low_warn"] = value
-            elif suffix == OID_HIGH_WARN:
-                sensor_data[idx]["high_warn"] = value
-            elif suffix == OID_HIGH_CRIT:
-                sensor_data[idx]["high_crit"] = value
-            elif suffix == OID_DEGREE_RAW:
-                sensor_data[idx]["degreeraw"] = value
-            elif suffix == OID_ONLINE:
-                sensor_data[idx]["online"] = value
-    
-    # Find the item
-    item_found = False
-    for idx, data in sensor_data.items():
-        if data.get("description") == item:
-            item_found = True
-            
-            # Check online status
-            if data.get("online") != "1":
-                return {
-                    "changed": False,
-                    "msg": "sensor is offline",
-                    "data": {"state": "CRIT", "metrics": {}, "details": ""},
-                }
-            
-            status = data.get("status", "0")
-            if status == "1" or status == "7":
-                state_name, state_code = AKCP_SENSOR_LEVEL_STATES[status]
-                return {
-                    "changed": False,
-                    "msg": "State: " + state_name,
-                    "data": {"state": ["OK", "WARN", "CRIT", "UNKNOWN"][state_code], "metrics": {}, "details": ""},
-                }
-            
-            # Get temperature reading
-            unit = data.get("unit", "C")
-            degreeraw = data.get("degreeraw", "0")
-            degree = data.get("degree", "")
-            
-            temperature = 0.0
-            if degreeraw != "" and degreeraw != "0":
-                temperature = float(degreeraw) / 10.0
-            elif degree == "":
-                return {
-                    "changed": False,
-                    "msg": "Temperature information not found",
-                    "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-                }
-            else:
-                temperature = float(degree)
-            
-            # Normalize unit
-            unit_normalized = "c"
-            if unit.isdigit():
-                unit_normalized = "f" if unit == "0" else "c"
-                low_c = float(data.get("low_crit", "0"))
-                low_w = float(data.get("low_warn", "0"))
-                high_w = float(data.get("high_warn", "0"))
-                high_c = float(data.get("high_crit", "0"))
-            else:
-                unit_normalized = unit.lower()
-                high_crit_val = int(data.get("high_crit", "0"))
-                if high_crit_val > 100:
-                    low_c = float(data.get("low_crit", "0")) / 10.0
-                    low_w = float(data.get("low_warn", "0")) / 10.0
-                    high_w = float(data.get("high_warn", "0")) / 10.0
-                    high_c = float(data.get("high_crit", "0")) / 10.0
-                else:
-                    low_c = float(data.get("low_crit", "0"))
-                    low_w = float(data.get("low_warn", "0"))
-                    high_w = float(data.get("high_warn", "0"))
-                    high_c = float(data.get("high_crit", "0"))
-            
-            # Get thresholds from params
-            levels = params.get("levels", AKCP_TEMP_CHECK_DEFAULT_PARAMETERS["levels"])
-            high_w_param = levels[0]
-            high_c_param = levels[1]
-            
-            levels_lower = params.get("levels_lower", (None, None))
-            low_w_param = levels_lower[0]
-            low_c_param = levels_lower[1]
-            
-            # Determine state based on thresholds
-            state = "OK"
-            
-            # Check high thresholds
-            if high_w_param != None and temperature >= high_w_param:
-                if high_c_param != None and temperature >= high_c_param:
-                    state = "CRIT"
-                else:
-                    state = "WARN"
-            
-            # Check low thresholds if provided
-            if low_w_param != None and temperature <= low_w_param:
-                if low_c_param != None and temperature <= low_c_param:
-                    state = "CRIT"
-                elif state == "OK":
-                    state = "WARN"
-            
-            # Build message
-            unit_label = "C"
-            if unit_normalized == "f":
-                unit_label = "F"
-            msg = "Temperature: %f %s" % (temperature, unit_label)
-            
-            return {
-                "changed": False,
-                "msg": msg,
-                "data": {
-                    "state": state,
-                    "metrics": {"temperature": temperature},
-                    "details": "",
-                },
-            }
-    
-    # Item not found
-    if item_found == False:
-        return {
-            "changed": False,
-            "msg": "sensor not found: " + item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-        }
-    
-    return {
-        "changed": False,
-        "msg": "unexpected error",
-        "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
-    }
+        if status in akcp_states:
+            s, sn = akcp_states[status]
+            st_map = {0: "OK", 1: "WARN", 2: "CRIT"}
+            return {"changed": False, "msg": "State: " + sn, "data": {"state": st_map[s], "metrics": {}, "details": ""}}
+
+    levels = params.get("levels", (32.0, 35.0))
+    warn = levels[0] if type(levels) == "list" or type(levels) == "tuple" else 32.0
+    crit = levels[1] if type(levels) == "list" or type(levels) == "tuple" else 35.0
+
+    if unit.isdigit():
+        unit_normalised = "f" if unit == "0" else "c"
+        low_c, low_w, high_w, high_c = float(low_crit), float(low_warn), float(high_warn), float(high_crit)
+    else:
+        unit_normalised = unit.lower()
+        if int(high_crit) > 100:
+            low_c = float(low_crit) / 10.0
+            low_w = float(low_warn) / 10.0
+            high_w = float(high_warn) / 10.0
+            high_c = float(high_crit) / 10.0
+        else:
+            low_c = float(low_crit)
+            low_w = float(low_warn)
+            high_w = float(high_warn)
+            high_c = float(high_crit)
+
+    if degreeraw and degreeraw != "0":
+        temperature = float(degreeraw) / 10.0
+    elif not degree:
+        return {"changed": False, "msg": "Temperature information not found", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    else:
+        temperature = float(degree)
+
+    state = "OK"
+    if temperature >= crit or temperature <= low_c:
+        state = "CRIT"
+    elif temperature >= warn or temperature <= low_w:
+        state = "WARN"
+
+    dev_levels = [high_w, high_c]
+    dev_levels_lower = [low_w, low_c]
+    dev_state = "OK"
+    if temperature >= dev_levels[1]:
+        dev_state = "CRIT"
+    elif temperature >= dev_levels[0]:
+        dev_state = "WARN"
+    if temperature <= dev_levels_lower[0]:
+        dev_state = "WARN"
+    if temperature <= dev_levels_lower[1]:
+        dev_state = "CRIT"
+
+    final_state = state
+    if dev_state == "CRIT" or state == "CRIT":
+        final_state = "CRIT"
+    elif dev_state == "WARN" or state == "WARN":
+        final_state = "WARN"
+    else:
+        final_state = "OK"
+
+    details = "Temperature: %f %s, Levels: %f-%f / %f-%f" % (
+        temperature, unit_normalised, low_c, low_w, high_w, high_c
+    )
+    return {"changed": False, "msg": "Temperature: %f %s" % (temperature, unit_normalised), "data": {"state": final_state, "metrics": {"temperature": temperature}, "details": details}}

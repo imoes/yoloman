@@ -1,163 +1,202 @@
-def _get_tag(block, tag):
-    open_tag = "<" + tag + ">"
-    close_tag = "</" + tag + ">"
-    start = block.find(open_tag)
-    if start == -1:
-        return None
-    start = start + len(open_tag)
-    end = block.find(close_tag, start)
-    if end == -1:
-        return None
-    return block[start:end].strip()
+# allnet_ip_sensoric_humidity.check — translated from Checkmk checkmk.allnet_ip_sensoric_humidity
 
-def _get_sensor_block(xml, sensor_id):
-    open_tag = "<" + sensor_id + ">"
-    close_tag = "</" + sensor_id + ">"
-    start = xml.find(open_tag)
-    if start == -1:
-        return None
-    inner_start = start + len(open_tag)
-    end = xml.find(close_tag, inner_start)
-    if end == -1:
-        return None
-    return xml[inner_start:end]
+_HUMIDITY_LEVELS = (60.0, 65.0)
+_HUMIDITY_LEVELS_LOWER = (40.0, 35.0)
+_HUMIDITY_FUNCTION = "2"
+_HUMIDITY_UNIT = "%"
+_SENSOR_BASE = "1.3.6.1.4.1.31446.4.5.1"
+_COL_FUNCTION = _SENSOR_BASE + ".1"
+_COL_NAME = _SENSOR_BASE + ".2"
+_COL_VALUE = _SENSOR_BASE + ".4"
+_COL_UNIT = _SENSOR_BASE + ".5"
 
-def _safe_float(s):
-    if s == None:
-        return None
-    s = s.strip()
-    neg = s.startswith("-")
-    if neg:
-        s = s[1:]
-    dot = s.find(".")
-    if dot == -1:
-        if not s.isdigit():
-            return None
-        v = float(int(s))
-        return -v if neg else v
-    int_part = s[:dot]
-    dec_part = s[dot + 1:]
-    if not int_part.isdigit() or not dec_part.isdigit():
-        return None
-    denom = 1
-    for _ in range(len(dec_part)):
-        denom = denom * 10
-    v = float(int(int_part)) + float(int(dec_part)) / float(denom)
-    return -v if neg else v
+def _split_prefix(s, prefix):
+    if s.startswith(prefix):
+        return s[len(prefix):]
+    return s
 
-def _parse_sensors(xml):
-    sensors = {}
-    for n in range(1, 32):
-        sid = "sensor" + str(n)
-        block = _get_sensor_block(xml, sid)
-        if block == None:
-            continue
-        sensor = {}
-        nm = _get_tag(block, "name")
-        if nm != None:
-            sensor["name"] = nm
-        unit = _get_tag(block, "unit")
-        if unit != None:
-            sensor["unit"] = unit
-        func = _get_tag(block, "function")
-        if func != None:
-            sensor["function"] = func
-        vf = _get_tag(block, "value_float")
-        if vf != None:
-            sensor["value_float"] = vf
-        sensors[sid] = sensor
-    return sensors
-
-def _compose_item(sensor_id, sensor):
-    num = sensor_id.replace("sensor", "")
-    if "name" in sensor:
-        return sensor["name"] + " Sensor " + num
+def _compose_item(sensor_id, sensor_data):
+    num = _split_prefix(sensor_id, "sensor")
+    name = sensor_data.get("name", "")
+    if name != "":
+        return name + " Sensor " + num
     return "Sensor " + num
 
 def _is_humidity(sensor_data):
-    return sensor_data.get("function") == "2" or sensor_data.get("unit") == "%"
+    func = sensor_data.get("function", "")
+    if func == _HUMIDITY_FUNCTION:
+        return True
+    unit = sensor_data.get("unit", "")
+    if unit != "" and unit == _HUMIDITY_UNIT:
+        return True
+    return False
 
-def _sensor_num_from_item(item):
-    parts = item.rsplit(" ", 1)
-    return parts[-1] if len(parts) > 1 else item
+def _grade_humidity(value, warn, crit, warn_low, crit_low):
+    state = "OK"
+    if value >= crit:
+        state = "CRIT"
+    elif value >= warn:
+        state = "WARN"
+    elif value <= crit_low:
+        state = "CRIT"
+    elif value <= warn_low:
+        state = "WARN"
+    return state
+
+def _snmp_get(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or res.skipped:
+        return None
+    return res.stdout.strip()
+
+def _snmp_walk(ctx, host, community, oid):
+    res = ctx.run(
+        ["snmpwalk", "-v2c", "-c", community, "-Oqn", host, oid],
+        mutates=False,
+    )
+    if res.rc != 0 or res.skipped:
+        return []
+    return [l for l in res.stdout.split("\n") if l != ""]
+
+def _load_sensors(ctx, host, community):
+    rows = {}
+    for col_oid in (_COL_FUNCTION, _COL_NAME, _COL_VALUE, _COL_UNIT):
+        for line in _snmp_walk(ctx, host, community, col_oid):
+            sp = line.find(" ")
+            if sp == -1:
+                continue
+            line_oid = line[:sp]
+            line_val = line[sp + 1:]
+            idx = ""
+            if line_oid.startswith(col_oid + "."):
+                idx = line_oid[len(col_oid) + 1:]
+            if idx == "":
+                continue
+            sensor_id = "sensor" + idx
+            row = rows.get(sensor_id, {})
+            if col_oid == _COL_FUNCTION:
+                row["function"] = line_val
+            elif col_oid == _COL_NAME:
+                row["name"] = line_val
+            elif col_oid == _COL_VALUE:
+                row["value"] = line_val
+            elif col_oid == _COL_UNIT:
+                row["unit"] = line_val
+            rows[sensor_id] = row
+    return rows
+
+def _is_numeric(s):
+    if s == "" or s == None:
+        return False
+    body = s
+    if body.startswith("-"):
+        body = body[1:]
+    elif body.startswith("+"):
+        body = body[1:]
+    if body == "":
+        return False
+    parts = body.split(".")
+    if len(parts) > 2:
+        return False
+    all_digits = True
+    for p in parts:
+        if p == "":
+            if body == ".":
+                all_digits = False
+                break
+            continue
+        if not p.isdigit():
+            all_digits = False
+            break
+    return all_digits
+
+def _parse_value(raw):
+    if raw == None or raw == "":
+        return None
+    s = raw
+    if s.startswith('"') and s.endswith('"') and len(s) >= 2:
+        s = s[1:-1]
+    if s == "" or s == '""':
+        return None
+    if not _is_numeric(s):
+        return None
+    return float(s)
 
 def main(ctx, params):
     host = params.get("host", "localhost")
-    port = params.get("port", 80)
-    url = "http://" + host + ":" + str(port) + "/xml"
+    community = params.get("community", "public")
+    item = params.get("item", "")
+    discover = params.get("_discover", False)
 
-    res = ctx.run(["curl", "-s", "--max-time", "10", url], mutates=False)
-    if res.rc != 0:
-        if params.get("_discover"):
-            return {"changed": False, "msg": "cannot reach device",
-                    "data": {"discovery": []}}
-        return {"changed": False, "msg": "cannot reach device: " + res.stderr,
+    levels = params.get("levels", _HUMIDITY_LEVELS)
+    levels_lower = params.get("levels_lower", _HUMIDITY_LEVELS_LOWER)
+    warn = levels[0] if len(levels) >= 2 else _HUMIDITY_LEVELS[0]
+    crit = levels[1] if len(levels) >= 2 else _HUMIDITY_LEVELS[1]
+    warn_low = levels_lower[0] if len(levels_lower) >= 2 else _HUMIDITY_LEVELS_LOWER[0]
+    crit_low = levels_lower[1] if len(levels_lower) >= 2 else _HUMIDITY_LEVELS_LOWER[1]
+
+    probe = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, _COL_FUNCTION],
+        mutates=False,
+    )
+    if probe.rc == 127 or probe.skipped:
+        if discover:
+            return {"changed": False, "msg": "no SNMP available", "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "no allnet_ip_sensoric device reachable",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if probe.rc != 0:
+        if discover:
+            return {"changed": False, "msg": "no sensor table", "data": {"discovery": []}}
+        return {"changed": False,
+                "msg": "snmpwalk for allnet_ip_sensoric failed (rc=%d)" % probe.rc,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    xml = res.stdout
-    sensors = _parse_sensors(xml)
+    sensors = _load_sensors(ctx, host, community)
 
-    if params.get("_discover"):
-        out = []
-        for sid, sdata in sensors.items():
-            if _is_humidity(sdata):
-                item = _compose_item(sid, sdata)
-                out.append({
-                    "item": item,
+    if discover:
+        found = []
+        for sensor_id, sensor_data in sensors.items():
+            if _is_humidity(sensor_data):
+                it = _compose_item(sensor_id, sensor_data)
+                found.append({
+                    "item": it,
                     "params": {
-                        "warn": 60.0, "crit": 65.0,
-                        "warn_lower": 40.0, "crit_lower": 35.0,
+                        "levels": (warn, crit),
+                        "levels_lower": (warn_low, crit_low),
                     },
                     "metrics": ["humidity"],
                 })
+        return {"changed": False, "msg": "discovered %d humidity sensors" % len(found),
+                "data": {"discovery": found}}
+
+    target_id = None
+    for sensor_id, sensor_data in sensors.items():
+        if _compose_item(sensor_id, sensor_data) == item:
+            target_id = sensor_id
+            break
+
+    if target_id == None:
         return {"changed": False,
-                "msg": "discovered %d humidity sensors" % len(out),
-                "data": {"discovery": out}}
-
-    item = params.get("item", "")
-    num = _sensor_num_from_item(item)
-    sid = "sensor" + num
-
-    if sid not in sensors:
-        return {"changed": False, "msg": "sensor not found: " + item,
+                "msg": "humidity sensor '" + item + "' not found",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    sdata = sensors[sid]
-    value = _safe_float(sdata.get("value_float"))
+    sensor_data = sensors[target_id]
+    if not _is_humidity(sensor_data):
+        return {"changed": False,
+                "msg": "sensor '" + item + "' is not a humidity sensor",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
+    value = _parse_value(sensor_data.get("value", ""))
     if value == None:
-        return {"changed": False, "msg": "no valid value for " + item,
+        return {"changed": False,
+                "msg": "no readable humidity value for '" + item + "'",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    warn = params.get("warn", 60.0)
-    crit = params.get("crit", 65.0)
-    warn_lower = params.get("warn_lower", 40.0)
-    crit_lower = params.get("crit_lower", 35.0)
-
-    if value >= crit:
-        state = "CRIT"
-        detail = "humidity too high (>= %f%%)" % crit
-    elif value >= warn:
-        state = "WARN"
-        detail = "humidity high (>= %f%%)" % warn
-    elif value <= crit_lower:
-        state = "CRIT"
-        detail = "humidity too low (<= %f%%)" % crit_lower
-    elif value <= warn_lower:
-        state = "WARN"
-        detail = "humidity low (<= %f%%)" % warn_lower
-    else:
-        state = "OK"
-        detail = ""
-
-    msg = "Humidity: %f%%" % value
-    if state != "OK":
-        msg = msg + " (%s)" % detail
-
+    state = _grade_humidity(value, warn, crit, warn_low, crit_low)
     return {"changed": False,
-            "msg": msg,
-            "data": {
-                "state": state,
-                "metrics": {"humidity": value},
-                "details": detail,
-            }}
+            "msg": "Humidity: %f%%" % value,
+            "data": {"state": state, "metrics": {"humidity": value}, "details": ""}}

@@ -1,96 +1,145 @@
+def _safe_int(s):
+    if s == None or not s.strip().isdigit():
+        return None
+    return int(s.strip())
+
+def _split_csv(s):
+    parts = []
+    for p in s.split(","):
+        parts.append(p.strip())
+    return parts
+
 def main(ctx, params):
     if params.get("_discover"):
-        # Discover instances from the WMI table: msexch_isclienttype
-        res = ctx.run(["wmic", "path", "Win32_PerfRawData_MicrosoftExchangeISClientType", "get", "Name,RPCAverageLatency,RPCAverageLatency_Base,RPCRequests,Timestamp_PerfTime,Frequency_PerfTime"], mutates=False)
-        if res.rc != 0 or not res.stdout:
-            return {"changed": False, "msg": "no data", "data": {"discovery": []}}
+        res = ctx.run(["which", "wmic"], mutates=False)
+        if res.rc != 0:
+            return {"changed": False, "msg": "no wmi client available", "data": {"discovery": []}}
+        
+        res = ctx.run([
+            "wmic", "--user", params.get("user", ""), "--password", params.get("password", ""),
+            "--host", params.get("host", "localhost"),
+            "Path", "Win32_PerfRawData_ESE_RPCOperations", "Get", "Name", "RPCAverageLatency", "RPCRequests",
+        ], mutates=False)
+        
+        if res.rc != 0 or not res.stdout.strip():
+            return {"changed": False, "msg": "no exchange is client type data", "data": {"discovery": []}}
         
         lines = res.stdout.splitlines()
-        if len(lines) < 2:
-            return {"changed": False, "msg": "no data", "data": {"discovery": []}}
+        instances = []
+        for line in lines:
+            parts = _split_csv(line)
+            if len(parts) >= 3 and parts[0] not in ("Name", ""):
+                instances.append(parts[0])
         
-        items = []
-        for line in lines[1:]:
-            stripped = line.strip()
-            if not stripped:
-                continue
-            fields = stripped.split()
-            if len(fields) == 0:
-                continue
-            name = fields[0].strip('"')
-            if name == "" or name == "_Total" or name == "__Total__" or name == "_Global":
-                continue
-            items.append({"item": name, "params": {}, "metrics": ["average_latency_s", "requests_per_sec"]})
+        discovery = []
+        for inst in instances:
+            discovery.append({
+                "item": inst,
+                "params": {
+                    "store_latency_s": (0.04, 0.05),
+                    "clienttype_latency_s": (0.04, 0.05),
+                    "clienttype_requests": (60, 70),
+                },
+                "metrics": ["average_latency_s", "requests_per_sec"],
+            })
         
-        return {"changed": False, "msg": "discovered %d instances" % len(items), "data": {"discovery": items}}
-
-    # Check mode for one instance
+        return {
+            "changed": False,
+            "msg": "discovered %d items" % len(discovery),
+            "data": {"discovery": discovery},
+        }
+    
     item = params.get("item", "")
-    res = ctx.run(["wmic", "path", "Win32_PerfRawData_MicrosoftExchangeISClientType", "where", "Name=\"" + item + "\"", "get", "RPCAverageLatency,RPCAverageLatency_Base,RPCRequests,Timestamp_PerfTime,Frequency_PerfTime"], mutates=False)
-    if res.rc != 0 or not res.stdout:
-        return {"changed": False, "msg": "no data for instance " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    
+    res = ctx.run(["which", "wmic"], mutates=False)
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "no wmi client available for exchange is client type check",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    
+    res = ctx.run([
+        "wmic", "--user", params.get("user", ""), "--password", params.get("password", ""),
+        "--host", params.get("host", "localhost"),
+        "Path", "Win32_PerfRawData_ESE_RPCOperations", "Get", "Name", "RPCAverageLatency", "RPCRequests",
+    ], mutates=False)
+    
+    if res.rc != 0 or not res.stdout.strip():
+        return {
+            "changed": False,
+            "msg": "no exchange is client type data available",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
     
     lines = res.stdout.splitlines()
-    if len(lines) < 2:
-        return {"changed": False, "msg": "no data for instance " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    match = None
+    for line in lines:
+        parts = _split_csv(line)
+        if len(parts) >= 3 and parts[0] == item:
+            match = parts
+            break
     
-    # Parse the single row of data (skip header)
-    fields = lines[1].strip().split()
-    if len(fields) < 5:
-        return {"changed": False, "msg": "malformed data for instance " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if match == None:
+        return {
+            "changed": False,
+            "msg": "exchange is client type instance '%s' not found" % item,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
     
-    measure_str = fields[0]
-    base_str = fields[1]
-    requests_str = fields[2]
-    timestamp_str = fields[3]
-    frequency_str = fields[4]
+    latency_raw = _safe_int(match[1])
+    if latency_raw == None:
+        return {
+            "changed": False,
+            "msg": "failed to parse RPCAverageLatency value",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
     
-    measure = int(measure_str) if measure_str.isdigit() else 0
-    base = int(base_str) if base_str.isdigit() else 0
-    requests = int(requests_str) if requests_str.isdigit() else 0
-    timestamp = int(timestamp_str) if timestamp_str.isdigit() else 0
-    frequency = int(frequency_str) if frequency_str.isdigit() else 0
+    latency_s = latency_raw * 0.001
     
-    # Compute average latency (factor 0.001 as in source)
-    factor = 0.001
-    if base < 0:
-        base = base + (1 << 32)
-    if base == 0:
-        avg_latency = 0.0
+    requests_raw = _safe_int(match[2])
+    if requests_raw == None:
+        return {
+            "changed": False,
+            "msg": "failed to parse RPCRequests value",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+    
+    latency_levels = params.get("clienttype_latency_s", (0.04, 0.05))
+    latency_warn = latency_levels[0]
+    latency_crit = latency_levels[1]
+    
+    requests_levels = params.get("clienttype_requests", (60, 70))
+    requests_warn = requests_levels[0]
+    requests_crit = requests_levels[1]
+    
+    if latency_s >= latency_crit:
+        latency_state = "CRIT"
+    elif latency_s >= latency_warn:
+        latency_state = "WARN"
     else:
-        avg_latency = float(measure) * factor / float(base)
+        latency_state = "OK"
     
-    # Compute rate for RPCRequests (per-second)
-    # With single sample we cannot compute rate; fallback to 0
-    rate = 0.0
-
-    # Thresholds from defaults: clienttype_latency_s = (0.04, 0.05), clienttype_requests = (60, 70)
-    warn_latency = params.get("clienttype_latency_s", (0.04, 0.05))
-    crit_latency = params.get("clienttype_latency_s", (0.04, 0.05))
-    warn_latency_val = warn_latency[1] if type(warn_latency) == "list" else 0.05
-    crit_latency_val = crit_latency[1] if type(crit_latency) == "list" else 0.05
+    if requests_raw >= requests_crit:
+        requests_state = "CRIT"
+    elif requests_raw >= requests_warn:
+        requests_state = "WARN"
+    else:
+        requests_state = "OK"
     
-    warn_requests = params.get("clienttype_requests", (60, 70))
-    crit_requests = params.get("clienttype_requests", (60, 70))
-    warn_requests_val = warn_requests[1] if type(warn_requests) == "list" else 70
-    crit_requests_val = crit_requests[1] if type(crit_requests) == "list" else 70
+    state_priority = {"OK": 0, "WARN": 1, "CRIT": 2, "UNKNOWN": 3}
+    overall_state = latency_state
+    if state_priority[requests_state] > state_priority[overall_state]:
+        overall_state = requests_state
     
-    # Determine state for latency (upper levels)
-    state = "OK"
-    if avg_latency >= crit_latency_val:
-        state = "CRIT"
-    elif avg_latency >= warn_latency_val:
-        state = "WARN"
+    msg = "Average latency: %fs, RPC Requests/sec: %d" % (latency_s, requests_raw)
     
-    # Determine state for requests (upper levels)
-    if rate >= crit_requests_val:
-        state = "CRIT"
-    elif rate >= warn_requests_val:
-        state = "WARN"
-    
-    msg_parts = []
-    msg_parts.append("Avg latency: %f s" % avg_latency)
-    msg_parts.append("RPC req/s: %d" % int(rate))
-    msg = ", ".join(msg_parts)
-    
-    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": {"average_latency_s": avg_latency, "requests_per_sec": int(rate)}, "details": ""}}
+    return {
+        "changed": False,
+        "msg": msg,
+        "data": {
+            "state": overall_state,
+            "metrics": {"average_latency_s": latency_s, "requests_per_sec": requests_raw},
+            "details": "",
+        },
+    }

@@ -1,57 +1,41 @@
 name: ftp
 fqcn: checkmk.ftp
 collection: checkmk
-short_description: FTP service availability
-description: Checks an FTP server by opening a TCP connection to port 21 (or a custom port) and measuring connect time. Optionally sends a string and validates expected substrings in the server banner or response, and when SSL/TLS is enabled verifies certificate expiry against configurable warn/crit thresholds. Connection refusals can be graded independently from other failures via the refuse_state parameter.
+short_description:
+description: Checkmk active check 'ftp', translated to a read-only on-host Starlark check module.
 options:
-    service_name:
-        type: string
-        description: Service name shown in monitoring (e.g. 'FTP' or 'FTP Port 990')
-        required: true
-    host:
-        type: string
-        description: FTP server hostname or IP address
-        required: true
     port:
-        type: number
-        description: FTP port number
-        default: 21
-    timeout_s:
-        type: number
-        description: Seconds before connection times out
-        default: 10
-    response_time_warn_ms:
-        type: number
-        description: Warn if connect time exceeds this value (ms)
-    response_time_crit_ms:
-        type: number
-        description: Critical if connect time exceeds this value (ms)
+        type: string
+        description: port (from the check's parameters).
+    response_time:
+        type: string
+        description: response_time (from the check's parameters).
+    timeout:
+        type: string
+        description: timeout (from the check's parameters).
     refuse_state:
         type: string
-        description: State to report when the connection is actively refused
-        enum:
-            - crit
-            - warn
-            - ok
-        default: crit
+        description: refuse_state (from the check's parameters).
     send_string:
         type: string
-        description: String to send to the server after connecting
+        description: send_string (from the check's parameters).
     expect:
         type: list
-        description: Strings that must appear in the server response; missing any yields CRIT
+        description: expect (from the check's parameters).
     ssl:
         type: bool
-        description: Use SSL/TLS for the connection (implicit FTPS)
-        default: false
-    cert_days_warn:
-        type: number
-        description: Warn if SSL certificate expires within this many days
-    cert_days_crit:
-        type: number
-        description: Critical if SSL certificate expires within this many days
+        default: False
+        description: ssl (from the check's parameters).
+    cert_days:
+        type: string
+        description: cert_days (from the check's parameters).
+    host:
+        type: string
+        default: localhost
+        description: host (from the check's parameters).
 writes: False
 runtime: starlark
 source: translated
 kind: check
-category: Service checks
+execution: local
+prompt_version: c21f0f5a7229

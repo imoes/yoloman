@@ -1,128 +1,126 @@
 def main(ctx, params):
-    # SNMP parameters
     host = params.get("host", "localhost")
     community = params.get("community", "public")
-    
-    # Checkmk defaults for levels
-    warn = params.get("levels", (80, 90))[0]
-    crit = params.get("levels", (80, 90))[1]
-    
-    # Discovery mode: always yield exactly one service if SNMP data exists
+    levels = params.get("levels", (80, 90))
+
+    # Probe for the real Liebert device before reporting anything.
+    sys_oid = ".1.3.6.1.2.1.1.2.0"
+    probe = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, sys_oid],
+        mutates=False,
+    )
+    if probe.rc != 0:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no Liebert device found on %s" % host,
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no Liebert device found on %s" % host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    sys_res = probe.stdout.strip()
+    # DETECT_LIEBERT = startswith(".1.3.6.1.2.1.1.2.0", ".1.3.6.1.4.1.476.1.42")
+    if not sys_res.startswith(".1.3.6.1.4.1.476.1.42"):
+        if params.get("_discover"):
+            return {"changed": False, "msg": "no Liebert device found on %s" % host,
+                    "data": {"discovery": []}}
+        return {"changed": False, "msg": "no Liebert device found on %s" % host,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    base = ".1.3.6.1.4.1.476.1.42.3.9.20.1"
+    name_oid = base + ".10.1.2.1.5080"
+    value_oid = base + ".20.1.2.1.5080"
+    unit_oid = base + ".30.1.2.1.5080"
+
     if params.get("_discover"):
-        res = ctx.run([
-            "snmpwalk", "-v2c", "-c", community, "-On",
-            host, ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-        ], mutates=False)
-        
-        # Check if any line contains "Reheat"
-        has_reheat = False
-        for line in res.stdout.splitlines():
-            if "Reheat" in line:
-                has_reheat = True
-                break
-        
-        if has_reheat:
-            return {
-                "changed": False,
-                "msg": "discovered 1 service",
-                "data": {
-                    "discovery": [
-                        {
-                            "item": "",
-                            "params": {"levels": (80, 90)},
-                            "metrics": ["fan_perc"]
-                        }
-                    ]
-                }
-            }
-        else:
-            return {
-                "changed": False,
-                "msg": "no reheating data found",
-                "data": {"discovery": []}
-            }
-    
-    # Check mode: fetch the three OIDs for reheating utilization
-    res = ctx.run([
-        "snmpwalk", "-v2c", "-c", community, "-On",
-        host, ".1.3.6.1.4.1.476.1.42.3.9.20.1"
-    ], mutates=False)
-    
-    lines = res.stdout.splitlines()
-    
-    # Parse SNMP lines in groups of three: name, value, unit
-    i = 0
-    found = False
-    value = None
-    unit = ""
-    
-    while i < len(lines):
-        # Look for name line containing "Reheat"
-        if "Reheat" in lines[i]:
-            if i + 2 < len(lines):
-                # Extract OID and value from line format: "oid = TYPE: value"
-                # Line 1: name
-                name_line = lines[i]
-                name_parts = name_line.split(" = ")
-                if len(name_parts) >= 2:
-                    # Line 2: value
-                    value_line = lines[i + 1]
-                    value_parts = value_line.split(" = ")
-                    if len(value_parts) >= 2:
-                        value_str = value_parts[1].strip()
-                        # Handle format like "INTEGER: 0" or just "0"
-                        if ":" in value_str:
-                            value_str = value_str.split(":")[1].strip()
-                        # Line 3: unit
-                        unit_line = lines[i + 2]
-                        unit_parts = unit_line.split(" = ")
-                        if len(unit_parts) >= 2:
-                            unit_str = unit_parts[1].strip()
-                            if ":" in unit_str:
-                                unit_str = unit_str.split(":")[1].strip()
-                            
-                            # Guard instead of try/except: check numeric format first
-                            value_ok = False
-                            vs = value_str
-                            # Handle negative numbers and decimals
-                            if vs != "" and vs != "-":
-                                vs_clean = vs.replace("-", "", 1).replace(".", "", 1)
-                                if vs_clean.isdigit():
-                                    value_ok = True
-                            
-                            if value_ok:
-                                value = float(value_str)
-                                unit = unit_str
-                                found = True
-                break
-        i = i + 1
-    
-    if not found or value == None:
-        return {
-            "changed": False,
-            "msg": "no reheating utilization data available",
-            "data": {
-                "state": "UNKNOWN",
-                "metrics": {},
-                "details": ""
-            }
-        }
-    
-    # Apply levels
-    state = "OK"
+        nm = ctx.run(
+            ["snmpget", "-v2c", "-c", community, "-Oqv", host, name_oid],
+            mutates=False,
+        )
+        if nm.rc != 0:
+            return {"changed": False, "msg": "no Liebert reheating data found",
+                    "data": {"discovery": []}}
+        raw_name = nm.stdout.strip().strip('"')
+        if not raw_name:
+            return {"changed": False, "msg": "no Liebert reheating name found",
+                    "data": {"discovery": []}}
+        items = []
+        if "Reheat" in raw_name:
+            items.append({
+                "item": raw_name,
+                "params": {"levels": list(levels)},
+                "metrics": ["fan_perc"],
+            })
+        return {"changed": False, "msg": "discovered %d items" % len(items),
+                "data": {"discovery": items}}
+
+    item = params.get("item", "")
+
+    nm = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, name_oid],
+        mutates=False,
+    )
+    vm = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, value_oid],
+        mutates=False,
+    )
+    um = ctx.run(
+        ["snmpget", "-v2c", "-c", community, "-Oqv", host, unit_oid],
+        mutates=False,
+    )
+
+    if nm.rc != 0 or vm.rc != 0 or um.rc != 0:
+        return {"changed": False, "msg": "no Liebert reheating data found for item: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    raw_name = nm.stdout.strip().strip('"')
+    if not ("Reheat" in raw_name):
+        return {"changed": False, "msg": "no reheat utilization found for item: %s" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    try_value = vm.stdout.strip()
+    value = float(try_value) if _is_floatable(try_value) else None
+    if value == None:
+        return {"changed": False, "msg": "could not parse reheating value: %s" % try_value,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    unit = um.stdout.strip().strip('"')
+
+    warn = levels[0] if len(levels) >= 1 else 80
+    crit = levels[1] if len(levels) >= 2 else 90
+
     if value >= crit:
         state = "CRIT"
     elif value >= warn:
         state = "WARN"
-    
-    msg = "%s%f %s" % (state + " " if state != "OK" else "", value, unit)
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": {"fan_perc": value},
-            "details": ""
-        }
-    }
+    else:
+        state = "OK"
+
+    render = "%f %s" % (value, unit)
+    return {"changed": False, "msg": "Reheating Utilization: %s" % render,
+            "data": {"state": state, "metrics": {"fan_perc": value}, "details": render}}
+
+
+def _is_floatable(s):
+    stripped = s
+    neg = False
+    if len(stripped) > 0 and stripped[0] == "-":
+        neg = True
+        stripped = stripped[1:]
+    if len(stripped) == 0:
+        return False
+    if stripped == ".":
+        return False
+    digits = stripped
+    if "." in digits:
+        parts = digits.split(".")
+        if len(parts) != 2:
+            return False
+        int_part = parts[0]
+        frac_part = parts[1]
+        if len(int_part) == 0 and len(frac_part) == 0:
+            return False
+        if len(int_part) > 0 and not int_part.isdigit():
+            return False
+        if len(frac_part) > 0 and not frac_part.isdigit():
+            return False
+        return True
+    return stripped.isdigit()

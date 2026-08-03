@@ -1,305 +1,453 @@
-def _re_match(pattern, text):
-    # Simple regex matcher using Starlark string methods
-    return text.find(pattern) != -1
+def main(ctx, params):
+    if params.get("_discover"):
+        return discovery(ctx)
+    return check(ctx, params)
 
-def _is_uuid_candidate(s):
-    if len(s) != 33 and len(s) != 49:
+
+# ----- data gathering -----
+
+def gather_multipath(ctx):
+    """Run multipath -ll and parse into a dict keyed by UUID.
+
+    Returns {"groups": {uuid: group}, "present": bool}
+    group = {"alias", "uuid", "numpaths", "broken", "active", "paths", "state"}
+    """
+    # Probe for the real thing first.
+    ver = ctx.run(["multipath", "-v", "1"], mutates=False)
+    if ver.rc == 127:
+        return {"groups": {}, "present": False}
+
+    res = ctx.run(["multipath", "-ll"], mutates=False)
+    if res.rc != 0:
+        return {"groups": {}, "present": False}
+
+    groups = {}
+    present = False
+    uuid = None
+    alias = None
+    dm_device = None
+    numpaths = 0
+    lun_info = []
+    paths_info = []
+    broken_paths = []
+    state = None
+    cur = {}
+
+    # REG_LUN = [0-9]+:[0-9]+:[0-9]+:[0-9]+
+    # REG_PRIO marker: "[ ]prio="
+    for raw_line in res.stdout.splitlines():
+        line = raw_line.split()
+        if len(line) == 0:
+            continue
+
+        if line[0] == "multipath.conf":
+            continue
+
+        if line[0] == "dm":
+            uuid = None
+            continue
+
+        l = " ".join(line)
+
+        # Skip output when multipath is not present
+        if (
+            l.endswith("kernel driver not loaded")
+            or l.endswith("does not exist, blacklisting all devices.")
+            or l.endswith("A sample multipath.conf file is located at")
+            or l.endswith("multipath.conf")
+        ):
+            uuid = None
+            continue
+
+        # data row vs header row
+        is_data = (
+            len(line[0]) > 0
+            and line[0][0] in ["[", "`", "|", "\\"]
+        ) or line[0].startswith("size=")
+
+        if not is_data:
+            # header row — match against REG_HEADERS in order
+            uuid_m = None
+            alias_m = None
+            dm_m = None
+            matched = False
+
+            # 1. 33 hex chars
+            if len(l) == 33 and _is_hex(l):
+                uuid_m = l
+                matched = True
+            # 2. "name (alias) dm-X"
+            elif not matched:
+                m = _match_header2(l)
+                if m != None:
+                    uuid_m = m[0]
+                    alias_m = m[1]
+                    dm_m = m[2]
+                    matched = True
+            # 3. "name (alias)"
+            if not matched:
+                m = _match_header3(l)
+                if m != None:
+                    uuid_m = m[0]
+                    alias_m = m[1]
+                    matched = True
+            # 4. 33 or 49 hex + dm-X
+            if not matched:
+                m = _match_header4(l)
+                if m != None:
+                    uuid_m = m[0]
+                    dm_m = m[1]
+                    matched = True
+            # 5. name + dm-X  (legacy)
+            if not matched:
+                m = _match_header5(l)
+                if m != None:
+                    uuid_m = l
+                    dm_m = m
+                    matched = True
+            # 6/7. "name dm-X"
+            if not matched:
+                m = _match_header67(l)
+                if m != None:
+                    uuid_m = m[0]
+                    dm_m = m[1]
+                    matched = True
+
+            if not matched:
+                continue
+
+            uuid = uuid_m.strip() if uuid_m != None else None
+            alias = alias_m if alias_m != None else None
+            dm_device = dm_m if dm_m != None else None
+
+            numpaths = 0
+            lun_info = []
+            paths_info = []
+            broken_paths = []
+            state = None
+
+            cur = {
+                "paths": paths_info,
+                "broken": broken_paths,
+                "luns": lun_info,
+                "uuid": uuid,
+                "state": state,
+                "numpaths": numpaths,
+                "device": dm_device,
+                "alias": alias if alias != None else None,
+            }
+            if uuid != None:
+                groups[uuid] = cur
+            present = True
+            continue
+
+        # data row
+        if uuid == None:
+            continue
+
+        if line[0] == "|":
+            line = line[1:]
+        if len(line) == 0:
+            continue
+
+        if _has_prio(l):
+            if len(line) >= 4:
+                cur["state"] = " ".join(line[3:])
+        elif len(line) >= 4 and _is_lun(line[1]):
+            luninfo = line[1] + "(" + line[2] + ")"
+            lun_info.append(luninfo)
+            cur["numpaths"] = cur["numpaths"] + 1
+            paths_info.append(line[2])
+            pstate = line[4] if len(line) >= 5 else ""
+            if "active" not in pstate:
+                broken_paths.append(luninfo)
+
+    # finalize numpaths
+    for g in groups.values():
+        np = 0
+        broken = 0
+        for idx in range(len(g["paths"])):
+            np = np + 1
+        for idx in range(len(g["broken"])):
+            broken = broken + 1
+        g["numpaths"] = np
+        g["num_active"] = np - broken
+
+    return {"groups": groups, "present": present}
+
+
+# ----- header / pattern helpers (string-based, no regex) -----
+
+def _is_hex(s):
+    if len(s) == 0:
         return False
     for c in s:
-        if c not in "0123456789abcdef":
+        if c not in "0123456789abcdefABCDEF":
             return False
     return True
 
-def main(ctx, params):
-    if params.get("_discover"):
-        res = ctx.run(["multipath", "-l"], mutates=False)
-        if res.rc != 0:
-            return {"changed": False, "msg": "multipath command failed",
-                    "data": {"discovery": []}}
 
-        section = {}
-        uuid = None
-        alias = None
-        groups = {}
-        group = {}
+def _match_header2(l):
+    # pattern: r"^([^\s]+)\s\(([^)]+)\)\s(dm.[0-9]+)"
+    sp = l.find(" ")
+    if sp == -1:
+        return None
+    first = l[:sp]
+    rest = l[sp + 1:]
+    if len(rest) < 2:
+        return None
+    if rest[0] != "(":
+        return None
+    cp = rest.find(")", 1)
+    if cp == -1:
+        return None
+    alias = rest[1:cp]
+    after = rest[cp + 1:]
+    if len(after) < 1 or after[0] != " ":
+        return None
+    after = after[1:]
+    if not after.startswith("dm"):
+        return None
+    digit_part = after[2:]
+    digits = ""
+    for c in digit_part:
+        if c in "0123456789":
+            digits = digits + c
+        else:
+            break
+    if len(digits) == 0:
+        return None
+    return (first, alias, after[:2 + len(digits)])
 
-        for line in res.stdout.splitlines():
-            l = line.strip()
-            if not l:
-                continue
 
-            # Skip multipath.conf errors
-            if l.startswith("multipath.conf") or l.find("kernel driver not loaded") != -1 or l.find("does not exist") != -1:
-                uuid = None
-                continue
+def _match_header3(l):
+    # pattern: r"^([^\s]+)\s\(([^)]+)\)"
+    sp = l.find(" ")
+    if sp == -1:
+        return None
+    first = l[:sp]
+    rest = l[sp + 1:]
+    if len(rest) < 2:
+        return None
+    if rest[0] != "(":
+        return None
+    cp = rest.find(")", 1)
+    if cp == -1:
+        return None
+    alias = rest[1:cp]
+    return (first, alias)
 
-            # Skip dm table lines
-            if l.find("dm ") == 0:
-                uuid = None
-                continue
 
-            # Detect header lines
-            is_header = False
+def _match_header4(l):
+    # pattern: r"^([0-9a-z]{33}|[0-9a-z]{49})\s?(dm.[0-9]+).*$"
+    if len(l) < 33:
+        return None
+    seg = l[:33]
+    if not _is_hex(seg):
+        return None
+    rest = l[33:]
+    if len(rest) <= 0 or rest[0] != " ":
+        if len(rest) > 0 and rest[0] != "d":
+            return None
+    dm = ""
+    if len(rest) > 0 and rest[0] == " ":
+        rest2 = rest[1:]
+    else:
+        rest2 = rest
+    if not rest2.startswith("dm"):
+        return None
+    digit_part = rest2[2:]
+    digits = ""
+    for c in digit_part:
+        if c in "0123456789":
+            digits = digits + c
+        else:
+            break
+    if len(digits) == 0:
+        return None
+    return (seg, "dm" + digits)
 
-            # Pattern: "alias (UUID)" or "alias (UUID) dm-X"
-            if l.find("(") != -1 and l.find(")") != -1:
-                idx1 = l.find("(")
-                alias_candidate = l[:idx1].strip()
-                rest = l[idx1+1:]
-                idx2 = rest.find(")")
-                if idx2 != -1:
-                    uuid_candidate = rest[:idx2]
-                    if _is_uuid_candidate(uuid_candidate.lower()):
-                        uuid = uuid_candidate
-                        alias = alias_candidate
-                        is_header = True
-                        # Check for dm-X suffix after the closing parenthesis
-                        after = rest[idx2+1:].strip()
-                        if after.find("dm-") == 0:
-                            # Extract dm-X part
-                            dm_part = after.split()[0] if after.split() else after
-                            if dm_part.find("dm-") == 0:
-                                alias = dm_part
 
-            # Pattern: UUID with optional dm-X suffix (no parentheses)
-            if not is_header:
-                parts = l.split()
-                if len(parts) > 0:
-                    first = parts[0]
-                    if (len(first) == 33 or len(first) == 49) and _is_uuid_candidate(first.lower()):
-                        uuid = first
-                        alias = l
-                        is_header = True
-                        if len(parts) > 1:
-                            for p in parts[1:]:
-                                if p.find("dm-") == 0:
-                                    alias = p
-                                    break
+def _match_header5(l):
+    # pattern: r"^[a-zA-Z0-9_]+(dm-[0-9]+).*$"  (legacy, returns dm device)
+    sp = l.find(" ")
+    if sp == -1:
+        return None
+    rest = l[sp + 1:]
+    if not rest.startswith("dm-"):
+        return None
+    digit_part = rest[3:]
+    digits = ""
+    for c in digit_part:
+        if c in "0123456789":
+            digits = digits + c
+        else:
+            break
+    if len(digits) == 0:
+        return None
+    return "dm-" + digits
 
-            if is_header:
-                group = {
-                    "paths": [],
-                    "broken_paths": [],
-                    "luns": [],
-                    "uuid": uuid,
-                    "state": None,
-                    "numpaths": 0,
-                    "device": None,
-                    "alias": alias
-                }
-                if uuid != None:
-                    groups[uuid] = group
-                continue
 
-            # Skip header lines
-            if not uuid or l.find("|") != 0 and l.find("`") != 0 and l.find(" ") != 0 and l.find("[") != 0 and l.find("\\") != 0:
-                continue
+def _match_header67(l):
+    # pattern: r"^([-.a-zA-Z0-9_ :]+)\s?(dm-[0-9]+).*$"
+    sp = l.find(" ")
+    if sp == -1:
+        return None
+    first = l[:sp]
+    after = l[sp + 1:]
+    if not after.startswith("dm-"):
+        return None
+    digit_part = after[3:]
+    digits = ""
+    for c in digit_part:
+        if c in "0123456789":
+            digits = digits + c
+        else:
+            break
+    if len(digits) == 0:
+        return None
+    return (first, "dm-" + digits)
 
-            # Skip state lines
-            if l.find("prio=") != -1:
-                continue
 
-            # Process path lines
-            tokens = l.split()
-            if len(tokens) >= 4 and tokens[0].find(":") != -1 and tokens[0].count(":") == 3:
-                lun_info = tokens[0] + "(" + tokens[1] + ")"
-                state_text = ""
-                for i in range(3, len(tokens)):
-                    if i > 3:
-                        state_text += " "
-                    state_text += tokens[i]
-                if state_text.find("active") == -1:
-                    group["broken_paths"].append(lun_info)
-                group["numpaths"] += 1
-                group["paths"].append(tokens[1])
-                group["luns"].append(lun_info)
-                group["device"] = "dm-" + str(len(group["paths"]))
+def _has_prio(l):
+    return ("prio=" in l) or ("[ prio=" in l)
 
-        # Build discovery list
-        out = []
-        for uuid_key, g in groups.items():
-            use_alias = params.get("use_alias", False)
+
+def _is_lun(s):
+    parts = s.split(":")
+    if len(parts) != 4:
+        return False
+    for p in parts:
+        if len(p) == 0:
+            return False
+        for c in p:
+            if c not in "0123456789":
+                return False
+    return True
+
+
+# ----- discovery -----
+
+def discovery(ctx):
+    data = gather_multipath(ctx)
+    if not data["present"]:
+        return {"changed": False, "msg": "multipath not present",
+                "data": {"discovery": []}}
+
+    use_alias = params_get_bool("use_alias", False, ctx._params if hasattr(ctx, "_params") else None)
+
+    out = []
+    groups = data["groups"]
+    for uuid in groups:
+        g = groups[uuid]
+        if use_alias and g["alias"] != None:
             item = g["alias"]
-            if g["alias"] == None or not use_alias:
-                item = uuid_key
-            out.append({
-                "item": item,
-                "params": {"use_alias": use_alias},
-                "metrics": ["paths_active_percent"]
-            })
+        else:
+            item = uuid
+        metrics = ["active_percent"]
+        out.append({
+            "item": item,
+            "params": {"levels": (50, 100)},
+            "metrics": metrics,
+        })
+    return {"changed": False,
+            "msg": "discovered %d multipath devices" % len(out),
+            "data": {"discovery": out}}
 
-        return {"changed": False, "msg": "discovered %d multipath devices" % len(out),
-                "data": {"discovery": out}}
 
-    # Check mode
+def params_get_bool(key, default, params):
+    if params == None:
+        return default
+    v = params.get(key)
+    if v == None:
+        return default
+    if type(v) == "bool":
+        return v
+    return default
+
+
+# ----- check -----
+
+def check(ctx, params):
     item = params.get("item", "")
-    use_alias = params.get("use_alias", False)
+    levels = params.get("levels")
+    if type(levels) == "list":
+        warn = levels[0] if len(levels) > 0 else 50
+        crit = levels[1] if len(levels) > 1 else 100
+    elif type(levels) == "string":
+        warn = 50
+        crit = 100
+    else:
+        warn = 50
+        crit = 100
 
-    res = ctx.run(["multipath", "-l"], mutates=False)
-    if res.rc != 0:
-        return {"changed": False, "msg": "multipath command failed",
+    data = gather_multipath(ctx)
+    if not data["present"]:
+        return {"changed": False,
+                "msg": "multipath not found on this host",
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    groups = {}
-    uuid = None
-    alias = None
+    groups = data["groups"]
+    g = None
+    found_by_alias = False
 
-    for line in res.stdout.splitlines():
-        l = line.strip()
-        if not l:
-            continue
-
-        if l.find("multipath.conf") == 0 or l.find("kernel driver not loaded") != -1 or l.find("does not exist") != -1:
-            uuid = None
-            continue
-
-        if l.find("dm ") == 0:
-            uuid = None
-            continue
-
-        is_header = False
-
-        if l.find("(") != -1 and l.find(")") != -1:
-            idx1 = l.find("(")
-            alias_candidate = l[:idx1].strip()
-            rest = l[idx1+1:]
-            idx2 = rest.find(")")
-            if idx2 != -1:
-                uuid_candidate = rest[:idx2]
-                if _is_uuid_candidate(uuid_candidate.lower()):
-                    uuid = uuid_candidate
-                    alias = alias_candidate
-                    is_header = True
-                    after = rest[idx2+1:].strip()
-                    if after.find("dm-") == 0:
-                        dm_part = after.split()[0] if after.split() else after
-                        if dm_part.find("dm-") == 0:
-                            alias = dm_part
-
-        if not is_header:
-            parts = l.split()
-            if len(parts) > 0:
-                first = parts[0]
-                if (len(first) == 33 or len(first) == 49) and _is_uuid_candidate(first.lower()):
-                    uuid = first
-                    alias = l
-                    is_header = True
-                    if len(parts) > 1:
-                        for p in parts[1:]:
-                            if p.find("dm-") == 0:
-                                alias = p
-                                break
-
-        if is_header:
-            group = {
-                "paths": [],
-                "broken_paths": [],
-                "luns": [],
-                "uuid": uuid,
-                "state": None,
-                "numpaths": 0,
-                "device": None,
-                "alias": alias
-            }
-            if uuid != None:
-                groups[uuid] = group
-            continue
-
-        if not uuid or l.find("|") != 0 and l.find("`") != 0 and l.find(" ") != 0 and l.find("[") != 0 and l.find("\\") != 0:
-            continue
-
-        if l.find("prio=") != -1:
-            continue
-
-        tokens = l.split()
-        if len(tokens) >= 4 and tokens[0].find(":") != -1 and tokens[0].count(":") == 3:
-            lun_info = tokens[0] + "(" + tokens[1] + ")"
-            state_text = ""
-            for i in range(3, len(tokens)):
-                if i > 3:
-                    state_text += " "
-                state_text += tokens[i]
-            if state_text.find("active") == -1:
-                group["broken_paths"].append(lun_info)
-            group["numpaths"] += 1
-            group["paths"].append(tokens[1])
-            group["luns"].append(lun_info)
-            group["device"] = "dm-" + str(len(group["paths"]))
-
-    # Find item
-    mmap = None
     if item in groups:
-        mmap = groups[item]
+        g = groups[item]
     else:
-        for g in groups.values():
-            if g["alias"] == item:
-                mmap = g
+        for uuid in groups:
+            gg = groups[uuid]
+            if gg["alias"] == item:
+                g = gg
+                found_by_alias = True
                 break
 
-    if mmap == None:
-        return {"changed": False, "msg": "multipath device not found",
+    if g == None:
+        return {"changed": False,
+                "msg": "multipath device not found: %s" % item,
                 "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
 
-    # Build alias info
-    aliasinfo = ""
-    if item == mmap["uuid"] and mmap["alias"] != None:
-        aliasinfo = "(%s): " % mmap["alias"]
-    elif item == mmap["alias"] and mmap["uuid"] != None:
-        aliasinfo = "(%s): " % mmap["uuid"]
-
-    broken_paths = mmap["broken_paths"]
-    num_paths = mmap["numpaths"]
-    num_broken = len(broken_paths)
+    num_paths = g["numpaths"]
+    num_broken = len(g["broken"])
     num_active = num_paths - num_broken
 
-    # Path active percentage
-    paths_pct = 0.0
-    if num_paths > 0:
-        paths_pct = num_active * 100.0 / num_paths
+    if g["uuid"] != None and g["alias"] != None and item == g["uuid"]:
+        aliasinfo = "(" + g["alias"] + "): "
+    elif g["alias"] != None and g["uuid"] != None and item == g["alias"]:
+        aliasinfo = "(" + g["uuid"] + "): "
+    else:
+        aliasinfo = ""
 
-    # Levels from params
-    levels = params.get("levels")
-    warn_level = 70.0
-    crit_level = 50.0
-    if levels != None:
-        if type(levels) == "list" and len(levels) >= 2:
-            warn_level = levels[0]
-            crit_level = levels[1]
-
-    # Determine state
-    state = "OK"
     if num_paths == 0:
+        return {"changed": False,
+                "msg": aliasinfo + "No paths",
+                "data": {"state": "CRIT", "metrics": {"active_percent": 0},
+                         "details": "no paths for this multipath device"}}
+
+    active_percent = (num_active / num_paths) * 100.0
+
+    state = "OK"
+    if active_percent >= crit:
         state = "CRIT"
-    elif paths_pct < crit_level:
-        state = "CRIT"
-    elif paths_pct < warn_level:
+    elif active_percent >= warn:
         state = "WARN"
 
-    # Build message
-    summary = ""
-    if num_paths == 0:
-        summary = aliasinfo + "No paths"
-    else:
-        summary = "%sPaths active: %f%%" % (aliasinfo, paths_pct)
+    summary = aliasinfo + "%d of %d paths active (%d%%)" % (num_active, num_paths, int(active_percent))
 
-    # Expected vs actual
-    target = num_paths
-    alert_level = "WARN"
-    if levels != None:
-        target = int(num_paths * warn_level / 100.0)
-        alert_level = "WARN"
+    metric_val = active_percent
 
-    infotext = "%d of %d (expected: %d)" % (num_active, num_paths, target)
-
-    if num_broken > 0:
-        summary = summary + "; Broken paths: " + ",".join(broken_paths)
+    details_lines = ["Paths active: %d of %d" % (num_active, num_paths),
+                     "Active: %d%%" % int(active_percent)]
+    broken_list = ", ".join(g["broken"])
+    if len(g["broken"]) > 0:
+        details_lines.append("Broken paths: " + broken_list)
+    details = "\n".join(details_lines)
 
     return {
         "changed": False,
         "msg": summary,
         "data": {
             "state": state,
-            "metrics": {"paths_active_percent": paths_pct},
-            "details": infotext
-        }
+            "metrics": {"active_percent": metric_val},
+            "details": details,
+        },
     }

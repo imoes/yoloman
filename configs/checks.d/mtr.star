@@ -1,136 +1,170 @@
-def main(ctx, params):
-    # Read the MTR data file written by the agent
-    mtr_path = "/var/lib/mknested/mtr.json"
-    if not ctx.file_exists(mtr_path):
-        return {"changed": False, "msg": "MTR data file not found",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    content = ctx.file_read(mtr_path)
-    if not content.strip():
-        return {"changed": False, "msg": "MTR data file empty",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    section = json.decode(content) if content.strip() else {}
-    
-    # Discovery mode
-    if params.get("_discover"):
-        items = []
-        for hostname in section:
-            items.append({"item": hostname, "params": {"pl": [10, 25], "rta": [150, 250], "rtstddev": [150, 250]},
-                          "metrics": ["hops"]})
-        return {"changed": False, "msg": "discovered %d targets" % len(items),
-                "data": {"discovery": items}}
-    
-    # Check mode
-    item = params.get("item", "")
-    if section.get(item) == None:
-        return {"changed": False, "msg": "Target not found: " + item,
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    hops_raw = section.get(item)
-    if len(hops_raw) == 0:
-        return {"changed": False, "msg": "Insufficient data: No hop information available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
-    
-    # Parse Hop objects: [name, pl, response_time, rta, rtmin, rtmax, rtstddev]
-    hops = []
-    for hop_data in hops_raw:
-        if len(hop_data) < 7:
+MTR_DEFAULT_PL = (10, 25)
+MTR_DEFAULT_RTA = (150, 250)
+MTR_DEFAULT_RTSTDDEV = (150, 250)
+
+def _is_float(s):
+    if not s:
+        return False
+    parts = s.split(".")
+    if len(parts) == 1:
+        return parts[0].lstrip("-").isdigit()
+    if len(parts) == 2:
+        intpart = parts[0].lstrip("-")
+        fracpart = parts[1]
+        if intpart == "" and fracpart == "":
+            return False
+        if not intpart.isdigit() and intpart != "":
+            return False
+        if not fracpart.isdigit():
+            return False
+        return True
+    return False
+
+def _grade_upper(value, warn, crit):
+    if value == None:
+        return "UNKNOWN"
+    if value >= crit:
+        return "CRIT"
+    if value >= warn:
+        return "WARN"
+    return "OK"
+
+def _parse_section(res):
+    section = []
+    if not res.stdout:
+        return section
+    lines = res.stdout.splitlines()
+    for line in lines:
+        if not line or line.startswith("**ERROR**"):
             continue
-        pl_str = hop_data[1]
-        pl_val = float(pl_str.replace("%", "").rstrip()) if pl_str.find("%") >= 0 else 0.0
-        hops.append({
-            "name": hop_data[0],
-            "pl": pl_val,
-            "response_time": float(hop_data[2]) / 1000.0 if hop_data[2].replace(".","").replace("-","").isdigit() else 0.0,
-            "rta": float(hop_data[3]) / 1000.0 if hop_data[3].replace(".","").replace("-","").isdigit() else 0.0,
-            "rtmin": float(hop_data[4]) / 1000.0 if hop_data[4].replace(".","").replace("-","").isdigit() else 0.0,
-            "rtmax": float(hop_data[5]) / 1000.0 if hop_data[5].replace(".","").replace("-","").isdigit() else 0.0,
-            "rtstddev": float(hop_data[6]) / 1000.0 if hop_data[6].replace(".","").replace("-","").isdigit() else 0.0,
-        })
+        fields = line.split()
+        if len(fields) < 3:
+            continue
+        hostname = fields[0]
+        hopcount_str = fields[2]
+        if not _is_float(hopcount_str):
+            continue
+        hopcount = int(float(hopcount_str))
+        rest = fields[3:]
+        hops = []
+        for hopnum in range(hopcount):
+            base = 8 * hopnum
+            if base + 7 >= len(rest):
+                break
+            hname = rest[base]
+            pl_str = rest[base + 1].replace("%", "").rstrip()
+            pl = float(pl_str) if _is_float(pl_str) else 0.0
+            rt = float(rest[base + 3]) / 1000 if _is_float(rest[base + 3]) else 0.0
+            rta = float(rest[base + 4]) / 1000 if _is_float(rest[base + 4]) else 0.0
+            rtmin = float(rest[base + 5]) / 1000 if _is_float(rest[base + 5]) else 0.0
+            rtmax = float(rest[base + 6]) / 1000 if _is_float(rest[base + 6]) else 0.0
+            rtstddev = float(rest[base + 7]) / 1000 if _is_float(rest[base + 7]) else 0.0
+            hops.append({
+                "name": hname,
+                "pl": pl,
+                "response_time": rt,
+                "rta": rta,
+                "rtmin": rtmin,
+                "rtmax": rtmax,
+                "rtstddev": rtstddev,
+            })
+        section.append({"hostname": hostname, "hops": hops})
+    return section
+
+def _run_probe(ctx):
+    return ctx.run(["mtr", "-r", "-w"], mutates=False)
+
+def main(ctx, params):
+    if params.get("_discover"):
+        res = _run_probe(ctx)
+        if res.rc != 0:
+            if res.rc == 127:
+                return {"changed": False, "msg": "mtr not installed", "data": {"discovery": [], "host_labels": {}}}
+            return {"changed": False, "msg": "mtr probe failed", "data": {"discovery": [], "host_labels": {}}}
+        section = _parse_section(res)
+        discovery = []
+        host_labels = {}
+        for entry in section:
+            hostname = entry["hostname"]
+            hops = entry["hops"]
+            metric_names = []
+            if len(hops) > 0:
+                metric_names.append("hops")
+                for i in range(1, len(hops)):
+                    metric_names.append("hop_%d_rta" % i)
+                    metric_names.append("hop_%d_rtmin" % i)
+                    metric_names.append("hop_%d_rtmax" % i)
+                    metric_names.append("hop_%d_rtstddev" % i)
+                    metric_names.append("hop_%d_response_time" % i)
+                    metric_names.append("hop_%d_pl" % i)
+            discovery.append({
+                "item": hostname,
+                "params": {
+                    "pl": MTR_DEFAULT_PL,
+                    "rta": MTR_DEFAULT_RTA,
+                    "rtstddev": MTR_DEFAULT_RTSTDDEV,
+                },
+                "metrics": metric_names,
+            })
+        return {"changed": False, "msg": "discovered %d hosts" % len(discovery), "data": {"discovery": discovery, "host_labels": host_labels}}
     
-    if len(hops) == 0:
-        return {"changed": False, "msg": "Insufficient data: No hop information available",
-                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    item = params.get("item", "")
+    res = _run_probe(ctx)
+    if res.rc != 0:
+        if res.rc == 127:
+            return {"changed": False, "msg": "mtr not installed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+        return {"changed": False, "msg": "mtr probe failed", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    section = _parse_section(res)
+    hops = None
+    for entry in section:
+        if entry["hostname"] == item:
+            hops = entry["hops"]
+            break
+    if hops == None:
+        return {"changed": False, "msg": "no mtr data for host " + item, "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+    if not hops:
+        return {"changed": False, "msg": "Insufficient data: No hop information available", "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
     
-    # Extract params with defaults
-    pl_warn = params.get("pl", [10, 25])
-    pl_warn_val = pl_warn[0] if len(pl_warn) > 0 else 10
-    pl_crit_val = pl_warn[1] if len(pl_warn) > 1 else 25
+    pl_level = params.get("pl", MTR_DEFAULT_PL)
+    rta_level = params.get("rta", MTR_DEFAULT_RTA)
+    rtstddev_level = params.get("rtstddev", MTR_DEFAULT_RTSTDDEV)
     
-    rta_warn = params.get("rta", [150, 250])
-    rta_warn_val = rta_warn[0] / 1000.0 if len(rta_warn) > 0 else 0.15
-    rta_crit_val = rta_warn[1] / 1000.0 if len(rta_warn) > 1 else 0.25
-    
-    rtstddev_warn = params.get("rtstddev", [150, 250])
-    rtstddev_warn_val = rtstddev_warn[0] / 1000.0 if len(rtstddev_warn) > 0 else 0.15
-    rtstddev_crit_val = rtstddev_warn[1] / 1000.0 if len(rtstddev_warn) > 1 else 0.25
-    
-    # Determine state
-    state = "OK"
-    msg_parts = ["Hops: %d" % len(hops)]
-    details_parts = []
-    
-    # Non-last hops metrics
     metrics = {}
-    for idx, hop in enumerate(hops[:-1]):
-        hop_num = idx + 1
-        metrics["hop_%d_rta" % hop_num] = hop["rta"]
-        metrics["hop_%d_rtmin" % hop_num] = hop["rtmin"]
-        metrics["hop_%d_rtmax" % hop_num] = hop["rtmax"]
-        metrics["hop_%d_rtstddev" % hop_num] = hop["rtstddev"]
-        metrics["hop_%d_response_time" % hop_num] = hop["response_time"]
-        metrics["hop_%d_pl" % hop_num] = hop["pl"]
-        details_parts.append("Hop %d: %s" % (hop_num, hop["name"]))
+    metrics["hops"] = len(hops)
+    for idx in range(1, len(hops)):
+        hop = hops[idx - 1]
+        metrics["hop_%d_rta" % idx] = hop["rta"]
+        metrics["hop_%d_rtmin" % idx] = hop["rtmin"]
+        metrics["hop_%d_rtmax" % idx] = hop["rtmax"]
+        metrics["hop_%d_rtstddev" % idx] = hop["rtstddev"]
+        metrics["hop_%d_response_time" % idx] = hop["response_time"]
+        metrics["hop_%d_pl" % idx] = hop["pl"]
     
-    # Last hop checks
     last_hop = hops[-1]
     last_idx = len(hops)
-    last_hop_num = last_idx
+    metrics["hop_%d_rta" % last_idx] = last_hop["rta"]
+    metrics["hop_%d_rtmin" % last_idx] = last_hop["rtmin"]
+    metrics["hop_%d_rtmax" % last_idx] = last_hop["rtmax"]
+    metrics["hop_%d_rtstddev" % last_idx] = last_hop["rtstddev"]
+    metrics["hop_%d_response_time" % last_idx] = last_hop["response_time"]
+    metrics["hop_%d_pl" % last_idx] = last_hop["pl"]
     
-    # Packet loss check
-    pl = last_hop["pl"]
-    if pl >= pl_crit_val:
+    pl_state = _grade_upper(last_hop["pl"], pl_level[0], pl_level[1])
+    rta_state = _grade_upper(last_hop["rta"], rta_level[0] / 1000, rta_level[1] / 1000)
+    rtstddev_state = _grade_upper(last_hop["rtstddev"], rtstddev_level[0] / 1000, rtstddev_level[1] / 1000)
+    
+    states = [s for s in [pl_state, rta_state, rtstddev_state] if s != "OK" and s != "UNKNOWN"]
+    if "CRIT" in states:
         state = "CRIT"
-        msg_parts.append("Packet loss %d%% (crit at %d%%)" % (pl, pl_crit_val * 100))
-    elif pl >= pl_warn_val:
-        if state == "OK":
-            state = "WARN"
-        msg_parts.append("Packet loss %d%% (warn at %d%%)" % (pl, pl_warn_val * 100))
+    elif "WARN" in states:
+        state = "WARN"
+    else:
+        state = "OK"
     
-    # RTA check
-    rta = last_hop["rta"]
-    if rta >= rta_crit_val:
-        state = "CRIT"
-        msg_parts.append("RTA %f ms (crit at %f ms)" % (rta * 1000, rta_crit_val * 1000))
-    elif rta >= rta_warn_val:
-        if state == "OK":
-            state = "WARN"
-        msg_parts.append("RTA %f ms (warn at %f ms)" % (rta * 1000, rta_warn_val * 1000))
+    details_lines = []
+    for idx, hop in enumerate(hops):
+        details_lines.append("Hop %d: %s" % (idx + 1, hop["name"]))
+    details = "\n".join(details_lines)
     
-    # RTSTDDEV check
-    rtstddev = last_hop["rtstddev"]
-    if rtstddev >= rtstddev_crit_val:
-        state = "CRIT"
-        msg_parts.append("RTSTDDEV %f ms (crit at %f ms)" % (rtstddev * 1000, rtstddev_crit_val * 1000))
-    elif rtstddev >= rtstddev_warn_val:
-        if state == "OK":
-            state = "WARN"
-        msg_parts.append("RTSTDDEV %f ms (warn at %f ms)" % (rtstddev * 1000, rtstddev_warn_val * 1000))
-    
-    # Add last hop metrics
-    metrics["hop_%d_rta" % last_hop_num] = last_hop["rta"]
-    metrics["hop_%d_rtmin" % last_hop_num] = last_hop["rtmin"]
-    metrics["hop_%d_rtmax" % last_hop_num] = last_hop["rtmax"]
-    metrics["hop_%d_rtstddev" % last_hop_num] = last_hop["rtstddev"]
-    metrics["hop_%d_response_time" % last_hop_num] = last_hop["response_time"]
-    metrics["hop_%d_pl" % last_hop_num] = last_hop["pl"]
-    
-    # Hops count metric
-    metrics["hops"] = len(hops)
-    
-    details = "\n".join(details_parts) if details_parts else ""
-    msg = ", ".join(msg_parts)
-    
-    return {"changed": False, "msg": msg,
-            "data": {"state": state, "metrics": metrics, "details": details}}
+    msg = "Number of Hops: %d" % len(hops)
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": metrics, "details": details}}
