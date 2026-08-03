@@ -156,13 +156,18 @@ Sequence: deploy-webserver
   `POST /runbooks/lint` round-trip). The tree is simply the right view for ordered operations (it is what
   the restore playbooks look like), the graph for dependency stacks.
 
-> **Gap found while building this (2026-08-03):** groups serialise to Ansible `block:`, and **Bossman's
-> engine executes blocks** (`services/nt_engine.py`: `if step.module == "block"`), but the **Go agent's
-> local runbook runner does not** — `internal/runbook.Step` has no Block/Rescue/Always field, so
-> `agentic-mcpd run-runbook` silently drops a grouped task. Consequence: a grouped sequence runs through
-> Bossman (Deploy / the editor's dry-run) but not through the agent-local CLI. Either teach the Go runner
-> blocks, or keep the PXE-style offline playbooks flat — the restore playbooks are flat today, so nothing
-> is broken right now, but a grouped sequence must not be handed to `run-runbook` expecting it to work.
+> **Gap found while building this (2026-08-03), measured not assumed:** `block:` is the Ansible keyword a
+> tree GROUP serialises to — it gives several tasks one shared `when:`/`become:` and adds `rescue:` (catch)
+> and `always:` (finally). **Bossman's engine executes blocks** (`services/nt_engine.py`:
+> `if step.module == "block"`), but the **Go agent's local runbook runner does not**: `internal/runbook.Step`
+> has no Block/Rescue/Always field, so a grouped task arrives with no module.
+>
+> It does **not** silently drop it — verified with the real binary, `agentic-mcpd run-runbook` on a grouped
+> document fails loudly at that step (`unknown module ""`) and aborts the run, so the following steps do not
+> execute either. Loud beats silent, but it means a grouped sequence must go through Bossman (Deploy / the
+> editor's dry-run), never the agent-local CLI. The PXE restore playbooks are flat today, so nothing is
+> broken; teaching the Go runner blocks (a Block/Rescue/Always field + recursive execution) is the fix if we
+> ever want offline grouped playbooks.
 - Deployable directly: a Sequence in the Library gets the same **Deploy** action as a Role.
 
 ## Slices (each independently shippable + verifiable)
