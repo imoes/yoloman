@@ -957,11 +957,25 @@ async def _image_or_404(session: AsyncSession, image_id: UUID) -> DiskImage:
 
 def _restore_runbook(settings, name: str) -> dict:
     """Load one of the bare-metal restore playbooks and parse it into the canonical runbook doc the PE's
-    `run-runbook` consumes. The playbooks live beside the wizard playbooks (configs/wizard_playbooks/)."""
+    `run-runbook` consumes. The playbooks live beside the wizard playbooks (configs/wizard_playbooks/).
+
+    Two candidate roots, because `config_templates_dir` defaults to the CONTAINER layout (/app/…): the
+    settings-derived one wins in a deployment, and the repo-relative one makes a source checkout (and the
+    test suite) work without setting an env var.
+    """
     from bossman.services.ansible_playbook import parse_playbook
 
-    path = Path(settings.config_templates_dir).parent / "wizard_playbooks" / f"{name}.yml"
-    return parse_playbook(path.read_text()).to_dict()
+    candidates = [
+        Path(settings.config_templates_dir).parent / "wizard_playbooks" / f"{name}.yml",
+        Path(__file__).resolve().parents[3] / "configs" / "wizard_playbooks" / f"{name}.yml",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return parse_playbook(path.read_text()).to_dict()
+    raise HTTPException(
+        status_code=500,
+        detail=f"restore playbook {name!r} not found (looked in: {', '.join(str(c) for c in candidates)})",
+    )
 
 
 def _image_url(settings, img: DiskImage) -> str:
