@@ -175,11 +175,15 @@ Sequence: deploy-webserver
 > groups nest. Verified end to end: the editor's grouped YAML → `parse_playbook` → `run-runbook` succeeds,
 > with the group, its indented children and the trailing step all reported.
 >
-> One Ansible divergence remains, deliberate and pre-existing: the native `command` module documents that
-> "a non-zero rc is **not** raised as a tool error — check data.rc yourself", so a failing shell command does
-> not trigger `rescue`. Expressing "this counts as failed" needs `failed_when`, which the Go runner does not
-> have yet — that is the next parity candidate, and changing `command` itself would break every runbook that
-> reads `rc`.
+> **Also closed:** `failed_when` / `changed_when` / `ignore_errors`. The native `command` module documents
+> that a non-zero rc is *not* an error (you check `data.rc` yourself), so a failing shell command could not
+> trigger a `rescue` — which made rescue largely decorative. The gap sat in three layers and fixing only the
+> runner would have achieved nothing: the runner now evaluates the two expressions against the step's own
+> result (the module's data fields are in scope, so `failed_when: "rc != 0"` reads *this* step's rc),
+> `run-runbook`'s doc reader maps them into groups, and Bossman's `nt_runbook` + `ansible_playbook` carry
+> them through parsing **and** the round-trip back to YAML. `ignore_errors` had been expressible in the
+> document all along while every layer dropped it — the document said one thing and the run did another.
+> A swallowed error stays visible in the step's message, so a green run cannot hide it.
 - Deployable directly: a Sequence in the Library gets the same **Deploy** action as a Role.
 
 ## Slices (each independently shippable + verifiable)
