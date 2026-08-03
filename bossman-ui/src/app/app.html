@@ -6,27 +6,33 @@
         <span class="bm-brand">Bossman</span>
         <span class="bm-brand-sub">Fleet Commander</span>
       </div>
-      @for (item of mainItems(); track item.path) {
+      <!-- Workspace switcher: five jobs, each with its own tree below (docs/ui-workspaces.md). -->
+      <div class="bm-ws-bar" role="tablist" aria-label="Workspaces">
+        @for (ws of workspaces; track ws.id) {
+          <button type="button" class="bm-ws-btn" role="tab"
+                  [class.bm-ws-btn-active]="activeWorkspace().id === ws.id"
+                  [attr.aria-selected]="activeWorkspace().id === ws.id"
+                  [attr.aria-label]="ws.label"
+                  [title]="ws.label + ' — ' + ws.hint"
+                  (click)="selectWorkspace(ws.id)">
+            <app-icon [name]="ws.icon" [size]="18" />
+          </button>
+        }
+      </div>
+      <div class="bm-ws-title">
+        <span class="bm-ws-name">{{ activeWorkspace().label }}</span>
+        <span class="bm-ws-hint">{{ activeWorkspace().hint }}</span>
+      </div>
+      @for (item of workspaceItems(); track item.path) {
         <a class="bm-nav-item" [routerLink]="item.path" routerLinkActive="bm-nav-item-active">
           <app-icon class="bm-nav-icon" [name]="navIcon(item.path)" [size]="20" />
           <span class="bm-nav-label">{{ item.label }}</span>
         </a>
       }
-      <!-- Configuration/admin surfaces, grouped so day-to-day views stay uncluttered. -->
-      <button type="button" class="bm-nav-item bm-nav-group" [class.bm-nav-item-active]="setupActive()" (click)="toggleSetup()">
-        <app-icon class="bm-nav-icon" name="setup" [size]="20" />
-        <span class="bm-nav-label">Setup</span>
-        <app-icon class="bm-nav-caret" [class.bm-caret-open]="setupOpen() || setupActive()" name="chevron-down" [size]="18" />
-      </button>
-      @if (setupOpen() || setupActive()) {
-        @for (item of setupItems(); track item.path) {
-          <a class="bm-nav-item bm-nav-sub" [routerLink]="item.path" routerLinkActive="bm-nav-item-active">
-            <app-icon class="bm-nav-icon" [name]="navIcon(item.path)" [size]="18" />
-            <span class="bm-nav-label">{{ item.label }}</span>
-          </a>
-        }
-      }
       <div class="bm-nav-footer">
+        <a class="bm-help" [routerLink]="helpItem.path" title="Help" aria-label="Help">
+          <app-icon name="help" [size]="18" />
+        </a>
         <span class="bm-user">{{ auth.username() }}</span>
         <button class="bm-logout" (click)="auth.logout()" title="Log out" aria-label="Log out">
           <app-icon name="logout" [size]="18" />

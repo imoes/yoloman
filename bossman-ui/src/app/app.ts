@@ -20,6 +20,10 @@ const NAV_ICON: Record<string, string> = {
   '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
   '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings',
   '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy',
+  // Previously unmapped (they silently fell back to 'fleet'). Icon names repeat across workspaces where
+  // the set has no closer match — harmless, since each appears in a different tree.
+  '/blueprint': 'template', '/events': 'notifications', '/compliance': 'checks',
+  '/config-sync': 'config-templates', '/audit': 'users',
 };
 
 interface NavItem {
@@ -29,50 +33,101 @@ interface NavItem {
   adminOnly?: boolean;
 }
 
-// Day-to-day operational views stay at the top level; configuration/admin
-// surfaces are grouped under a collapsible "Setup" section (below). The AI
-// Dashboard is reached from within Fleet Overview, not as its own nav entry.
-//
-// Automation is roles-centric (we dropped playbooks/tasks): one Roles library
-// to author in, Deploy to run roles across hosts/groups, Runs for history —
-// so the old Runbooks + Plans + Plan library trio collapses to just "Roles".
-const MAIN_NAV: NavItem[] = [
-  { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
-  { path: '/noc', label: 'NOC view', icon: 'desktop_windows' },
-  { path: '/hosts', label: 'Hosts', icon: 'dns' },
-  { path: '/apps', label: 'App Store', icon: 'apps' },
-  { path: '/systems', label: 'Systems', icon: 'lan' },
-  { path: '/blueprint', label: 'Blueprint', icon: 'schema' },
-  { path: '/disk-templates', label: 'Provisioning', icon: 'install_desktop' },
-  { path: '/problems', label: 'Problems', icon: 'report_problem' },
-  { path: '/business-services', label: 'Business services', icon: 'hub' },
-  { path: '/capacity', label: 'Capacity', icon: 'trending_up' },
-  { path: '/topology', label: 'Topology', icon: 'account_tree' },
-  { path: '/security', label: 'Security', icon: 'security' },
-  { path: '/host-placement', label: 'Host placement', icon: 'lan' },
-  { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
-  { path: '/runbooks', label: 'Workflow designer', icon: 'account_tree' },
-  { path: '/scheduler', label: 'Scheduler', icon: 'schedule' },
-  { path: '/rollouts', label: 'Rollouts', icon: 'waves' },
-  { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
-  { path: '/runs', label: 'Runs', icon: 'history' },
-  { path: '/help', label: 'Help', icon: 'help_outline' },
-];
+/**
+ * A workspace groups the routes that belong to one job (docs/ui-workspaces.md). Picking a workspace
+ * swaps the tree below the switcher, so related functions live together and the nav never outgrows the
+ * viewport — the ConfigMgr idea in our macOS form (design-philosophy §4: source list → content →
+ * inspector), not a Windows ribbon.
+ */
+interface Workspace {
+  id: string;
+  label: string;
+  icon: string;
+  hint: string;
+  items: NavItem[];
+}
 
-const SETUP_NAV: NavItem[] = [
-  { path: '/notifications', label: 'Notifications', icon: 'notifications' },
-  { path: '/ou', label: 'OU / Policy', icon: 'domain' },
-  { path: '/modules', label: 'Modules', icon: 'extension' },
-  { path: '/checks', label: 'Checks', icon: 'fact_check' },
-  { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
-  { path: '/snmp-devices', label: 'Devices', icon: 'router' },
-  { path: '/events', label: 'Event Console', icon: 'inbox' },
-  { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
-  { path: '/config-codecs', label: 'Config codecs', icon: 'data_object' },
-  { path: '/config-sync', label: 'Config distribution', icon: 'sync' },
-  { path: '/audit', label: 'Audit log', icon: 'receipt_long', adminOnly: true },
-  { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
-  { path: '/settings', label: 'Settings', icon: 'settings' },
+// The five workspaces (docs/ui-workspaces.md). Every existing route keeps its URL — this is regrouping,
+// not rewriting. The AI Dashboard stays reachable from Fleet Overview, and Help sits in the footer so it
+// is one click from anywhere.
+//
+// Library is deliberately the single home for everything AUTHORABLE: per docs/resource-protocol.md a
+// role, a sequence, a blueprint, a template, a module and a check are all Resource implementations
+// answering the same verbs — so they are one list of types, not seven unrelated pages. Deploy then holds
+// what binds Library to Fleet (a Deployment is the recorded apply() on a target).
+const WORKSPACES: Workspace[] = [
+  {
+    id: 'monitor',
+    label: 'Monitor',
+    icon: 'fleet',
+    hint: 'What is happening',
+    items: [
+      { path: '/fleet', label: 'Fleet Overview', icon: 'dashboard' },
+      { path: '/noc', label: 'NOC view', icon: 'desktop_windows' },
+      { path: '/problems', label: 'Problems', icon: 'report_problem' },
+      { path: '/events', label: 'Event Console', icon: 'inbox' },
+      { path: '/business-services', label: 'Business services', icon: 'hub' },
+      { path: '/capacity', label: 'Capacity', icon: 'trending_up' },
+      { path: '/topology', label: 'Topology', icon: 'account_tree' },
+      { path: '/security', label: 'Security', icon: 'security' },
+      { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
+      { path: '/runs', label: 'Runs', icon: 'history' },
+      { path: '/audit', label: 'Audit log', icon: 'receipt_long', adminOnly: true },
+    ],
+  },
+  {
+    id: 'fleet',
+    label: 'Fleet',
+    icon: 'hosts',
+    hint: 'The assets you manage',
+    items: [
+      { path: '/hosts', label: 'Hosts', icon: 'dns' },
+      { path: '/systems', label: 'Systems', icon: 'lan' },
+      { path: '/snmp-devices', label: 'Devices', icon: 'router' },
+      { path: '/host-placement', label: 'Host placement', icon: 'lan' },
+      { path: '/ou', label: 'OU / Policy', icon: 'domain' },
+    ],
+  },
+  {
+    id: 'library',
+    label: 'Library',
+    icon: 'roles',
+    hint: 'Everything you can apply',
+    items: [
+      { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
+      { path: '/runbooks', label: 'Sequences', icon: 'account_tree' },
+      { path: '/blueprint', label: 'Blueprints', icon: 'schema' },
+      { path: '/apps', label: 'App Store', icon: 'apps' },
+      { path: '/modules', label: 'Modules', icon: 'extension' },
+      { path: '/checks', label: 'Checks', icon: 'fact_check' },
+      { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
+      { path: '/config-codecs', label: 'Config codecs', icon: 'data_object' },
+      { path: '/disk-templates', label: 'Disk images', icon: 'install_desktop' },
+    ],
+  },
+  {
+    id: 'deploy',
+    label: 'Deploy',
+    icon: 'deploy',
+    hint: 'Library applied to the fleet',
+    items: [
+      { path: '/deploy', label: 'Deploy', icon: 'rocket_launch' },
+      { path: '/rollouts', label: 'Rollouts', icon: 'waves' },
+      { path: '/scheduler', label: 'Scheduler', icon: 'schedule' },
+      { path: '/config-sync', label: 'Config distribution', icon: 'sync' },
+    ],
+  },
+  {
+    id: 'admin',
+    label: 'Admin',
+    icon: 'settings',
+    hint: 'Access and system settings',
+    items: [
+      { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
+      { path: '/notifications', label: 'Notifications', icon: 'notifications' },
+      { path: '/settings', label: 'Settings', icon: 'settings' },
+    ],
+  },
 ];
 
 @Component({
@@ -99,6 +154,9 @@ export class App {
       .subscribe((e) => {
         this.url.set(e.urlAfterRedirects);
         this.searchOpen.set(false);
+        // Navigating hands control back to the route: the page you are on decides which workspace tree is
+        // open, so a deep link is never shown under the wrong workspace.
+        this.picked.set(null);
       });
   }
 
@@ -116,12 +174,34 @@ export class App {
   // this just keeps the nav honest.
   private forRole = (items: NavItem[]) =>
     items.filter((item) => !item.adminOnly || this.auth.role() === 'admin');
-  mainItems = computed(() => this.forRole(MAIN_NAV));
-  setupItems = computed(() => this.forRole(SETUP_NAV));
-  // Setup section auto-opens when the current route is one of its entries, so
-  // deep-linking into a config page doesn't leave it looking hidden.
-  setupOpen = signal(false);
-  setupActive = computed(() => this.setupItems().some((i) => this.url().startsWith(i.path)));
-  toggleSetup(): void { this.setupOpen.update((v) => !v); }
+
+  workspaces = WORKSPACES;
+  helpItem: NavItem = { path: '/help', label: 'Help', icon: 'help_outline' };
+
+  /** The workspace the operator picked, if any. Null means "follow the route" (see activeWorkspace). */
+  private picked = signal<string | null>(null);
+  selectWorkspace(id: string): void { this.picked.set(id); }
+
+  /**
+   * Which workspace is showing.
+   *
+   * An explicit PICK wins — clicking a workspace has to switch the tree even while the current page
+   * belongs to another workspace (browsing Library from /fleet is the normal way in). Any navigation
+   * clears the pick (see the NavigationEnd handler), so the ROUTE then decides again: deep-linking or the
+   * omnibox jumping into /modules lands in Library with the right tree open.
+   */
+  activeWorkspace = computed(() => {
+    const p = this.picked();
+    if (p) {
+      const byPick = WORKSPACES.find((w) => w.id === p);
+      if (byPick) return byPick;
+    }
+    const url = this.url();
+    return WORKSPACES.find((w) => w.items.some((i) => url.startsWith(i.path))) ?? WORKSPACES[0];
+  });
+
+  /** The active workspace's entries, role-filtered. */
+  workspaceItems = computed(() => this.forRole(this.activeWorkspace().items));
+
   isLoggedIn = computed(() => this.auth.isLoggedIn());
 }
