@@ -889,9 +889,12 @@ def test_restore_vars_resolves_playbook_vars_and_mounts():
     assert pe["target_disk"] == "/dev/sda"
     # every restore target has a device + a .pcl.zst image URL
     assert pe["restore_volumes"] and all(r["device"] and r["source_url"].endswith(".pcl.zst") for r in pe["restore_volumes"])
-    # the LVM root: last LV of the group takes 100%FREE so the bigger target disk is used
+    # LVs are created at SOURCE size (megabytes), then grown after the restore via lvextend --resizefs:
+    # the free LV of the group grows to 100%FREE (absorbs the bigger disk).
     if pe["logical_volumes"]:
-        assert pe["logical_volumes"][-1]["size"] == "100%FREE"
+        assert all(lv["size"].endswith("m") for lv in pe["logical_volumes"]), "created at source size, not 100%FREE"
+        assert pe["grow_lvs"], "the growable LVs are resized after the restore"
+        assert any(g["size"] == "100%FREE" for g in pe["grow_lvs"]), "the free LV grows to 100%FREE"
     # mounts are parents-first (root's mountpoint is the shortest) and under /mnt/target
     assert mounts and mounts[0]["mountpoint"] == "/mnt/target"
     assert all(m["mountpoint"].startswith("/mnt/target") for m in mounts)

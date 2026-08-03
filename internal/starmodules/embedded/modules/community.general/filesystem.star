@@ -107,6 +107,12 @@ def main(ctx, params):
                 elif fstype in ["ext2", "ext3", "ext4", "ext4dev"]:
                     if ctx.check_mode:
                         return {"changed": True, "msg": "would resize " + fstype + " filesystem on " + dev}
+                    # resize2fs refuses to grow a filesystem that has not just been checked
+                    # ("Please run 'e2fsck -f' first"), so force a check first (-f -y = force + assume-yes).
+                    # This is unavoidable right after a partclone restore, where the fs was never fsck'd.
+                    chk = ctx.run(["e2fsck", "-f", "-y", target], mutates=True, ok_codes=[0, 1, 2])
+                    if not chk.skipped and chk.rc > 2:
+                        fail("e2fsck before resize failed: " + chk.stderr)
                     res = ctx.run(["resize2fs", target])
                     if res.rc != 0:
                         fail("failed to resize ext filesystem: " + res.stderr)

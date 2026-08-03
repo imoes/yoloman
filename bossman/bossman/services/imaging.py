@@ -974,8 +974,12 @@ def restore_vars(
     disk = f"/dev/{plan.target_disk}"
     pv = disk if layout.lvm_on_raw_disk else f"{disk}{_part_suffix(plan.target_disk, pv_partition or len(layout.partitions))}"
 
-    # LVM: mirror lvm_commands — explicit sizes for the fixed LVs, 100%FREE for the last growable LV of
-    # each group so the target's larger disk gets used.
+    # LVM. Create every LV at its SOURCE size first (small enough to fit), then — AFTER the restore —
+    # grow the growable ones to their final size with `lvol resizefs=true` (→ `lvextend --resizefs`,
+    # i.e. fsadm), which resizes the LV AND its filesystem in one checked step. That is the LVM-native
+    # way: no separate offline resize2fs (which would demand a manual e2fsck first). The `free` LV of
+    # each group grows to 100%FREE (absorbs the larger target disk); other growable LVs to their planned
+    # bytes. Raw-partition growth (no LVM) still uses the filesystem module (growable_volumes).
     plan_size: dict[tuple[str, str], int] = {}
     grow_flag: dict[tuple[str, str], bool] = {}
     for pvv in plan.volumes:
@@ -985,21 +989,27 @@ def restore_vars(
             grow_flag[(str(v.vg), str(v.lv))] = pvv.grow
     volume_groups: list[dict] = []
     logical_volumes: list[dict] = []
+    grow_lvs: list[dict] = []
     by_vg: dict[str, list[Volume]] = {}
     for v in [v for v in layout.volumes if v.vg and v.lv]:
         by_vg.setdefault(str(v.vg), []).append(v)
+    free_lv_of: dict[str, str] = {}
     for vg, members in by_vg.items():
         volume_groups.append({"vg": vg, "pvs": pv})
         free_lv = members[-1]
         for v in members:
             if grow_flag.get((vg, str(v.lv))):
                 free_lv = v
+        free_lv_of[vg] = str(free_lv.lv)
         for v in members:
-            if v is free_lv:
-                continue
-            size = plan_size.get((vg, str(v.lv)), v.size_bytes)
-            logical_volumes.append({"vg": vg, "lv": str(v.lv), "size": f"{size // (1024 * 1024)}m"})
-        logical_volumes.append({"vg": vg, "lv": str(free_lv.lv), "size": "100%FREE"})
+            # create at source size (grown after the restore); never 0
+            logical_volumes.append({"vg": vg, "lv": str(v.lv), "size": f"{max(v.size_bytes // (1024 * 1024), 1)}m"})
+    for pvv in plan.volumes:
+        v = pvv.volume
+        if pvv.grow and v.vg and v.lv:
+            vg, lvn = str(v.vg), str(v.lv)
+            size = "100%FREE" if free_lv_of.get(vg) == lvn else f"{plan_size[(vg, lvn)] // (1024 * 1024)}m"
+            grow_lvs.append({"vg": vg, "lv": lvn, "size": size})
 
     def _device(v: Volume) -> str:
         return lv_device(v) if v.vg else f"{disk}{_part_suffix(plan.target_disk, v.partition or 1)}"
@@ -1010,7 +1020,7 @@ def restore_vars(
         v = planned.volume
         device = _device(v)
         restore_volumes.append({"device": device, "source_url": f"{image_url.rstrip('/')}/{_image_name(v)}"})
-        if planned.grow:
+        if planned.grow and not v.vg:  # raw-partition grow only; LVM grows via grow_lvs
             growable_volumes.append({"device": device, "fstype": v.fs_type})
 
     mounts = [
@@ -1037,6 +1047,7 @@ def restore_vars(
             "volume_groups": volume_groups,
             "logical_volumes": logical_volumes,
             "restore_volumes": restore_volumes,
+            "grow_lvs": grow_lvs,
             "growable_volumes": growable_volumes,
         },
         "mounts": mounts,

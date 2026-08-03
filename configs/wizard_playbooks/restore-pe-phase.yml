@@ -15,9 +15,10 @@
     target_disk: ""          # e.g. /dev/sda
     has_partitions: false     # false when LVM sits on the raw disk (no partition table to write)
     volume_groups: []         # [{vg, pvs}]
-    logical_volumes: []       # [{vg, lv, size}]   size e.g. "40g" or "100%FREE"
+    logical_volumes: []       # [{vg, lv, size}]   created at SOURCE size (small), grown after restore
     restore_volumes: []       # [{device, source_url}]  one per captured filesystem
-    growable_volumes: []      # [{device, fstype}]  root/var/home — grown to fill their volume
+    grow_lvs: []              # [{vg, lv, size}]  LVM growables → lvextend --resizefs to final (100%FREE/planned)
+    growable_volumes: []      # [{device, fstype}]  raw-partition growables only (LVM grows via grow_lvs)
   tasks:
     - name: Write the target partition table from the source's sfdisk dump
       yoloman.disk_partition:
@@ -46,7 +47,16 @@
         source_url: "{{ item.source_url }}"
       loop: "{{ restore_volumes }}"
 
-    - name: Grow the growable filesystems to fill their (larger) target volume
+    - name: Grow each LVM volume + its filesystem to the target size (lvextend --resizefs = fsadm)
+      community.general.lvol:
+        vg: "{{ item.vg }}"
+        lv: "{{ item.lv }}"
+        size: "{{ item.size }}"
+        resizefs: true
+        state: present
+      loop: "{{ grow_lvs }}"
+
+    - name: Grow any raw-partition filesystems to fill their (larger) target partition
       community.general.filesystem:
         dev: "{{ item.device }}"
         fstype: "{{ item.fstype }}"
