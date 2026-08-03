@@ -1,5 +1,6 @@
 import {
-  tasksToTree, treeToTasks, moveNode, flatten, isDescendant, findNode,
+  SEARCH_SCOPES, STEP_TYPE_META, SeqNode, filterTree, findNode, flatten, isDescendant, moveNode,
+  searchTree, stepTypeOf, tasksToTree, treeToTasks,
 } from './sequence-model';
 
 /**
@@ -71,5 +72,134 @@ describe('sequence-model (tree ⇄ Ansible tasks)', () => {
     expectEq('a step WITH a module keeps it', treeToTasks([
       { id: 'y', kind: 'step', name: 'ok', module: 'ping', args: {} },
     ]), [{ name: 'ok', ping: {} }]);
+  });
+});
+
+
+/**
+ * Step typing, scoped search and Filter By — all pure projections of the document, which is the point:
+ * switching a view or a filter must never be able to change what runs.
+ *
+ * Karma/ChromeHeadless cannot run in the dev sandbox, so these were additionally verified by bundling the
+ * model with esbuild and asserting the same cases under node. Keep them framework-free so that stays
+ * possible.
+ */
+describe('sequence-model (step types)', () => {
+  const step = (module?: string): SeqNode => ({ id: 'x', kind: 'step', name: '', module });
+
+  it('types a step from the document, not from substrings of the module name', () => {
+    expect(stepTypeOf({ id: 'g', kind: 'group', name: 'x' })).toBe('group');
+    expect(stepTypeOf(step('apt'))).toBe('task');
+    expect(stepTypeOf(step('community.general.lvg'))).toBe('task');
+    expect(stepTypeOf(step('checkmk.mysql'))).toBe('check');
+    expect(stepTypeOf(step('config'))).toBe('config');
+    expect(stepTypeOf(step('import_tasks'))).toBe('role');
+    expect(stepTypeOf(step('include_role'))).toBe('role');
+    expect(stepTypeOf(step('runbook'))).toBe('role');       // the canonical doc's spelling
+  });
+
+  it('does not repeat the substring guessing it replaced', () => {
+    // The old glyph() used module.includes('check') / includes('role'), which mis-typed all three of these.
+    expect(stepTypeOf(step('check_plugin'))).toBe('task');
+    expect(stepTypeOf(step('checkmk_local'))).toBe('task');   // no dot → not the checkmk collection
+    expect(stepTypeOf(step('rolebinding'))).toBe('task');
+  });
+
+  it('survives a step with no module', () => {
+    expect(stepTypeOf(step(''))).toBe('task');
+    expect(stepTypeOf(step(undefined))).toBe('task');
+  });
+
+  it('types every step of a real task list, through the tree parser', () => {
+    const tree = tasksToTree([
+      { name: 'a task', apt: { name: 'nginx' } },
+      { name: 'a role call', import_tasks: 'install-nginx' },
+      { name: 'a check', 'checkmk.mysql': {} },
+      { name: 'a config', config: { path: '/etc/x' } },
+      { name: 'not a check', check_plugin: {} },
+      { name: 'a group', block: [{ name: 'inner', ping: null }] },
+    ]);
+    expect(tree.map(stepTypeOf)).toEqual(['task', 'role', 'check', 'config', 'task', 'group']);
+  });
+
+  it('has an icon and a label for every type', () => {
+    for (const t of ['group', 'role', 'check', 'config', 'task'] as const) {
+      expect(STEP_TYPE_META[t].glyph).toBeTruthy();
+      expect(STEP_TYPE_META[t].label).toBeTruthy();
+    }
+  });
+});
+
+describe('sequence-model (search + filter)', () => {
+  const TREE: SeqNode[] = [
+    {
+      id: 'g1', kind: 'group', name: 'Prepare', when: 'has_partitions',
+      children: [
+        { id: 's1', kind: 'step', name: 'Partition', module: 'yoloman.disk_partition',
+          args: { device: '{{ target_disk }}' }, register: 'part_result' },
+        { id: 's2', kind: 'step', name: 'Create VG', module: 'community.general.lvg',
+          args: { vg: 'data' }, extra: { ignore_errors: true } },
+      ],
+      rescue: [{ id: 'r1', kind: 'step', name: 'Recover', module: 'shell',
+                 args: { cmd: 'echo {{ part_result.rc }}' }, when: 'part_result.failed' }],
+      always: [{ id: 'a1', kind: 'step', name: 'Cleanup', module: 'file',
+                 args: { path: '/tmp/x' }, extra: { ignore_errors: true } }],
+    },
+    { id: 's3', kind: 'step', name: 'Install nginx', module: 'apt', args: { name: 'nginx' } },
+  ];
+
+  it('scopes to step name, group name and step type separately', () => {
+    expect([...searchTree(TREE, 'nginx', ['stepName'])]).toEqual(['s3']);
+    expect(searchTree(TREE, 'Install', ['groupName']).size).toBe(0);
+    expect([...searchTree(TREE, 'prepare', ['groupName'])]).toEqual(['g1']);
+    expect([...searchTree(TREE, 'lvg', ['stepType'])]).toEqual(['s2']);
+  });
+
+  it('finds a variable where it is DEFINED and where it is USED', () => {
+    const hits = searchTree(TREE, 'part_result', ['variableName']);
+    expect(hits.has('s1')).toBe(true);      // register: part_result
+    expect(hits.has('r1')).toBe(true);      // {{ part_result.rc }} inside args
+    expect(searchTree(TREE, 'target_disk', ['variableName']).has('s1')).toBe(true);
+  });
+
+  it('searches conditions and arg values', () => {
+    expect([...searchTree(TREE, 'has_partitions', ['conditions'])]).toEqual(['g1']);
+    expect(searchTree(TREE, 'data', ['contents']).has('s2')).toBe(true);
+  });
+
+  it('matches nothing for an empty query or no scope', () => {
+    // Highlighting the whole tree when the box is empty would tell the operator nothing.
+    expect(searchTree(TREE, '   ', ['stepName']).size).toBe(0);
+    expect(searchTree(TREE, 'nginx', []).size).toBe(0);
+  });
+
+  it('is case-insensitive, and every offered scope is implemented', () => {
+    expect(searchTree(TREE, 'NGINX', ['stepName']).has('s3')).toBe(true);
+    for (const s of SEARCH_SCOPES) expect(searchTree(TREE, 'x', [s.key]) instanceof Set).toBe(true);
+  });
+
+  it('does not filter at all when no filter is set', () => {
+    expect(filterTree(TREE, {})).toBeNull();
+  });
+
+  it('keeps a matching step AND its ancestor group', () => {
+    const v = filterTree(TREE, { continueOnError: true })!;
+    expect(v.has('s2')).toBe(true);
+    expect(v.has('g1')).toBe(true);        // dropping it would misrepresent the order s2 runs in
+    expect(v.has('s1')).toBe(false);
+    expect(v.has('s3')).toBe(false);
+  });
+
+  it('collects matches in rescue/always even when children also matched', () => {
+    // Regression: the walk used `walk(children) || walk(rescue) || walk(always)`, which short-circuits, so
+    // `a1` was never added once `s2` had matched.
+    expect(filterTree(TREE, { continueOnError: true })!.has('a1')).toBe(true);
+  });
+
+  it('filters by having a condition', () => {
+    const v = filterTree(TREE, { hasConditions: true })!;
+    expect(v.has('g1')).toBe(true);
+    expect(v.has('r1')).toBe(true);
+    expect(v.has('s3')).toBe(false);
   });
 });

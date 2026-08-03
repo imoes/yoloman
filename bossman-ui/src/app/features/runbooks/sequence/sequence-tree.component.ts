@@ -1,7 +1,7 @@
 import { Component, input, output } from '@angular/core';
 import { CdkDrag, CdkDropList, CdkDropListGroup, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { MatIconModule } from '@angular/material/icon';
-import { SeqNode, isDescendant } from './sequence-model';
+import { STEP_TYPE_META, SeqNode, isDescendant, stepTypeOf } from './sequence-model';
 
 /**
  * The Sequence tree — groups and steps, reorderable by drag & drop (docs/ui-workspaces.md slice 3).
@@ -36,8 +36,9 @@ const COLLAPSED = new Set<string>();
                 <mat-icon>{{ isCollapsed(n.id) ? 'chevron_right' : 'expand_more' }}</mat-icon>
               </button>
             }
-            <span class="bm-seq-glyph">{{ n.kind === 'group' ? '📁' : glyph(n.module) }}</span>
+            <span class="bm-seq-glyph" [title]="typeLabel(n)">{{ typeGlyph(n) }}</span>
             <span class="bm-seq-name">{{ n.name || (n.kind === 'group' ? '(group)' : n.module || '(step)') }}</span>
+            @if (n.kind === 'step') { <span class="bm-seq-type">{{ typeLabel(n) }}</span> }
             @if (n.kind === 'step' && n.module) { <code class="bm-seq-mod">{{ n.module }}</code> }
             @if (n.kind === 'group' && isCollapsed(n.id)) {
               <span class="bm-seq-when">{{ countOf(n) }} step(s) hidden</span>
@@ -102,6 +103,7 @@ const COLLAPSED = new Set<string>();
     .bm-seq-glyph { font-size: 13px; }
     .bm-seq-name { font-size: 13px; }
     .bm-seq-mod { font-size: 11px; opacity: .6; font-family: ui-monospace, monospace; }
+    .bm-seq-type { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; opacity: .45; }
     .bm-seq-when { font-size: 10.5px; opacity: .6; padding: 0 6px; border-radius: 999px;
       background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
     .bm-seq-del { margin-left: auto; background: none; border: 0; color: inherit; opacity: .4;
@@ -171,13 +173,10 @@ export class SequenceTreeComponent {
     return (n.always ??= []);
   }
 
-  /** A rough glyph per module family, purely to make the tree scannable. */
-  glyph(module?: string): string {
-    if (!module) return '⚙';
-    if (module.includes('check')) return '✅';
-    if (module.includes('role')) return '🎭';
-    return '⚙';
-  }
+  /** The step's TYPE (see sequence-model.stepTypeOf) — derived from the document, not guessed from the
+   *  module name's substrings, which mis-typed `check_plugin` as a check and never recognised a role call. */
+  typeGlyph(n: SeqNode): string { return STEP_TYPE_META[stepTypeOf(n)].glyph; }
+  typeLabel(n: SeqNode): string { return STEP_TYPE_META[stepTypeOf(n)].label; }
 
   /**
    * CDK drop. Within one list it is a reorder; across lists it is a move. The one illegal case is dragging

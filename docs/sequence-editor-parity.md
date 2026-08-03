@@ -47,22 +47,28 @@ verknüpft."* Das passt auf das, was schon existiert, und muss nur verbunden wer
 
 ## Arbeitsschritte
 
-1. **Variablen-Panel** (der Kern). `VariablesPanel.js` (React, 226 Z.) → Angular-Komponente unter
+1. ✅ **Variablen-Panel** (der Kern). `VariablesPanel.js` (React, 226 Z.) → Angular-Komponente unter
    `features/runbooks/sequence/`. Zeigt Rollen-/Sequence-Parameter (`parameters:` im Doc), die Facts und
    `register`-Variablen; Einfügen per Klick/Drag in Argument-Felder und in den `when:`-Builder
    (`varInsertion.js` + `conditionParser.js` sind schon portiert und framework-frei).
-2. **Facts-Liste korrigieren** — `ansibleFacts.js` gegen die Wahrheit aus `internal/modules/setup.go`
+2. ✅ **Facts-Liste korrigieren** — `ansibleFacts.js` gegen die Wahrheit aus `internal/modules/setup.go`
    stellen: die 18 flachen `ansible_*` **und** die `yoloman_*`-Spiegel, jeweils mit Beschreibung, in zwei
    Gruppen. Prüfen, ob wir zusätzlich einen echten `ansible_facts`-Dict-Alias im Agenten anbieten wollen —
    importierte Rollen nutzen `ansible_facts['x']`, und Import ist ein Kernversprechen.
-3. **Eingabefelder verkleinern** — `shared/param-form` verletzt `docs/design-philosophy.md:79-88`: es zeigt
-   *alle* Felder in voller Material-Höhe. Soll: nur was der Operator liefern **muss**, Defaults hinter einer
-   *Advanced*-Disclosure, kompakte Controls statt `mat-form-field`-Chrome („Deference — chrome is minimal").
-4. **SCCM-Parität im Tree** — Toolbar (`Add ▾`/Remove/↑/↓), Suchfeld mit *Search Within*-Scopes (inkl.
+3. ✅ **Eingabefelder verkleinern** — *Befund korrigiert:* `shared/param-form` machte es schon richtig
+   (`essential` = required/ohne Default vs. `advanced` hinter Toggle, keine `mat-form-field`). Die großen
+   Felder waren der **Sequence-Inspector** — sechs `mat-form-field appearance="outline"` unter dem Tree,
+   ~56px Material-Chrome pro Einwort-Wert. Ersetzt durch kompakte Label-über-Input-Felder (gemessen: 50px),
+   Inspector nach rechts, loop/register/failed_when/ignore_errors hinter *Advanced*.
+4. ✅ **SCCM-Parität im Tree** — Toolbar (`Add ▾`/Remove/↑/↓), Suchfeld mit *Search Within*-Scopes (inkl.
    Variable Name + Conditions) und *Filter By* (Continue On Error = `ignore_errors`, Has Conditions =
    `when`). Beides sind Projektionen des Dokuments, also reine View-Logik.
-5. **Echte Step-Typen** — Role / Check / Config / nested Sequence als Step-Arten statt aus dem Modulnamen
-   geraten (`glyph()`); das ist die offene Hälfte von `docs/ui-workspaces.md:145`.
+5. ✅ **Echte Step-Typen** — `stepTypeOf()` leitet den Typ aus dem Dokument ab statt aus Teilstrings:
+   Rollenaufruf = `import_tasks`/`include_tasks`/`import_role`/`include_role` (bzw. `runbook` im kanonischen
+   Doc), Check = `checkmk.`-**Präfix**, Config = die nativen `config`-Module, sonst Task. Das alte
+   `glyph()` riet über `module.includes('check')`/`includes('role')` und lag doppelt falsch: es typisierte
+   `check_plugin`/`checkmk_local`/`rolebinding` falsch und erkannte einen Rollenaufruf **nie**, weil dessen
+   Modul-Key `import_tasks` heißt. Gegen den echten Tree-Parser geprüft: 7/7 korrekt.
 6. ~~**App Store entfernen**~~ — **zurückgestellt, nichts anfassen.** Der Operator überlegt es sich noch
    (2026-08-03), also bleiben `features/apps/app-store.component.ts` + `app-deploy.component.ts`, ihre Route
    und der Nav-Eintrag unverändert. Falls es später doch weg soll: vorher prüfen, ob `app-deploy`

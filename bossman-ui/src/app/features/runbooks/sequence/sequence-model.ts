@@ -330,3 +330,46 @@ export function filterTree(nodes: SeqNode[], filters: TreeFilters): Set<string> 
   walk(nodes);
   return visible;
 }
+
+// ---- Step types ---------------------------------------------------------------------------------------
+//
+// docs/ui-workspaces.md: "a step is any Resource — a Role, a Module task, a Check, a Config/Template
+// resource, a container, or a nested Sequence". The tree used to guess the icon from the module NAME
+// (`module.includes('check')`, `module.includes('role')`), which is wrong in both directions: it matched
+// `check_plugin`/`checkmk_local` as well as any module with "check" in its name, and it never matched a role
+// call at all, because a role call's module key is `runbook`.
+//
+// These rules are derived from things that are actually true of the document:
+//   * a role / nested-sequence call is `import_tasks`/`include_tasks`/`import_role`/`include_role` in the
+//     authoring form, which services/ansible_playbook maps to the canonical `module: "runbook"`
+//     (_ROLE_CALL_KEYS)
+//   * a check is a `checkmk.*` module — every sidecar in configs/checks.d carries `fqcn: checkmk.<name>`
+//     and `kind: check`
+//   * the config resources are the native `config` / `config_discover` modules
+// Anything else is an ordinary module task, which is the honest default.
+
+export type StepType = 'group' | 'role' | 'check' | 'config' | 'task';
+
+const ROLE_CALL_MODULES = new Set(['runbook', 'import_tasks', 'include_tasks', 'import_role', 'include_role']);
+const CONFIG_MODULES = new Set(['config', 'config_discover', 'config_templates', 'config_template']);
+
+export function stepTypeOf(n: SeqNode): StepType {
+  if (n.kind === 'group') return 'group';
+  const m = (n.module ?? '').trim();
+  if (!m) return 'task';
+  if (ROLE_CALL_MODULES.has(m)) return 'role';
+  // Prefix, not substring: `checkmk.mysql` is a check, `check_plugin` is an ordinary module that merely has
+  // "check" in its name.
+  if (m.startsWith('checkmk.')) return 'check';
+  if (CONFIG_MODULES.has(m)) return 'config';
+  return 'task';
+}
+
+/** Icon + label per step type, so the tree and any palette agree on one vocabulary. */
+export const STEP_TYPE_META: Record<StepType, { glyph: string; label: string }> = {
+  group: { glyph: '📁', label: 'Group' },
+  role: { glyph: '🎭', label: 'Role' },
+  check: { glyph: '✅', label: 'Check' },
+  config: { glyph: '📄', label: 'Config' },
+  task: { glyph: '⚙', label: 'Task' },
+};
