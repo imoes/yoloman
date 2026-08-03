@@ -60,4 +60,16 @@ describe('sequence-model (tree ⇄ Ansible tasks)', () => {
   
   
   });
+
+  it('cannot represent a step without a module — which is why the editor must always set one', () => {
+    // A task with no module key is invalid Ansible: Bossman's parser rejects the whole document. So a
+    // module-less node serialises to a bare {name}, and the editor creates every new step WITH a module
+    // (see runbook-editor.newStep) rather than letting the document go unparseable while the operator types.
+    expectEq('module-less step loses its module key', treeToTasks([
+      { id: 'x', kind: 'step', name: 'draft', module: '', args: {} },
+    ]), [{ name: 'draft' }]);
+    expectEq('a step WITH a module keeps it', treeToTasks([
+      { id: 'y', kind: 'step', name: 'ok', module: 'ping', args: {} },
+    ]), [{ name: 'ok', ping: {} }]);
+  });
 });

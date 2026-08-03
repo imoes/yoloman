@@ -41,6 +41,26 @@ import { SeqNode, isDescendant } from './sequence-model';
               @if (!childrenOf(n).length) {
                 <p class="bm-seq-empty">empty group — drag a step in here</p>
               }
+              <!-- The error-handling branches. Each is its own drop list inside the shared
+                   cdkDropListGroup, so a step can be dragged straight into rescue or always. -->
+              @if (n.rescue?.length) {
+                <div class="bm-seq-branch">
+                  <span class="bm-seq-btag bm-seq-rescue">⟲ rescue</span>
+                  <span class="bm-seq-bhint">runs only if the group failed</span>
+                </div>
+                <app-sequence-tree [nodes]="rescueOf(n)" [selectedId]="selectedId()"
+                                   (select)="select.emit($event)" (remove)="remove.emit($event)"
+                                   (changed)="changed.emit()" />
+              }
+              @if (n.always?.length) {
+                <div class="bm-seq-branch">
+                  <span class="bm-seq-btag bm-seq-always">⤓ always</span>
+                  <span class="bm-seq-bhint">runs either way</span>
+                </div>
+                <app-sequence-tree [nodes]="alwaysOf(n)" [selectedId]="selectedId()"
+                                   (select)="select.emit($event)" (remove)="remove.emit($event)"
+                                   (changed)="changed.emit()" />
+              }
             </div>
           }
         </div>
@@ -68,6 +88,12 @@ import { SeqNode, isDescendant } from './sequence-model';
     .bm-seq-children { margin-left: 22px; border-left: 1px dashed var(--mat-sys-outline-variant);
       padding-left: 8px; }
     .bm-seq-empty { font-size: 11.5px; opacity: .45; margin: 2px 0 2px 4px; }
+    .bm-seq-branch { display: flex; align-items: center; gap: 7px; margin: 5px 0 1px; }
+    .bm-seq-btag { font-size: 10.5px; font-family: ui-monospace, monospace; padding: 1px 7px;
+      border-radius: 999px; }
+    .bm-seq-rescue { background: color-mix(in srgb, var(--bm-gold, #b8860b) 22%, transparent); }
+    .bm-seq-always { background: color-mix(in srgb, var(--mat-sys-on-surface) 11%, transparent); }
+    .bm-seq-bhint { font-size: 10.5px; opacity: .45; }
     .cdk-drag-preview .bm-seq-row { background: var(--mat-sys-surface); box-shadow: 0 3px 10px rgba(0,0,0,.25); }
     .cdk-drop-list-dragging .bm-seq-row { transition: transform .16s ease; }
   `],
@@ -83,6 +109,12 @@ export class SequenceTreeComponent {
 
   childrenOf(n: SeqNode): SeqNode[] {
     return (n.children ??= []);
+  }
+  rescueOf(n: SeqNode): SeqNode[] {
+    return (n.rescue ??= []);
+  }
+  alwaysOf(n: SeqNode): SeqNode[] {
+    return (n.always ??= []);
   }
 
   /** A rough glyph per module family, purely to make the tree scannable. */

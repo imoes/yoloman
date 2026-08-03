@@ -218,6 +218,28 @@ const MAGIC_VARS = [
                   <input matInput [ngModel]="sel.when || ''" (ngModelChange)="editSeq(sel, 'when', $event)"
                          placeholder="has_partitions" />
                 </mat-form-field>
+                @if (sel.kind === 'step') {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>failed_when (optional)</mat-label>
+                    <input matInput [ngModel]="sel.extra?.['failed_when'] || ''"
+                           (ngModelChange)="editExtra(sel, 'failed_when', $event)" placeholder="rc != 0" />
+                  </mat-form-field>
+                  <label class="bm-seq-chk" title="Record a failure here but keep going">
+                    <input type="checkbox" [checked]="!!sel.extra?.['ignore_errors']"
+                           (change)="toggleIgnoreErrors(sel, $event)" /> ignore_errors
+                  </label>
+                }
+                @if (sel.kind === 'group') {
+                  <!-- Error handling can now be BUILT here, not only in the text view. -->
+                  <button mat-stroked-button (click)="addBranchStep(sel, 'rescue')"
+                          title="Steps that run only if this group failed (catch)">
+                    <mat-icon>replay</mat-icon> rescue step
+                  </button>
+                  <button mat-stroked-button (click)="addBranchStep(sel, 'always')"
+                          title="Steps that run whichever way the group went (finally)">
+                    <mat-icon>vertical_align_bottom</mat-icon> always step
+                  </button>
+                }
               </div>
               <!-- The step's arguments as a TYPED form, generated from the module's argspec (its schema()) —
                    choices become dropdowns. A module the catalog does not know keeps the raw JSON editor so
@@ -354,6 +376,8 @@ const MAGIC_VARS = [
       .bm-seq-form mat-form-field { min-width: 170px; }
       .bm-seq-args { min-width: 320px; flex: 1 1 320px; }
       .bm-err { color: var(--mat-sys-error, #c62828); font-size: 12px; align-self: center; }
+      .bm-seq-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; opacity: .85;
+        align-self: center; }
       .bm-designer { display: block; height: 560px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; min-width: 0; }
       .bm-designer-loading { display: flex; align-items: center; justify-content: center; }
       .bm-params { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
@@ -496,8 +520,18 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.syncSequence();
   }
   addStep(): void {
-    this.seqNodes.update((ns) => [...ns, { id: nextId(), kind: 'step', name: 'New step', module: '', args: {} }]);
+    this.seqNodes.update((ns) => [...ns, this.newStep('New step')]);
     this.syncSequence();
+  }
+
+  /**
+   * A new step needs a REAL module: a task without a module key is invalid Ansible, and the document would
+   * be unparseable from the moment the operator adds a step until they fill the field in (Bossman's parser
+   * rejects it outright). `ping` is the honest placeholder — always present, no arguments, harmless if it
+   * is ever actually run.
+   */
+  private newStep(name: string): SeqNode {
+    return { id: nextId(), kind: 'step', name, module: 'ping', args: {} };
   }
   removeSeqNode(id: string): void {
     const ns = [...this.seqNodes()];
@@ -617,6 +651,40 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
       args[k] = v;
     }
     node.args = args;
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+
+  /**
+   * Add a step to a group's rescue (catch) or always (finally) branch, creating the branch on demand.
+   * These were only expressible in the text view before, which made the tree a lesser editor than the YAML
+   * for exactly the case where a tree helps most — error handling around a risky group.
+   */
+  addBranchStep(group: SeqNode, branch: 'rescue' | 'always'): void {
+    const list = (group[branch] ??= []);
+    list.push(this.newStep(branch === 'rescue' ? 'recover' : 'cleanup'));
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+
+  /**
+   * Task keywords the model keeps in `extra` (they round-trip verbatim). failed_when decides what counts as
+   * a failure — the keyword that makes `rescue` usable for a module like `command`, which reports a non-zero
+   * exit as data rather than as an error.
+   */
+  editExtra(node: SeqNode, key: string, value: string): void {
+    const extra = { ...(node.extra ?? {}) };
+    if (value.trim()) extra[key] = value; else delete extra[key];
+    node.extra = Object.keys(extra).length ? extra : undefined;
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+
+  toggleIgnoreErrors(node: SeqNode, ev: Event): void {
+    const on = (ev.target as HTMLInputElement).checked;
+    const extra = { ...(node.extra ?? {}) };
+    if (on) extra['ignore_errors'] = true; else delete extra['ignore_errors'];
+    node.extra = Object.keys(extra).length ? extra : undefined;
     this.seqNodes.set([...this.seqNodes()]);
     this.syncSequence();
   }
