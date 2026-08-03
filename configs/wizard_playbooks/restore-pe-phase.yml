@@ -1,0 +1,54 @@
+# Bare-metal restore — PHASE 1 (PE context, against the raw target block devices).
+#
+# Ansible-task playbook: every step is a module call (yoloman.* provisioning modules + the discovered
+# community.general storage modules). Parsed by services/ansible_playbook.parse_playbook into the
+# canonical runbook doc and executed by the agent's runbook runner INSIDE the RAM PE — no chroot here;
+# these tasks operate on the raw disk / LVs before the target tree is mounted.
+#
+# Bossman resolves the captured layout + target size into the vars below (per-volume device paths,
+# image URLs, LV sizes, grow list) and passes them as runbook params; the loops keep this one playbook
+# valid for any layout. After this phase the runner mounts the target tree + bind mounts, then runs
+# restore-target-phase.yml with chroot=/mnt/target.
+- name: restore-pe-phase
+  hosts: all
+  vars:
+    target_disk: ""          # e.g. /dev/sda
+    has_partitions: false     # false when LVM sits on the raw disk (no partition table to write)
+    volume_groups: []         # [{vg, pvs}]
+    logical_volumes: []       # [{vg, lv, size}]   size e.g. "40g" or "100%FREE"
+    restore_volumes: []       # [{device, source_url}]  one per captured filesystem
+    growable_volumes: []      # [{device, fstype}]  root/var/home — grown to fill their volume
+  tasks:
+    - name: Write the target partition table from the source's sfdisk dump
+      yoloman.disk_partition:
+        disk: "{{ target_disk }}"
+        dump_file: /tmp/target.sfdisk
+      when: has_partitions
+
+    - name: Create the volume groups
+      community.general.lvg:
+        vg: "{{ item.vg }}"
+        pvs: "{{ item.pvs }}"
+        state: present
+      loop: "{{ volume_groups }}"
+
+    - name: Create the logical volumes
+      community.general.lvol:
+        vg: "{{ item.vg }}"
+        lv: "{{ item.lv }}"
+        size: "{{ item.size }}"
+        state: present
+      loop: "{{ logical_volumes }}"
+
+    - name: Restore each captured filesystem image onto its device
+      yoloman.partclone_restore:
+        device: "{{ item.device }}"
+        source_url: "{{ item.source_url }}"
+      loop: "{{ restore_volumes }}"
+
+    - name: Grow the growable filesystems to fill their (larger) target volume
+      community.general.filesystem:
+        dev: "{{ item.device }}"
+        fstype: "{{ item.fstype }}"
+        resizefs: true
+      loop: "{{ growable_volumes }}"

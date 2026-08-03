@@ -1,0 +1,44 @@
+# Bare-metal restore — PHASE 2 (chroot context, against the mounted target root /mnt/target).
+#
+# Ansible-task playbook, executed by the agent's runbook runner with chroot=/mnt/target: every module's
+# commands run inside the restored system and every path resolves under it, so no agent/module staging
+# into the target is needed (ChrootCaps handles it). The runner mounts the target tree + bind mounts
+# (/dev,/proc,/sys) before this phase (grub needs /sys); it unmounts after.
+#
+# Order matters (see services/imaging for the rationale): bootloader → initramfs → identity → ssh keys →
+# network. Firmware is resolved by Bossman from the layout (ESP present ⇒ uefi, else bios).
+- name: restore-target-phase
+  hosts: all
+  vars:
+    firmware: bios            # bios | uefi
+    target_disk: ""           # /dev/sda — only used for firmware=bios grub-install
+    efi_directory: /boot/efi
+    target_hostname: ""       # the new FQDN
+    network: {}               # {method, address?, gateway?, dns?, name?}  method=dhcp|static
+  tasks:
+    - name: Install the bootloader for the image's firmware
+      yoloman.bootloader:
+        firmware: "{{ firmware }}"
+        disk: "{{ target_disk }}"
+        efi_directory: "{{ efi_directory }}"
+
+    - name: Neutralise the source's swap/resume and rebuild the initramfs
+      yoloman.initramfs: {}
+
+    - name: Reset the machine identity (machine-id, SSH host keys, hostname, hosts, cloud-init)
+      yoloman.machine_identity:
+        hostname: "{{ target_hostname }}"
+
+    - name: Regenerate the SSH host keys dropped by the identity reset
+      ansible.builtin.command: ssh-keygen -A
+
+    - name: Write the target's final network config (applied on the target's own first boot)
+      yoloman.network_interface:
+        state: present
+        apply: false
+        method: "{{ network.method }}"
+        name: "{{ network.name | default('') }}"
+        address: "{{ network.address | default('') }}"
+        gateway: "{{ network.gateway | default('') }}"
+        dns: "{{ network.dns | default([]) }}"
+      when: network.method is defined
