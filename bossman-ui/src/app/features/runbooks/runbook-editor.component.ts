@@ -26,6 +26,7 @@ import { serializeWorkspace } from './blockly/ansibleGenerator';
 import { CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { SequenceTreeComponent } from './sequence/sequence-tree.component';
 import { SeqNode, findNode, nextId, removeNode, tasksToTree, treeToTasks } from './sequence/sequence-model';
+import { jsonSchemaToParamSchema, optionsToParamSchema } from './sequence/module-schema';
 import { importTasksYaml } from './blockly/playbookImporter';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
@@ -193,7 +194,7 @@ const MAGIC_VARS = [
             </div>
             <div class="bm-seq-wrap" cdkDropListGroup>
               <app-sequence-tree [nodes]="seqNodes()" [selectedId]="seqSelected()"
-                                 (select)="seqSelected.set($event)" (remove)="removeSeqNode($event)"
+                                 (select)="selectSeqNode($event)" (remove)="removeSeqNode($event)"
                                  (changed)="syncSequence()" />
               @if (!seqNodes().length) {
                 <p class="bm-dim">No tasks yet — add a Group or a Step.</p>
@@ -217,15 +218,26 @@ const MAGIC_VARS = [
                   <input matInput [ngModel]="sel.when || ''" (ngModelChange)="editSeq(sel, 'when', $event)"
                          placeholder="has_partitions" />
                 </mat-form-field>
-                @if (sel.kind === 'step') {
-                  <mat-form-field appearance="outline" class="bm-seq-args" subscriptSizing="dynamic">
-                    <mat-label>Arguments (JSON)</mat-label>
-                    <textarea matInput rows="3" [ngModel]="argsText(sel)"
-                              (ngModelChange)="editArgs(sel, $event)"></textarea>
-                  </mat-form-field>
-                  @if (argsError()) { <span class="bm-err">{{ argsError() }}</span> }
-                }
               </div>
+              <!-- The step's arguments as a TYPED form, generated from the module's argspec (its schema()) —
+                   choices become dropdowns. A module the catalog does not know keeps the raw JSON editor so
+                   it stays editable. -->
+              @if (sel.kind === 'step') {
+                <div class="bm-seq-args-box">
+                  @if (stepSchema(); as sch) {
+                    <app-param-form [params]="sch" [initial]="sel.args || {}"
+                                    (valuesChange)="setStepArgs(sel, $event)" />
+                  } @else {
+                    <mat-form-field appearance="outline" class="bm-seq-args" subscriptSizing="dynamic">
+                      <mat-label>Arguments (JSON — this module has no argspec)</mat-label>
+                      <textarea matInput rows="3" [ngModel]="argsText(sel)"
+                                (ngModelChange)="editArgs(sel, $event)"></textarea>
+                    </mat-form-field>
+                    @if (argsError()) { <span class="bm-err">{{ argsError() }}</span> }
+                    @if (schemaLoading()) { <span class="bm-dim">loading the module's argspec…</span> }
+                  }
+                </div>
+              }
               <datalist id="bm-seq-modules">
                 @for (m of moduleNames(); track m) { <option [value]="m"></option> }
               </datalist>
@@ -498,9 +510,117 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   editSeq(node: SeqNode, field: 'name' | 'module' | 'when', value: string): void {
     if (field === 'when') node.when = value.trim() ? value : undefined;
     else node[field] = value;
+    if (field === 'module') this.loadStepSchema(value);
     this.seqNodes.set([...this.seqNodes()]);
     this.syncSequence();
   }
+  /** Select a node and load its module's argspec, so the arguments render as a typed form. */
+  selectSeqNode(id: string): void {
+    this.seqSelected.set(id);
+    const n = findNode(this.seqNodes(), id);
+    this.argsError.set('');
+    this.loadStepSchema(n?.kind === 'step' ? n.module : undefined);
+  }
+
+  /** module fqcn → its argspec as a form schema (null = the catalog has no argspec for it). Cached, so
+   *  selecting the same module twice does not re-fetch. */
+  private schemaCache = new Map<string, ParamSchema | null>();
+  private stepSchemaSig = signal<ParamSchema | null>(null);
+  schemaLoading = signal(false);
+  /** The selected step's form schema. */
+  stepSchema = computed(() => this.stepSchemaSig());
+
+  /**
+   * Load the selected step's module argspec so its arguments render as a TYPED form (choices → dropdowns)
+   * instead of raw JSON. Called when the selection or the module changes; falls back to null (raw JSON) for
+   * a module the catalog does not know, so an unknown module is still editable.
+   */
+  private moduleIndex = new Map<string, string>();
+  /** module name (as written in a task) → the selected host agent's JSON Schema for it. */
+  private agentSchemas = new Map<string, ParamSchema | null>();
+
+  /**
+   * Load the selected host's module registry. This is the schema source for the NATIVE Go builtins
+   * (`apt`, `service`, `command`, …) and the embedded `yoloman.*` modules — Bossman's module library only
+   * holds the ~693 discovered collection modules, so without this every builtin step would fall back to
+   * raw JSON. The agent publishes each one as JSON Schema via /agents/{id}/tools.
+   */
+  private loadAgentSchemas(agentId: string): void {
+    if (!agentId) { this.agentSchemas.clear(); return; }
+    this.http.get<{ tools?: { name?: string; input_schema?: Record<string, unknown> }[] }>(
+      `${environment.apiUrl}/agents/${agentId}/tools`).subscribe({
+      next: (b) => {
+        const m = new Map<string, ParamSchema | null>();
+        for (const t of b?.tools ?? []) {
+          if (t?.name) m.set(t.name, jsonSchemaToParamSchema(t.input_schema as never));
+        }
+        this.agentSchemas = m;
+        // Re-resolve the current selection now that host schemas are known.
+        const sel = this.selectedSeqNode();
+        if (sel?.kind === 'step' && sel.module) this.loadStepSchema(sel.module);
+      },
+      error: () => this.agentSchemas.clear(),
+    });
+  }
+
+  private loadStepSchema(shortOrFqcn: string | undefined): void {
+    if (!shortOrFqcn) { this.stepSchemaSig.set(null); return; }
+    // The host's own registry wins: it is the truth about what this machine can run, and it is the only
+    // source for native + embedded modules.
+    const fromAgent = this.agentSchemas.get(shortOrFqcn);
+    if (fromAgent) { this.stepSchemaSig.set(fromAgent); return; }
+    // Resolve a short builtin name to its fqcn; an unknown name is asked for as-is (it may be a collection
+    // module the catalog lists under exactly that key).
+    const module = this.moduleIndex.get(shortOrFqcn) ?? shortOrFqcn;
+    if (this.schemaCache.has(module)) { this.stepSchemaSig.set(this.schemaCache.get(module)!); return; }
+    this.schemaLoading.set(true);
+    this.moduleService.detail(module).subscribe({
+      next: (d) => {
+        const sch = optionsToParamSchema(d?.metadata?.options as Record<string, ModuleOptionSpec> | undefined);
+        this.schemaCache.set(module, sch);
+        this.stepSchemaSig.set(sch);
+        this.schemaLoading.set(false);
+      },
+      error: () => {
+        this.schemaCache.set(module, null);   // remember the miss; don't re-ask on every click
+        this.stepSchemaSig.set(null);
+        this.schemaLoading.set(false);
+      },
+    });
+  }
+
+  /**
+   * param-form emitted the step's values → store them and re-serialise the document.
+   *
+   * param-form prefills every field from the schema, so a naive save would write EVERY optional argument
+   * into the playbook (`pvresize: false`, `pvs: []`, …). A playbook should carry what the operator actually
+   * set, so drop empties and anything still equal to the schema default — the module applies its own
+   * defaults anyway, and the YAML stays diff-friendly.
+   */
+  setStepArgs(node: SeqNode, values: Record<string, unknown>): void {
+    const schema = this.stepSchema();
+    const args: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(values || {})) {
+      if (v === '' || v === null || v === undefined) continue;
+      if (Array.isArray(v) && !v.length) continue;
+      if (v && typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length) continue;
+      const spec = schema?.[k];
+      const def = spec?.default;
+      if (def !== undefined) {
+        if (JSON.stringify(def) === JSON.stringify(v)) continue;   // untouched: still the schema default
+      } else if (spec?.type === 'bool' && v === false) {
+        // A boolean with no declared default: param-form emits `false` for "unchecked", which is the
+        // absence of an opinion, not an instruction. Writing it would put every optional flag in the
+        // playbook.
+        continue;
+      }
+      args[k] = v;
+    }
+    node.args = args;
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+
   argsText(node: SeqNode): string {
     const a = node.args ?? {};
     return Object.keys(a).length ? JSON.stringify(a, null, 1) : '{}';
@@ -571,7 +691,25 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     // The Sequence view's step palette IS the module registry (docs/resource-protocol.md: the Library is
     // the Resource type registry) — so a newly translated module shows up in the editor with no UI change.
     this.moduleService.catalog().subscribe({
-      next: (c) => this.moduleNames.set((c.modules || []).map((m) => m.fqcn).sort()),
+      next: (c) => {
+        const mods = c.modules || [];
+        this.moduleNames.set(mods.map((m) => m.fqcn).sort());
+        // A playbook writes builtins by SHORT name (`apt`, `service`) while the catalog keys by fqcn
+        // (`ansible.builtin.apt`), so index both — otherwise the step form falls back to raw JSON for
+        // every builtin, which is most of them.
+        const idx = new Map<string, string>();
+        for (const m of mods) {
+          // checkmk.* entries are CHECKS, not modules (the Modules page hides them too) — indexing them
+          // would resolve a step's `apt` to `checkmk.apt`, i.e. the wrong thing entirely.
+          if (m.fqcn.startsWith('checkmk.')) continue;
+          idx.set(m.fqcn, m.fqcn);
+          if (m.name && !idx.has(m.name)) idx.set(m.name, m.fqcn);
+        }
+        this.moduleIndex = idx;
+        // The selected step may have been waiting on this index.
+        const sel = this.selectedSeqNode();
+        if (sel?.kind === 'step' && sel.module && !this.stepSchemaSig()) this.loadStepSchema(sel.module);
+      },
       error: () => this.moduleNames.set([]),
     });
   }
@@ -624,6 +762,9 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   onHostChange(id: string): void {
     this.hostId.set(id);
     this.loadRuns();
+    // The host decides which modules exist and what their schemas are, so its registry is also the step
+    // form's primary schema source (native + embedded modules live only there).
+    this.loadAgentSchemas(id);
   }
 
   private reloadList(): void {
