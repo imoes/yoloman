@@ -103,7 +103,9 @@ def main(ctx, params):
 
     # Helper to call vgs and parse output
     def get_vg_info():
-        vgs_cmd = ["vgs", "--noheadings", "--nosuffix", "-o", "vg_name,size,free,vg_extent_size", "--units", size_unit.lower(), "--separator", ";", vg]
+        # size_unit is "" for a percentage size (e.g. 100%FREE); `vgs --units ""` errors with "Invalid
+        # units specification", so fall back to a valid probe unit (the create path handles the percentage).
+        vgs_cmd = ["vgs", "--noheadings", "--nosuffix", "-o", "vg_name,size,free,vg_extent_size", "--units", (size_unit.lower() or "m"), "--separator", ";", vg]
         res = ctx.run(vgs_cmd)
         if res.rc != 0:
             fail("Failed to get volume group info: " + res.stderr)
@@ -123,7 +125,7 @@ def main(ctx, params):
 
     # Helper to call lvs and parse output
     def get_lv_info():
-        lvs_cmd = ["lvs", "-a", "--noheadings", "--nosuffix", "-o", "lv_name,size,lv_attr", "--units", size_unit.lower(), "--separator", ";", vg]
+        lvs_cmd = ["lvs", "-a", "--noheadings", "--nosuffix", "-o", "lv_name,size,lv_attr", "--units", (size_unit.lower() or "m"), "--separator", ";", vg]
         res = ctx.run(lvs_cmd)
         if res.rc != 0:
             fail("Failed to get logical volume info: " + res.stderr)
