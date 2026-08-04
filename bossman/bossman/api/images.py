@@ -31,9 +31,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
 from bossman.config import get_settings
-from bossman.db.models import SYSTEM_SETTINGS_ID, Agent, DeploymentTemplate, DiskImage, RestoreJob, SystemSettings
+from bossman.db.models import SYSTEM_SETTINGS_ID, Agent, DeploymentTemplate, DiskImage, RestoreJob, SystemSettings, VmHost
 from bossman.db.session import get_session
-from bossman.services import imaging, offline_enroll, vm_lab
+from bossman.services import hypervisor, imaging, offline_enroll, vm_lab
+from bossman.services.vault import Vault
 
 router = APIRouter()
 
@@ -318,6 +319,109 @@ async def delete_deployment_template(
     if t is not None:
         await session.delete(t)
         await session.commit()
+
+
+# ---------------------------------------------------------------------------
+# VM hosts — hypervisors (Proxmox / vCenter) the provisioner can create VMs on. Credentials are
+# vault-encrypted; the kind is auto-detected from host+credentials, not chosen.
+
+
+class VmHostIn(BaseModel):
+    name: str
+    host: str
+    username: str
+    password: str
+    verify_tls: bool = False
+
+
+class VmHostOut(BaseModel):
+    id: UUID
+    name: str
+    kind: str
+    host: str
+    username: str
+    verify_tls: bool
+    created_at: datetime
+
+    @classmethod
+    def from_model(cls, h: "VmHost") -> "VmHostOut":
+        return cls(id=h.id, name=h.name, kind=h.kind, host=h.host, username=h.username,
+                   verify_tls=bool(h.verify_tls), created_at=h.created_at)
+
+
+def _vault() -> Vault:
+    s = get_settings()
+    return Vault(s.vault_key, s.vault_key_path)
+
+
+@router.get("/api/v1/provisioning/vm-hosts", response_model=list[VmHostOut])
+async def list_vm_hosts(
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> list[VmHostOut]:
+    rows = (await session.scalars(select(VmHost).order_by(VmHost.name))).all()
+    return [VmHostOut.from_model(h) for h in rows]
+
+
+@router.post("/api/v1/provisioning/vm-hosts", response_model=VmHostOut, status_code=201)
+async def create_vm_host(
+    body: VmHostIn,
+    session: AsyncSession = Depends(get_session), identity=Depends(get_current_identity),
+) -> VmHostOut:
+    """Register a hypervisor: detect whether it is Proxmox or vCenter from the host + credentials (the
+    operator does not choose), then store it with the password vault-encrypted. Detection failure is a 422
+    with the probe's reason, so a wrong host/credential is obvious."""
+    name = body.name.strip()
+    host = body.host.strip()
+    if not name or not host:
+        raise HTTPException(status_code=422, detail="name and host are required")
+    try:
+        kind = await hypervisor.detect(host, body.username, body.password, verify_tls=body.verify_tls)
+    except hypervisor.HypervisorError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    existing = await session.scalar(select(VmHost).where(VmHost.name == name))
+    row = existing or VmHost(name=name)
+    row.kind = kind
+    row.host = host
+    row.username = body.username
+    row.secret = _vault().encrypt(body.password)
+    row.verify_tls = body.verify_tls
+    if existing is None:
+        row.created_by = getattr(identity, "name", None)
+        session.add(row)
+    await session.commit()
+    return VmHostOut.from_model(row)
+
+
+@router.delete("/api/v1/provisioning/vm-hosts/{host_id}", status_code=204)
+async def delete_vm_host(
+    host_id: UUID,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> None:
+    row = await session.get(VmHost, host_id)
+    if row is not None:
+        await session.delete(row)
+        await session.commit()
+
+
+@router.get("/api/v1/provisioning/vm-hosts/{host_id}/placement")
+async def vm_host_placement(
+    host_id: UUID,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """What a VM needs placed on this hypervisor: nodes/hosts, the storages/datastores that can hold a disk,
+    and the networks/bridges a NIC attaches to — so the wizard can offer them."""
+    row = await session.get(VmHost, host_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="no such VM host")
+    password = _vault().decrypt(row.secret)
+    try:
+        if row.kind == "proxmox":
+            client = hypervisor.ProxmoxClient(row.host, row.username, password, verify_tls=row.verify_tls)
+            return await client.placement()
+        raise HTTPException(status_code=501, detail=f"{row.kind} placement is not implemented yet")
+    except hypervisor.HypervisorError as exc:
+        raise HTTPException(status_code=502, detail=f"hypervisor query failed: {exc}") from exc
 
 
 @router.post("/api/v1/images", response_model=ImageOut, status_code=201)

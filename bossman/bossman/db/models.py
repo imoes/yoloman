@@ -1684,6 +1684,31 @@ class DeploymentTemplate(Base):
     )
 
 
+class VmHost(Base):
+    """A hypervisor the provisioner can create VMs on: vCenter or Proxmox. The credentials are stored
+    encrypted (vault) so the environment is picked once and reused; the `kind` is auto-detected from the
+    host+credentials, not chosen by the operator (probe Proxmox :8006 vs vCenter /api/session — see
+    services/hypervisor.detect)."""
+
+    __tablename__ = "vm_hosts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=DEFAULT_TENANT_ID)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)          # proxmox | vcenter (auto-detected)
+    host: Mapped[str] = mapped_column(String, nullable=False)          # hostname/IP (no scheme/port)
+    username: Mapped[str] = mapped_column(String, nullable=False)      # e.g. root@pam or administrator@vsphere.local
+    secret: Mapped[str] = mapped_column(Text, nullable=False)          # vault-encrypted password/token
+    verify_tls: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"), default=False)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_vm_hosts_name"),
+        CheckConstraint("kind IN ('proxmox', 'vcenter')", name="ck_vm_hosts_kind"),
+    )
+
+
 class RestoreJob(Base):
     """One machine being installed from one image.
 

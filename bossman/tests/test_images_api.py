@@ -632,3 +632,53 @@ async def test_deployment_template_rejects_a_bad_grow_mode(db_session):
         r = client.post("/api/v1/provisioning/templates",
                         json={"name": f"bad-{uuid.uuid4().hex[:6]}", "grow_mode": "sideways"}, headers=_h(raw))
     assert r.status_code == 422
+
+
+async def test_vm_host_crud_detects_kind_and_encrypts_the_secret(db_session, monkeypatch, tmp_path):
+    """Registering a hypervisor auto-detects proxmox|vcenter (operator doesn't choose) and stores the
+    password vault-encrypted — the API never echoes it back."""
+    from bossman.services import hypervisor
+    from bossman.services.vault import Vault
+    from bossman.api import images as images_api
+    from bossman.db.models import VmHost as _VmHost
+
+    async def fake_detect(host, user, pw, *, verify_tls=False):
+        return "proxmox"
+    monkeypatch.setattr(hypervisor, "detect", fake_detect)
+    # A writable vault key for the test (the default /etc/bossman is not writable here).
+    monkeypatch.setattr(images_api, "_vault", lambda: Vault("", str(tmp_path / "vault.key")))
+
+    token, raw = await _token(db_session)
+    name = f"pve-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        created = client.post("/api/v1/provisioning/vm-hosts", headers=_h(raw), json={
+            "name": name, "host": "pve.example", "username": "root@pam", "password": "s3cret"})
+        assert created.status_code == 201, created.text
+        body = created.json()
+        assert body["kind"] == "proxmox"
+        assert "password" not in body and "secret" not in body   # never echoed
+        hid = body["id"]
+
+        listed = client.get("/api/v1/provisioning/vm-hosts", headers=_h(raw)).json()
+        assert any(h["id"] == hid for h in listed)
+
+    # stored secret is vault-encrypted, not the plaintext
+    row = await db_session.get(_VmHost, uuid.UUID(hid))
+    assert row.secret != "s3cret" and row.secret.startswith("vault:")
+
+    with TestClient(create_app()) as client:
+        assert client.delete(f"/api/v1/provisioning/vm-hosts/{hid}", headers=_h(raw)).status_code == 204
+
+
+async def test_vm_host_registration_rejects_an_undetectable_host(db_session, monkeypatch):
+    from bossman.services import hypervisor
+
+    async def fake_detect(host, user, pw, *, verify_tls=False):
+        raise hypervisor.HypervisorError("Proxmox probe failed; vCenter not wired up")
+    monkeypatch.setattr(hypervisor, "detect", fake_detect)
+
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        r = client.post("/api/v1/provisioning/vm-hosts", headers=_h(raw), json={
+            "name": f"bad-{uuid.uuid4().hex[:6]}", "host": "nope", "username": "x", "password": "y"})
+    assert r.status_code == 422 and "probe failed" in r.json()["detail"]
