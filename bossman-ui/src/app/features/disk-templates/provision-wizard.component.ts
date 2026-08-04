@@ -6,10 +6,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { forkJoin } from 'rxjs';
 import { DeploymentTemplate, DiskImage, ImageVolume, ImagesService, ProvisionNetwork, VmHost, VmPlacement } from '../../core/services/images.service';
-import { OrchestrationService } from '../../core/services/orchestration.service';
-import { ResourceService } from '../../core/services/resource.service';
+import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
 
 /** Roles whose size a grow policy adjusts; the rest (esp/boot/swap) stay fixed — same set as the page. */
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
@@ -208,14 +206,18 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
             }
 
             @case (3) {
-              <h2>Roles</h2>
-              <p class="pw-lead">Roles to bind to the host. They are declared now and converge after first boot.</p>
-              <input class="pw-search" placeholder="Filter roles…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
-              @if (roles().length === 0) { <p class="pw-dim">No roles defined. Create some under Roles.</p> }
-              @for (r of filteredRoles(); track r.id) {
+              <h2>Roles &amp; features</h2>
+              <p class="pw-lead">Roles and features to put on the host — the same catalog as Management. Chosen
+                now and installed automatically after the first boot.</p>
+              <input class="pw-search" placeholder="Filter roles &amp; features…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
+              @if (roles().length === 0) { <p class="pw-dim">Catalog is empty or still loading.</p> }
+              @for (r of filteredRoles(); track r.name) {
                 <label class="pw-pick">
                   <mat-checkbox [checked]="pickedRoles().has(r.name)" (change)="toggleRole(r.name)" />
-                  <span><b>{{ r.display_name || r.name }}</b> <span class="pw-dim">{{ r.description }}</span></span>
+                  <span>
+                    <span class="pw-rkind" [class.role]="r.kind === 'role'">{{ r.kind === 'role' ? 'Role' : 'Feature' }}</span>
+                    <b>{{ r.label }}</b> <span class="pw-dim">{{ r.description }}</span>
+                  </span>
                 </label>
               }
             }
@@ -302,6 +304,8 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
     .pw-disk-fld { margin: 0; } .pw-disk-fld input { width: 8rem; }
     .pw-search { width: 100%; padding: .35rem; margin-bottom: .5rem; box-sizing: border-box; }
     .pw-pick { display: flex; align-items: center; gap: .5rem; padding: .2rem 0; font-size: .85rem; }
+    .pw-rkind { font-size: .6rem; font-weight: 600; padding: .05rem .35rem; border-radius: 4px; background: #8883; margin-right: .35rem; text-transform: uppercase; }
+    .pw-rkind.role { background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); }
     .pw-review { list-style: none; padding: 0; } .pw-review li { padding: .3rem 0; border-bottom: 1px solid #3332; font-size: .9rem; }
     .pw-progress { list-style: none; padding: 0; } .pw-progress li { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; font-size: .85rem; }
     .pw-progress mat-icon.ok { color: #2e7d32; } .pw-progress mat-icon.bad { color: #d9534f; }
@@ -323,8 +327,7 @@ export class ProvisionWizardComponent implements OnInit {
   readonly STEP_LABELS = ['Target', 'Virtualization', 'Disk image', 'Roles', 'Review'];
 
   private svc = inject(ImagesService);
-  private orch = inject(OrchestrationService);
-  private resources = inject(ResourceService);
+  private catalogSvc = inject(PackageCatalogService);
   private ref = inject(MatDialogRef<ProvisionWizardComponent>);
 
   step = signal(0);
@@ -362,8 +365,10 @@ export class ProvisionWizardComponent implements OnInit {
   vlan: number | null = null;
   uefi = signal(false);
 
-  // Roles + config
-  roles = signal<{ id: string; name: string; display_name: string; description: string }[]>([]);
+  // Roles + features — the SAME source as Management → Roles & Features (the package catalog). Chosen
+  // offline here; the host does not exist yet, so they are stored on the planned host and pushed after the
+  // first boot (not installed at deploy time). config-kind entries are excluded (not installable roles).
+  roles = signal<{ name: string; label: string; description: string; kind: 'role' | 'feature' }[]>([]);
   roleQuery = signal('');
   pickedRoles = signal<Set<string>>(new Set());
 
@@ -393,7 +398,9 @@ export class ProvisionWizardComponent implements OnInit {
   });
   filteredRoles = computed(() => {
     const q = this.roleQuery().trim().toLowerCase();
-    return this.roles().filter((r) => !q || r.name.toLowerCase().includes(q) || (r.display_name || '').toLowerCase().includes(q));
+    return this.roles().filter((r) => !q
+      || r.name.toLowerCase().includes(q) || r.label.toLowerCase().includes(q)
+      || (r.description || '').toLowerCase().includes(q));
   });
   done = computed(() => !this.deploying() && this.results().length > 0 && this.allOk());
   allOk = computed(() => this.results().length > 0 && this.results().every((r) => r.ok));
@@ -406,10 +413,17 @@ export class ProvisionWizardComponent implements OnInit {
       const active = imgs.find((i) => i.is_active && i.status === 'ready') ?? imgs.find((i) => i.status === 'ready');
       if (active) this.pickImage(active);
     });
-    this.orch.listPlans().subscribe({
-      next: (plans) => this.roles.set(
-        plans.filter((p) => p.plan_type === 'role')
-          .map((p) => ({ id: p.id, name: p.name, display_name: p.display_name, description: p.description }))),
+    // Roles & Features from the package catalog — the same catalog the Management snap-in uses. Only
+    // installable kinds (role/feature); config-only entries are not roles you deploy onto a host.
+    this.catalogSvc.catalog().subscribe({
+      next: (cat) => this.roles.set(
+        Object.entries(cat.packages)
+          .filter(([, e]) => e.kind === 'role' || e.kind === 'feature')
+          .map(([name, e]: [string, CatalogPackage]) => ({
+            name, label: e.label || name, description: e.description || '',
+            kind: e.kind === 'feature' ? 'feature' as const : 'role' as const,
+          }))
+          .sort((a, b) => (a.kind === b.kind ? a.label.localeCompare(b.label) : a.kind === 'role' ? -1 : 1))),
       error: () => this.roles.set([]),
     });
     this.svc.listTemplates().subscribe({ next: (t) => this.templates.set(t), error: () => this.templates.set([]) });
@@ -619,13 +633,22 @@ export class ProvisionWizardComponent implements OnInit {
     // The rest of the flow runs against a MAC. Bare metal uses the typed one (may be blank = wildcard); a VM
     // target has none yet, so we create the VM first and use the MAC the hypervisor assigned it — that MAC
     // is what the PXE check-in identifies the machine by, so it MUST be the one armed on the restore job.
+    const roles = [...this.pickedRoles()];
     const proceed = (mac: string) => {
       this.svc.patch(imageId, { grow_mode, grow_policy }).subscribe({
-        next: () => this.svc.createPlannedHost({ hostname, mac, network }).subscribe({
-          next: (host) => {
+        // Roles are stored ON the planned host (agent_metadata.provision_roles); the host does not exist yet,
+        // so they are NOT installed here — the post-boot push (Block B3) installs them once it is up.
+        next: () => this.svc.createPlannedHost({ hostname, mac, network, roles }).subscribe({
+          next: () => {
             push({ label: `Host ${hostname} created`, ok: true });
             this.svc.arm({ image_id: imageId, target_mac: mac, target_hostname: hostname }).subscribe({
-              next: () => { push({ label: 'Restore job armed', ok: true }); this.bindAll(host.id, push); },
+              next: () => {
+                push({ label: 'Restore job armed', ok: true });
+                push({ label: roles.length
+                  ? `${roles.length} role(s)/feature(s) queued — installed after first boot`
+                  : 'No roles selected', ok: true });
+                this.deploying.set(false);
+              },
               error: (e) => this.fail(push, 'Arming failed', e),
             });
           },
@@ -647,23 +670,6 @@ export class ProvisionWizardComponent implements OnInit {
     } else {
       proceed(this.mac.trim());
     }
-  }
-
-  /** Declare every selected role on the new host. Independent applies, so one failure is reported without
-   *  aborting the others — the host is already created and armed by this point. RoleResource.apply only
-   *  writes the binding + desired state; it converges when the host first checks in. */
-  private bindAll(hostId: string, push: (r: DeployStepResult) => void): void {
-    const roleNames = [...this.pickedRoles()];
-    if (!roleNames.length) { this.deploying.set(false); return; }
-    const calls = roleNames.map((name) => this.resources.apply({ agentId: hostId, kind: 'role', name }, {}, false));
-    forkJoin(calls).subscribe({
-      next: (res) => {
-        (res as { ok?: boolean; error?: string }[]).forEach((r, i) =>
-          push({ label: `Role ${roleNames[i]}`, ok: r?.ok !== false, error: r?.error }));
-        this.deploying.set(false);
-      },
-      error: (e) => this.fail(push, 'Binding roles failed', e),
-    });
   }
 
   private fail(push: (r: DeployStepResult) => void, label: string, e: unknown): void {

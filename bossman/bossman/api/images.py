@@ -80,6 +80,9 @@ class PlannedHostIn(BaseModel):
     hostname: str
     mac: str = ""
     network: dict = {}   # {mode: dhcp|static, interface?, address (CIDR), gateway?, dns: [...]}
+    # Catalog roles/features (package_catalog names) chosen offline in the wizard. Stored on the planned
+    # host now and PUSHED after the first boot — the host does not exist yet, so nothing is installed here.
+    roles: list[str] = []
 
 
 # The volume roles a grow policy may size — the ones imaging.classify_role can grow independently.
@@ -218,6 +221,9 @@ async def create_planned_host(
         new_meta["provision_mac"] = normalise_mac(body.mac)
     if body.network:
         new_meta["provision_network"] = body.network
+    if body.roles:
+        # Kept offline until the host is up; the post-boot role push reads this back (Block B3).
+        new_meta["provision_roles"] = list(body.roles)
     existing = await session.scalar(select(Agent).where(Agent.name == hostname))
     if existing is not None:
         # Re-provisioning (reimage): update the provisioning metadata and move the host back to 'planned'
@@ -229,7 +235,8 @@ async def create_planned_host(
         existing.enrollment_state = "planned"
         await session.commit()
         return {"id": str(existing.id), "hostname": hostname, "enrollment_state": "planned",
-                "mac": meta.get("provision_mac", ""), "network": body.network}
+                "mac": meta.get("provision_mac", ""), "network": body.network,
+                "roles": meta.get("provision_roles", [])}
     agent = Agent(
         name=hostname, address=None, token=secrets.token_hex(16), mode="standalone",
         enrollment_state="planned", agent_metadata=new_meta,
@@ -237,7 +244,8 @@ async def create_planned_host(
     session.add(agent)
     await session.commit()
     return {"id": str(agent.id), "hostname": hostname, "enrollment_state": "planned",
-            "mac": new_meta.get("provision_mac", ""), "network": body.network}
+            "mac": new_meta.get("provision_mac", ""), "network": body.network,
+            "roles": new_meta.get("provision_roles", [])}
 
 
 # ---------------------------------------------------------------------------

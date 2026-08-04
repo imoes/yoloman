@@ -132,9 +132,10 @@ export class ImagesService {
   cancelJob(id: string) { return this.http.post<RestoreJob>(`${this.base}/restore-jobs/${id}/cancel`, {}); }
   deleteJob(id: string) { return this.http.delete<void>(`${this.base}/restore-jobs/${id}`); }
 
-  /** Create a bare-metal target as a 'planned' host (roles get assigned via the Management tab). */
-  createPlannedHost(body: { hostname: string; mac?: string; network?: ProvisionNetwork }) {
-    return this.http.post<{ id: string; hostname: string; enrollment_state: string }>(
+  /** Create a bare-metal target as a 'planned' host. `roles` are catalog role/feature names chosen offline
+   *  in the wizard; they are stored on the host now and pushed after the first boot (not installed here). */
+  createPlannedHost(body: { hostname: string; mac?: string; network?: ProvisionNetwork; roles?: string[] }) {
+    return this.http.post<{ id: string; hostname: string; enrollment_state: string; roles?: string[] }>(
       `${this.base}/provisioning/hosts`, body);
   }
 
