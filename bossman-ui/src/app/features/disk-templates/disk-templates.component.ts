@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { ProvisionWizardComponent } from './provision-wizard.component';
-import { DiskImage, ImageVolume, ImagesService, ProvisionNetwork, RestoreJob, Vm } from '../../core/services/images.service';
+import { DiskImage, ImageVolume, ImagesService, RestoreJob, Vm } from '../../core/services/images.service';
 
 /** Roles whose size a grow policy can adjust; the rest (esp/boot/swap/bios_boot) stay fixed. */
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
@@ -14,9 +14,9 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 /**
  * Disk templates / bare-metal provisioning. Left: captured templates (mark one active). Middle: the
  * active template's disk — fixed volumes locked, growable ones (root/var/home, LVM-aware) as percentage
- * inputs that must sum to 100. Right: plan a target host (hostname/MAC/network) + arm the install, and
- * the live restore-jobs list. Roles are assigned through the host's Management tab (link per job).
- * See docs/pxe-baremetal-imaging.md.
+ * inputs that must sum to 100. Right: the deployment wizard (target, disk, optional VM host, roles — it
+ * creates the planned host and arms the install) and the live restore-jobs list. Roles are assigned in the
+ * wizard or afterwards through the host's Management tab (link per job). See docs/pxe-baremetal-imaging.md.
  */
 @Component({
   selector: 'app-disk-templates',
@@ -121,6 +121,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               @if (gibError()) { <div class="dt-sum bad">{{ gibError() }}</div> }
             }
             <button mat-button [disabled]="!canSaveGrow()" (click)="saveGrow()">Save grow policy</button>
+            @if (err()) { <p class="dt-err">{{ err() }}</p> }
           } @else {
             <p class="dt-muted">No growable volumes (root/var/home) — the last volume fills the disk.</p>
           }
@@ -133,25 +134,8 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         <button mat-flat-button color="primary" class="dt-wizard-btn" (click)="openWizard()">
           <mat-icon>auto_awesome</mat-icon> New deployment (wizard)
         </button>
-        <p class="dt-muted">Guided: target, disk, roles and config in one flow. Or use the quick form below.</p>
-        <label class="dt-fld"><span>Hostname</span><input [(ngModel)]="host.hostname" placeholder="web042" /></label>
-        <label class="dt-fld"><span>MAC <span class="dt-opt">(optional)</span></span><input [(ngModel)]="host.mac" placeholder="empty = next machine that boots" /></label>
-        <label class="dt-fld"><span>Network</span>
-          <select [(ngModel)]="net.mode">
-            <option value="dhcp">DHCP</option>
-            <option value="static">static</option>
-          </select>
-        </label>
-        @if (net.mode === 'static') {
-          <label class="dt-fld"><span>Address (CIDR)</span><input [(ngModel)]="net.address" placeholder="192.0.2.60/24" /></label>
-          <label class="dt-fld"><span>Gateway</span><input [(ngModel)]="net.gateway" placeholder="192.0.2.1" /></label>
-          <label class="dt-fld"><span>DNS (comma)</span><input [(ngModel)]="dnsRaw" placeholder="192.0.2.1, 1.1.1.1" /></label>
-        }
-        <button mat-flat-button color="primary" [disabled]="!canProvision()" (click)="provision()">
-          Create host + arm for install
-        </button>
-        @if (err()) { <p class="dt-err">{{ err() }}</p> }
-        <p class="dt-muted">Assign roles afterwards in the host's <b>Management</b> tab (they converge after the first boot).</p>
+        <p class="dt-muted">Guided in one flow: target, disk image, optional VM host, roles and config —
+          it creates the (planned) host and arms the install. Roles converge after the first boot.</p>
 
         <h3>Restore jobs</h3>
         @for (j of jobs(); track j.id) {
@@ -300,10 +284,6 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   importing = signal(false);
   importErr = signal('');
 
-  host = { hostname: '', mac: '' };
-  net: ProvisionNetwork = { mode: 'dhcp' };
-  dnsRaw = '';
-
   private timer?: ReturnType<typeof setInterval>;
 
   growableRoles = computed(() =>
@@ -346,8 +326,16 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
 
   openWizard(): void {
-    this.dialog.open(ProvisionWizardComponent, { autoFocus: false })
-      .afterClosed().subscribe((armed) => { if (armed) this.reload(); });
+    this.dialog.open(ProvisionWizardComponent, {
+      autoFocus: false,
+      panelClass: 'pw-dialog',
+      // Size the dialog to the wizard's own layout. MDC caps dialogs at 560px by default, which is narrower
+      // than the wizard (two-column: step list + panel), so without this the right edge — Next included —
+      // would be clipped. The panelClass also lifts the max-width cap and makes the surface flush.
+      width: 'min(760px, 92vw)',
+      maxWidth: '92vw',
+      height: 'min(560px, 85vh)',
+    }).afterClosed().subscribe((armed) => { if (armed) this.reload(); });
   }
 
   private pollVms(): void {
@@ -466,28 +454,4 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     });
   }
 
-  canProvision(): boolean {
-    // MAC is optional: blank arms a wildcard job the next machine to boot claims.
-    return !!this.host.hostname.trim() && !!this.images().find((i) => i.is_active);
-  }
-
-  provision(): void {
-    this.err.set('');
-    const active = this.images().find((i) => i.is_active);
-    if (!active) { this.err.set('No active template'); return; }
-    const network: ProvisionNetwork = { mode: this.net.mode };
-    if (this.net.mode === 'static') {
-      network.address = this.net.address;
-      network.gateway = this.net.gateway;
-      network.dns = this.dnsRaw.split(',').map((s) => s.trim()).filter(Boolean);
-    }
-    this.svc.createPlannedHost({ hostname: this.host.hostname.trim(), mac: this.host.mac.trim(), network }).subscribe({
-      next: () => this.svc.arm({ image_id: active.id, target_mac: this.host.mac.trim(), target_hostname: this.host.hostname.trim() })
-        .subscribe({
-          next: () => { this.host = { hostname: '', mac: '' }; this.net = { mode: 'dhcp' }; this.dnsRaw = ''; this.reload(); },
-          error: (e) => this.err.set(e?.error?.detail || 'Arming failed'),
-        }),
-      error: (e) => this.err.set(e?.error?.detail || 'Creating host failed'),
-    });
-  }
 }

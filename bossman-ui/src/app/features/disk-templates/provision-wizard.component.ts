@@ -254,7 +254,7 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
     </div>
   `,
   styles: [`
-    .pw { display: flex; flex-direction: column; width: min(760px, 90vw); height: min(560px, 85vh); }
+    .pw { display: flex; flex-direction: column; width: 100%; height: 100%; }
     .pw-title { font-size: 1.1rem; font-weight: 600; padding: .8rem 1rem; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .pw-body { display: flex; flex: 1; min-height: 0; }
     .pw-steps { flex: 0 0 170px; border-right: 1px solid var(--mat-sys-outline-variant); padding: .5rem; overflow-y: auto; }
