@@ -183,9 +183,18 @@ async def patch_image(
         # Percentages must sum to 100; absolute GiB sizes have no such constraint (a 0 fills the rest, and
         # plan_restore checks the sizes fit the real target disk at check-in).
         mode = body.grow_mode if body.grow_mode is not None else (img.grow_mode or "percent")
-        if mode == "percent":
-            total = sum(policy.values())
-            if policy and total != 100:
+        if mode == "percent" and policy:
+            # Sum PER VOLUME, exactly as plan_restore's pct_total does — not over the role-deduped dict.
+            # When several LVs share a role (e.g. /opt, /tmp, /usr are all 'data'), the operator's rows still
+            # total 100; summing the deduped dict instead under-counts (three 16%% 'data' rows collapse to one
+            # → 68) and would falsely reject a perfectly valid layout. Fall back to the dict sum if the
+            # manifest has no volumes to weigh against.
+            try:
+                vols = imaging.layout_from_dict(img.manifest or {}).volumes
+            except Exception:  # noqa: BLE001 - a malformed manifest just falls back to the dict sum
+                vols = ()
+            total = sum(policy[v.role] for v in vols if v.role in policy) if vols else sum(policy.values())
+            if total != 100:
                 raise HTTPException(status_code=422,
                                     detail=f"grow-policy percentages must sum to 100 (got {total})")
         img.grow_policy = policy

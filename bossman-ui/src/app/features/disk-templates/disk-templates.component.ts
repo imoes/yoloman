@@ -332,8 +332,8 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
       // Size the dialog to the wizard's own layout. MDC caps dialogs at 560px by default, which is narrower
       // than the wizard (two-column: step list + panel), so without this the right edge — Next included —
       // would be clipped. The panelClass also lifts the max-width cap and makes the surface flush.
-      width: 'min(760px, 92vw)',
-      maxWidth: '92vw',
+      width: 'min(980px, 95vw)',
+      maxWidth: '95vw',
       height: 'min(760px, 92vh)',
     }).afterClosed().subscribe((armed) => { if (armed) this.reload(); });
   }

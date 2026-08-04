@@ -12,6 +12,23 @@ import { CatalogPackage, PackageCatalogService } from '../../core/services/packa
 /** Roles whose size a grow policy adjusts; the rest (esp/boot/swap) stay fixed — same set as the page. */
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 
+// Catalog category ordering + labels/icons — kept identical to the Management "Add roles and features"
+// wizard (add-roles-wizard.component.ts) so this Miller-column browser looks exactly the same.
+const CAT_ORDER = ['web', 'database', 'services', 'network', 'security', 'storage', 'virtualization', 'logging', 'time', 'system', 'other'];
+const CAT_META: Record<string, { label: string; icon: string }> = {
+  web: { label: 'Web', icon: 'language' },
+  database: { label: 'Database', icon: 'storage' },
+  services: { label: 'Services', icon: 'apps' },
+  network: { label: 'Network', icon: 'lan' },
+  security: { label: 'Security', icon: 'security' },
+  storage: { label: 'Storage', icon: 'save' },
+  virtualization: { label: 'Virtualization', icon: 'dns' },
+  logging: { label: 'Logging', icon: 'article' },
+  time: { label: 'Time', icon: 'schedule' },
+  system: { label: 'System', icon: 'settings' },
+  other: { label: 'Other', icon: 'folder' },
+};
+
 interface DeployStepResult { label: string; ok: boolean; error?: string; }
 
 /**
@@ -207,19 +224,42 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
 
             @case (3) {
               <h2>Roles &amp; features</h2>
-              <p class="pw-lead">Roles and features to put on the host — the same catalog as Management. Chosen
-                now and installed automatically after the first boot.</p>
-              <input class="pw-search" placeholder="Filter roles &amp; features…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
-              @if (roles().length === 0) { <p class="pw-dim">Catalog is empty or still loading.</p> }
-              @for (r of filteredRoles(); track r.name) {
-                <label class="pw-pick">
-                  <mat-checkbox [checked]="pickedRoles().has(r.name)" (change)="toggleRole(r.name)" />
-                  <span>
-                    <span class="pw-rkind" [class.role]="r.kind === 'role'">{{ r.kind === 'role' ? 'Role' : 'Feature' }}</span>
-                    <b>{{ r.label }}</b> <span class="pw-dim">{{ r.description }}</span>
-                  </span>
-                </label>
-              }
+              <p class="pw-lead">The same catalog as Management — browse by category. Chosen now and installed
+                automatically after the first boot.</p>
+              <input class="pw-search" placeholder="Search roles &amp; features…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
+              <!-- Miller columns: category → packages (with description) → detail — identical to the
+                   Management "Add roles and features" browser. -->
+              <div class="pw-miller">
+                <div class="pw-mcol pw-mcol-cats">
+                  @for (c of catsOrdered(); track c.category) {
+                    <div class="pw-mcat" [class.pw-msel]="effectiveCat() === c.category" (click)="activeCat.set(c.category)">
+                      <mat-icon class="pw-mcat-ic">{{ catIcon(c.category) }}</mat-icon>
+                      <span class="pw-mcat-lbl">{{ catName(c.category) }}</span>
+                      <span class="pw-mcount">{{ c.items.length }}</span>
+                    </div>
+                  } @empty { <div class="pw-dim pw-mpad">No roles match.</div> }
+                </div>
+                <div class="pw-mcol pw-mcol-pkgs">
+                  @for (r of catItems(); track r.name) {
+                    <div class="pw-mrole" [class.pw-msel]="focus() === r.name" (click)="focus.set(r.name)">
+                      <mat-checkbox [checked]="pickedRoles().has(r.name)" (change)="toggleRole(r.name)" (click)="$event.stopPropagation()" />
+                      <mat-icon class="pw-role-ic">{{ r.icon }}</mat-icon>
+                      <div class="pw-mrole-txt">
+                        <div class="pw-mrole-lbl">{{ r.label }}</div>
+                        <div class="pw-mrole-desc">{{ r.description }}</div>
+                      </div>
+                    </div>
+                  } @empty { <div class="pw-dim pw-mpad">Pick a category.</div> }
+                </div>
+                <aside class="pw-mcol pw-mdesc">
+                  @if (focused(); as r) {
+                    <div class="pw-mdesc-lbl">{{ r.label }}</div>
+                    <p class="pw-dim">{{ r.description }}</p>
+                    @if (rolePackages(r.name); as pk) { <div class="pw-mdesc-pkg">Package: <code>{{ pk }}</code></div> }
+                    @if (!r.template) { <div class="pw-warn">No configuration template yet — installs with defaults.</div> }
+                  } @else { <p class="pw-dim">Select a role to see what it does.</p> }
+                </aside>
+              </div>
             }
 
             @case (4) {
@@ -304,8 +344,27 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
     .pw-disk-fld { margin: 0; } .pw-disk-fld input { width: 8rem; }
     .pw-search { width: 100%; padding: .35rem; margin-bottom: .5rem; box-sizing: border-box; }
     .pw-pick { display: flex; align-items: center; gap: .5rem; padding: .2rem 0; font-size: .85rem; }
-    .pw-rkind { font-size: .6rem; font-weight: 600; padding: .05rem .35rem; border-radius: 4px; background: #8883; margin-right: .35rem; text-transform: uppercase; }
-    .pw-rkind.role { background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); }
+    /* Miller-column roles browser — mirrors Management's add-roles-wizard look. */
+    .pw-miller { display: grid; grid-template-columns: 180px 1fr 260px; gap: .6rem; height: 420px; }
+    .pw-mcol { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow-y: auto; padding: .35rem; min-width: 0; }
+    .pw-mpad { padding: .6rem; }
+    .pw-mcat { display: flex; align-items: center; gap: .5rem; padding: .4rem .55rem; border-radius: 6px; cursor: pointer; font-size: .82rem; }
+    .pw-mcat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .pw-mcat-ic { font-size: 18px; width: 18px; height: 18px; opacity: .75; }
+    .pw-mcat-lbl { flex: 1; }
+    .pw-mcount { font-size: .68rem; opacity: .5; font-variant-numeric: tabular-nums; }
+    .pw-msel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
+    .pw-mrole { display: flex; align-items: flex-start; gap: .5rem; padding: .4rem .55rem; border-radius: 6px; cursor: pointer; }
+    .pw-mrole:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .pw-role-ic { font-size: 18px; width: 18px; height: 18px; opacity: .8; margin-top: 2px; }
+    .pw-mrole-txt { min-width: 0; flex: 1; }
+    .pw-mrole-lbl { font-size: .82rem; font-weight: 600; }
+    .pw-mrole-desc { font-size: .75rem; opacity: .62; line-height: 1.4; margin-top: 1px; }
+    .pw-mdesc { padding: .8rem; }
+    .pw-mdesc-lbl { font-weight: 700; margin-bottom: .35rem; }
+    .pw-mdesc p { margin: 0 0 .5rem; line-height: 1.5; }
+    .pw-mdesc-pkg { font-size: .75rem; opacity: .75; }
+    .pw-warn { font-size: .75rem; color: #d9a520; margin-top: .4rem; }
     .pw-review { list-style: none; padding: 0; } .pw-review li { padding: .3rem 0; border-bottom: 1px solid #3332; font-size: .9rem; }
     .pw-progress { list-style: none; padding: 0; } .pw-progress li { display: flex; align-items: center; gap: .5rem; padding: .25rem 0; font-size: .85rem; }
     .pw-progress mat-icon.ok { color: #2e7d32; } .pw-progress mat-icon.bad { color: #d9534f; }
@@ -365,11 +424,13 @@ export class ProvisionWizardComponent implements OnInit {
   vlan: number | null = null;
   uefi = signal(false);
 
-  // Roles + features — the SAME source as Management → Roles & Features (the package catalog). Chosen
-  // offline here; the host does not exist yet, so they are stored on the planned host and pushed after the
-  // first boot (not installed at deploy time). config-kind entries are excluded (not installable roles).
-  roles = signal<{ name: string; label: string; description: string; kind: 'role' | 'feature' }[]>([]);
+  // Roles & features — the SAME package catalog and the SAME Miller-column browser as Management → Roles &
+  // Features. Chosen offline here; the host does not exist yet, so the selection is stored on the planned
+  // host and pushed after the first boot (not installed at deploy time). config-kind entries are excluded.
+  catalog = signal<Record<string, CatalogPackage>>({});
   roleQuery = signal('');
+  activeCat = signal<string>('');
+  focus = signal<string>('');
   pickedRoles = signal<Set<string>>(new Set());
 
   // Deploy
@@ -396,12 +457,33 @@ export class ProvisionWizardComponent implements OnInit {
     if (vals.filter((v) => v === 0).length > 1) return 'Only one volume can be 0 (fills the rest)';
     return '';
   });
-  filteredRoles = computed(() => {
+  // Miller columns, identical logic to the Management wizard: group non-config catalog entries by category
+  // (query-filtered), ordered categories, the active category's packages, and the focused package's detail.
+  grouped = computed(() => {
     const q = this.roleQuery().trim().toLowerCase();
-    return this.roles().filter((r) => !q
-      || r.name.toLowerCase().includes(q) || r.label.toLowerCase().includes(q)
-      || (r.description || '').toLowerCase().includes(q));
+    const groups = new Map<string, (CatalogPackage & { name: string })[]>();
+    for (const [name, entry] of Object.entries(this.catalog())) {
+      if (entry.kind === 'config') continue;   // base-system files aren't installable roles
+      if (q && !name.toLowerCase().includes(q) && !entry.label.toLowerCase().includes(q)
+          && !(entry.description || '').toLowerCase().includes(q)) continue;
+      const cat = entry.category || 'other';
+      (groups.get(cat) ?? groups.set(cat, []).get(cat)!).push({ ...entry, name });
+    }
+    return [...groups.entries()].map(([category, items]) => ({ category, items: items.sort((a, b) => a.label.localeCompare(b.label)) }));
   });
+  catsOrdered = computed(() =>
+    [...this.grouped()].sort((a, b) => {
+      const ia = CAT_ORDER.indexOf(a.category), ib = CAT_ORDER.indexOf(b.category);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.category.localeCompare(b.category);
+    }),
+  );
+  effectiveCat = computed(() => {
+    const cats = this.catsOrdered();
+    const cur = this.activeCat();
+    return cats.some((c) => c.category === cur) ? cur : (cats[0]?.category ?? '');
+  });
+  catItems = computed(() => this.catsOrdered().find((c) => c.category === this.effectiveCat())?.items ?? []);
+  focused = computed(() => { const n = this.focus(); const e = this.catalog()[n]; return e ? { ...e, name: n } : null; });
   done = computed(() => !this.deploying() && this.results().length > 0 && this.allOk());
   allOk = computed(() => this.results().length > 0 && this.results().every((r) => r.ok));
   currentNode = computed(() => this.placement()?.nodes.find((n) => n.node === this.node()) ?? null);
@@ -413,18 +495,11 @@ export class ProvisionWizardComponent implements OnInit {
       const active = imgs.find((i) => i.is_active && i.status === 'ready') ?? imgs.find((i) => i.status === 'ready');
       if (active) this.pickImage(active);
     });
-    // Roles & Features from the package catalog — the same catalog the Management snap-in uses. Only
-    // installable kinds (role/feature); config-only entries are not roles you deploy onto a host.
+    // Roles & Features from the package catalog — the same catalog the Management snap-in uses (all
+    // non-config entries; the Miller browser groups them). Kept as the raw record like Management does.
     this.catalogSvc.catalog().subscribe({
-      next: (cat) => this.roles.set(
-        Object.entries(cat.packages)
-          .filter(([, e]) => e.kind === 'role' || e.kind === 'feature')
-          .map(([name, e]: [string, CatalogPackage]) => ({
-            name, label: e.label || name, description: e.description || '',
-            kind: e.kind === 'feature' ? 'feature' as const : 'role' as const,
-          }))
-          .sort((a, b) => (a.kind === b.kind ? a.label.localeCompare(b.label) : a.kind === 'role' ? -1 : 1))),
-      error: () => this.roles.set([]),
+      next: (cat) => this.catalog.set(cat.packages),
+      error: () => this.catalog.set({}),
     });
     this.svc.listTemplates().subscribe({ next: (t) => this.templates.set(t), error: () => this.templates.set([]) });
     this.svc.listVmHosts().subscribe({ next: (h) => this.vmHosts.set(h), error: () => this.vmHosts.set([]) });
@@ -585,6 +660,11 @@ export class ProvisionWizardComponent implements OnInit {
     s.has(name) ? s.delete(name) : s.add(name);
     this.pickedRoles.set(s);
   }
+
+  catIcon(c: string): string { return CAT_META[c]?.icon ?? 'folder'; }
+  catName(c: string): string { return CAT_META[c]?.label ?? (c.charAt(0).toUpperCase() + c.slice(1)); }
+  /** The Debian-family packages a catalog role installs — shown in the detail column (no host context here). */
+  rolePackages(name: string): string { return (this.catalog()[name]?.families?.debian?.packages ?? []).join(', ') || name; }
 
   goto(i: number): void { if (i <= this.step() && !this.deploying() && !this.done()) this.step.set(i); }
   prev(): void { if (this.step() > 0) this.step.set(this.step() - 1); }
