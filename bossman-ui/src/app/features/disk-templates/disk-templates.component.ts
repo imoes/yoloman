@@ -84,6 +84,12 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         @if (!selected()) { <p class="dt-muted">Select a template.</p> }
         @if (selected(); as img) {
           <p class="dt-muted">Layout comes from the image (partclone). Only the sizes of the growable volumes are editable.</p>
+          @if (growableRoles().length) {
+            <div class="dt-mode">
+              <button [class.on]="growMode() === 'percent'" (click)="setMode('percent')">Percent</button>
+              <button [class.on]="growMode() === 'absolute'" (click)="setMode('absolute')">GiB</button>
+            </div>
+          }
           @for (v of img.volumes; track v.role + (v.lv || '')) {
             <div class="dt-vol">
               <span class="dt-vol-name">
@@ -94,7 +100,11 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               </span>
               @if (isGrowable(v)) {
                 <span class="dt-pct">
-                  <input type="number" min="0" max="100" [(ngModel)]="pct[v.role]" (ngModelChange)="onPct()" /> %
+                  @if (growMode() === 'percent') {
+                    <input type="number" min="0" max="100" [(ngModel)]="pct[v.role]" (ngModelChange)="onPct()" /> %
+                  } @else {
+                    <input type="number" min="0" [(ngModel)]="gib[v.role]" (ngModelChange)="onPct()" /> GiB
+                  }
                 </span>
               } @else {
                 <span class="dt-fixed">fix · {{ (v.size_bytes / 1073741824) | number: '1.0-1' }} GiB</span>
@@ -102,8 +112,13 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
             </div>
           }
           @if (growableRoles().length) {
-            <div class="dt-sum" [class.bad]="sum() !== 100">Sum: {{ sum() }} % @if (sum() !== 100) { — must be 100 }</div>
-            <button mat-button [disabled]="sum() !== 100" (click)="saveGrow()">Save grow policy</button>
+            @if (growMode() === 'percent') {
+              <div class="dt-sum" [class.bad]="sum() !== 100">Sum: {{ sum() }} % @if (sum() !== 100) { — must be 100 }</div>
+            } @else {
+              <p class="dt-muted">Absolute sizes in GiB. Set one volume to <b>0</b> to let it fill the rest of the disk.</p>
+              @if (gibError()) { <div class="dt-sum bad">{{ gibError() }}</div> }
+            }
+            <button mat-button [disabled]="!canSaveGrow()" (click)="saveGrow()">Save grow policy</button>
           } @else {
             <p class="dt-muted">No growable volumes (root/var/home) — the last volume fills the disk.</p>
           }
@@ -209,6 +224,9 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-fw.uefi { background: color-mix(in srgb, #4a90d9 28%, transparent); }
     .dt-pct input { width: 3.5rem; } .dt-fixed { font-size: .8rem; color: #888; }
     .dt-sum { margin: .5rem 0; } .dt-sum.bad { color: #d9534f; }
+    .dt-mode { display: inline-flex; border: 1px solid #3335; border-radius: 6px; overflow: hidden; margin-bottom: .5rem; }
+    .dt-mode button { border: 0; background: transparent; color: inherit; padding: .25rem .7rem; cursor: pointer; font-size: .8rem; }
+    .dt-mode button.on { background: color-mix(in srgb, #4a90d9 28%, transparent); }
     .dt-fld { display: flex; flex-direction: column; margin-bottom: .4rem; font-size: .85rem; }
     .dt-fld input, .dt-fld select { padding: .3rem; }
     .dt-err { color: #d9534f; } .dt-job { padding: .3rem 0; border-bottom: 1px solid #3332; font-size: .85rem; }
@@ -225,6 +243,8 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   err = signal('');
   labErr = signal('');
   pct: Record<string, number> = {};
+  gib: Record<string, number> = {};       // absolute GiB per growable role (0 = fill the rest)
+  growMode = signal<'percent' | 'absolute'>('percent');
 
   inst = { name: '', iso: '', disk: '' };
   activeImage = computed(() => this.images().find((i) => i.is_active) ?? null);
@@ -344,15 +364,37 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   select(img: DiskImage): void {
     this.selected.set(img);
-    // seed the percentage inputs from the stored policy, else spread evenly.
     const roles = img.volumes.filter((v) => this.isGrowable(v)).map((v) => v.role);
     const stored = img.grow_policy || {};
+    this.growMode.set(img.grow_mode === 'absolute' ? 'absolute' : 'percent');
+    // Percent inputs: from the stored percent policy, else spread evenly.
     const even = roles.length ? Math.floor(100 / roles.length) : 0;
     this.pct = {};
-    roles.forEach((r, i) => (this.pct[r] = stored[r] ?? (i === roles.length - 1 ? 100 - even * (roles.length - 1) : even)));
+    this.gib = {};
+    roles.forEach((r, i) => {
+      this.pct[r] = (img.grow_mode !== 'absolute' && stored[r] != null)
+        ? stored[r] : (i === roles.length - 1 ? 100 - even * (roles.length - 1) : even);
+      // GiB inputs: from the stored absolute policy, else 0 (= this volume fills the rest).
+      this.gib[r] = (img.grow_mode === 'absolute' && stored[r] != null) ? stored[r] : 0;
+    });
   }
 
-  onPct(): void { /* sum() recomputes from pct via the template bindings */ }
+  setMode(m: 'percent' | 'absolute'): void { this.growMode.set(m); }
+
+  onPct(): void { /* sum()/gibError() recompute from pct/gib via the template bindings */ }
+
+  /** In absolute mode: values ≥ 0 and at most one "rest" (0). Percent mode reuses sum()===100. */
+  gibError = computed(() => {
+    if (this.growMode() !== 'absolute') return '';
+    const vals = this.growableRoles().map((r) => Number(this.gib[r]) || 0);
+    if (vals.some((v) => v < 0)) return 'Sizes must be non-negative';
+    if (vals.filter((v) => v === 0).length > 1) return 'Only one volume can be 0 (fills the rest)';
+    return '';
+  });
+
+  canSaveGrow(): boolean {
+    return this.growMode() === 'percent' ? this.sum() === 100 : !this.gibError();
+  }
 
   toggleActive(img: DiskImage, ev: Event): void {
     ev.stopPropagation();
@@ -364,10 +406,12 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   saveGrow(): void {
     const img = this.selected();
-    if (!img || this.sum() !== 100) return;
+    if (!img || !this.canSaveGrow()) return;
+    const mode = this.growMode();
+    const src = mode === 'percent' ? this.pct : this.gib;
     const policy: Record<string, number> = {};
-    for (const r of this.growableRoles()) policy[r] = Number(this.pct[r]) || 0;
-    this.svc.patch(img.id, { grow_policy: policy }).subscribe({
+    for (const r of this.growableRoles()) policy[r] = Number(src[r]) || 0;
+    this.svc.patch(img.id, { grow_policy: policy, grow_mode: mode }).subscribe({
       next: (updated) => { this.selected.set(updated); this.reload(); },
       error: (e) => this.err.set(e?.error?.detail || 'Save failed'),
     });

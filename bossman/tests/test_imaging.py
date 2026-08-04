@@ -929,3 +929,59 @@ def test_firmware_derivation_from_the_manifest():
         {"number": 1, "kind": "bios_boot"}, {"number": 2, "kind": "lvm"}]}) == "bios"
     assert _firmware_of({}) == "unknown"
     assert _firmware_of({"partitions": []}) == "unknown"
+
+
+def test_absolute_grow_gives_each_volume_its_gib_and_root_the_rest():
+    # var 30 GiB, home 20 GiB, root = remainder (0). On a 200 GiB disk root should get the large leftover.
+    plan = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB),
+                        grow_policy={"root": 0, "var": 30, "home": 20}, grow_mode="absolute")
+    by = {p.volume.role: p for p in plan.volumes}
+    assert by["var"].size_bytes == 30 * GiB and by["var"].grow
+    assert by["home"].size_bytes == 20 * GiB and by["home"].grow
+    # root soaks up the rest: ~ 200 - esp - boot - 30 - 20 ≈ 147 GiB, and is much bigger than the others.
+    assert by["root"].size_bytes > 140 * GiB
+    assert by["root"].size_bytes > by["var"].size_bytes > by["home"].size_bytes
+    # esp/boot untouched
+    assert not by["esp"].grow and not by["boot"].grow
+
+
+def test_absolute_grow_refuses_more_than_one_remainder():
+    with pytest.raises(ImagingError) as exc:
+        plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB),
+                     grow_policy={"root": 0, "var": 0, "home": 20}, grow_mode="absolute")
+    assert "remainder" in str(exc.value)
+
+
+def test_absolute_grow_with_no_remainder_lets_the_last_named_volume_absorb_the_rest():
+    # All positive: var 30, home 20, root 40 — root is last in grow order? order is root,var,home, so home
+    # is the implicit remainder and gets the leftover (much more than its 20 GiB request).
+    plan = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB),
+                        grow_policy={"root": 40, "var": 30, "home": 20}, grow_mode="absolute")
+    by = {p.volume.role: p for p in plan.volumes}
+    assert by["root"].size_bytes == 40 * GiB
+    assert by["var"].size_bytes == 30 * GiB
+    assert by["home"].size_bytes > 20 * GiB   # implicit remainder absorbed the leftover
+
+
+def test_absolute_grow_refuses_sizes_that_exceed_the_disk():
+    # 500 GiB of explicit sizes will not fit a 100 GiB target.
+    with pytest.raises(ImagingError):
+        plan_restore(_lvm_rvh(), Disk("vda", 100 * GiB),
+                     grow_policy={"root": 0, "var": 300, "home": 200}, grow_mode="absolute")
+
+
+def test_absolute_grow_refuses_a_size_below_the_data_it_holds():
+    # var holds 2 GiB of data; giving it 1 GiB is impossible.
+    with pytest.raises(ImagingError) as exc:
+        plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB),
+                     grow_policy={"root": 0, "var": 1, "home": 20}, grow_mode="absolute")
+    assert "var" in str(exc.value)
+
+
+def test_percent_mode_is_unchanged_by_the_grow_mode_parameter():
+    # Passing grow_mode="percent" explicitly must equal the historical default.
+    a = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB), grow_policy={"root": 50, "var": 30, "home": 20})
+    b = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB),
+                     grow_policy={"root": 50, "var": 30, "home": 20}, grow_mode="percent")
+    assert [(p.volume.role, p.size_bytes, p.grow) for p in a.volumes] == \
+           [(p.volume.role, p.size_bytes, p.grow) for p in b.volumes]

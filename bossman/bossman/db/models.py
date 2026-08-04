@@ -1640,10 +1640,14 @@ class DiskImage(Base):
     # {"root":50,"var":30,"home":20}, consumed by imaging.plan_restore. Empty = grow only the last
     # volume (the default). /boot and the ESP are never grown.
     grow_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # How grow_policy's values are read: 'percent' (role→percent of the leftover, the historical default) or
+    # 'absolute' (role→GiB, with a 0 meaning "fill the rest"). See imaging.plan_restore.
+    grow_mode: Mapped[str] = mapped_column(String, nullable=False, server_default="percent", default="percent")
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (
         CheckConstraint("status IN ('capturing', 'ready', 'failed')", name="ck_disk_images_status"),
+        CheckConstraint("grow_mode IN ('percent', 'absolute')", name="ck_disk_images_grow_mode"),
         # At most one active template. A partial unique index on a constant is the standard trick.
         Index("uq_disk_images_one_active", text("(is_active)"), unique=True, postgresql_where=text("is_active")),
     )

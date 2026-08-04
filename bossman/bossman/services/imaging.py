@@ -381,14 +381,27 @@ def _split_vg_lv(name: str) -> tuple[str, str] | None:
     return vg.replace(marker, "-"), lv.replace(marker, "-")
 
 
-def plan_restore(layout: SourceLayout, target: Disk, grow_policy: dict[str, int] | None = None) -> RestorePlan:
+def plan_restore(
+    layout: SourceLayout,
+    target: Disk,
+    grow_policy: dict[str, int] | None = None,
+    grow_mode: str = "percent",
+) -> RestorePlan:
     """Fit a captured layout onto `target`.
 
     Without `grow_policy` the last volume gets whatever is left over (the default). With a
-    `grow_policy` — a role→percent map like ``{"root":50,"var":30,"home":20}`` — the leftover space
-    is split across those volumes by percentage while the rest (esp/boot/swap) stay fixed. Multi-
-    volume grow only works when the growable volumes live on **LVM** (root/var/home as LVs in a VG):
-    a VG allocates each LV from free extents, whereas raw partitions can only grow at the end.
+    `grow_policy` the leftover space is split across the named volumes while the rest (esp/boot/swap)
+    stay fixed. `grow_mode` decides how the values are read:
+
+    * ``percent`` (default) — role→percent, e.g. ``{"root":50,"var":30,"home":20}``; the leftover is
+      divided by those shares. This is the historical behaviour and is unchanged.
+    * ``absolute`` — role→**GiB**, e.g. ``{"var":30,"home":20,"root":0}``. Each positive value is that
+      volume's exact grown size; a volume set to ``0`` is the *remainder* and absorbs whatever is left
+      (there must be at most one). With no remainder, the last named volume absorbs any leftover so the
+      disk is never left partly unallocated.
+
+    Multi-volume grow only works when the growable volumes live on **LVM** (root/var/home as LVs in a
+    VG): a VG allocates each LV from free extents, whereas raw partitions can only grow at the end.
 
     Rules, and each exists because of a way this goes wrong:
 
@@ -440,10 +453,15 @@ def plan_restore(layout: SourceLayout, target: Disk, grow_policy: dict[str, int]
             f"{', '.join(v.role for v in growable)}, which hold {used_growable} bytes of data"
         )
 
-    # Target size per growable volume: split `remaining` by percentage (single volume → all of it).
+    # Target size per growable volume.
     idx = {id(v): i for i, v in enumerate(layout.volumes)}
     sizes: dict[int, int] = {}
-    if len(growable) > 1:
+    if len(growable) == 1 and (not grow_policy or grow_mode != "absolute"):
+        # Single growable volume in percent/default mode: it simply takes everything left.
+        sizes[idx[id(growable[0])]] = _align_down(remaining)
+    elif grow_mode == "absolute":
+        sizes = _absolute_sizes(growable, grow_policy or {}, remaining, idx)
+    else:
         pct_total = sum(grow_policy[v.role] for v in growable) or 1
         allotted = 0
         for v in growable[:-1]:
@@ -458,8 +476,6 @@ def plan_restore(layout: SourceLayout, target: Disk, grow_policy: dict[str, int]
                 f"{growable[-1].used_bytes} bytes of data"
             )
         sizes[idx[id(growable[-1])]] = last_share
-    else:
-        sizes[idx[id(growable[0])]] = _align_down(remaining)
 
     plan = RestorePlan(target_disk=target.name, target_size=target.size)
     for i, v in enumerate(layout.volumes):
@@ -490,6 +506,51 @@ def plan_restore(layout: SourceLayout, target: Disk, grow_policy: dict[str, int]
     if layout.lvm_on_raw_disk:
         plan.notes.append("source had LVM directly on the disk (no partition table) — reproduced as such")
     return plan
+
+
+_GIB = 1024 * 1024 * 1024
+
+
+def _absolute_sizes(
+    growable: list[Volume], grow_policy: dict[str, int], remaining: int, idx: dict[int, int]
+) -> dict[int, int]:
+    """Absolute (GiB) grow: each positive value is that volume's exact grown size; a volume set to 0 is the
+    remainder and absorbs the leftover. Mirrors the percent branch's guards — every volume must still hold
+    its own used data, and the total must fit `remaining`.
+    """
+    remainders = [v for v in growable if int(grow_policy.get(v.role, 0)) <= 0]
+    if len(remainders) > 1:
+        raise ImagingError(
+            "absolute grow_policy has more than one remainder (0 = fills the rest): "
+            + ", ".join(v.role for v in remainders)
+        )
+    # No explicit remainder → the last named volume soaks up any leftover, so the disk is never partly
+    # unallocated (same principle as the percent branch's last-volume rule).
+    remainder = remainders[0] if remainders else growable[-1]
+
+    sizes: dict[int, int] = {}
+    allotted = 0
+    for v in growable:
+        if v is remainder:
+            continue
+        want = _align_down(int(grow_policy[v.role]) * _GIB)
+        floor = _align_down(int(v.used_bytes or 0)) or ALIGN
+        if want < floor:
+            raise ImagingError(
+                f"absolute grow_policy gives {v.role} {grow_policy[v.role]} GiB, less than the "
+                f"{v.used_bytes} bytes of data it holds"
+            )
+        sizes[idx[id(v)]] = want
+        allotted += want
+
+    rest = _align_down(remaining - allotted)
+    if rest < int(remainder.used_bytes or 0):
+        raise ImagingError(
+            f"absolute grow_policy leaves {rest} bytes for {remainder.role}, which holds "
+            f"{remainder.used_bytes} bytes of data (the explicit sizes exceed the target disk)"
+        )
+    sizes[idx[id(remainder)]] = rest
+    return sizes
 
 
 def _align_down(size: int) -> int:

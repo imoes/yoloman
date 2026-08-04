@@ -22,6 +22,8 @@ export interface DiskImage {
   progress?: string;       // live capture/import progress, e.g. "Sichere root (2/4) · 63%"
   is_active: boolean;
   grow_policy: Record<string, number>;
+  /** How grow_policy values are read: 'percent' (of the leftover) or 'absolute' (GiB, 0 = fill the rest). */
+  grow_mode: 'percent' | 'absolute';
   disk_size: number;
   firmware: 'uefi' | 'bios' | 'unknown';   // which boot path the image expects, derived from its manifest
   volumes: ImageVolume[];
@@ -75,7 +77,7 @@ export class ImagesService {
   get(id: string) { return this.http.get<DiskImage>(`${this.base}/images/${id}`); }
 
   /** Mark active and/or set the grow policy (percentages must sum to 100). */
-  patch(id: string, body: { is_active?: boolean; grow_policy?: Record<string, number> }) {
+  patch(id: string, body: { is_active?: boolean; grow_policy?: Record<string, number>; grow_mode?: 'percent' | 'absolute' }) {
     return this.http.patch<DiskImage>(`${this.base}/images/${id}`, body);
   }
 

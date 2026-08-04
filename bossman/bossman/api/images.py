@@ -69,6 +69,7 @@ class ImagePatch(BaseModel):
 
     is_active: bool | None = None
     grow_policy: dict[str, int] | None = None
+    grow_mode: str | None = None   # 'percent' | 'absolute'
 
 
 class PlannedHostIn(BaseModel):
@@ -95,6 +96,7 @@ class ImageOut(BaseModel):
     progress: str = ""
     is_active: bool = False
     grow_policy: dict = {}
+    grow_mode: str = "percent"
     # Derived, so the caller does not have to understand the manifest to see the shape of an image.
     disk_size: int = 0
     firmware: str = "unknown"   # uefi | bios | unknown — which boot path this image expects
@@ -117,6 +119,7 @@ class ImageOut(BaseModel):
             progress=img.progress or "",
             is_active=bool(img.is_active),
             grow_policy=dict(img.grow_policy or {}),
+            grow_mode=img.grow_mode or "percent",
             disk_size=int(manifest.get("disk_size") or 0),
             volumes=[
                 {
@@ -162,16 +165,25 @@ async def patch_image(
 ) -> ImageOut:
     """Mark a template active (only one at a time) and/or set its grow policy (root/var/home %)."""
     img = await _image_or_404(session, image_id)
+    if body.grow_mode is not None:
+        if body.grow_mode not in ("percent", "absolute"):
+            raise HTTPException(status_code=422, detail="grow_mode must be 'percent' or 'absolute'")
+        img.grow_mode = body.grow_mode
     if body.grow_policy is not None:
         policy = {k: int(v) for k, v in body.grow_policy.items()}
         unknown = set(policy) - _GROWABLE_ROLES
         if unknown:
             raise HTTPException(status_code=422, detail=f"unknown grow-policy roles: {sorted(unknown)}")
         if any(v < 0 for v in policy.values()):
-            raise HTTPException(status_code=422, detail="grow-policy percentages must be non-negative")
-        total = sum(policy.values())
-        if policy and total != 100:
-            raise HTTPException(status_code=422, detail=f"grow-policy percentages must sum to 100 (got {total})")
+            raise HTTPException(status_code=422, detail="grow-policy values must be non-negative")
+        # Percentages must sum to 100; absolute GiB sizes have no such constraint (a 0 fills the rest, and
+        # plan_restore checks the sizes fit the real target disk at check-in).
+        mode = body.grow_mode if body.grow_mode is not None else (img.grow_mode or "percent")
+        if mode == "percent":
+            total = sum(policy.values())
+            if policy and total != 100:
+                raise HTTPException(status_code=422,
+                                    detail=f"grow-policy percentages must sum to 100 (got {total})")
         img.grow_policy = policy
     if body.is_active is not None:
         if body.is_active:
@@ -694,9 +706,11 @@ async def netboot_checkin(
         raise HTTPException(status_code=404, detail=f"no job armed for {mac}")
     img = await _image_or_404(session, job.image_id)
 
-    # The grow policy comes from the template (root/var/home percentages) and is snapshotted onto the
-    # job, so a retry reproduces the exact partitioning even if the template is edited later.
+    # The grow policy comes from the template (root/var/home sizes) and is snapshotted onto the job, so a
+    # retry reproduces the exact partitioning even if the template is edited later. grow_mode says whether
+    # the values are percentages of the leftover or absolute GiB.
     grow_policy = dict(img.grow_policy or {})
+    grow_mode = img.grow_mode or "percent"
     # The FINAL network the target should boot onto (from the planned host's config), written into the
     # restored root so it comes up on its destination segment, not the rollout/PXE one.
     net = None
@@ -707,7 +721,7 @@ async def netboot_checkin(
     try:
         layout = imaging.layout_from_dict(img.manifest or {})
         target = imaging.select_target_disk(body.blockdevices, prefer=job.target_disk)
-        plan = imaging.plan_restore(layout, target, grow_policy or None)
+        plan = imaging.plan_restore(layout, target, grow_policy or None, grow_mode=grow_mode)
         # The target's own agent, installed into the mounted root as the last configuring act. Minted
         # here rather than when the job was armed, because a token handed out before the machine even
         # netbooted would be a live credential sitting in the database for however long the job waited.
