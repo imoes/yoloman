@@ -80,3 +80,57 @@ async def test_auth_failure_surfaces_as_hypervisor_error(monkeypatch):
     _client_with(unauth, monkeypatch)
     with pytest.raises(HypervisorError):
         await ProxmoxClient("pve.example", "root@pam", "bad").version()
+
+
+def test_proxmox_vm_config_bios_vs_uefi():
+    """The config assembly is the subtle part: PXE net-first boot, virtio-rng entropy, and — only for UEFI —
+    an EFI disk. Pure function, asserted directly."""
+    from bossman.services.hypervisor import _proxmox_vm_config
+
+    bios = _proxmox_vm_config(name="t", cores=2, memory_mb=2048, disk_gib=32, storage="local-lvm",
+                              bridge="vmbr0", mac="52:54:00:aa:bb:cc", vlan=None, uefi=False)
+    assert bios["boot"] == "order=net0"                       # PXE first
+    assert bios["net0"] == "virtio=52:54:00:aa:bb:cc,bridge=vmbr0"
+    assert bios["scsi0"] == "local-lvm:32"
+    assert bios["rng0"] == "source=/dev/urandom"              # entropy device, always
+    assert "bios" not in bios and "efidisk0" not in bios      # BIOS: no OVMF, no EFI disk
+
+    uefi = _proxmox_vm_config(name="t", cores=4, memory_mb=4096, disk_gib=64, storage="ssd",
+                              bridge="vmbr1", mac="52:54:00:11:22:33", vlan=42, uefi=True)
+    assert uefi["bios"] == "ovmf"
+    assert uefi["efidisk0"].startswith("ssd:1")               # EFI disk on the same storage
+    assert uefi["net0"] == "virtio=52:54:00:11:22:33,bridge=vmbr1,tag=42"   # VLAN tag applied
+
+
+def test_gen_mac_is_locally_administered_qemu_style():
+    from bossman.services.hypervisor import gen_mac
+    m = gen_mac()
+    assert m.startswith("52:54:00:") and len(m.split(":")) == 6
+
+
+async def test_create_vm_posts_config_and_starts(monkeypatch):
+    """create_vm gets nextid, POSTs the qemu config, starts the VM, and returns our MAC + the vmid."""
+    posted = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/access/ticket"):
+            return httpx.Response(200, json=_TICKET)
+        if path.endswith("/cluster/nextid"):
+            return httpx.Response(200, json={"data": "131"})
+        if path.endswith("/nodes/pve1/qemu"):
+            posted["config"] = dict(httpx.QueryParams(request.content.decode()))
+            return httpx.Response(200, json={"data": "UPID:create"})
+        if path.endswith("/nodes/pve1/qemu/131/status/start"):
+            posted["started"] = True
+            return httpx.Response(200, json={"data": "UPID:start"})
+        return httpx.Response(404, json={"data": None})
+
+    _client_with(handler, monkeypatch)
+    res = await ProxmoxClient("pve", "root@pam", "pw").create_vm(
+        "pve1", "web01", cores=2, memory_mb=2048, disk_gib=32, storage="local-lvm",
+        bridge="vmbr0", uefi=True, mac="52:54:00:de:ad:be")
+    assert res == {"vmid": 131, "mac": "52:54:00:de:ad:be"}
+    assert posted["started"] is True
+    assert posted["config"]["vmid"] == "131" and posted["config"]["bios"] == "ovmf"
+    assert posted["config"]["net0"] == "virtio=52:54:00:de:ad:be,bridge=vmbr0"

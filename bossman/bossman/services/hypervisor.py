@@ -17,6 +17,7 @@ Everything here is async httpx; TLS verification follows the vm_hosts row (self-
 
 from __future__ import annotations
 
+import random
 from typing import Any
 
 import httpx
@@ -24,6 +25,50 @@ import httpx
 
 class HypervisorError(Exception):
     """A hypervisor API call failed, or the environment could not be detected."""
+
+
+def gen_mac() -> str:
+    """A locally-administered QEMU-style MAC (52:54:00:xx:xx:xx). We assign the NIC's MAC ourselves so the
+    restore job can be armed against it before the VM has ever booted — the PXE check-in identifies the
+    machine by MAC alone."""
+    return "52:54:00:%02x:%02x:%02x" % (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+
+def _proxmox_vm_config(
+    *, name: str, cores: int, memory_mb: int, disk_gib: int, storage: str, bridge: str,
+    mac: str, vlan: int | None, uefi: bool,
+) -> dict[str, Any]:
+    """Assemble the POST /nodes/{node}/qemu body for a PXE-install target. Pure (no I/O) so it is unit-
+    tested directly — the subtle parts (UEFI needs efidisk0, entropy needs rng0, PXE needs net-first boot)
+    all live here.
+
+    - `net0`: virtio NIC with OUR mac, on `bridge`, optionally VLAN-tagged. `boot: order=net0` makes the VM
+      PXE-boot on first start, which is the whole point.
+    - `scsi0`: a blank disk of the target size on `storage` — this is what the template restores onto.
+    - UEFI (`bios: ovmf`) additionally needs `efidisk0`, or OVMF has nowhere to persist boot entries and the
+      net-first order is lost across the post-install reboot.
+    - `rng0` (virtio-rng from /dev/urandom): the guest gets entropy early, so OVMF and the freshly restored
+      system do not stall waiting for the entropy pool.
+    """
+    net = f"virtio={mac},bridge={bridge}"
+    if vlan:
+        net += f",tag={vlan}"
+    cfg: dict[str, Any] = {
+        "name": name,
+        "cores": cores,
+        "memory": memory_mb,
+        "ostype": "l26",
+        "scsihw": "virtio-scsi-single",
+        "scsi0": f"{storage}:{disk_gib}",
+        "net0": net,
+        "boot": "order=net0",
+        "rng0": "source=/dev/urandom",
+        "agent": "1",
+    }
+    if uefi:
+        cfg["bios"] = "ovmf"
+        cfg["efidisk0"] = f"{storage}:1,efitype=4m,pre-enrolled-keys=0"
+    return cfg
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +108,15 @@ class ProxmoxClient:
         r.raise_for_status()
         return r.json().get("data")
 
+    async def _post(self, client: httpx.AsyncClient, path: str, data: dict) -> Any:
+        await self._login(client)
+        headers = {"Cookie": self._cookie}
+        if self._csrf:
+            headers["CSRFPreventionToken"] = self._csrf   # required for every mutating call
+        r = await client.post(f"{self.base}{path}", headers=headers, data=data)
+        r.raise_for_status()
+        return r.json().get("data")
+
     async def version(self) -> dict:
         """The `/version` payload — the cheapest authenticated call, used by detect()."""
         async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
@@ -99,6 +153,26 @@ class ProxmoxClient:
                     ],
                 })
             return {"kind": "proxmox", "nodes": nodes}
+
+    async def create_vm(
+        self, node: str, name: str, *, cores: int, memory_mb: int, disk_gib: int, storage: str,
+        bridge: str, uefi: bool, vlan: int | None = None, mac: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a PXE-install VM on `node` and start it. Returns {vmid, mac}. The MAC is ours (assigned,
+        not read back) so the restore job can be armed against it immediately; starting the VM makes it
+        PXE-boot into the restore flow."""
+        mac = mac or gen_mac()
+        async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+            try:
+                vmid = int(await self._get(client, "/cluster/nextid"))
+                cfg = _proxmox_vm_config(name=name, cores=cores, memory_mb=memory_mb, disk_gib=disk_gib,
+                                         storage=storage, bridge=bridge, mac=mac, vlan=vlan, uefi=uefi)
+                cfg["vmid"] = vmid
+                await self._post(client, f"/nodes/{node}/qemu", cfg)
+                await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/start", {})
+            except (httpx.HTTPError, KeyError, ValueError) as exc:
+                raise HypervisorError(f"Proxmox VM create on {node} failed: {exc}") from exc
+        return {"vmid": vmid, "mac": mac}
 
 
 # ---------------------------------------------------------------------------

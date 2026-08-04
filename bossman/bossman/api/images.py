@@ -404,6 +404,44 @@ async def delete_vm_host(
         await session.commit()
 
 
+class VmCreateIn(BaseModel):
+    """Create a VM on a registered hypervisor, set up to PXE-install. The MAC it returns is what the caller
+    arms the restore job against."""
+    node: str                       # Proxmox node (or ESXi host for vCenter, later)
+    name: str
+    storage: str                    # datastore/storage for the disk (+ EFI disk on UEFI)
+    bridge: str                     # network/bridge/portgroup the NIC attaches to
+    cores: int = 2
+    memory_mb: int = 2048
+    disk_gib: int = 32
+    uefi: bool = False
+    vlan: int | None = None         # optional NIC VLAN tag
+
+
+@router.post("/api/v1/provisioning/vm-hosts/{host_id}/create-vm")
+async def create_vm(
+    host_id: UUID, body: VmCreateIn,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> dict:
+    """Create + start a PXE-install VM on this hypervisor and return {vmid, mac}. The caller then creates a
+    planned host with that MAC and arms the restore job — the VM PXE-boots into the restore. VM creation is
+    optional provisioning: the bare-metal path (an operator-typed MAC) is unchanged."""
+    row = await session.get(VmHost, host_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="no such VM host")
+    password = _vault().decrypt(row.secret)
+    try:
+        if row.kind == "proxmox":
+            client = hypervisor.ProxmoxClient(row.host, row.username, password, verify_tls=row.verify_tls)
+            return await client.create_vm(
+                body.node, body.name.strip(), cores=body.cores, memory_mb=body.memory_mb,
+                disk_gib=body.disk_gib, storage=body.storage, bridge=body.bridge,
+                uefi=body.uefi, vlan=body.vlan)
+        raise HTTPException(status_code=501, detail=f"{row.kind} VM creation is not implemented yet")
+    except hypervisor.HypervisorError as exc:
+        raise HTTPException(status_code=502, detail=f"VM creation failed: {exc}") from exc
+
+
 @router.get("/api/v1/provisioning/vm-hosts/{host_id}/placement")
 async def vm_host_placement(
     host_id: UUID,
