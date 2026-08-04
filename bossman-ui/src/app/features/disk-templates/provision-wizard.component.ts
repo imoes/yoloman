@@ -20,7 +20,7 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
  * The provisioning wizard (docs/provisioning-wizard.md, Plan A) — the same shape as the Roles & Features
  * wizard: a left step list, one panel per step, Previous/Next, a Deploy step at the end.
  *
- * Target → Disk → Virtualization (optional VM target) → Roles → Review → Deploy. Deploy is a fixed
+ * Target → Virtualization (optional VM target) → Disk → Roles → Review → Deploy. Deploy is a fixed
  * sequence over existing services:
  *   0. (optional) createVm on a registered hypervisor — returns the MAC to arm against
  *   1. createPlannedHost  — the target becomes a 'planned' Agent with an id
@@ -83,9 +83,10 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
               }
             }
 
-            @case (1) {
+            @case (2) {
               <h2>Disk image</h2>
-              <p class="pw-lead">Pick the golden template to restore, and size its growable volumes.</p>
+              <p class="pw-lead">Pick the golden template to restore, and size its growable volumes against the
+                target disk.</p>
               @if (readyImages().length === 0) { <p class="pw-dim">No ready templates. Capture or import one first.</p> }
               <div class="pw-imgs">
                 @for (img of readyImages(); track img.id) {
@@ -100,6 +101,16 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                 }
               </div>
               @if (chosenImage(); as img) {
+                <div class="pw-disk">
+                  @if (useVm()) {
+                    <span>Target disk: <b>{{ availableGib() }} GiB</b>
+                      <span class="pw-dim">— the VM disk from the Virtualization step</span></span>
+                  } @else {
+                    <label class="pw-fld pw-disk-fld"><span>Target disk size (GiB)
+                        <span class="pw-opt">(the physical disk the image restores onto)</span></span>
+                      <input type="number" min="1" [(ngModel)]="baremetalDiskGib" /></label>
+                  }
+                </div>
                 @if (growableRoles().length) {
                   <div class="pw-mode">
                     <button [class.on]="growMode() === 'percent'" (click)="growMode.set('percent')">Percent</button>
@@ -109,17 +120,22 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                     @if (isGrowable(v)) {
                       <label class="pw-vol"><span>{{ v.mountpoint || v.role }} <span class="pw-dim">{{ v.fs_type }}</span></span>
                         @if (growMode() === 'percent') {
-                          <span><input type="number" min="0" max="100" [(ngModel)]="pct[v.role]" /> %</span>
+                          <span><input type="number" min="0" max="100" [(ngModel)]="pct[v.role]" (ngModelChange)="tick()" /> %</span>
                         } @else {
-                          <span><input type="number" min="0" [(ngModel)]="gib[v.role]" /> GiB</span>
+                          <span><input type="number" min="0" [(ngModel)]="gib[v.role]" (ngModelChange)="tick()" /> GiB</span>
                         }
                       </label>
                     }
                   }
                   @if (growMode() === 'percent') {
                     <div class="pw-sum" [class.bad]="sum() !== 100">Sum: {{ sum() }} %@if (sum() !== 100) { — must be 100 }</div>
+                    <p class="pw-dim">Percentages divide the ~{{ growableRoomGib() }} GiB left after the fixed
+                      volumes on the {{ availableGib() }} GiB disk.</p>
                   } @else {
                     <p class="pw-dim">Sizes in GiB. Set one volume to <b>0</b> to fill the rest.</p>
+                    <div class="pw-sum" [class.bad]="remainingGib() < 0">Remaining:
+                      {{ remainingGib() }} GiB free of {{ availableGib() }} GiB
+                      @if (remainingGib() < 0) { — over by {{ -remainingGib() }} GiB }</div>
                     @if (gibError()) { <div class="pw-sum bad">{{ gibError() }}</div> }
                   }
                 } @else {
@@ -128,7 +144,7 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
               }
             }
 
-            @case (2) {
+            @case (1) {
               <h2>Virtualization <span class="pw-dim">(optional)</span></h2>
               <p class="pw-lead">Create the target as a VM on vCenter or Proxmox, or leave off for bare metal
                 (the MAC you typed). The environment is detected from the host + credentials.</p>
@@ -282,6 +298,8 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
     .pw-vol { display: flex; justify-content: space-between; align-items: center; padding: .25rem 0; font-size: .85rem; }
     .pw-vol input { width: 4rem; padding: .2rem; }
     .pw-sum { margin: .4rem 0; font-size: .85rem; } .pw-sum.bad { color: #d9534f; }
+    .pw-disk { margin: .2rem 0 .7rem; padding: .5rem .7rem; border: 1px solid #3334; border-radius: 8px; font-size: .85rem; }
+    .pw-disk-fld { margin: 0; } .pw-disk-fld input { width: 8rem; }
     .pw-search { width: 100%; padding: .35rem; margin-bottom: .5rem; box-sizing: border-box; }
     .pw-pick { display: flex; align-items: center; gap: .5rem; padding: .2rem 0; font-size: .85rem; }
     .pw-review { list-style: none; padding: 0; } .pw-review li { padding: .3rem 0; border-bottom: 1px solid #3332; font-size: .9rem; }
@@ -300,7 +318,9 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
   `],
 })
 export class ProvisionWizardComponent implements OnInit {
-  readonly STEP_LABELS = ['Target', 'Disk image', 'Virtualization', 'Roles', 'Review'];
+  // Virtualization before Disk image on purpose: the VM's disk size is chosen there, so the Disk step can
+  // show how much space the growable volumes have to divide up.
+  readonly STEP_LABELS = ['Target', 'Virtualization', 'Disk image', 'Roles', 'Review'];
 
   private svc = inject(ImagesService);
   private orch = inject(OrchestrationService);
@@ -321,6 +341,8 @@ export class ProvisionWizardComponent implements OnInit {
   growMode = signal<'percent' | 'absolute'>('percent');
   pct: Record<string, number> = {};
   gib: Record<string, number> = {};
+  baremetalDiskGib = 32;        // bare-metal target disk (GiB); VM targets use the Virtualization diskGib
+  growTick = signal(0);         // bumped on a grow-input edit so the grow computeds recompute (plain objects aren't tracked as signals)
 
   // Virtualization (optional VM target)
   useVm = signal(false);
@@ -360,8 +382,9 @@ export class ProvisionWizardComponent implements OnInit {
   readyImages = computed(() => this.images().filter((i) => i.status === 'ready'));
   chosenImage = computed(() => this.images().find((i) => i.id === this.imageId()) ?? null);
   growableRoles = computed(() => (this.chosenImage()?.volumes ?? []).filter((v) => this.isGrowable(v)).map((v) => v.role));
-  sum = computed(() => this.growableRoles().reduce((a, r) => a + (Number(this.pct[r]) || 0), 0));
+  sum = computed(() => { this.growTick(); return this.growableRoles().reduce((a, r) => a + (Number(this.pct[r]) || 0), 0); });
   gibError = computed(() => {
+    this.growTick();
     if (this.growMode() !== 'absolute') return '';
     const vals = this.growableRoles().map((r) => Number(this.gib[r]) || 0);
     if (vals.some((v) => v < 0)) return 'Sizes must be non-negative';
@@ -395,6 +418,31 @@ export class ProvisionWizardComponent implements OnInit {
 
   isGrowable(v: ImageVolume): boolean { return GROWABLE.has(v.role); }
   asArray(s: Set<string>): string[] { return [...s]; }
+
+  // ── Disk sizing ─────────────────────────────────────────────────────────
+  /** Note a grow-input edit so the grow computeds (sum/gibError) recompute — plain records aren't tracked. */
+  tick(): void { this.growTick.update((v) => v + 1); }
+
+  /** GiB the restore has to fill: the VM disk chosen in the Virtualization step, or the entered bare-metal
+   *  disk. Shown in the Disk step so the operator sizes volumes against a known total. */
+  availableGib(): number { return this.useVm() ? this.diskGib : this.baremetalDiskGib; }
+
+  /** GiB taken by the fixed (non-growable) volumes of the chosen image — esp/boot/swap/bios_boot. */
+  private fixedGib(): number {
+    return (this.chosenImage()?.volumes ?? [])
+      .filter((v) => !this.isGrowable(v))
+      .reduce((a, v) => a + v.size_bytes / 1073741824, 0);
+  }
+
+  /** Percent mode: the room the growable volumes divide up (disk minus the fixed volumes), never negative. */
+  growableRoomGib(): number { return Math.max(0, Math.round(this.availableGib() - this.fixedGib())); }
+
+  /** Absolute mode: GiB still free after the fixed volumes and the explicit growable sizes (a volume set to
+   *  0 = fill-rest claims nothing here). Negative means the chosen sizes overflow the disk. */
+  remainingGib(): number {
+    const explicit = this.growableRoles().reduce((a, r) => a + (Number(this.gib[r]) || 0), 0);
+    return Math.round(this.availableGib() - this.fixedGib() - explicit);
+  }
 
   // ── Virtualization step ─────────────────────────────────────────────────
   canAddHost(): boolean {
@@ -509,6 +557,13 @@ export class ProvisionWizardComponent implements OnInit {
         : (i === roles.length - 1 ? 100 - even * (roles.length - 1) : even);
       this.gib[r] = (img.grow_mode === 'absolute' && stored[r] != null) ? stored[r] : 0;
     });
+    // Default the target disk to the image's own size; a VM disk never restores smaller than the image.
+    const imgGib = Math.ceil((img.disk_size || 0) / 1073741824);
+    if (imgGib) {
+      this.baremetalDiskGib = Math.max(this.baremetalDiskGib, imgGib);
+      if (this.useVm()) this.diskGib = Math.max(this.diskGib, imgGib);
+    }
+    this.growTick.update((v) => v + 1);
   }
 
   toggleRole(name: string): void {
@@ -524,9 +579,9 @@ export class ProvisionWizardComponent implements OnInit {
   canNext(): boolean {
     switch (this.step()) {
       case 0: return !!this.hostname.trim();
-      case 1: return !!this.imageId() && (this.growableRoles().length === 0
+      case 1: return this.vmReady();   // Virtualization: off is fine; on needs node+storage+bridge
+      case 2: return !!this.imageId() && (this.growableRoles().length === 0
         || (this.growMode() === 'percent' ? this.sum() === 100 : !this.gibError()));
-      case 2: return this.vmReady();   // Virtualization: off is fine; on needs node+storage+bridge
       default: return true;
     }
   }

@@ -334,7 +334,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
       // would be clipped. The panelClass also lifts the max-width cap and makes the surface flush.
       width: 'min(760px, 92vw)',
       maxWidth: '92vw',
-      height: 'min(560px, 85vh)',
+      height: 'min(760px, 92vh)',
     }).afterClosed().subscribe((armed) => { if (armed) this.reload(); });
   }
 
