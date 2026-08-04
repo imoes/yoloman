@@ -145,15 +145,13 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                   @if (growMode() === 'percent') {
                     <div class="pw-sum">Allocated: {{ sum() }} % <span class="pw-dim">— the last volume fills whatever is left</span></div>
                     <p class="pw-dim">Each volume grows to its share of the ~{{ growableRoomGib() }} GiB left
-                      after the fixed volumes on the {{ availableGib() }} GiB disk; the last one takes the rest.
-                      The total need not be 100 % — it must just fit (checked against the real disk at install).</p>
+                      after the fixed volumes on the {{ availableGib() }} GiB disk; the last one takes the rest.</p>
                   } @else {
                     <p class="pw-dim">Sizes in GiB. Set one volume to <b>0</b> to fill the rest.</p>
-                    <div class="pw-sum" [class.bad]="remainingGib() < 0">Remaining:
-                      {{ remainingGib() }} GiB free of {{ availableGib() }} GiB
-                      @if (remainingGib() < 0) { — over by {{ -remainingGib() }} GiB }</div>
-                    @if (gibError()) { <div class="pw-sum bad">{{ gibError() }}</div> }
+                    <div class="pw-sum">Remaining: {{ remainingGib() }} GiB free of {{ availableGib() }} GiB</div>
                   }
+                  <!-- The ONE check: does the whole layout fit the target disk? -->
+                  @if (layoutError(); as err) { <div class="pw-sum bad">{{ err }}</div> }
                 } @else {
                   <p class="pw-dim">No growable volumes — the last volume fills the disk.</p>
                 }
@@ -455,14 +453,6 @@ export class ProvisionWizardComponent implements OnInit {
   chosenImage = computed(() => this.images().find((i) => i.id === this.imageId()) ?? null);
   growableRoles = computed(() => (this.chosenImage()?.volumes ?? []).filter((v) => this.isGrowable(v)).map((v) => v.role));
   sum = computed(() => { this.growTick(); return this.growableRoles().reduce((a, r) => a + (Number(this.pct[r]) || 0), 0); });
-  gibError = computed(() => {
-    this.growTick();
-    if (this.growMode() !== 'absolute') return '';
-    const vals = this.growableRoles().map((r) => Number(this.gib[r]) || 0);
-    if (vals.some((v) => v < 0)) return 'Sizes must be non-negative';
-    if (vals.filter((v) => v === 0).length > 1) return 'Only one volume can be 0 (fills the rest)';
-    return '';
-  });
   // Miller columns, identical logic to the Management wizard: group non-config catalog entries by category
   // (query-filtered), ordered categories, the active category's packages, and the focused package's detail.
   grouped = computed(() => {
@@ -515,7 +505,7 @@ export class ProvisionWizardComponent implements OnInit {
   asArray(s: Set<string>): string[] { return [...s]; }
 
   // ── Disk sizing ─────────────────────────────────────────────────────────
-  /** Note a grow-input edit so the grow computeds (sum/gibError) recompute — plain records aren't tracked. */
+  /** Note a grow-input edit so the grow computeds (sum/layoutError) recompute — plain records aren't tracked. */
   tick(): void { this.growTick.update((v) => v + 1); }
 
   /** GiB the restore has to fill: the VM disk chosen in the Virtualization step, or the entered bare-metal
@@ -537,6 +527,35 @@ export class ProvisionWizardComponent implements OnInit {
   remainingGib(): number {
     const explicit = this.growableRoles().reduce((a, r) => a + (Number(this.gib[r]) || 0), 0);
     return Math.round(this.availableGib() - this.fixedGib() - explicit);
+  }
+
+  /** THE check for the Disk step: does the resulting layout fit the target disk? The disk size is known here
+   *  (the VM disk, or the entered bare-metal size) and the image volumes are known, so we can decide it up
+   *  front instead of at install. The LAST growable volume absorbs whatever is left (+100%FREE), so it only
+   *  needs its own source size; every other growable needs max(its share, its source size — never shrunk).
+   *  Returns '' when it fits, otherwise a message. Mirrors the backend's plan_restore "does not fit". */
+  layoutError(): string {
+    this.growTick();   // recompute as the sizes / disk change
+    const img = this.chosenImage();
+    if (!img) return '';
+    const GiB = 1073741824;
+    const growable = img.volumes.filter((v) => this.isGrowable(v));
+    if (!growable.length) return '';
+    const avail = this.availableGib();
+    const leftover = avail - this.fixedGib();      // GiB the growable volumes share
+    if (leftover <= 0) return `The fixed volumes do not fit the ${avail} GiB disk.`;
+    const src = (v: ImageVolume) => v.size_bytes / GiB;
+    const percent = this.growMode() === 'percent';
+    let need = 0;                                  // GiB the non-fill growables need (each ≥ its source)
+    for (const v of growable.slice(0, -1)) {
+      const want = percent ? leftover * (Number(this.pct[v.role]) || 0) / 100 : (Number(this.gib[v.role]) || 0);
+      need += Math.max(want, src(v));
+    }
+    need += src(growable[growable.length - 1]);    // the fill volume still needs its own source size
+    if (need > leftover + 0.02) {
+      return `Layout does not fit: needs ~${Math.ceil(this.fixedGib() + need)} GiB but the disk is ${avail} GiB — reduce the sizes.`;
+    }
+    return '';
   }
 
   // ── Virtualization step ─────────────────────────────────────────────────
@@ -680,10 +699,9 @@ export class ProvisionWizardComponent implements OnInit {
     switch (this.step()) {
       case 0: return !!this.hostname.trim();
       case 1: return this.vmReady();   // Virtualization: off is fine; on needs node+storage+bridge
-      // Percent no longer needs to total 100 — the last volume fills the rest, and whether the sizes fit is
-      // checked against the real target disk at install. Absolute mode still can't have >1 fill (gibError).
-      case 2: return !!this.imageId()
-        && !(this.growMode() === 'absolute' && this.growableRoles().length > 0 && !!this.gibError());
+      // The ONE check: an image is chosen and the resulting layout fits the target disk (the last volume
+      // fills the rest with +100%FREE). Percentages need not total 100.
+      case 2: return !!this.imageId() && !this.layoutError();
       default: return true;
     }
   }
@@ -691,7 +709,7 @@ export class ProvisionWizardComponent implements OnInit {
   vmReady(): boolean {
     return !this.useVm() || !!(this.vmHostId() && this.node() && this.storage() && this.bridge());
   }
-  canDeploy(): boolean { return !!this.hostname.trim() && !!this.imageId() && this.vmReady(); }
+  canDeploy(): boolean { return !!this.hostname.trim() && !!this.imageId() && this.vmReady() && !this.layoutError(); }
 
   private growPolicy(): { grow_mode: 'percent' | 'absolute'; grow_policy: Record<string, number> } {
     const mode = this.growMode();
