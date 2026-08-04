@@ -98,3 +98,27 @@ Config-Binding vom Management-Tab, `shared/param-form` (Rollen-Parameter), `imag
    sichtbar, Template speichern→laden, Log-Box schließen.
 3. Ein echtes Deployment über den Wizard armen; der Restore-Job erscheint, verknüpfte Rollen/Config hängen
    am geplanten Host (Management-Tab).
+
+---
+
+## Nachtrag: optionales VM-Ziel (Proxmox + vCenter) — umgesetzt
+
+Über die Bare-Metal-Provisionierung hinaus kann der Wizard das Ziel als **VM** auf einem Hypervisor anlegen.
+
+- **Erkennung statt Wahl**: Operator gibt Host + Zugangsdaten ein; `services/hypervisor.detect()` probiert
+  Proxmox (`:8006/version`) dann vCenter (`/api/session`) — was authentifiziert, gewinnt. Credentials
+  verschlüsselt im `vm_hosts`-Table (vault), wiederverwendbar.
+- **Gleiche Wizard-UI für beide**: `placement()` liefert bei beiden `{nodes:[{node,storages,bridges}]}` —
+  Proxmox-Node/Storage/Bridge bzw. vCenter-Host/Datastore/Portgroup.
+- **VM-Create**: Proxmox mit `efidisk0` + **virtio-rng** (`rng0`) bei UEFI, PXE-Boot-Order (`boot=order=net0`),
+  optionalem VLAN-Tag (`net0 ...,tag=`); vCenter mit `boot.type EFI/BIOS`, `boot_devices=[ETHERNET]`,
+  MANUAL-MAC, Portgroup-Backing (VLAN steckt bei vCenter im Portgroup, nicht am NIC). Beide vergeben eine
+  bekannte MAC (52:54:00…), die als `target_mac` in den Restore-Job geht — der PXE-Checkin identifiziert die
+  Maschine nur über die MAC. CPU/RAM/Disk werden aus dem Wizard übernommen; UEFI-Default aus der Image-
+  Firmware; VM-Disk ≥ Image-Disk.
+- **Optional**: Toggle aus = Bare-Metal wie bisher.
+
+Backend: `services/hypervisor.py` (ProxmoxClient, VCenterClient, detect), `api/images.py`
+(`/provisioning/vm-hosts` CRUD + `/placement` + `/create-vm`), Migration `d1a4f8c3b6e2` (`vm_hosts`).
+Getestet mit gemocktem HTTP (Detection, Placement-Mapping, Spec/Config BIOS+UEFI, create→start); Live gegen
+echte Proxmox-/vCenter-Umgebungen steht noch aus.
