@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
 from bossman.config import get_settings
-from bossman.db.models import SYSTEM_SETTINGS_ID, Agent, DiskImage, RestoreJob, SystemSettings
+from bossman.db.models import SYSTEM_SETTINGS_ID, Agent, DeploymentTemplate, DiskImage, RestoreJob, SystemSettings
 from bossman.db.session import get_session
 from bossman.services import imaging, offline_enroll, vm_lab
 
@@ -237,6 +237,87 @@ async def create_planned_host(
     await session.commit()
     return {"id": str(agent.id), "hostname": hostname, "enrollment_state": "planned",
             "mac": new_meta.get("provision_mac", ""), "network": body.network}
+
+
+# ---------------------------------------------------------------------------
+# Deployment templates — reusable deploy recipes (image + grow policy + network + roles), so the wizard can
+# prefill everything except the per-machine hostname/MAC.
+
+
+class DeploymentTemplateIn(BaseModel):
+    name: str
+    description: str = ""
+    image_id: UUID | None = None
+    grow_mode: str = "percent"
+    grow_policy: dict[str, int] = {}
+    network: dict = {}
+    roles: list[str] = []
+
+
+class DeploymentTemplateOut(BaseModel):
+    id: UUID
+    name: str
+    description: str
+    image_id: UUID | None
+    grow_mode: str
+    grow_policy: dict
+    network: dict
+    roles: list[str]
+    created_at: datetime
+
+    @classmethod
+    def from_model(cls, t: "DeploymentTemplate") -> "DeploymentTemplateOut":
+        return cls(
+            id=t.id, name=t.name, description=t.description, image_id=t.image_id,
+            grow_mode=t.grow_mode, grow_policy=dict(t.grow_policy or {}),
+            network=dict(t.network or {}), roles=list(t.roles or []), created_at=t.created_at,
+        )
+
+
+@router.get("/api/v1/provisioning/templates", response_model=list[DeploymentTemplateOut])
+async def list_deployment_templates(
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> list[DeploymentTemplateOut]:
+    rows = (await session.scalars(select(DeploymentTemplate).order_by(DeploymentTemplate.name))).all()
+    return [DeploymentTemplateOut.from_model(t) for t in rows]
+
+
+@router.post("/api/v1/provisioning/templates", response_model=DeploymentTemplateOut, status_code=201)
+async def save_deployment_template(
+    body: DeploymentTemplateIn,
+    session: AsyncSession = Depends(get_session), identity=Depends(get_current_identity),
+) -> DeploymentTemplateOut:
+    """Create or overwrite a template by name (idempotent save): re-saving under the same name updates it,
+    so the wizard's "Save as template" is a plain upsert rather than a create-then-409."""
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="template name is required")
+    if body.grow_mode not in ("percent", "absolute"):
+        raise HTTPException(status_code=422, detail="grow_mode must be 'percent' or 'absolute'")
+    existing = await session.scalar(select(DeploymentTemplate).where(DeploymentTemplate.name == name))
+    t = existing or DeploymentTemplate(name=name)
+    t.description = body.description
+    t.image_id = body.image_id
+    t.grow_mode = body.grow_mode
+    t.grow_policy = {k: int(v) for k, v in body.grow_policy.items()}
+    t.network = body.network
+    t.roles = list(body.roles)
+    if existing is None:
+        t.created_by = getattr(identity, "name", None)
+        session.add(t)
+    await session.commit()
+    return DeploymentTemplateOut.from_model(t)
+
+
+@router.delete("/api/v1/provisioning/templates/{template_id}", status_code=204)
+async def delete_deployment_template(
+    template_id: UUID,
+    session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+) -> None:
+    t = await session.get(DeploymentTemplate, template_id)
+    if t is not None:
+        await session.delete(t)
+        await session.commit()
 
 
 @router.post("/api/v1/images", response_model=ImageOut, status_code=201)

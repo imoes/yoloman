@@ -591,3 +591,44 @@ async def test_netboot_toggle_disables_checkin_even_with_a_db_secret(db_session,
     row.netboot_secret = ""
     row.netboot_enabled = False
     await db_session.commit()
+
+
+async def test_deployment_template_save_list_and_delete(db_session):
+    """A deployment template bundles image + grow policy + network + roles for reuse; the wizard's 'save' is
+    an upsert by name, so re-saving updates in place instead of 409'ing."""
+    token, raw = await _token(db_session)
+    img = await _ready_image(db_session)
+    name = f"deploytmpl-{uuid.uuid4().hex[:6]}"
+    body = {
+        "name": name, "description": "web tier", "image_id": str(img.id),
+        "grow_mode": "absolute", "grow_policy": {"root": 0, "var": 30},
+        "network": {"mode": "static", "address": "10.0.0.5/24"}, "roles": ["install-nginx"],
+    }
+    with TestClient(create_app()) as client:
+        created = client.post("/api/v1/provisioning/templates", json=body, headers=_h(raw))
+        assert created.status_code == 201, created.text
+        tid = created.json()["id"]
+        assert created.json()["grow_mode"] == "absolute"
+        assert created.json()["roles"] == ["install-nginx"]
+
+        # Re-save under the same name → upsert (200/201, same id), roles updated.
+        body["roles"] = ["install-nginx", "install-postgres"]
+        again = client.post("/api/v1/provisioning/templates", json=body, headers=_h(raw))
+        assert again.json()["id"] == tid, "same name must update in place, not create a second row"
+        assert again.json()["roles"] == ["install-nginx", "install-postgres"]
+
+        listed = client.get("/api/v1/provisioning/templates", headers=_h(raw)).json()
+        assert any(t["id"] == tid and t["name"] == name for t in listed)
+
+        assert client.delete(f"/api/v1/provisioning/templates/{tid}", headers=_h(raw)).status_code == 204
+        after = client.get("/api/v1/provisioning/templates", headers=_h(raw)).json()
+        assert not any(t["id"] == tid for t in after)
+    await _cleanup(db_session, img)
+
+
+async def test_deployment_template_rejects_a_bad_grow_mode(db_session):
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        r = client.post("/api/v1/provisioning/templates",
+                        json={"name": f"bad-{uuid.uuid4().hex[:6]}", "grow_mode": "sideways"}, headers=_h(raw))
+    assert r.status_code == 422

@@ -1645,11 +1645,42 @@ class DiskImage(Base):
     grow_mode: Mapped[str] = mapped_column(String, nullable=False, server_default="percent", default="percent")
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
-    __table_args__ = (
+    __table_args__ = (  # noqa: RUF012 — see DeploymentTemplate below the class for the reusable-bundle table
         CheckConstraint("status IN ('capturing', 'ready', 'failed')", name="ck_disk_images_status"),
         CheckConstraint("grow_mode IN ('percent', 'absolute')", name="ck_disk_images_grow_mode"),
         # At most one active template. A partial unique index on a constant is the standard trick.
         Index("uq_disk_images_one_active", text("(is_active)"), unique=True, postgresql_where=text("is_active")),
+    )
+
+
+class DeploymentTemplate(Base):
+    """A reusable deployment recipe: everything a provisioning run needs EXCEPT the per-machine identity
+    (hostname/MAC). Applying one in the wizard prefills every step, so an operator only fills in the target.
+
+    Kept as plain snapshots (grow policy, network, role names) rather than foreign keys, so a template stays
+    usable and self-explanatory even if a role is renamed or a disk image is re-captured — the wizard shows
+    what it will do and the operator confirms. `image_id` is the one reference that must resolve at apply
+    time; a missing image is surfaced in the UI, not enforced by the DB, so deleting an image does not
+    silently drop templates that mention it.
+    """
+
+    __tablename__ = "deployment_templates"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, default=DEFAULT_TENANT_ID)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    image_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    grow_mode: Mapped[str] = mapped_column(String, nullable=False, server_default="percent", default="percent")
+    grow_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    network: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)     # {mode, address?, gateway?, dns?}
+    roles: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)       # role names to bind
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_deployment_templates_name"),
+        CheckConstraint("grow_mode IN ('percent', 'absolute')", name="ck_deployment_templates_grow_mode"),
     )
 
 

@@ -63,6 +63,19 @@ export interface ProvisionNetwork {
   dns?: string[];
 }
 
+/** A reusable deployment recipe — everything a provisioning run needs except the per-machine hostname/MAC. */
+export interface DeploymentTemplate {
+  id: string;
+  name: string;
+  description: string;
+  image_id: string | null;
+  grow_mode: 'percent' | 'absolute';
+  grow_policy: Record<string, number>;
+  network: ProvisionNetwork;
+  roles: string[];
+  created_at: string;
+}
+
 /**
  * The Disk-Templates / bare-metal provisioning surface: list captured templates, mark one active, set its
  * grow policy (root/var/home %), create a planned target host, arm a restore job, and watch jobs. The
@@ -113,4 +126,16 @@ export class ImagesService {
   importImage(body: { name: string; source_file: string; description?: string }) {
     return this.http.post<DiskImage>(`${this.base}/images/import`, body);
   }
+
+  // ── Deployment templates (reusable deploy recipes) ───────────────────────
+  listTemplates() { return this.http.get<DeploymentTemplate[]>(`${this.base}/provisioning/templates`); }
+  /** Save (upsert by name) a deployment template. */
+  saveTemplate(body: {
+    name: string; description?: string; image_id: string | null;
+    grow_mode: 'percent' | 'absolute'; grow_policy: Record<string, number>;
+    network: ProvisionNetwork; roles: string[];
+  }) {
+    return this.http.post<DeploymentTemplate>(`${this.base}/provisioning/templates`, body);
+  }
+  deleteTemplate(id: string) { return this.http.delete<void>(`${this.base}/provisioning/templates/${id}`); }
 }

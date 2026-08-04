@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin } from 'rxjs';
-import { DiskImage, ImageVolume, ImagesService, ProvisionNetwork } from '../../core/services/images.service';
+import { DeploymentTemplate, DiskImage, ImageVolume, ImagesService, ProvisionNetwork } from '../../core/services/images.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
 import { ResourceService } from '../../core/services/resource.service';
 
@@ -20,16 +20,17 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
  * The provisioning wizard (docs/provisioning-wizard.md, Plan A) — the same shape as the Roles & Features
  * wizard: a left step list, one panel per step, Previous/Next, a Deploy step at the end.
  *
- * Target → Disk (image + UEFI/BIOS + volume sizes %/GiB) → Roles → Config → Review → Deploy. Deploy is a
- * fixed sequence over EXISTING services, so the wizard needs no new backend:
+ * Target → Disk (image + UEFI/BIOS + volume sizes %/GiB) → Roles → Review → Deploy. Deploy is a fixed
+ * sequence over EXISTING services, so the wizard needs no new backend:
  *   1. createPlannedHost  — the target becomes a 'planned' Agent with an id
- *   2. arm                — links that host + the active-or-chosen template into a restore job
- *   3. resource.apply(role)   per selected role   — declares the binding on the planned host
- *   4. resource.apply(config) per selected config — same, for config
+ *   2. arm                — links that host + the chosen template into a restore job
+ *   3. resource.apply(role) per selected role — declares the binding on the planned host
  *
- * Steps 3–4 only DECLARE intent (RoleResource.apply writes an OrchestrationPlanLink + desired state, it does
- * not need the host online). The role/config-policy workflow converges when the new host first checks in —
- * which is exactly the operator's model ("assignment happens once the host exists and reports to Bossman").
+ * Step 3 only DECLARES intent (RoleResource.apply writes an OrchestrationPlanLink + desired state, it does
+ * not need the host online). The role workflow converges when the new host first checks in — exactly the
+ * operator's model ("assignment happens once the host exists and reports to Bossman"). A deployment template
+ * (the Target-step dropdown + "Save template" on Review) bundles the disk + sizing + roles for reuse, so a
+ * repeat deployment only needs a hostname/MAC.
  */
 @Component({
   selector: 'app-provision-wizard',
@@ -58,6 +59,13 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
               <h2>Target</h2>
               <p class="pw-lead">The machine to provision. It is created as a <b>planned</b> host; roles and
                 config converge after it first boots and checks in.</p>
+              @if (templates().length) {
+                <label class="pw-fld"><span>Start from a saved template <span class="pw-opt">(prefills disk + roles)</span></span>
+                  <select [ngModel]="fromTemplate()" (ngModelChange)="applyTemplate($event)">
+                    <option [ngValue]="null">— none —</option>
+                    @for (t of templates(); track t.id) { <option [ngValue]="t.id">{{ t.name }}</option> }
+                  </select></label>
+              }
               <label class="pw-fld"><span>Hostname</span>
                 <input [(ngModel)]="hostname" placeholder="web042" /></label>
               <label class="pw-fld"><span>MAC <span class="pw-opt">(optional — blank = next machine that boots)</span></span>
@@ -142,6 +150,14 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                   <li><b>Roles</b>: {{ pickedRoles().size ? asArray(pickedRoles()).join(', ') : 'none' }}</li>
                 </ul>
                 @if (reviewError()) { <p class="pw-err">{{ reviewError() }}</p> }
+                <div class="pw-savetmpl">
+                  <span>Save these choices (disk + sizing + roles) as a reusable template:</span>
+                  <div class="pw-savetmpl-row">
+                    <input [(ngModel)]="saveName" placeholder="template name, e.g. web-tier" />
+                    <button mat-stroked-button [disabled]="!saveName.trim() || savingTmpl()" (click)="saveTemplate()">Save template</button>
+                  </div>
+                  @if (savedMsg()) { <span class="pw-ok">{{ savedMsg() }}</span> }
+                </div>
               }
               @if (deploying() || results().length) {
                 <ul class="pw-progress">
@@ -209,6 +225,9 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
     .pw-err { color: #d9534f; font-size: .8rem; } .pw-ok { color: #2e7d32; }
     .pw-footer { display: flex; align-items: center; gap: .5rem; padding: .7rem 1rem; border-top: 1px solid var(--mat-sys-outline-variant); }
     .pw-spacer { flex: 1; }
+    .pw-savetmpl { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid #3332; font-size: .85rem; display: flex; flex-direction: column; gap: .4rem; }
+    .pw-savetmpl-row { display: flex; gap: .5rem; align-items: center; }
+    .pw-savetmpl-row input { flex: 1; padding: .35rem; }
   `],
 })
 export class ProvisionWizardComponent implements OnInit {
@@ -244,6 +263,13 @@ export class ProvisionWizardComponent implements OnInit {
   results = signal<DeployStepResult[]>([]);
   reviewError = signal('');
 
+  // Deployment templates (reuse)
+  templates = signal<DeploymentTemplate[]>([]);
+  fromTemplate = signal<string | null>(null);
+  saveName = '';
+  savingTmpl = signal(false);
+  savedMsg = signal('');
+
   readyImages = computed(() => this.images().filter((i) => i.status === 'ready'));
   chosenImage = computed(() => this.images().find((i) => i.id === this.imageId()) ?? null);
   growableRoles = computed(() => (this.chosenImage()?.volumes ?? []).filter((v) => this.isGrowable(v)).map((v) => v.role));
@@ -274,10 +300,62 @@ export class ProvisionWizardComponent implements OnInit {
           .map((p) => ({ id: p.id, name: p.name, display_name: p.display_name, description: p.description }))),
       error: () => this.roles.set([]),
     });
+    this.svc.listTemplates().subscribe({ next: (t) => this.templates.set(t), error: () => this.templates.set([]) });
   }
 
   isGrowable(v: ImageVolume): boolean { return GROWABLE.has(v.role); }
   asArray(s: Set<string>): string[] { return [...s]; }
+
+  /** Prefill every step except the target from a saved template. The image must still exist; if it was
+   *  deleted since the template was saved we keep the rest and leave the image unpicked (the Disk step then
+   *  asks for one) rather than silently dropping the whole template. */
+  applyTemplate(id: string | null): void {
+    this.fromTemplate.set(id);
+    if (!id) return;
+    const t = this.templates().find((x) => x.id === id);
+    if (!t) return;
+    const img = t.image_id ? this.images().find((i) => i.id === t.image_id) : null;
+    if (img) {
+      this.pickImage(img);
+      this.growMode.set(t.grow_mode);
+      for (const [role, v] of Object.entries(t.grow_policy || {})) {
+        if (t.grow_mode === 'absolute') this.gib[role] = v; else this.pct[role] = v;
+      }
+    }
+    if (t.network?.mode) {
+      this.net = { mode: t.network.mode };
+      if (t.network.mode === 'static') {
+        this.net.address = t.network.address;
+        this.net.gateway = t.network.gateway;
+        this.dnsRaw = (t.network.dns || []).join(', ');
+      }
+    }
+    this.pickedRoles.set(new Set(t.roles || []));
+  }
+
+  saveTemplate(): void {
+    const name = this.saveName.trim();
+    if (!name) return;
+    this.savingTmpl.set(true);
+    this.savedMsg.set('');
+    const network: ProvisionNetwork = { mode: this.net.mode };
+    if (this.net.mode === 'static') {
+      network.address = this.net.address;
+      network.gateway = this.net.gateway;
+      network.dns = this.dnsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    const { grow_mode, grow_policy } = this.growPolicy();
+    this.svc.saveTemplate({
+      name, image_id: this.imageId(), grow_mode, grow_policy, network, roles: [...this.pickedRoles()],
+    }).subscribe({
+      next: (t) => {
+        this.savingTmpl.set(false);
+        this.savedMsg.set(`Saved as “${t.name}”.`);
+        this.svc.listTemplates().subscribe((all) => this.templates.set(all));
+      },
+      error: (e) => { this.savingTmpl.set(false); this.savedMsg.set((e as { error?: { detail?: string } })?.error?.detail ?? 'Save failed'); },
+    });
+  }
 
   pickImage(img: DiskImage): void {
     this.imageId.set(img.id);
