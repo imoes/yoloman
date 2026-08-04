@@ -50,7 +50,12 @@ wachsendem Volume, ein Rest-Volume (root, sonst das letzte) füllt den verbleibe
 (xfs-shrink, Platz reicht) bleiben. `DiskImage.grow_mode` in Manifest/Model + `patch_image`. UI: Toggle
 %/GB im Disk-Schritt. Tests: absolute Verteilung, Rest-Volume, „passt nicht"-Fehler.
 
-**P3 — Der Wizard (UI).**
+**P3 — Der Wizard (UI). ✅ gebaut (Target → Disk → Rollen → Review → Deploy).**
+Rollen binden über `resource.apply(kind:'role')` auf die `agent_id` des geplanten Hosts — das deklariert nur
+Link + Desired-State (kein Live-Host nötig), Konvergenz beim Checkin. Der Config-Schritt fiel raus, weil
+`config apply` über einen **Dateipfad** adressiert (nicht Template-Name) — Config + die Wiederverwendung der
+im Management-Tab als Vorlage gespeicherten Rollen/Features (Ordner `templates`) kommen in P4.
+
 Neue `provision-wizard.component.ts` nach `add-roles-wizard`-Muster. Schritte:
 Ziel (Hostname/MAC/Netz) → Disk (Image wählen, UEFI/BIOS, Volume-Größen %/GB) → Rollen (Custom-Rollen aus
 `plan-library` verknüpfen, Drag/Checkbox) → Config (Config-Policies/Templates wie Management-Tab) → Review →

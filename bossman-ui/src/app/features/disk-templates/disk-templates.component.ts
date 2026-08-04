@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { ProvisionWizardComponent } from './provision-wizard.component';
 import { DiskImage, ImageVolume, ImagesService, ProvisionNetwork, RestoreJob, Vm } from '../../core/services/images.service';
 
 /** Roles whose size a grow policy can adjust; the rest (esp/boot/swap/bios_boot) stay fixed. */
@@ -19,7 +21,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 @Component({
   selector: 'app-disk-templates',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, RouterLink, DecimalPipe, UpperCasePipe],
+  imports: [FormsModule, MatIconModule, MatButtonModule, MatDialogModule, RouterLink, DecimalPipe, UpperCasePipe],
   template: `
     <div class="dt-wrap">
       <!-- ── Templates ────────────────────────────────────────────── -->
@@ -128,6 +130,10 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
       <!-- ── Provision a target + jobs ────────────────────────────── -->
       <section class="dt-col">
         <h2>Provision</h2>
+        <button mat-flat-button color="primary" class="dt-wizard-btn" (click)="openWizard()">
+          <mat-icon>auto_awesome</mat-icon> New deployment (wizard)
+        </button>
+        <p class="dt-muted">Guided: target, disk, roles and config in one flow. Or use the quick form below.</p>
         <label class="dt-fld"><span>Hostname</span><input [(ngModel)]="host.hostname" placeholder="web042" /></label>
         <label class="dt-fld"><span>MAC <span class="dt-opt">(optional)</span></span><input [(ngModel)]="host.mac" placeholder="empty = next machine that boots" /></label>
         <label class="dt-fld"><span>Network</span>
@@ -222,6 +228,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-lab-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: .5rem 0; }
     .dt-lab-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #3334; border-radius: 8px; padding: .7rem; }
     .dt-lab-form input { padding: .3rem; }
+    .dt-wizard-btn { margin-bottom: .4rem; }
     .dt-logbox { margin: 0 1rem 1.5rem; border: 1px solid #3334; border-radius: 8px; padding: .5rem .8rem; }
     .dt-logbox-head { display: flex; align-items: center; justify-content: space-between; }
     .dt-logbox-head h2 { font-size: 1rem; margin: .3rem 0; }
@@ -263,6 +270,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 })
 export class DiskTemplatesComponent implements OnInit, OnDestroy {
   private svc = inject(ImagesService);
+  private dialog = inject(MatDialog);
 
   images = signal<DiskImage[]>([]);
   jobs = signal<RestoreJob[]>([]);
@@ -336,6 +344,11 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     });
   }
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
+
+  openWizard(): void {
+    this.dialog.open(ProvisionWizardComponent, { autoFocus: false })
+      .afterClosed().subscribe((armed) => { if (armed) this.reload(); });
+  }
 
   private pollVms(): void {
     // The lab is optional: a 503 (BOSSMAN_PXE_CONTAINER unset) just means no VMs to show.
