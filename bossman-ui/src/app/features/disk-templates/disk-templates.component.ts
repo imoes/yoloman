@@ -194,6 +194,27 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         </div>
       }
     </section>
+
+    <!-- ── Finished deployments: a closable log box ─────────────────────── -->
+    @if (logOpen() && finishedJobs().length) {
+      <section class="dt-logbox">
+        <div class="dt-logbox-head">
+          <h2>Finished deployments <span class="dt-muted">({{ finishedJobs().length }})</span></h2>
+          <button mat-icon-button title="Close" (click)="closeLog()"><mat-icon>close</mat-icon></button>
+        </div>
+        @for (j of finishedJobs(); track j.id) {
+          <details class="dt-logentry">
+            <summary>
+              <span class="dt-badge" [class.ready]="j.status === 'done'" [class.bad]="j.status === 'failed'">{{ j.status }}</span>
+              <b>{{ j.target_hostname }}</b>
+              <span class="dt-muted">{{ j.target_mac || '(wildcard)' }}</span>
+              @if (j.error) { <span class="dt-err">{{ j.error }}</span> }
+            </summary>
+            <pre class="dt-log">{{ j.log || '(no log captured)' }}</pre>
+          </details>
+        }
+      </section>
+    }
   `,
   styles: [`
     .dt-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; padding: 1rem; }
@@ -201,6 +222,13 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-lab-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: .5rem 0; }
     .dt-lab-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #3334; border-radius: 8px; padding: .7rem; }
     .dt-lab-form input { padding: .3rem; }
+    .dt-logbox { margin: 0 1rem 1.5rem; border: 1px solid #3334; border-radius: 8px; padding: .5rem .8rem; }
+    .dt-logbox-head { display: flex; align-items: center; justify-content: space-between; }
+    .dt-logbox-head h2 { font-size: 1rem; margin: .3rem 0; }
+    .dt-logentry { border-top: 1px solid #3332; padding: .3rem 0; }
+    .dt-logentry summary { cursor: pointer; display: flex; align-items: center; gap: .5rem; font-size: .85rem; }
+    .dt-log { margin: .4rem 0 0; padding: .5rem; background: #0002; border-radius: 6px; font-size: .75rem;
+      max-height: 260px; overflow: auto; white-space: pre-wrap; }
     .dt-import { margin-bottom: .6rem; }
     .dt-import-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #4a90d9; border-radius: 8px; padding: .7rem; }
     .dt-import-form select, .dt-import-form input { padding: .3rem; }
@@ -245,6 +273,14 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   pct: Record<string, number> = {};
   gib: Record<string, number> = {};       // absolute GiB per growable role (0 = fill the rest)
   growMode = signal<'percent' | 'absolute'>('percent');
+
+  // Finished-deployments log box. Closable — but a dismiss only hides the deployments finished SO FAR; when
+  // a new one finishes (the count grows past what was dismissed) the box comes back, because a permanent
+  // "never show again" would defeat the point of a live log.
+  finishedJobs = computed(() => this.jobs().filter((j) => j.status === 'done' || j.status === 'failed'));
+  private dismissedAt = signal(0);
+  logOpen = computed(() => this.finishedJobs().length > this.dismissedAt());
+  closeLog(): void { this.dismissedAt.set(this.finishedJobs().length); }
 
   inst = { name: '', iso: '', disk: '' };
   activeImage = computed(() => this.images().find((i) => i.is_active) ?? null);
