@@ -17,7 +17,11 @@ export interface CatalogPackage {
   icon: string;
   description: string;
   template: string | null; // config template name, or null if none yet
-  kind?: 'role' | 'config'; // role = installable server role; config = base-system file (gpedit only)
+  // Windows-Server-Manager terms (see docs/roles-and-features.md):
+  //   role    = a primary network service, install + configure + run + a monitoring check.
+  //   feature = installed + configured + run like a role, but auxiliary — NO monitoring check.
+  //   config  = a base-system config file, not installable (Configuration tab / gpedit only).
+  kind?: 'role' | 'feature' | 'config';
   validate_cmd?: string;
   families: { debian?: PackageFamily; redhat?: PackageFamily };
 }

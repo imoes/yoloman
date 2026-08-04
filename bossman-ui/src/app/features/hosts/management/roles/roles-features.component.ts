@@ -36,11 +36,12 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     } @else {
       <input class="bm-rf-search" placeholder="Search installed roles…" [ngModel]="query()" (ngModelChange)="query.set($event)" />
       <table class="bm-rf-tbl">
-        <thead><tr><th>Role</th><th>Category</th><th>Version</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Type</th><th>Category</th><th>Version</th><th></th></tr></thead>
         <tbody>
           @for (r of rows(); track r.name) {
             <tr>
               <td><mat-icon class="bm-rf-ic">{{ r.icon }}</mat-icon> {{ r.label }}</td>
+              <td><span class="bm-rf-kind" [class.role]="r.kind === 'role'">{{ r.kind === 'role' ? 'Role' : 'Feature' }}</span></td>
               <td class="bm-dim">{{ r.category }}</td>
               <td class="bm-mono">{{ r.version || '—' }}</td>
               <td class="bm-rf-actions">
@@ -74,6 +75,8 @@ import { AddRolesWizardComponent, AddRolesWizardData } from './add-roles-wizard.
     .bm-rf-tbl td { padding: 8px 10px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: middle; }
     .bm-rf-ic { font-size: 18px; width: 18px; height: 18px; vertical-align: middle; opacity: 0.8; margin-right: 4px; }
     .bm-rf-badge { font-size: 11px; padding: 1px 9px; border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+    .bm-rf-kind { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+    .bm-rf-kind.role { background: color-mix(in srgb, var(--mat-sys-primary) 22%, transparent); }
     .bm-rf-on { background: color-mix(in srgb, var(--bm-green, #2e7d32) 20%, transparent); }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 12px; }
     .bm-rf-actions { white-space: nowrap; text-align: right; }
@@ -117,6 +120,7 @@ export class RolesFeaturesComponent implements OnInit {
       .filter(([, e]) => e.kind !== 'config') // base-system config files live in the Configuration tab
       .map(([name, e]) => ({
         name, label: e.label, category: e.category, icon: e.icon, template: e.template,
+        kind: e.kind === 'role' ? 'role' : 'feature',   // installed catalog entries are role or feature; config lives elsewhere
         installed: !!ctx && name in ctx.installed,
         version: ctx?.installed[name] ?? '',
       }))

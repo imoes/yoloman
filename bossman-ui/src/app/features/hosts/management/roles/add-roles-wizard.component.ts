@@ -481,6 +481,9 @@ export class AddRolesWizardComponent {
   private assignMonitoring(states: RunState[]): void {
     for (const rs of states) {
       if (rs.error || rs.result?.ok === false || rs.result?.aborted) continue;
+      // A FEATURE is installed, configured and started like a role, but is auxiliary — it is not the host's
+      // monitored purpose, so it gets no service-health check (see docs/roles-and-features.md). Only roles do.
+      if (this.data.catalog[rs.pkg]?.kind === 'feature') continue;
       const unit = (this.data.context.catalog_resolved[rs.pkg] || {}).service || '';
       if (!unit) continue;
       this.checkService.createAssignment({
