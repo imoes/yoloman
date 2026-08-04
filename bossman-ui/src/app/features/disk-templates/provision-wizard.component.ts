@@ -201,7 +201,8 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                         @for (s of n.storages; track s.name) { <option [ngValue]="s.name">{{ s.name }} ({{ s.type }})</option> }
                       </select>
                     </label>
-                    <label class="pw-fld"><span>Network</span>
+                    <label class="pw-fld">
+                      <span>Network @if (placement()?.kind === 'vcenter') { <span class="pw-opt">(portgroup — carries the VLAN)</span> }</span>
                       <select [ngModel]="bridge()" (ngModelChange)="bridge.set($event)">
                         @for (b of n.bridges; track b.name) { <option [ngValue]="b.name">{{ b.name }}{{ b.comment ? ' — ' + b.comment : '' }}</option> }
                       </select>
@@ -211,7 +212,11 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                     <label class="pw-fld"><span>vCPU</span><input type="number" min="1" [(ngModel)]="cores" /></label>
                     <label class="pw-fld"><span>RAM (MB)</span><input type="number" min="512" step="512" [(ngModel)]="memoryMb" /></label>
                     <label class="pw-fld"><span>Disk (GiB)</span><input type="number" min="1" [(ngModel)]="diskGib" /></label>
-                    <label class="pw-fld"><span>VLAN <span class="pw-opt">(optional)</span></span><input type="number" min="1" max="4094" [(ngModel)]="vlan" /></label>
+                    <!-- VLAN tag is a Proxmox-only per-NIC option (untagged if left blank). On vCenter the
+                         chosen portgroup carries the VLAN, so there is no separate VLAN field. -->
+                    @if (placement()?.kind === 'proxmox') {
+                      <label class="pw-fld"><span>VLAN <span class="pw-opt">(optional — untagged if empty)</span></span><input type="number" min="1" max="4094" [(ngModel)]="vlan" /></label>
+                    }
                   </div>
                   <label class="pw-pick">
                     <mat-checkbox [checked]="uefi()" (change)="uefi.set(!uefi())" /> UEFI (OVMF) — adds an EFI disk + virtio-rng for PXE
@@ -742,7 +747,8 @@ export class ProvisionWizardComponent implements OnInit {
       this.svc.createVm(this.vmHostId()!, {
         node: this.node()!, name: hostname, storage: this.storage()!, bridge: this.bridge()!,
         cores: this.cores, memory_mb: this.memoryMb, disk_gib: this.diskGib,
-        uefi: this.uefi(), vlan: this.vlan || null,
+        // VLAN tag is Proxmox-only; on vCenter the portgroup carries the VLAN, so never send one.
+        uefi: this.uefi(), vlan: this.placement()?.kind === 'proxmox' ? (this.vlan || null) : null,
       }).subscribe({
         next: (vm) => { push({ label: `VM created (vmid ${vm.vmid}, ${vm.mac})`, ok: true }); proceed(vm.mac); },
         error: (e) => this.fail(push, 'VM creation failed', e),
