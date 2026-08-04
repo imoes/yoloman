@@ -63,6 +63,40 @@ export interface ProvisionNetwork {
   dns?: string[];
 }
 
+/** A registered hypervisor the provisioner can create VMs on (kind auto-detected). */
+export interface VmHost {
+  id: string;
+  name: string;
+  kind: 'proxmox' | 'vcenter';
+  host: string;
+  username: string;
+  verify_tls: boolean;
+  created_at: string;
+}
+
+/** Placement options on a hypervisor: per node, the storages a disk can go on and the networks a NIC can. */
+export interface VmPlacement {
+  kind: string;
+  nodes: {
+    node: string;
+    status?: string;
+    storages: { name: string; type?: string; avail_bytes?: number; total_bytes?: number }[];
+    bridges: { name: string; comment?: string }[];
+  }[];
+}
+
+export interface VmCreateRequest {
+  node: string;
+  name: string;
+  storage: string;
+  bridge: string;
+  cores?: number;
+  memory_mb?: number;
+  disk_gib?: number;
+  uefi?: boolean;
+  vlan?: number | null;
+}
+
 /** A reusable deployment recipe — everything a provisioning run needs except the per-machine hostname/MAC. */
 export interface DeploymentTemplate {
   id: string;
@@ -125,6 +159,20 @@ export class ImagesService {
   importSources() { return this.http.get<string[]>(`${this.base}/images/import/sources`); }
   importImage(body: { name: string; source_file: string; description?: string }) {
     return this.http.post<DiskImage>(`${this.base}/images/import`, body);
+  }
+
+  // ── VM hosts (optional VM-target provisioning: Proxmox now, vCenter later) ───────────────
+  listVmHosts() { return this.http.get<VmHost[]>(`${this.base}/provisioning/vm-hosts`); }
+  /** Register a hypervisor — the backend auto-detects proxmox|vcenter from host+credentials. */
+  createVmHost(body: { name: string; host: string; username: string; password: string; verify_tls?: boolean }) {
+    return this.http.post<VmHost>(`${this.base}/provisioning/vm-hosts`, body);
+  }
+  deleteVmHost(id: string) { return this.http.delete<void>(`${this.base}/provisioning/vm-hosts/${id}`); }
+  /** Nodes/hosts + their storages/datastores + networks/bridges, for the wizard to offer. */
+  vmHostPlacement(id: string) { return this.http.get<VmPlacement>(`${this.base}/provisioning/vm-hosts/${id}/placement`); }
+  /** Create + start a PXE-install VM; returns its vmid + the MAC to arm the restore job against. */
+  createVm(id: string, body: VmCreateRequest) {
+    return this.http.post<{ vmid: number; mac: string }>(`${this.base}/provisioning/vm-hosts/${id}/create-vm`, body);
   }
 
   // ── Deployment templates (reusable deploy recipes) ───────────────────────

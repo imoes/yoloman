@@ -7,7 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { forkJoin } from 'rxjs';
-import { DeploymentTemplate, DiskImage, ImageVolume, ImagesService, ProvisionNetwork } from '../../core/services/images.service';
+import { DeploymentTemplate, DiskImage, ImageVolume, ImagesService, ProvisionNetwork, VmHost, VmPlacement } from '../../core/services/images.service';
 import { OrchestrationService } from '../../core/services/orchestration.service';
 import { ResourceService } from '../../core/services/resource.service';
 
@@ -20,8 +20,9 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
  * The provisioning wizard (docs/provisioning-wizard.md, Plan A) — the same shape as the Roles & Features
  * wizard: a left step list, one panel per step, Previous/Next, a Deploy step at the end.
  *
- * Target → Disk (image + UEFI/BIOS + volume sizes %/GiB) → Roles → Review → Deploy. Deploy is a fixed
- * sequence over EXISTING services, so the wizard needs no new backend:
+ * Target → Disk → Virtualization (optional VM target) → Roles → Review → Deploy. Deploy is a fixed
+ * sequence over existing services:
+ *   0. (optional) createVm on a registered hypervisor — returns the MAC to arm against
  *   1. createPlannedHost  — the target becomes a 'planned' Agent with an id
  *   2. arm                — links that host + the chosen template into a restore job
  *   3. resource.apply(role) per selected role — declares the binding on the planned host
@@ -128,6 +129,69 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
             }
 
             @case (2) {
+              <h2>Virtualization <span class="pw-dim">(optional)</span></h2>
+              <p class="pw-lead">Create the target as a VM on vCenter or Proxmox, or leave off for bare metal
+                (the MAC you typed). The environment is detected from the host + credentials.</p>
+              <label class="pw-pick">
+                <mat-checkbox [checked]="useVm()" (change)="useVm.set(!useVm())" /> Provision onto a VM host
+              </label>
+
+              @if (useVm()) {
+                <label class="pw-fld"><span>VM host</span>
+                  <select [ngModel]="vmHostId()" (ngModelChange)="pickVmHost($event)">
+                    <option [ngValue]="null">— select or add below —</option>
+                    @for (h of vmHosts(); track h.id) { <option [ngValue]="h.id">{{ h.name }} ({{ h.kind }})</option> }
+                  </select>
+                </label>
+
+                @if (!vmHostId()) {
+                  <div class="pw-addhost">
+                    <b>Add a VM host</b>
+                    <input [(ngModel)]="newHost.name" placeholder="name, e.g. lab-proxmox" />
+                    <input [(ngModel)]="newHost.host" placeholder="host, e.g. pve.example or vc.example" />
+                    <input [(ngModel)]="newHost.username" placeholder="user, e.g. root@pam" />
+                    <input [(ngModel)]="newHost.password" type="password" placeholder="password" />
+                    <button mat-stroked-button [disabled]="!canAddHost() || addingHost()" (click)="addVmHost()">
+                      {{ addingHost() ? 'Detecting…' : 'Detect + save' }}
+                    </button>
+                    @if (hostErr()) { <span class="pw-err">{{ hostErr() }}</span> }
+                  </div>
+                }
+
+                @if (placement(); as pl) {
+                  <label class="pw-fld"><span>Node</span>
+                    <select [ngModel]="node()" (ngModelChange)="node.set($event)">
+                      @for (n of pl.nodes; track n.node) { <option [ngValue]="n.node">{{ n.node }}</option> }
+                    </select>
+                  </label>
+                  @if (currentNode(); as n) {
+                    <label class="pw-fld"><span>Storage</span>
+                      <select [ngModel]="storage()" (ngModelChange)="storage.set($event)">
+                        @for (s of n.storages; track s.name) { <option [ngValue]="s.name">{{ s.name }} ({{ s.type }})</option> }
+                      </select>
+                    </label>
+                    <label class="pw-fld"><span>Network</span>
+                      <select [ngModel]="bridge()" (ngModelChange)="bridge.set($event)">
+                        @for (b of n.bridges; track b.name) { <option [ngValue]="b.name">{{ b.name }}{{ b.comment ? ' — ' + b.comment : '' }}</option> }
+                      </select>
+                    </label>
+                  }
+                  <div class="pw-vmrow">
+                    <label class="pw-fld"><span>vCPU</span><input type="number" min="1" [(ngModel)]="cores" /></label>
+                    <label class="pw-fld"><span>RAM (MB)</span><input type="number" min="512" step="512" [(ngModel)]="memoryMb" /></label>
+                    <label class="pw-fld"><span>Disk (GiB)</span><input type="number" min="1" [(ngModel)]="diskGib" /></label>
+                    <label class="pw-fld"><span>VLAN <span class="pw-opt">(optional)</span></span><input type="number" min="1" max="4094" [(ngModel)]="vlan" /></label>
+                  </div>
+                  <label class="pw-pick">
+                    <mat-checkbox [checked]="uefi()" (change)="uefi.set(!uefi())" /> UEFI (OVMF) — adds an EFI disk + virtio-rng for PXE
+                  </label>
+                } @else if (vmHostId()) {
+                  <p class="pw-dim">Loading placement… @if (placementErr()) { <span class="pw-err">{{ placementErr() }}</span> }</p>
+                }
+              }
+            }
+
+            @case (3) {
               <h2>Roles</h2>
               <p class="pw-lead">Roles to bind to the host. They are declared now and converge after first boot.</p>
               <input class="pw-search" placeholder="Filter roles…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
@@ -140,11 +204,12 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
               }
             }
 
-            @case (3) {
+            @case (4) {
               <h2>Review</h2>
               @if (!deploying() && !results().length) {
                 <ul class="pw-review">
                   <li><b>Host</b>: {{ hostname || '—' }} <span class="pw-dim">{{ mac || '(wildcard MAC)' }} · {{ net.mode }}</span></li>
+                  <li><b>Target</b>: {{ useVm() ? 'VM on ' + vmHostName() + ' — ' + node() + '/' + storage() + '/' + bridge() + (vlan ? ' VLAN ' + vlan : '') : 'bare metal' }}</li>
                   <li><b>Image</b>: {{ chosenImage()?.name || '—' }}
                     <span class="pw-dim">{{ chosenImage()?.firmware | uppercase }} · {{ growMode() }} sizing</span></li>
                   <li><b>Roles</b>: {{ pickedRoles().size ? asArray(pickedRoles()).join(', ') : 'none' }}</li>
@@ -228,10 +293,14 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
     .pw-savetmpl { margin-top: 1rem; padding-top: .8rem; border-top: 1px solid #3332; font-size: .85rem; display: flex; flex-direction: column; gap: .4rem; }
     .pw-savetmpl-row { display: flex; gap: .5rem; align-items: center; }
     .pw-savetmpl-row input { flex: 1; padding: .35rem; }
+    .pw-addhost { display: flex; flex-direction: column; gap: .4rem; border: 1px solid #3334; border-radius: 8px; padding: .7rem; margin: .4rem 0; }
+    .pw-addhost input { padding: .35rem; }
+    .pw-vmrow { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .pw-vmrow .pw-fld { flex: 1; min-width: 6rem; }
   `],
 })
 export class ProvisionWizardComponent implements OnInit {
-  readonly STEP_LABELS = ['Target', 'Disk image', 'Roles', 'Review'];
+  readonly STEP_LABELS = ['Target', 'Disk image', 'Virtualization', 'Roles', 'Review'];
 
   private svc = inject(ImagesService);
   private orch = inject(OrchestrationService);
@@ -252,6 +321,24 @@ export class ProvisionWizardComponent implements OnInit {
   growMode = signal<'percent' | 'absolute'>('percent');
   pct: Record<string, number> = {};
   gib: Record<string, number> = {};
+
+  // Virtualization (optional VM target)
+  useVm = signal(false);
+  vmHosts = signal<VmHost[]>([]);
+  vmHostId = signal<string | null>(null);
+  newHost = { name: '', host: '', username: '', password: '' };
+  addingHost = signal(false);
+  hostErr = signal('');
+  placement = signal<VmPlacement | null>(null);
+  placementErr = signal('');
+  node = signal<string | null>(null);
+  storage = signal<string | null>(null);
+  bridge = signal<string | null>(null);
+  cores = 2;
+  memoryMb = 2048;
+  diskGib = 32;
+  vlan: number | null = null;
+  uefi = signal(false);
 
   // Roles + config
   roles = signal<{ id: string; name: string; display_name: string; description: string }[]>([]);
@@ -287,6 +374,8 @@ export class ProvisionWizardComponent implements OnInit {
   });
   done = computed(() => !this.deploying() && this.results().length > 0 && this.allOk());
   allOk = computed(() => this.results().length > 0 && this.results().every((r) => r.ok));
+  currentNode = computed(() => this.placement()?.nodes.find((n) => n.node === this.node()) ?? null);
+  vmHostName = computed(() => this.vmHosts().find((h) => h.id === this.vmHostId())?.name ?? '');
 
   ngOnInit(): void {
     this.svc.list().subscribe((imgs) => {
@@ -301,10 +390,61 @@ export class ProvisionWizardComponent implements OnInit {
       error: () => this.roles.set([]),
     });
     this.svc.listTemplates().subscribe({ next: (t) => this.templates.set(t), error: () => this.templates.set([]) });
+    this.svc.listVmHosts().subscribe({ next: (h) => this.vmHosts.set(h), error: () => this.vmHosts.set([]) });
   }
 
   isGrowable(v: ImageVolume): boolean { return GROWABLE.has(v.role); }
   asArray(s: Set<string>): string[] { return [...s]; }
+
+  // ── Virtualization step ─────────────────────────────────────────────────
+  canAddHost(): boolean {
+    return !!(this.newHost.name.trim() && this.newHost.host.trim()
+              && this.newHost.username.trim() && this.newHost.password);
+  }
+
+  addVmHost(): void {
+    if (!this.canAddHost()) return;
+    this.addingHost.set(true);
+    this.hostErr.set('');
+    this.svc.createVmHost({
+      name: this.newHost.name.trim(), host: this.newHost.host.trim(),
+      username: this.newHost.username.trim(), password: this.newHost.password,
+    }).subscribe({
+      next: (h) => {
+        this.addingHost.set(false);
+        this.vmHosts.set([...this.vmHosts().filter((x) => x.id !== h.id), h]);
+        this.newHost = { name: '', host: '', username: '', password: '' };
+        this.pickVmHost(h.id);   // auto-select the just-added host and load its placement
+      },
+      error: (e) => { this.addingHost.set(false); this.hostErr.set(e?.error?.detail ?? 'detection failed'); },
+    });
+  }
+
+  /** Select a VM host and load its placement (nodes/storage/networks); default node/storage/bridge. */
+  pickVmHost(id: string | null): void {
+    this.vmHostId.set(id);
+    this.placement.set(null);
+    this.placementErr.set('');
+    this.node.set(null); this.storage.set(null); this.bridge.set(null);
+    if (!id) return;
+    // UEFI defaults from the chosen image's firmware — a UEFI image needs a UEFI VM to boot.
+    this.uefi.set(this.chosenImage()?.firmware === 'uefi');
+    // Size the VM disk to at least the image's disk (GiB), so the restore fits.
+    const bytes = this.chosenImage()?.disk_size ?? 0;
+    if (bytes) this.diskGib = Math.max(this.diskGib, Math.ceil(bytes / 1073741824));
+    this.svc.vmHostPlacement(id).subscribe({
+      next: (pl) => {
+        this.placement.set(pl);
+        const n = pl.nodes[0];
+        if (n) {
+          this.node.set(n.node);
+          this.storage.set(n.storages[0]?.name ?? null);
+          this.bridge.set(n.bridges[0]?.name ?? null);
+        }
+      },
+      error: (e) => this.placementErr.set(e?.error?.detail ?? 'could not load placement'),
+    });
+  }
 
   /** Prefill every step except the target from a saved template. The image must still exist; if it was
    *  deleted since the template was saved we keep the rest and leave the image unpicked (the Disk step then
@@ -386,10 +526,15 @@ export class ProvisionWizardComponent implements OnInit {
       case 0: return !!this.hostname.trim();
       case 1: return !!this.imageId() && (this.growableRoles().length === 0
         || (this.growMode() === 'percent' ? this.sum() === 100 : !this.gibError()));
+      case 2: return this.vmReady();   // Virtualization: off is fine; on needs node+storage+bridge
       default: return true;
     }
   }
-  canDeploy(): boolean { return !!this.hostname.trim() && !!this.imageId(); }
+  /** A VM target is either not used, or fully specified (host + node + storage + bridge chosen). */
+  vmReady(): boolean {
+    return !this.useVm() || !!(this.vmHostId() && this.node() && this.storage() && this.bridge());
+  }
+  canDeploy(): boolean { return !!this.hostname.trim() && !!this.imageId() && this.vmReady(); }
 
   private growPolicy(): { grow_mode: 'percent' | 'absolute'; grow_policy: Record<string, number> } {
     const mode = this.growMode();
@@ -413,24 +558,40 @@ export class ProvisionWizardComponent implements OnInit {
       network.dns = this.dnsRaw.split(',').map((s) => s.trim()).filter(Boolean);
     }
     const hostname = this.hostname.trim();
-    const mac = this.mac.trim();
     const imageId = this.imageId()!;
     const { grow_mode, grow_policy } = this.growPolicy();
 
-    // 1) Persist the chosen grow policy on the template, then create the host, arm, and declare bindings.
-    this.svc.patch(imageId, { grow_mode, grow_policy }).subscribe({
-      next: () => this.svc.createPlannedHost({ hostname, mac, network }).subscribe({
-        next: (host) => {
-          push({ label: `Host ${hostname} created`, ok: true });
-          this.svc.arm({ image_id: imageId, target_mac: mac, target_hostname: hostname }).subscribe({
-            next: () => { push({ label: 'Restore job armed', ok: true }); this.bindAll(host.id, push); },
-            error: (e) => this.fail(push, 'Arming failed', e),
-          });
-        },
-        error: (e) => this.fail(push, 'Creating host failed', e),
-      }),
-      error: (e) => this.fail(push, 'Saving grow policy failed', e),
-    });
+    // The rest of the flow runs against a MAC. Bare metal uses the typed one (may be blank = wildcard); a VM
+    // target has none yet, so we create the VM first and use the MAC the hypervisor assigned it — that MAC
+    // is what the PXE check-in identifies the machine by, so it MUST be the one armed on the restore job.
+    const proceed = (mac: string) => {
+      this.svc.patch(imageId, { grow_mode, grow_policy }).subscribe({
+        next: () => this.svc.createPlannedHost({ hostname, mac, network }).subscribe({
+          next: (host) => {
+            push({ label: `Host ${hostname} created`, ok: true });
+            this.svc.arm({ image_id: imageId, target_mac: mac, target_hostname: hostname }).subscribe({
+              next: () => { push({ label: 'Restore job armed', ok: true }); this.bindAll(host.id, push); },
+              error: (e) => this.fail(push, 'Arming failed', e),
+            });
+          },
+          error: (e) => this.fail(push, 'Creating host failed', e),
+        }),
+        error: (e) => this.fail(push, 'Saving grow policy failed', e),
+      });
+    };
+
+    if (this.useVm()) {
+      this.svc.createVm(this.vmHostId()!, {
+        node: this.node()!, name: hostname, storage: this.storage()!, bridge: this.bridge()!,
+        cores: this.cores, memory_mb: this.memoryMb, disk_gib: this.diskGib,
+        uefi: this.uefi(), vlan: this.vlan || null,
+      }).subscribe({
+        next: (vm) => { push({ label: `VM created (vmid ${vm.vmid}, ${vm.mac})`, ok: true }); proceed(vm.mac); },
+        error: (e) => this.fail(push, 'VM creation failed', e),
+      });
+    } else {
+      proceed(this.mac.trim());
+    }
   }
 
   /** Declare every selected role on the new host. Independent applies, so one failure is reported without
