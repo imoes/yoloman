@@ -17,8 +17,10 @@ Everything here is async httpx; TLS verification follows the vm_hosts row (self-
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import random
+import re
 from typing import Any
 
 import httpx
@@ -119,10 +121,30 @@ class ProxmoxClient:
         return r.json().get("data")
 
     async def version(self) -> dict:
-        """The `/version` payload — the cheapest authenticated call, used by detect()."""
+        """The `/version` payload — the cheapest authenticated call; detect() uses it only to VALIDATE the
+        credentials once the product has already been identified by fingerprint()."""
         async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
             data = await self._get(client, "/version")
             return data or {}
+
+    async def fingerprint(self) -> dict[str, Any] | None:
+        """Identify the product WITHOUT credentials: is a Proxmox VE API answering on :8006? Returns
+        {"product": "proxmox", "version": None} or None.
+
+        This is the discriminator, not auth. `GET /api2/json/version` needs a login and so returns 401 when
+        called cold — but the *response* still identifies the product: the `pve-api-daemon` Server banner (and
+        the `{"data": …}` JSON envelope) are Proxmox-specific and present even on the 401. So identity comes
+        from the API surface, which is why the same service account also existing on a vCenter cannot cause a
+        misidentification. The version itself needs auth, so it is left None here and filled by version()."""
+        try:
+            async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+                r = await client.get(f"{self.base}/version")
+        except httpx.HTTPError:
+            return None
+        server = r.headers.get("server", "").lower()
+        if r.status_code in (200, 401) and ("pve" in server or _is_pve_envelope(r)):
+            return {"product": "proxmox", "version": None}
+        return None
 
     async def placement(self) -> dict[str, Any]:
         """Everything the wizard must let the operator pick: per node, the storages that can hold a VM disk
@@ -219,6 +241,7 @@ class VCenterClient:
 
     def __init__(self, host: str, username: str, password: str, *, verify_tls: bool = False,
                  timeout: float = 30.0) -> None:
+        self._host = host
         self.base = f"https://{host}/api"
         self._user = username
         self._password = password
@@ -261,8 +284,30 @@ class VCenterClient:
         r.raise_for_status()
         return self._unwrap(r)
 
+    async def fingerprint(self) -> dict[str, Any] | None:
+        """Identify the product WITHOUT credentials via the vSphere SOAP endpoint. POST RetrieveServiceContent
+        to /sdk (no auth) and read AboutInfo: `productLineId` 'vpx' means a vCenter Server (as opposed to
+        'embeddedEsx' for a standalone ESXi host, which the REST client here does not manage). Returns
+        {"product":"vcenter","version","build","name"} or None.
+
+        This is the canonical vSphere fingerprint (nmap's vmware-version, govc): product identity AND version
+        come back with NO login, so detection never depends on which service account happens to be valid —
+        the whole point of the operator's concern."""
+        try:
+            async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
+                r = await client.post(f"https://{self._host}/sdk", content=_SOAP_SERVICE_CONTENT,
+                                      headers={"Content-Type": "text/xml; charset=utf-8", "SOAPAction": ""})
+        except httpx.HTTPError:
+            return None
+        line = _xml_text(r.text, "productLineId")
+        if not line or "vpx" not in line.lower():   # embeddedEsx / gsx / other → not a vCenter
+            return None
+        return {"product": "vcenter", "version": _xml_text(r.text, "version"),
+                "build": _xml_text(r.text, "build"), "name": _xml_text(r.text, "name")}
+
     async def probe(self) -> None:
-        """Cheapest confirmation that this really is vCenter for these creds — a successful session login."""
+        """Cheapest confirmation that these creds work against vCenter — a successful session login. detect()
+        calls this only AFTER fingerprint() has already identified the product, purely to validate creds."""
         async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
             await self._login(client)
 
@@ -332,22 +377,60 @@ def _by_name(items: list, name: str, id_key: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Detection
 
+# The vSphere SOAP RetrieveServiceContent request — returns AboutInfo (productLineId, version, build, name)
+# with NO authentication. Same request nmap's vmware-version and govc use to fingerprint a vSphere endpoint.
+_SOAP_SERVICE_CONTENT = (
+    '<soap:Envelope xmlns:xsd="http://www.w3.org/2001/XMLSchema"'
+    ' xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"'
+    ' xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
+    '<soap:Body>'
+    '<RetrieveServiceContent xmlns="urn:internalvim25">'
+    '<_this xsi:type="ManagedObjectReference" type="ServiceInstance">ServiceInstance</_this>'
+    '</RetrieveServiceContent>'
+    '</soap:Body></soap:Envelope>'
+)
+
+
+def _xml_text(text: str, tag: str) -> str | None:
+    """Pull the text of the first <tag>…</tag> out of a SOAP/XML string, without an XML-parser dependency —
+    AboutInfo fields are flat text elements, so a narrow regex is enough (and safe against odd payloads)."""
+    m = re.search(rf"<{tag}>([^<]*)</{tag}>", text)
+    return m.group(1).strip() if m else None
+
+
+def _is_pve_envelope(r: httpx.Response) -> bool:
+    """A Proxmox API response wraps everything in a JSON `{"data": …}` envelope — true even for the 401 from
+    an unauthenticated /version. A secondary product signal to the `pve-api-daemon` Server banner."""
+    try:
+        return isinstance(r.json(), dict) and "data" in r.json()
+    except ValueError:
+        return False
+
 
 async def detect(host: str, username: str, password: str, *, verify_tls: bool = False) -> str:
-    """Which hypervisor answers at `host` for these credentials — 'proxmox' | 'vcenter'.
+    """Identify the hypervisor at `host` by its PRODUCT identifier, then validate the credentials — returns
+    'proxmox' | 'vcenter'.
 
-    Probe Proxmox first (authenticated /version on :8006), then vCenter (a /api/session login). Whichever
-    accepts the credentials wins; if neither does, raise with both reasons so the operator sees why."""
+    The product is decided by an UNAUTHENTICATED fingerprint (the vSphere SOAP AboutInfo on /sdk for vCenter,
+    the pve-api-daemon surface on :8006 for Proxmox), never by which login happens to succeed. This is the
+    operator's requirement: the same service account can be valid on both a Proxmox and a vCenter, so 'the
+    login worked' is not proof of which product it is — the version/identifier surface is. The two probes hit
+    different ports/protocols of the same host, so at most one product answers; if somehow both do, the host
+    is genuinely ambiguous and we say so. Only once the product is known do we log in once to confirm the
+    credentials are usable, so registering a host with bad creds still fails early and clearly."""
     prox = ProxmoxClient(host, username, password, verify_tls=verify_tls, timeout=15.0)
-    try:
-        await prox.version()
+    vc = VCenterClient(host, username, password, verify_tls=verify_tls, timeout=15.0)
+    prox_fp, vc_fp = await asyncio.gather(prox.fingerprint(), vc.fingerprint())
+
+    if prox_fp and vc_fp:
+        raise HypervisorError(
+            f"{host!r} fingerprints as BOTH Proxmox (:8006) and vCenter (/sdk) — cannot disambiguate")
+    if prox_fp:
+        await prox.version()   # identity is settled; this only validates the credentials
         return "proxmox"
-    except HypervisorError as prox_exc:
-        vc = VCenterClient(host, username, password, verify_tls=verify_tls, timeout=15.0)
-        try:
-            await vc.probe()
-            return "vcenter"
-        except HypervisorError as vc_exc:
-            raise HypervisorError(
-                f"no supported hypervisor at {host!r}: Proxmox probe failed ({prox_exc}); "
-                f"vCenter probe failed ({vc_exc})") from vc_exc
+    if vc_fp:
+        await vc.probe()       # identity is settled; this only validates the credentials
+        return "vcenter"
+    raise HypervisorError(
+        f"no supported hypervisor identified at {host!r}: neither a Proxmox API on :8006 nor a vSphere "
+        f"/sdk endpoint responded to an unauthenticated product probe")

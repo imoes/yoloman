@@ -105,9 +105,14 @@ Config-Binding vom Management-Tab, `shared/param-form` (Rollen-Parameter), `imag
 
 Über die Bare-Metal-Provisionierung hinaus kann der Wizard das Ziel als **VM** auf einem Hypervisor anlegen.
 
-- **Erkennung statt Wahl**: Operator gibt Host + Zugangsdaten ein; `services/hypervisor.detect()` probiert
-  Proxmox (`:8006/version`) dann vCenter (`/api/session`) — was authentifiziert, gewinnt. Credentials
-  verschlüsselt im `vm_hosts`-Table (vault), wiederverwendbar.
+- **Erkennung statt Wahl — über den Produkt-Identifier, nicht über den Login**: Operator gibt Host +
+  Zugangsdaten ein; `services/hypervisor.detect()` bestimmt das Produkt per **unauthentifiziertem
+  Fingerprint** — vCenter über die vSphere-SOAP-`AboutInfo` (`POST /sdk` → `RetrieveServiceContent`,
+  `productLineId=vpx` + Version), Proxmox über die `pve-api-daemon`-Signatur auf `:8006`. **Erst danach**
+  wird mit den Credentials eingeloggt, nur um sie zu validieren. Grund: derselbe Service-Account kann auf
+  Proxmox *und* vCenter gültig sein — „welcher Login klappt" ist also kein Identitätsbeweis, die
+  Version-/Identifier-Fläche schon (wie nmap `vmware-version`/govc). Credentials verschlüsselt im
+  `vm_hosts`-Table (vault), wiederverwendbar.
 - **Gleiche Wizard-UI für beide**: `placement()` liefert bei beiden `{nodes:[{node,storages,bridges}]}` —
   Proxmox-Node/Storage/Bridge bzw. vCenter-Host/Datastore/Portgroup.
 - **VM-Create**: Proxmox mit `efidisk0` + **virtio-rng** (`rng0`) bei UEFI, PXE-Boot-Order (`boot=order=net0`),

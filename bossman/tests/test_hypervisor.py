@@ -53,13 +53,49 @@ async def test_detect_identifies_proxmox(monkeypatch):
     assert await detect("pve.example", "root@pam", "pw") == "proxmox"
 
 
+async def test_detect_identifies_proxmox_by_banner_not_by_auth(monkeypatch):
+    """The point of fingerprinting: identity comes from the product surface (pve-api-daemon banner on the
+    cold 401), NOT from a login. Even though a vCenter session ALSO authenticates these creds here (the same
+    service account existing on both), the host is Proxmox because only :8006 carries the pve banner and no
+    vSphere /sdk answers."""
+    def handler(request):
+        url = str(request.url)
+        if ":8006" in url and url.endswith("/version") and not request.headers.get("cookie"):
+            # cold /version: 401, no auth cookie — identified purely by the Server banner, no JSON envelope
+            return httpx.Response(401, headers={"Server": "pve-api-daemon/3.0"}, text="")
+        if ":8006" in url:                       # authenticated calls once identity is settled
+            return _proxmox_handler(request)
+        if request.url.path.endswith("/sdk"):    # no vSphere here
+            return httpx.Response(404, text="")
+        if request.url.path.endswith("/api/session"):
+            return httpx.Response(200, json="sess-shared-account")  # same creds happen to work on vCenter too
+        return httpx.Response(404, text="")
+    _client_with(handler, monkeypatch)
+    assert await detect("shared.example", "svc@both", "pw") == "proxmox"
+
+
 async def test_detect_raises_a_helpful_error_when_nothing_answers(monkeypatch):
     def dead(_request):
-        return httpx.Response(401, json={"data": None})
+        return httpx.Response(404, text="not a hypervisor")   # no pve banner/envelope, no vpx /sdk
     _client_with(dead, monkeypatch)
     with pytest.raises(HypervisorError) as exc:
         await detect("nope.example", "x", "y")
-    assert "vCenter" in str(exc.value)  # names what is not wired up yet, not a bare failure
+    assert "no supported hypervisor identified" in str(exc.value)
+
+
+async def test_detect_raises_when_host_fingerprints_as_both(monkeypatch):
+    """Defensive: a host that answers BOTH the Proxmox :8006 envelope and a vpx /sdk is genuinely ambiguous
+    and must not be silently guessed."""
+    def handler(request):
+        if ":8006" in str(request.url):
+            return httpx.Response(401, headers={"Server": "pve-api-daemon/3.0"}, text="")
+        if request.url.path.endswith("/sdk"):
+            return httpx.Response(200, text=_VC_SDK_XML)
+        return httpx.Response(404, text="")
+    _client_with(handler, monkeypatch)
+    with pytest.raises(HypervisorError) as exc:
+        await detect("weird.example", "x", "y")
+    assert "cannot disambiguate" in str(exc.value)
 
 
 async def test_placement_lists_only_image_storages_and_bridges(monkeypatch):
@@ -137,6 +173,17 @@ async def test_create_vm_posts_config_and_starts(monkeypatch):
 
 
 # ---- vCenter -------------------------------------------------------------
+# The unauthenticated SOAP AboutInfo a vCenter returns to RetrieveServiceContent on /sdk. productLineId 'vpx'
+# is what marks it a vCenter (a standalone ESXi answers 'embeddedEsx').
+_VC_SDK_XML = (
+    '<soapenv:Envelope><soapenv:Body><RetrieveServiceContentResponse><returnval><about>'
+    '<name>VMware vCenter Server</name><version>8.0.2</version><build>22385739</build>'
+    '<productLineId>vpx</productLineId>'
+    '</about></returnval></RetrieveServiceContentResponse></soapenv:Body></soapenv:Envelope>'
+)
+_ESXI_SDK_XML = _VC_SDK_XML.replace("<productLineId>vpx</productLineId>",
+                                    "<productLineId>embeddedEsx</productLineId>")
+
 _VC_HOSTS = [{"host": "host-12", "name": "esxi-a.lab", "connection_state": "CONNECTED"}]
 _VC_DS = [{"datastore": "datastore-9", "name": "ds-ssd", "type": "VMFS", "free_space": 500 << 30, "capacity": 900 << 30}]
 _VC_NET = [{"network": "dvportgroup-3", "name": "VM Network", "type": "DISTRIBUTED_PORTGROUP"}]
@@ -165,17 +212,31 @@ def _vcenter_handler(request: httpx.Request) -> httpx.Response:
     return httpx.Response(404, json=None)
 
 
-async def test_detect_falls_through_to_vcenter(monkeypatch):
-    """A host that isn't Proxmox but authenticates a vCenter session is detected as vcenter."""
-    from bossman.services.hypervisor import VCenterClient
-
+async def test_detect_identifies_vcenter_by_sdk_productline(monkeypatch):
+    """A host whose /sdk AboutInfo reports productLineId 'vpx' is a vCenter — identified before any login,
+    then the session confirms the creds."""
     def handler(request):
-        # Proxmox probe (:8006) fails; vCenter session succeeds.
-        if ":8006" in str(request.url):
-            return httpx.Response(401, json={"data": None})
-        return _vcenter_handler(request)
+        if ":8006" in str(request.url):                 # no Proxmox here
+            return httpx.Response(404, text="")
+        if request.url.path.endswith("/sdk"):
+            return httpx.Response(200, text=_VC_SDK_XML)
+        return _vcenter_handler(request)                # /api/session for cred validation
     _client_with(handler, monkeypatch)
     assert await detect("vc.lab", "administrator@vsphere.local", "pw") == "vcenter"
+
+
+async def test_detect_does_not_treat_standalone_esxi_as_vcenter(monkeypatch):
+    """A bare ESXi host (productLineId 'embeddedEsx') is not a vCenter — the REST client here cannot manage
+    it, so detection must reject it rather than mislabel it vcenter."""
+    def handler(request):
+        if ":8006" in str(request.url):
+            return httpx.Response(404, text="")
+        if request.url.path.endswith("/sdk"):
+            return httpx.Response(200, text=_ESXI_SDK_XML)
+        return httpx.Response(404, text="")
+    _client_with(handler, monkeypatch)
+    with pytest.raises(HypervisorError):
+        await detect("esxi.lab", "root", "pw")
 
 
 async def test_vcenter_placement_maps_to_nodes_storages_bridges(monkeypatch):
