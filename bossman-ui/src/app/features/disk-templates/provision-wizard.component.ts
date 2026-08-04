@@ -143,9 +143,10 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                     }
                   }
                   @if (growMode() === 'percent') {
-                    <div class="pw-sum" [class.bad]="sum() !== 100">Sum: {{ sum() }} %@if (sum() !== 100) { — must be 100 }</div>
-                    <p class="pw-dim">Percentages divide the ~{{ growableRoomGib() }} GiB left after the fixed
-                      volumes on the {{ availableGib() }} GiB disk.</p>
+                    <div class="pw-sum">Allocated: {{ sum() }} % <span class="pw-dim">— the last volume fills whatever is left</span></div>
+                    <p class="pw-dim">Each volume grows to its share of the ~{{ growableRoomGib() }} GiB left
+                      after the fixed volumes on the {{ availableGib() }} GiB disk; the last one takes the rest.
+                      The total need not be 100 % — it must just fit (checked against the real disk at install).</p>
                   } @else {
                     <p class="pw-dim">Sizes in GiB. Set one volume to <b>0</b> to fill the rest.</p>
                     <div class="pw-sum" [class.bad]="remainingGib() < 0">Remaining:
@@ -679,8 +680,10 @@ export class ProvisionWizardComponent implements OnInit {
     switch (this.step()) {
       case 0: return !!this.hostname.trim();
       case 1: return this.vmReady();   // Virtualization: off is fine; on needs node+storage+bridge
-      case 2: return !!this.imageId() && (this.growableRoles().length === 0
-        || (this.growMode() === 'percent' ? this.sum() === 100 : !this.gibError()));
+      // Percent no longer needs to total 100 — the last volume fills the rest, and whether the sizes fit is
+      // checked against the real target disk at install. Absolute mode still can't have >1 fill (gibError).
+      case 2: return !!this.imageId()
+        && !(this.growMode() === 'absolute' && this.growableRoles().length > 0 && !!this.gibError());
       default: return true;
     }
   }
