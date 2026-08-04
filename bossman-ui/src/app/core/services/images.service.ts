@@ -23,6 +23,7 @@ export interface DiskImage {
   is_active: boolean;
   grow_policy: Record<string, number>;
   disk_size: number;
+  firmware: 'uefi' | 'bios' | 'unknown';   // which boot path the image expects, derived from its manifest
   volumes: ImageVolume[];
   stored_bytes: number;
   created_at: string;

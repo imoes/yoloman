@@ -38,6 +38,22 @@ from bossman.services import imaging, offline_enroll, vm_lab
 router = APIRouter()
 
 
+def _firmware_of(manifest: dict) -> str:
+    """Which boot path a captured image expects, read straight from the manifest — no re-inspection.
+
+    UEFI leaves a fingerprint the capture already recorded: an EFI System Partition, which
+    imaging._sfdisk_kind classifies as `uefi`. Its presence is the reliable signal; a BIOS disk (whether
+    a plain DOS/MBR label or a GPT disk carrying a bios_boot partition) has no ESP. We only claim `unknown`
+    when there are no partitions at all (an import that never recorded a table), rather than guessing.
+    """
+    parts = manifest.get("partitions")
+    if not isinstance(parts, list) or not parts:
+        return "unknown"
+    if any((p or {}).get("kind") == "uefi" for p in parts):
+        return "uefi"
+    return "bios"
+
+
 # ---------------------------------------------------------------------------
 # Images
 
@@ -81,6 +97,7 @@ class ImageOut(BaseModel):
     grow_policy: dict = {}
     # Derived, so the caller does not have to understand the manifest to see the shape of an image.
     disk_size: int = 0
+    firmware: str = "unknown"   # uefi | bios | unknown — which boot path this image expects
     volumes: list[dict] = []
     stored_bytes: int = 0
 
@@ -89,6 +106,7 @@ class ImageOut(BaseModel):
         manifest = img.manifest or {}
         files = img.files or {}
         return cls(
+            firmware=_firmware_of(manifest),
             id=img.id,
             name=img.name,
             description=img.description,

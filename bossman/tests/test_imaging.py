@@ -912,3 +912,20 @@ def test_restore_vars_nvme_devices_get_their_p():
     blob = str(v)
     assert "nvme0n1" in v["pe_vars"]["target_disk"]
     assert "nvme0n13" not in blob  # partition suffix must be p3, never bare
+
+
+def test_firmware_derivation_from_the_manifest():
+    """UEFI vs BIOS is read from the manifest the capture already wrote, not re-inspected. The signal is an
+    EFI System Partition (imaging._sfdisk_kind classifies it `uefi`); its presence means UEFI, its absence
+    BIOS — including a GPT disk that boots BIOS via a bios_boot partition. No partitions at all → unknown."""
+    from bossman.api.images import _firmware_of
+
+    assert _firmware_of({"label": "gpt", "partitions": [
+        {"number": 1, "kind": "uefi"}, {"number": 2, "kind": "lvm"}]}) == "uefi"
+    assert _firmware_of({"label": "dos", "partitions": [
+        {"number": 1, "kind": "linux"}, {"number": 2, "kind": "swap"}]}) == "bios"
+    # GPT with a BIOS boot partition (grub on GPT, no ESP) is still BIOS.
+    assert _firmware_of({"label": "gpt", "partitions": [
+        {"number": 1, "kind": "bios_boot"}, {"number": 2, "kind": "lvm"}]}) == "bios"
+    assert _firmware_of({}) == "unknown"
+    assert _firmware_of({"partitions": []}) == "unknown"

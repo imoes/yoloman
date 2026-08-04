@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, UpperCasePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -19,7 +19,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 @Component({
   selector: 'app-disk-templates',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, RouterLink, DecimalPipe],
+  imports: [FormsModule, MatIconModule, MatButtonModule, RouterLink, DecimalPipe, UpperCasePipe],
   template: `
     <div class="dt-wrap">
       <!-- ── Templates ────────────────────────────────────────────── -->
@@ -58,7 +58,12 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               <b>{{ img.name }}</b>
               <span class="dt-badge" [class.ready]="img.status === 'ready'">{{ img.status }}</span>
             </div>
-            <div class="dt-sub">{{ (img.disk_size / 1073741824) | number: '1.0-1' }} GiB · {{ img.volumes.length }} Volumes</div>
+            <div class="dt-sub">
+              {{ (img.disk_size / 1073741824) | number: '1.0-1' }} GiB · {{ img.volumes.length }} Volumes
+              @if (img.firmware !== 'unknown') {
+                <span class="dt-fw" [class.uefi]="img.firmware === 'uefi'">{{ img.firmware | uppercase }}</span>
+              }
+            </div>
             @if (img.status === 'capturing') {
               <div class="dt-prog">
                 <div class="dt-prog-bar"><span [style.width.%]="progressPct(img)"></span></div>
@@ -199,6 +204,9 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-vol { display: flex; justify-content: space-between; align-items: center; padding: .3rem 0; border-bottom: 1px solid #3332; }
     .dt-vol-name { display: flex; align-items: center; gap: .35rem; }
     .dt-lvm { font-size: .7rem; color: #4a90d9; } .dt-fs { font-size: .7rem; color: #888; }
+    .dt-fw { font-size: .65rem; font-weight: 600; letter-spacing: .04em; padding: .05rem .3rem;
+      border-radius: 4px; margin-left: .4rem; background: #8883; }
+    .dt-fw.uefi { background: color-mix(in srgb, #4a90d9 28%, transparent); }
     .dt-pct input { width: 3.5rem; } .dt-fixed { font-size: .8rem; color: #888; }
     .dt-sum { margin: .5rem 0; } .dt-sum.bad { color: #d9534f; }
     .dt-fld { display: flex; flex-direction: column; margin-bottom: .4rem; font-size: .85rem; }
