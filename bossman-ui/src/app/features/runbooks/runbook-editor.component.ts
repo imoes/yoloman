@@ -482,7 +482,11 @@ const MAGIC_VAR_GROUPS = (() => {
       .bm-seq-vars { flex: 1 1 100%; min-width: 0; }
       .bm-seq-insp, .bm-seq-vars { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px;
         padding: 10px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
-      .bm-seq-vars { max-height: 520px; }
+      .bm-seq-vars { max-height: 420px; }
+      /* Let the panel host fill the (max-height-bounded) column and shrink, so its inner list scrolls
+         instead of the 60-row variable list bursting the box. min-height:0 is the part that lets a flex
+         child shrink below its content. */
+      .bm-seq-vars app-variables-panel { flex: 1 1 auto; min-height: 0; }
       .bm-seq-vh { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .55; }
       /* One compact field: a small label above a plain input. Replaces mat-form-field appearance="outline",
          whose floating label + subscript reserve ~56px per field — the Material default the design

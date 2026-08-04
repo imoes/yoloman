@@ -68,6 +68,7 @@ export interface PanelVar {
     </div>
   `,
   styles: [`
+    :host { display: flex; flex-direction: column; min-height: 0; height: 100%; }
     .bm-vp { display: flex; flex-direction: column; height: 100%; min-height: 0; font-size: 12px; }
     .bm-vp-head { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
     .bm-vp-filter { flex: 1; min-width: 0; padding: 5px 8px; font-size: 12px; color: inherit;
