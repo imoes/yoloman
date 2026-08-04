@@ -431,13 +431,12 @@ async def create_vm(
         raise HTTPException(status_code=404, detail="no such VM host")
     password = _vault().decrypt(row.secret)
     try:
-        if row.kind == "proxmox":
-            client = hypervisor.ProxmoxClient(row.host, row.username, password, verify_tls=row.verify_tls)
-            return await client.create_vm(
-                body.node, body.name.strip(), cores=body.cores, memory_mb=body.memory_mb,
-                disk_gib=body.disk_gib, storage=body.storage, bridge=body.bridge,
-                uefi=body.uefi, vlan=body.vlan)
-        raise HTTPException(status_code=501, detail=f"{row.kind} VM creation is not implemented yet")
+        client = (hypervisor.ProxmoxClient if row.kind == "proxmox" else hypervisor.VCenterClient)(
+            row.host, row.username, password, verify_tls=row.verify_tls)
+        return await client.create_vm(
+            body.node, body.name.strip(), cores=body.cores, memory_mb=body.memory_mb,
+            disk_gib=body.disk_gib, storage=body.storage, bridge=body.bridge,
+            uefi=body.uefi, vlan=body.vlan)
     except hypervisor.HypervisorError as exc:
         raise HTTPException(status_code=502, detail=f"VM creation failed: {exc}") from exc
 
@@ -454,10 +453,9 @@ async def vm_host_placement(
         raise HTTPException(status_code=404, detail="no such VM host")
     password = _vault().decrypt(row.secret)
     try:
-        if row.kind == "proxmox":
-            client = hypervisor.ProxmoxClient(row.host, row.username, password, verify_tls=row.verify_tls)
-            return await client.placement()
-        raise HTTPException(status_code=501, detail=f"{row.kind} placement is not implemented yet")
+        client = (hypervisor.ProxmoxClient if row.kind == "proxmox" else hypervisor.VCenterClient)(
+            row.host, row.username, password, verify_tls=row.verify_tls)
+        return await client.placement()
     except hypervisor.HypervisorError as exc:
         raise HTTPException(status_code=502, detail=f"hypervisor query failed: {exc}") from exc
 

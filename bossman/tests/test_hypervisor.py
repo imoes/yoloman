@@ -134,3 +134,84 @@ async def test_create_vm_posts_config_and_starts(monkeypatch):
     assert posted["started"] is True
     assert posted["config"]["vmid"] == "131" and posted["config"]["bios"] == "ovmf"
     assert posted["config"]["net0"] == "virtio=52:54:00:de:ad:be,bridge=vmbr0"
+
+
+# ---- vCenter -------------------------------------------------------------
+_VC_HOSTS = [{"host": "host-12", "name": "esxi-a.lab", "connection_state": "CONNECTED"}]
+_VC_DS = [{"datastore": "datastore-9", "name": "ds-ssd", "type": "VMFS", "free_space": 500 << 30, "capacity": 900 << 30}]
+_VC_NET = [{"network": "dvportgroup-3", "name": "VM Network", "type": "DISTRIBUTED_PORTGROUP"}]
+_VC_FOLDER = [{"folder": "group-v22", "name": "vm"}]
+_VC_POOL = [{"resource_pool": "resgroup-8", "name": "Resources"}]
+
+
+def _vcenter_handler(request: httpx.Request) -> httpx.Response:
+    p = request.url.path
+    if p.endswith("/api/session"):
+        return httpx.Response(200, json="sess-abc123")
+    if p.endswith("/api/vcenter/host"):
+        return httpx.Response(200, json=_VC_HOSTS)
+    if p.endswith("/api/vcenter/datastore"):
+        return httpx.Response(200, json=_VC_DS)
+    if p.endswith("/api/vcenter/network"):
+        return httpx.Response(200, json=_VC_NET)
+    if p.endswith("/api/vcenter/folder"):
+        return httpx.Response(200, json=_VC_FOLDER)
+    if p.endswith("/api/vcenter/resource-pool"):
+        return httpx.Response(200, json=_VC_POOL)
+    if p.endswith("/api/vcenter/vm"):
+        return httpx.Response(200, json="vm-501")
+    if "/power" in p:
+        return httpx.Response(204)
+    return httpx.Response(404, json=None)
+
+
+async def test_detect_falls_through_to_vcenter(monkeypatch):
+    """A host that isn't Proxmox but authenticates a vCenter session is detected as vcenter."""
+    from bossman.services.hypervisor import VCenterClient
+
+    def handler(request):
+        # Proxmox probe (:8006) fails; vCenter session succeeds.
+        if ":8006" in str(request.url):
+            return httpx.Response(401, json={"data": None})
+        return _vcenter_handler(request)
+    _client_with(handler, monkeypatch)
+    assert await detect("vc.lab", "administrator@vsphere.local", "pw") == "vcenter"
+
+
+async def test_vcenter_placement_maps_to_nodes_storages_bridges(monkeypatch):
+    from bossman.services.hypervisor import VCenterClient
+    _client_with(_vcenter_handler, monkeypatch)
+    pl = await VCenterClient("vc.lab", "u", "p").placement()
+    assert pl["kind"] == "vcenter"
+    node = pl["nodes"][0]
+    assert node["node"] == "esxi-a.lab"                       # host → node
+    assert [s["name"] for s in node["storages"]] == ["ds-ssd"]        # datastore → storage
+    assert [b["name"] for b in node["bridges"]] == ["VM Network"]     # portgroup → bridge
+
+
+def test_vcenter_vm_spec_pxe_and_firmware():
+    from bossman.services.hypervisor import _vcenter_vm_spec
+    spec = _vcenter_vm_spec(
+        name="web01", guest_os="OTHER_64", cores=2, memory_mb=2048, disk_bytes=32 << 30,
+        host_id="host-12", datastore_id="datastore-9", folder_id="group-v22",
+        resource_pool_id="resgroup-8", network_id="dvportgroup-3",
+        network_type="DISTRIBUTED_PORTGROUP", mac="52:54:00:aa:bb:cc", uefi=True)
+    assert spec["boot"]["type"] == "EFI"
+    assert spec["boot_devices"] == [{"type": "ETHERNET"}]     # PXE first
+    assert spec["nics"][0]["mac_address"] == "52:54:00:aa:bb:cc"
+    assert spec["nics"][0]["backing"] == {"type": "DISTRIBUTED_PORTGROUP", "network": "dvportgroup-3"}
+    assert spec["placement"]["datastore"] == "datastore-9"
+    # BIOS variant
+    bios = _vcenter_vm_spec(name="x", guest_os="OTHER_64", cores=1, memory_mb=1024, disk_bytes=1 << 30,
+                            host_id="h", datastore_id="d", folder_id="f", resource_pool_id="r",
+                            network_id="n", network_type="STANDARD_PORTGROUP", mac="52:54:00:1:2:3", uefi=False)
+    assert bios["boot"]["type"] == "BIOS"
+
+
+async def test_vcenter_create_vm_resolves_names_and_starts(monkeypatch):
+    from bossman.services.hypervisor import VCenterClient
+    _client_with(_vcenter_handler, monkeypatch)
+    res = await VCenterClient("vc.lab", "u", "p").create_vm(
+        "esxi-a.lab", "web01", cores=2, memory_mb=2048, disk_gib=32,
+        storage="ds-ssd", bridge="VM Network", uefi=True, mac="52:54:00:de:ad:be")
+    assert res == {"vmid": "vm-501", "mac": "52:54:00:de:ad:be"}
