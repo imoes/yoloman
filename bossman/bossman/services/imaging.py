@@ -174,6 +174,10 @@ class PlannedVolume:
     volume: Volume
     size_bytes: int
     grow: bool  # whether the filesystem has to be extended after the restore
+    # True for the ONE volume (if any) that should absorb ALL remaining free space (grown with +100%FREE).
+    # When no volume is a fill volume, the growable volumes take only their planned sizes and any leftover
+    # disk space is deliberately left unallocated (a grow policy may total < 100%).
+    fill: bool = False
 
     @property
     def grow_command_kind(self) -> str:
@@ -453,29 +457,39 @@ def plan_restore(
             f"{', '.join(v.role for v in growable)}, which hold {used_growable} bytes of data"
         )
 
-    # Target size per growable volume.
+    # Target size per growable volume, and which volume (by index, if any) absorbs ALL remaining free space
+    # (grown with +100%FREE). `fill_idx is None` means every growable takes only its planned size and any
+    # leftover disk stays free.
     idx = {id(v): i for i, v in enumerate(layout.volumes)}
     sizes: dict[int, int] = {}
-    if len(growable) == 1 and (not grow_policy or grow_mode != "absolute"):
-        # Single growable volume in percent/default mode: it simply takes everything left.
-        sizes[idx[id(growable[0])]] = _align_down(remaining)
+    fill_idx: int | None = None
+    if not grow_policy:
+        # Default (no policy): the single (last) growable volume simply takes everything left.
+        i0 = idx[id(growable[0])]
+        sizes[i0] = _align_down(remaining)
+        fill_idx = i0
     elif grow_mode == "absolute":
-        sizes = _absolute_sizes(growable, grow_policy or {}, remaining, idx)
+        sizes, fill_idx = _absolute_sizes(growable, grow_policy or {}, remaining, idx)
     else:
-        pct_total = sum(grow_policy[v.role] for v in growable) or 1
+        # Percent: the LAST growable volume absorbs the rest (+100%FREE); every OTHER growable takes its
+        # percentage of the leftover but is NEVER shrunk below the filesystem restored into it — a volume
+        # whose source is larger than its share (e.g. a big /usr) simply keeps its size. If those explicit
+        # sizes plus the last volume's own size do not fit the disk, that is a clear error.
+        *body, last = growable
         allotted = 0
-        for v in growable[:-1]:
-            share = max(_align_down(remaining * grow_policy[v.role] // pct_total),
-                        _align_down(int(v.used_bytes or 0)) or ALIGN)
+        for v in body:
+            want = _align_down(remaining * int(grow_policy[v.role]) // 100)
+            share = max(want, _align_down(v.size_bytes))   # never below the restored fs's own container
             sizes[idx[id(v)]] = share
             allotted += share
-        last_share = _align_down(remaining - allotted)
-        if last_share < int(growable[-1].used_bytes or 0):
+        last_floor = _align_down(last.size_bytes)
+        if allotted + last_floor > remaining:
             raise ImagingError(
-                f"grow_policy leaves too little for {growable[-1].role}: {last_share} bytes < "
-                f"{growable[-1].used_bytes} bytes of data"
+                f"grow_policy does not fit: the volumes need at least {allotted + last_floor} bytes but the "
+                f"target disk leaves only {remaining} ({', '.join(v.role for v in growable)})"
             )
-        sizes[idx[id(growable[-1])]] = last_share
+        sizes[idx[id(last)]] = max(_align_down(remaining - allotted), last_floor)  # +100%FREE at restore time
+        fill_idx = idx[id(last)]
 
     plan = RestorePlan(target_disk=target.name, target_size=target.size)
     for i, v in enumerate(layout.volumes):
@@ -502,7 +516,7 @@ def plan_restore(
             grow = False
         else:
             grow = False
-        plan.volumes.append(PlannedVolume(volume=v, size_bytes=size, grow=grow))
+        plan.volumes.append(PlannedVolume(volume=v, size_bytes=size, grow=grow, fill=(i == fill_idx)))
     if layout.lvm_on_raw_disk:
         plan.notes.append("source had LVM directly on the disk (no partition table) — reproduced as such")
     return plan
@@ -513,10 +527,11 @@ _GIB = 1024 * 1024 * 1024
 
 def _absolute_sizes(
     growable: list[Volume], grow_policy: dict[str, int], remaining: int, idx: dict[int, int]
-) -> dict[int, int]:
+) -> tuple[dict[int, int], int]:
     """Absolute (GiB) grow: each positive value is that volume's exact grown size; a volume set to 0 is the
     remainder and absorbs the leftover. Mirrors the percent branch's guards — every volume must still hold
-    its own used data, and the total must fit `remaining`.
+    its own used data, and the total must fit `remaining`. Returns (sizes, fill_idx) where fill_idx is the
+    remainder volume that should be grown with +100%FREE.
     """
     remainders = [v for v in growable if int(grow_policy.get(v.role, 0)) <= 0]
     if len(remainders) > 1:
@@ -550,7 +565,7 @@ def _absolute_sizes(
             f"{remainder.used_bytes} bytes of data (the explicit sizes exceed the target disk)"
         )
     sizes[idx[id(remainder)]] = rest
-    return sizes
+    return sizes, idx[id(remainder)]
 
 
 def _align_down(size: int) -> int:
@@ -1042,26 +1057,18 @@ def restore_vars(
     # each group grows to 100%FREE (absorbs the larger target disk); other growable LVs to their planned
     # bytes. Raw-partition growth (no LVM) still uses the filesystem module (growable_volumes).
     plan_size: dict[tuple[str, str], int] = {}
-    grow_flag: dict[tuple[str, str], bool] = {}
     for pvv in plan.volumes:
         v = pvv.volume
         if v.vg and v.lv:
             plan_size[(str(v.vg), str(v.lv))] = pvv.size_bytes
-            grow_flag[(str(v.vg), str(v.lv))] = pvv.grow
     volume_groups: list[dict] = []
     logical_volumes: list[dict] = []
     grow_lvs: list[dict] = []
     by_vg: dict[str, list[Volume]] = {}
     for v in [v for v in layout.volumes if v.vg and v.lv]:
         by_vg.setdefault(str(v.vg), []).append(v)
-    free_lv_of: dict[str, str] = {}
     for vg, members in by_vg.items():
         volume_groups.append({"vg": vg, "pvs": pv})
-        free_lv = members[-1]
-        for v in members:
-            if grow_flag.get((vg, str(v.lv))):
-                free_lv = v
-        free_lv_of[vg] = str(free_lv.lv)
         for v in members:
             # create at source size (grown after the restore); never 0
             logical_volumes.append({"vg": vg, "lv": str(v.lv), "size": f"{max(v.size_bytes // (1024 * 1024), 1)}m"})
@@ -1069,7 +1076,11 @@ def restore_vars(
         v = pvv.volume
         if pvv.grow and v.vg and v.lv:
             vg, lvn = str(v.vg), str(v.lv)
-            size = "100%FREE" if free_lv_of.get(vg) == lvn else f"{plan_size[(vg, lvn)] // (1024 * 1024)}m"
+            # The `fill` volume absorbs all remaining free space: `+100%FREE` = extend the LV BY all free
+            # extents (NOT `100%FREE`, which the lvol module reads as "set TO the free amount" — a shrink once
+            # earlier LVs have grown). Every other growable LV is grown to its exact planned size, so any
+            # unallocated space is deliberately left free (a grow policy may total < 100%).
+            size = "+100%FREE" if pvv.fill else f"{plan_size[(vg, lvn)] // (1024 * 1024)}m"
             grow_lvs.append({"vg": vg, "lv": lvn, "size": size})
 
     def _device(v: Volume) -> str:

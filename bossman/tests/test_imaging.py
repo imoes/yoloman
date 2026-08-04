@@ -844,6 +844,44 @@ def test_grow_policy_splits_leftover_by_percent():
     assert leftover - 4 * 1024**2 <= total <= leftover
 
 
+def test_grow_policy_keeps_a_big_source_volume_and_last_absorbs_the_rest():
+    """A volume whose SOURCE is larger than its percentage share is never shrunk — it keeps its size — and
+    the LAST growable volume absorbs whatever is left (+100%FREE), so no volume shrinks and the disk fills."""
+    vg = "vg0"
+    big = Volume(role="root", fs_type="ext4", size_bytes=60 * GiB, used_bytes=5 * GiB, vg=vg, lv="root", mountpoint="/")
+    var = Volume(role="var", fs_type="ext4", size_bytes=10 * GiB, used_bytes=2 * GiB, vg=vg, lv="var", mountpoint="/var")
+    home = Volume(role="home", fs_type="ext4", size_bytes=10 * GiB, used_bytes=1 * GiB, vg=vg, lv="home", mountpoint="/home")
+    layout = SourceLayout(disk_size=100 * GiB, volumes=(ESP, BOOT, big, var, home))
+    # root asks for only 5% (< its 60 GiB source) → it must keep 60 GiB, not shrink. home is last → fills.
+    plan = plan_restore(layout, Disk("vda", 200 * GiB), grow_policy={"root": 5, "var": 10, "home": 30})
+    by = {p.volume.role: p for p in plan.volumes}
+    assert by["root"].size_bytes >= 60 * GiB, "the big /root keeps at least its source size"
+    assert by["home"].fill and by["home"].grow, "the last growable absorbs the rest with +100%FREE"
+    assert not by["root"].fill and not by["var"].fill
+    # the whole leftover is used (root kept + var share + home fill ≈ remaining)
+    remaining = 200 * GiB - ESP.size_bytes - BOOT.size_bytes
+    total = by["root"].size_bytes + by["var"].size_bytes + by["home"].size_bytes
+    assert remaining - 8 * 1024**2 <= total <= remaining
+
+
+def test_grow_policy_that_does_not_fit_is_a_clear_error():
+    # growable order root, var, home → home is the fill volume; root and var are the "body". Asking root and
+    # var for 90% each demands ~180% of the disk between them alone → does not fit → clear error.
+    with pytest.raises(ImagingError) as exc:
+        plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB), grow_policy={"root": 90, "var": 90, "home": 10})
+    assert "does not fit" in str(exc.value)
+
+
+def test_grow_policy_last_volume_is_the_fill_lv_in_restore_vars():
+    """The last growable LV is emitted as +100%FREE; the others get explicit sizes."""
+    layout = _lvm_rvh()  # growable order root, var, home → home is last (the fill LV)
+    plan = plan_restore(layout, Disk("vda", 200 * GiB), grow_policy={"root": 50, "var": 30, "home": 20})
+    v = restore_vars(layout, plan, image_url="https://b/i", hostname="h")
+    sizes = {g["lv"]: g["size"] for g in v["pe_vars"]["grow_lvs"]}
+    assert sizes.get("home") == "+100%FREE", "the last growable LV fills the rest"
+    assert sizes.get("root", "").endswith("m") and sizes.get("var", "").endswith("m"), "the others are explicit"
+
+
 def test_grow_policy_without_policy_is_unchanged_single_last():
     # No policy → only the last volume grows (the pre-existing contract).
     plan = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB))
@@ -894,7 +932,7 @@ def test_restore_vars_resolves_playbook_vars_and_mounts():
     if pe["logical_volumes"]:
         assert all(lv["size"].endswith("m") for lv in pe["logical_volumes"]), "created at source size, not 100%FREE"
         assert pe["grow_lvs"], "the growable LVs are resized after the restore"
-        assert any(g["size"] == "100%FREE" for g in pe["grow_lvs"]), "the free LV grows to 100%FREE"
+        assert any(g["size"] == "+100%FREE" for g in pe["grow_lvs"]), "the free LV grows to 100%FREE"
     # mounts are parents-first (root's mountpoint is the shortest) and under /mnt/target
     assert mounts and mounts[0]["mountpoint"] == "/mnt/target"
     assert all(m["mountpoint"].startswith("/mnt/target") for m in mounts)

@@ -47,6 +47,18 @@
         source_url: "{{ item.source_url }}"
       loop: "{{ restore_volumes }}"
 
+    # resize2fs refuses to grow an ext filesystem that is not marked clean, and a partclone-restored fs is
+    # often flagged "not cleanly unmounted" (its cleanliness depends on the source's state at capture, which
+    # is why some volumes grow and others don't). So force a check first — otherwise `lvextend --resizefs`
+    # fails with the opaque "Failed to extend file system with lvresize_fs_helper". Only ext* is checked;
+    # xfs/others are skipped. e2fsck rc is intentionally ignored (0 clean / 1 fixed are both fine).
+    - name: e2fsck each LVM ext filesystem before growing it
+      ansible.builtin.shell: >-
+        dev=/dev/{{ item.vg }}/{{ item.lv }};
+        t=$(blkid -o value -s TYPE "$dev" 2>/dev/null);
+        case "$t" in ext2|ext3|ext4) e2fsck -fy "$dev" || true ;; esac
+      loop: "{{ grow_lvs }}"
+
     - name: Grow each LVM volume + its filesystem to the target size (lvextend --resizefs = fsadm)
       community.general.lvol:
         vg: "{{ item.vg }}"
@@ -55,6 +67,11 @@
         resizefs: true
         state: present
       loop: "{{ grow_lvs }}"
+
+    - name: e2fsck each raw-partition ext filesystem before growing it
+      ansible.builtin.shell: >-
+        case "{{ item.fstype }}" in ext2|ext3|ext4) e2fsck -fy "{{ item.device }}" || true ;; esac
+      loop: "{{ growable_volumes }}"
 
     - name: Grow any raw-partition filesystems to fill their (larger) target partition
       community.general.filesystem:
