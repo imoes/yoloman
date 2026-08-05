@@ -39,8 +39,11 @@ COPY deploy/pxe/build-pe.sh /usr/local/sbin/build-pe.sh
 COPY deploy/pxe/pe-init.sh /usr/local/sbin/pe-init.sh
 COPY deploy/pxe/vm-control.sh /usr/local/bin/vm-control.sh
 COPY deploy/pxe/import-image.sh /usr/local/bin/import-image.sh
+# /usr/bin/agentic-mcpd is bind-mounted at runtime (see docker-compose.override.yml), so it is NOT chmod'd
+# here — it does not exist at build time. The host artifact (deploy-artifacts/agentic-mcpd) is already
+# executable and the bind mount preserves its mode.
 RUN chmod +x /entrypoint.sh /usr/local/sbin/build-pe.sh /usr/local/sbin/pe-init.sh \
-        /usr/local/bin/vm-control.sh /usr/local/bin/import-image.sh /usr/bin/agentic-mcpd
+        /usr/local/bin/vm-control.sh /usr/local/bin/import-image.sh
 
 # QEMU's bridge helper (for the diskless PXE-test VM on the ens19 bridge) is ACL-gated: whitelist the
 # bridge and give the helper the net cap. VM_BRIDGE defaults to br-ens19 (create it on the host, enslave
