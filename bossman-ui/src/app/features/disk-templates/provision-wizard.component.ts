@@ -8,6 +8,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DeploymentTemplate, DiskImage, ImageVolume, ImagesService, ProvisionNetwork, VmHost, VmPlacement } from '../../core/services/images.service';
 import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
+import { RoleBindingsComponent } from '../hosts/management/roles/role-bindings.component';
 
 /** Roles whose size a grow policy adjusts; the rest (esp/boot/swap) stay fixed — same set as the page. */
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
@@ -53,7 +54,7 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
   standalone: true,
   imports: [
     FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatCheckboxModule,
-    MatProgressSpinnerModule, DecimalPipe, UpperCasePipe,
+    MatProgressSpinnerModule, DecimalPipe, UpperCasePipe, RoleBindingsComponent,
   ],
   template: `
     <div class="pw">
@@ -228,42 +229,20 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
 
             @case (3) {
               <h2>Roles &amp; features</h2>
-              <p class="pw-lead">The same catalog as Management — browse by category. Chosen now and installed
-                automatically after the first boot.</p>
-              <input class="pw-search" placeholder="Search roles &amp; features…" [ngModel]="roleQuery()" (ngModelChange)="roleQuery.set($event)" />
-              <!-- Miller columns: category → packages (with description) → detail — identical to the
-                   Management "Add roles and features" browser. -->
-              <div class="pw-miller">
-                <div class="pw-mcol pw-mcol-cats">
-                  @for (c of catsOrdered(); track c.category) {
-                    <div class="pw-mcat" [class.pw-msel]="effectiveCat() === c.category" (click)="activeCat.set(c.category)">
-                      <mat-icon class="pw-mcat-ic">{{ catIcon(c.category) }}</mat-icon>
-                      <span class="pw-mcat-lbl">{{ catName(c.category) }}</span>
-                      <span class="pw-mcount">{{ c.items.length }}</span>
-                    </div>
-                  } @empty { <div class="pw-dim pw-mpad">No roles match.</div> }
-                </div>
-                <div class="pw-mcol pw-mcol-pkgs">
-                  @for (r of catItems(); track r.name) {
-                    <div class="pw-mrole" [class.pw-msel]="focus() === r.name" (click)="focus.set(r.name)">
-                      <mat-checkbox [checked]="pickedRoles().has(r.name)" (change)="toggleRole(r.name)" (click)="$event.stopPropagation()" />
-                      <mat-icon class="pw-role-ic">{{ r.icon }}</mat-icon>
-                      <div class="pw-mrole-txt">
-                        <div class="pw-mrole-lbl">{{ r.label }}</div>
-                        <div class="pw-mrole-desc">{{ r.description }}</div>
-                      </div>
-                    </div>
-                  } @empty { <div class="pw-dim pw-mpad">Pick a category.</div> }
-                </div>
-                <aside class="pw-mcol pw-mdesc">
-                  @if (focused(); as r) {
-                    <div class="pw-mdesc-lbl">{{ r.label }}</div>
-                    <p class="pw-dim">{{ r.description }}</p>
-                    @if (rolePackages(r.name); as pk) { <div class="pw-mdesc-pkg">Package: <code>{{ pk }}</code></div> }
-                    @if (!r.template) { <div class="pw-warn">No configuration template yet — installs with defaults.</div> }
-                  } @else { <p class="pw-dim">Select a role to see what it does.</p> }
-                </aside>
-              </div>
+              <p class="pw-lead">The exact same workflow as Management → <b>Role bindings</b>: pick a role,
+                configure it, and Bind. The host is registered now and each binding is written as
+                <b>desired state</b> — it converges automatically after the host first boots (approval-gated).</p>
+              @if (registering()) {
+                <p class="pw-dim"><mat-spinner diameter="18" /> Registering the planned host…</p>
+              } @else if (registerErr()) {
+                <p class="pw-err">{{ registerErr() }}</p>
+                <button mat-stroked-button (click)="registerPlannedHost()">Retry</button>
+              } @else if (plannedHostId(); as pid) {
+                <!-- Reuse the Management Role-bindings snap-in verbatim, bound to the planned host's id.
+                     Its ResourceNode(kind=role) gives the per-role parameter form + Bind/Unbind that write
+                     the OrchestrationPlanLink desired state — offline-safe on a planned (addressless) host. -->
+                <app-role-bindings [agentId]="pid" />
+              }
             }
 
             @case (4) {
@@ -274,11 +253,11 @@ interface DeployStepResult { label: string; ok: boolean; error?: string; }
                   <li><b>Target</b>: {{ useVm() ? 'VM on ' + vmHostName() + ' — ' + node() + '/' + storage() + '/' + bridge() + (vlan ? ' VLAN ' + vlan : '') : 'bare metal' }}</li>
                   <li><b>Image</b>: {{ chosenImage()?.name || '—' }}
                     <span class="pw-dim">{{ chosenImage()?.firmware | uppercase }} · {{ growMode() }} sizing</span></li>
-                  <li><b>Roles</b>: {{ pickedRoles().size ? asArray(pickedRoles()).join(', ') : 'none' }}</li>
+                  <li><b>Roles</b>: bound as desired state on the host <span class="pw-dim">— manage in the Roles step / Management → Role bindings</span></li>
                 </ul>
                 @if (reviewError()) { <p class="pw-err">{{ reviewError() }}</p> }
                 <div class="pw-savetmpl">
-                  <span>Save these choices (disk + sizing + roles) as a reusable template:</span>
+                  <span>Save these choices (disk + sizing + network) as a reusable template:</span>
                   <div class="pw-savetmpl-row">
                     <input [(ngModel)]="saveName" placeholder="template name, e.g. web-tier" />
                     <button mat-stroked-button [disabled]="!saveName.trim() || savingTmpl()" (click)="saveTemplate()">Save template</button>
@@ -436,6 +415,13 @@ export class ProvisionWizardComponent implements OnInit {
   activeCat = signal<string>('');
   focus = signal<string>('');
   pickedRoles = signal<Set<string>>(new Set());
+
+  // Roles are bound against the planned host, which must exist first. It is registered when the Roles step
+  // is entered (idempotent by hostname); its agent id backs the embedded Role-bindings snap-in. Re-upserted
+  // at deploy with the final MAC.
+  plannedHostId = signal<string | null>(null);
+  registering = signal(false);
+  registerErr = signal('');
 
   // Deploy
   deploying = signal(false);
@@ -647,8 +633,10 @@ export class ProvisionWizardComponent implements OnInit {
       network.dns = this.dnsRaw.split(',').map((s) => s.trim()).filter(Boolean);
     }
     const { grow_mode, grow_policy } = this.growPolicy();
+    // Roles are no longer part of a deployment template — they are host-specific desired-state bindings made
+    // in the Roles step. Templates now bundle disk + sizing + network only.
     this.svc.saveTemplate({
-      name, image_id: this.imageId(), grow_mode, grow_policy, network, roles: [...this.pickedRoles()],
+      name, image_id: this.imageId(), grow_mode, grow_policy, network, roles: [],
     }).subscribe({
       next: (t) => {
         this.savingTmpl.set(false);
@@ -691,9 +679,45 @@ export class ProvisionWizardComponent implements OnInit {
   /** The Debian-family packages a catalog role installs — shown in the detail column (no host context here). */
   rolePackages(name: string): string { return (this.catalog()[name]?.families?.debian?.packages ?? []).join(', ') || name; }
 
-  goto(i: number): void { if (i <= this.step() && !this.deploying() && !this.done()) this.step.set(i); }
+  goto(i: number): void {
+    if (i <= this.step() && !this.deploying() && !this.done()) {
+      this.step.set(i);
+      if (i === 3) this.registerPlannedHost();
+    }
+  }
   prev(): void { if (this.step() > 0) this.step.set(this.step() - 1); }
-  next(): void { if (this.canNext()) this.step.set(this.step() + 1); }
+  next(): void {
+    if (!this.canNext()) return;
+    const target = this.step() + 1;
+    this.step.set(target);
+    // Entering the Roles step: register the planned host so the embedded Role-bindings snap-in has a host
+    // to bind against. Idempotent (upsert by hostname), so re-entering the step is harmless.
+    if (target === 3) this.registerPlannedHost();
+  }
+
+  /** Build the network spec from the Target-step fields (shared by register + deploy + save-template). */
+  private buildNetwork(): ProvisionNetwork {
+    const network: ProvisionNetwork = { mode: this.net.mode };
+    if (this.net.mode === 'static') {
+      network.address = this.net.address;
+      network.gateway = this.net.gateway;
+      network.dns = this.dnsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    return network;
+  }
+
+  /** Register (or re-fetch) the planned host so roles can be bound to it. Upsert by hostname — going back and
+   *  forth, or changing the hostname, just re-registers; the agent id is stable per hostname. */
+  registerPlannedHost(): void {
+    const hostname = this.hostname.trim();
+    if (!hostname || this.registering()) return;
+    this.registering.set(true);
+    this.registerErr.set('');
+    this.svc.createPlannedHost({ hostname, mac: this.mac.trim() || undefined, network: this.buildNetwork() }).subscribe({
+      next: (h) => { this.plannedHostId.set(h.id); this.registering.set(false); },
+      error: (e) => { this.registering.set(false); this.registerErr.set((e as { error?: { detail?: string } })?.error?.detail ?? 'Registering the planned host failed'); },
+    });
+  }
 
   canNext(): boolean {
     switch (this.step()) {
@@ -726,12 +750,7 @@ export class ProvisionWizardComponent implements OnInit {
     this.results.set([]);
     const push = (r: DeployStepResult) => this.results.set([...this.results(), r]);
 
-    const network: ProvisionNetwork = { mode: this.net.mode };
-    if (this.net.mode === 'static') {
-      network.address = this.net.address;
-      network.gateway = this.net.gateway;
-      network.dns = this.dnsRaw.split(',').map((s) => s.trim()).filter(Boolean);
-    }
+    const network = this.buildNetwork();
     const hostname = this.hostname.trim();
     const imageId = this.imageId()!;
     const { grow_mode, grow_policy } = this.growPolicy();
@@ -739,26 +758,25 @@ export class ProvisionWizardComponent implements OnInit {
     // The rest of the flow runs against a MAC. Bare metal uses the typed one (may be blank = wildcard); a VM
     // target has none yet, so we create the VM first and use the MAC the hypervisor assigned it — that MAC
     // is what the PXE check-in identifies the machine by, so it MUST be the one armed on the restore job.
-    const roles = [...this.pickedRoles()];
+    // Roles are NOT sent here: they were bound as desired state against this host in the Roles step
+    // (OrchestrationPlanLinks), and converge after first boot.
     const proceed = (mac: string) => {
       this.svc.patch(imageId, { grow_mode, grow_policy }).subscribe({
-        // Roles are stored ON the planned host (agent_metadata.provision_roles); the host does not exist yet,
-        // so they are NOT installed here — the post-boot push (Block B3) installs them once it is up.
-        next: () => this.svc.createPlannedHost({ hostname, mac, network, roles }).subscribe({
+        // Re-upsert the planned host with the final MAC. Idempotent by hostname, so it updates the record
+        // registered in the Roles step; the role bindings (keyed by the stable agent id) are preserved.
+        next: () => this.svc.createPlannedHost({ hostname, mac, network }).subscribe({
           next: () => {
-            push({ label: `Host ${hostname} created`, ok: true });
+            push({ label: `Host ${hostname} registered`, ok: true });
             this.svc.arm({ image_id: imageId, target_mac: mac, target_hostname: hostname }).subscribe({
               next: () => {
                 push({ label: 'Restore job armed', ok: true });
-                push({ label: roles.length
-                  ? `${roles.length} role(s)/feature(s) queued — installed after first boot`
-                  : 'No roles selected', ok: true });
+                push({ label: 'Roles bound as desired state — converge after first boot', ok: true });
                 this.deploying.set(false);
               },
               error: (e) => this.fail(push, 'Arming failed', e),
             });
           },
-          error: (e) => this.fail(push, 'Creating host failed', e),
+          error: (e) => this.fail(push, 'Registering host failed', e),
         }),
         error: (e) => this.fail(push, 'Saving grow policy failed', e),
       });
