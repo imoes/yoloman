@@ -298,26 +298,35 @@ export class WebConfigTreeComponent {
   reload(): void {
     this.loading.set(true); this.msg.set(''); this.err.set('');
     const p = this.profile();
+    // Critical path ONLY: the vhost template (→ schema/tplBody) + the site list. Certificate discovery is
+    // best-effort and runs separately, so a missing cert dir can never abort the whole load.
     forkJoin({
       tpls: this.agentService.configTemplates(),
       avail: this.agentService.callTool(this.agentId(), 'find', { paths: [p.sitesDir], file_type: 'file' }),
-      certs: this.agentService.callTool(this.agentId(), 'find', { paths: p.certSearchDirs, file_type: 'file', pattern: '*.pem' }),
-      certs2: this.agentService.callTool(this.agentId(), 'find', { paths: p.certSearchDirs, file_type: 'file', pattern: '*.crt' }),
     }).subscribe({
-      next: ({ tpls, avail, certs, certs2 }) => {
+      next: ({ tpls, avail }) => {
         const tpl = tpls.templates.find((t) => t.name === p.vhostTemplate);
         this.tplBody = tpl?.template || '';
         if (tpl?.schema) this.schema.set(tpl.schema as ParamSchema);
-        const certList = [
-          ...((certs.result as { data?: { path: string }[] })?.data || []),
-          ...((certs2.result as { data?: { path: string }[] })?.data || []),
-        ].map((e) => e.path);
-        this.certs.set([...new Set(certList)].sort());
         const availList = ((avail.result as { data?: { path: string }[] })?.data) || [];
         if (availList.length) { this.confdLayout.set(false); this.finishReload(availList.map((e) => e.path)); }
         else { this.detectConfd(); }
       },
       error: (e) => { this.loading.set(false); this.loaded.set(true); this.err.set(e?.error?.detail || 'Load failed.'); },
+    });
+    this.loadCerts();
+  }
+
+  /** Best-effort certificate discovery (file-based). Tolerant: a missing search dir yields no error. */
+  private loadCerts(): void {
+    const p = this.profile();
+    const paths = (resp: unknown) => ((resp as { result?: { data?: { path: string }[] } })?.result?.data || []).map((e) => e.path);
+    this.agentService.callTool(this.agentId(), 'find', { paths: p.certSearchDirs, file_type: 'file', pattern: '*.pem' }).subscribe({
+      next: (pem) => this.agentService.callTool(this.agentId(), 'find', { paths: p.certSearchDirs, file_type: 'file', pattern: '*.crt' }).subscribe({
+        next: (crt) => this.certs.set([...new Set([...paths(pem), ...paths(crt)])].sort()),
+        error: () => this.certs.set([...new Set(paths(pem))].sort()),
+      }),
+      error: () => this.certs.set([]),
     });
   }
 
@@ -417,7 +426,11 @@ export class WebConfigTreeComponent {
     this.sites.update((list) => [...list, s].sort((a, b) => a.name.localeCompare(b.name)));
     this.values.set(values);
     this.adding.set(false);
-    this.selectSiteByName(name);
+    // Select + expand the new node WITHOUT loading from the host — nothing is on disk yet, so we keep the
+    // freshly-seeded values instead of falling through to the read-only raw view.
+    const exp = new Set(this.expanded()); exp.add('sites'); exp.add('site:' + name); this.expanded.set(exp);
+    this.raw.set(null);
+    this.selectedId.set('site:' + name);
     this.msg.set(`New site ${name} — review the settings and Save.`);
   }
 
@@ -435,6 +448,13 @@ export class WebConfigTreeComponent {
   save(s: Site): void {
     if (!this.tplBody) { this.err.set('No vhost template loaded.'); return; }
     this.busy.set(true); this.msg.set(''); this.err.set('');
+    // The JSON sidecar dir may not exist yet and the config writer does not create parents — mkdir -p first,
+    // otherwise the apply fails with "no such file or directory". Best-effort (apply surfaces real errors).
+    this.agentService.callTool(this.agentId(), 'command', { argv: ['mkdir', '-p', this.profile().sidecarDir] })
+      .subscribe({ next: () => this.applySite(s), error: () => this.applySite(s) });
+  }
+
+  private applySite(s: Site): void {
     const resources: ConfigResource[] = [
       { type: 'template_render', path: s.file, template: this.tplBody, values: this.values() },
       { type: 'config', path: this.sidecar(s.name), format: 'json', values: this.values() },
