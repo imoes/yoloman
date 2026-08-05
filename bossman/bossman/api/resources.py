@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import require_manage_agent
 from bossman.api.management import _agent_with_address
 from bossman.api.plans import get_client_factory
+from bossman.db.models import Agent
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
 from bossman.services.resources.config_file import ConfigResource
@@ -271,7 +272,12 @@ class RoleApplyBody(RoleSpec):
 
 
 async def _role_resource(agent_id: UUID, name: str, session, settings, client_factory, identity) -> RoleResource:
-    agent = await _agent_with_address(session, agent_id)
+    # A role binding is DB-only desired state (OrchestrationPlanLink) — RoleResource never dials the agent,
+    # so unlike config/service resources it must NOT require an address. That lets a PLANNED (bare-metal,
+    # not-yet-booted) host be given roles now; the binding converges when the host first checks in.
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise HTTPException(status_code=404, detail="no such agent")
     r = RoleResource(session, agent, client_factory, settings, name,
                      requested_by=getattr(identity, "name", "resource-api"))
     if await r._plan_row() is None:   # 404 rather than failing deeper down
