@@ -38,11 +38,15 @@ def main(ctx, params):
             dlines = dev.splitlines()
             if len(dlines) > 2:
                 for dl in dlines[2:]:
-                    parts = dl.split()
-                    if len(parts) < 2:
+                    # /proc/net/dev is "  iface: c1 c2 ... c16". Split on the colon
+                    # first: the whole line is one field and the byte counter may
+                    # abut the colon with no space ("eth0:12345"), so a bare
+                    # whitespace split would fold name+counter and lose the 16 columns.
+                    if ":" not in dl:
                         continue
-                    ifname = parts[0].rstrip(":")
-                    vals = parts[1].split()
+                    name_part, rest = dl.split(":", 1)
+                    ifname = name_part.strip()
+                    vals = rest.split()
                     if len(vals) >= 16:
                         ok = True
                         cnts = []
@@ -136,11 +140,15 @@ def main(ctx, params):
         dlines = dev.splitlines()
         if len(dlines) > 2:
             for dl in dlines[2:]:
-                parts = dl.split()
-                if len(parts) < 2:
+                # /proc/net/dev is "  iface: c1 c2 ... c16". Split on the colon
+                # first: the byte counter may abut the colon with no space
+                # ("eth0:12345"), so a bare whitespace split would fold
+                # name+counter and never reach the 16 columns the check needs.
+                if ":" not in dl:
                     continue
-                ifname = parts[0].rstrip(":")
-                vals = parts[1].split()
+                name_part, rest = dl.split(":", 1)
+                ifname = name_part.strip()
+                vals = rest.split()
                 if len(vals) >= 16:
                     ok = True
                     cnts = []

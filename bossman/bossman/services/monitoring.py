@@ -948,14 +948,30 @@ def parameterize_snmp_star(star: str) -> str:
 
 def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
     """The fqcn a pushed check registers under (its sidecar's `fqcn:`, e.g.
-    checkmk.sshd_config), so we call the right tool name after pushing."""
-    import nestedtext
+    checkmk.sshd_config), so we call the right tool name after pushing.
+
+    The sidecars are YAML (checks_library reads them with yaml.safe_load), so
+    parse YAML first. The previous NestedText-only parse raised on every YAML
+    sidecar with a quoted/folded value (e.g. the wrapped `description:`), which
+    silently fell back to `checks.<name>` — a tool the agent never registers
+    (it registers the sidecar's real `checkmk.<name>`), so every assigned
+    Starlark check 404'd with "check execution failed". NestedText is kept as a
+    fallback for any legacy .nt sidecar."""
+    import yaml
 
     try:
+        meta = yaml.safe_load(sidecar)
+        if isinstance(meta, dict) and meta.get("fqcn"):
+            return str(meta["fqcn"])
+    except yaml.YAMLError:
+        pass
+    try:
+        import nestedtext
+
         meta = nestedtext.loads(sidecar, top="dict")
         if isinstance(meta, dict) and meta.get("fqcn"):
             return str(meta["fqcn"])
-    except nestedtext.NestedTextError:
+    except Exception:  # noqa: BLE001 — NestedText fallback; any parse failure → literal fallback
         pass
     return fallback
 
@@ -1022,8 +1038,12 @@ async def evaluate_assigned_checks(
             continue
         fqcn = _sidecar_fqcn(sidecar, f"checks.{ec.check_name}")
         star = parameterize_snmp_star(star)  # Block 2b: retargetable SNMP checks
+        # The sidecar's real format, from its extension — the checks are YAML now (legacy .nt still accepted).
+        # Sending the wrong format made the agent's BuildModule parse fail, so every pushed check was silently
+        # rejected and the host kept running its stale baked-in copy.
+        sidecar_format = "nt" if Path(yaml_path).suffix == ".nt" else "yaml"
         deliveries.append({
-            "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": "nt",
+            "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": sidecar_format,
             "sha256": hashlib.sha256(star.encode()).hexdigest(),
         })
         runnable.append((ec, fqcn))
@@ -1040,8 +1060,8 @@ async def evaluate_assigned_checks(
     updated: list[Service] = []
     for ec, fqcn in runnable:
         state, output, value = "UNKNOWN", "check did not return data", None
+        params = dict(getattr(ec, "parameters", {}) or {})
         try:
-            params = dict(getattr(ec, "parameters", {}) or {})
             if extra_params:
                 params = {**params, **extra_params}
             res = await client.call_tool(fqcn, params)
@@ -1072,8 +1092,14 @@ async def evaluate_assigned_checks(
                         for k, v in metrics.items():
                             if isinstance(v, (int, float)):
                                 perf_sink.append({"metric": f"{ec.check_name}_{k}", "labels": labels, "value": float(v)})
-        except Exception:  # noqa: BLE001 — one bad check must not sink the cycle
-            output = "check execution failed"
+        except Exception as exc:  # noqa: BLE001 — one bad check must not sink the cycle
+            # Surface the real cause instead of swallowing it: without this the UI
+            # only ever shows "check execution failed" with no way to diagnose.
+            logger.exception(
+                "assigned check %s failed on agent %s (item=%r): %s",
+                fqcn, agent.name, params.get("item"), exc,
+            )
+            output = "check execution failed: %s" % exc
         # Active service checks (http/tcp/dns…) carry their display name in
         # params.service_name ("Health Qwen7b"), allowing several instances of
         # one check per host; plain checks keep the check name.
