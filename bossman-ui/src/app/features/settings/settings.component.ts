@@ -282,15 +282,11 @@ import { EnrollInfo } from '../../core/models/enroll.model';
         <mat-card-content>
           <p>
             The shared secret a netbooted target presents on its kernel command line to check in and
-            receive its install plan. Turn netboot <b>on</b> only while you are provisioning — off, the
-            <code>/netboot/*</code> endpoints refuse every request regardless of the secret. The current
-            secret is never shown here; leave the field blank to keep it, type a new one to rotate it.
+            receive its install plan. The DHCP/PXE server is only live while a provisioning job is pending —
+            so there is no on/off switch here; just set the secret. The current secret is never shown here;
+            leave the field blank to keep it, type a new one to rotate it.
           </p>
           <div class="bm-llm-row">
-            <label class="bm-netboot-toggle">
-              <input type="checkbox" [(ngModel)]="netbootEnabled" />
-              netboot enabled
-            </label>
             <span class="bm-dim">{{ netbootSet() ? 'a secret is set' : 'no secret set yet' }}</span>
           </div>
           <div class="bm-llm-row">
@@ -547,10 +543,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   saveNetboot(): void {
     this.netbootBusy.set(true);
     this.netbootMsg.set(null);
+    // Netboot has no manual on/off any more — the DHCP/PXE server is gated by a pending provisioning
+    // job (see the pxe container), so netboot stays enabled and only the shared secret is managed here.
     // Only send `secret` when the operator typed one, so a blank field keeps the current secret.
     const body = this.netbootSecret.trim()
-      ? { enabled: this.netbootEnabled, secret: this.netbootSecret.trim() }
-      : { enabled: this.netbootEnabled };
+      ? { enabled: true, secret: this.netbootSecret.trim() }
+      : { enabled: true };
     this.systemSettings.setNetboot(body).subscribe({
       next: (s) => {
         this.netbootEnabled = s.netboot_enabled ?? false;
