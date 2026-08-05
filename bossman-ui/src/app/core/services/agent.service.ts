@@ -351,6 +351,15 @@ export class AgentService {
     );
   }
 
+  /** Reconfigure the agent over the API (its self-config carve-out): the metric-collection knobs and the
+   * master `write` gate. Enabling writes is how a freshly PXE-provisioned, read-only host is allowed to
+   * converge its assigned roles. The agent writes its config.yaml and restarts to apply. */
+  setAgentConfig(id: string, patch: { write?: boolean; services?: boolean; psi?: boolean; docker?: boolean; drbd_devices?: boolean; interval?: string }) {
+    return this.http.post<{ agent_id: string; applied: Record<string, unknown>; result: unknown }>(
+      `${this.base}/${id}/collect-config`, patch,
+    );
+  }
+
   /** Block J4a: the host's full systemd service-unit list + load/active/sub
    * state, via the read-only `service_facts` module (live pass-through). */
   services(id: string) {

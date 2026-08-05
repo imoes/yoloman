@@ -373,6 +373,46 @@ overrides where you need them.
 
 ---
 
+## Provisioning hosts over PXE
+
+Bossman can stand up a brand-new machine — a VM on a hypervisor or bare metal — from a golden disk
+image, over PXE, and hand it its roles. The **New deployment** wizard (Library → Disk images →
+*New deployment*) walks it: target hostname + network → optional VM host (vCenter/Proxmox) → disk image
++ volume sizing → **roles** → review + deploy. See [`docs/provisioning-wizard.md`](docs/provisioning-wizard.md)
+and the [`docs/pxe-*`](docs/) guides for the full design.
+
+A few behaviours are worth calling out — each is load-bearing:
+
+- **VM creation & VLAN.** For a VM target the wizard creates the VM on the chosen node/storage/network
+  first; the VLAN is set at the **hypervisor** level (Proxmox per-NIC `tag=`, vCenter via the portgroup),
+  never in the guest. The MAC the hypervisor assigns is what the restore job is armed against.
+
+- **Boot order — disk first, PXE fallback.** VMs are created with `boot: order=scsi0;net0` (Proxmox) /
+  `boot_devices=[DISK, ETHERNET]` (vCenter). On the **first** boot the disk is empty, so the firmware
+  falls through to the NIC and PXE-boots into the restore; once the image is written, the **same** order
+  boots the restored disk. (An earlier net-only order made BIOS guests PXE-boot forever and never come up
+  on the restored system.) Note: changing a *running* Proxmox VM's boot order needs a full **stop + start**
+  to take effect, not a reset.
+
+- **DHCP/PXE is job-gated.** The PXE/DHCP server only serves while a provisioning job is pending — there
+  is no manual on/off switch. The Settings pane just manages the shared netboot secret.
+
+- **Roles are desired state.** The wizard registers the target as a **planned** host (a real agent with an
+  id, read-only, no address yet) and then uses the exact **Role bindings** workflow from the Management tab
+  against it: each role is an `OrchestrationPlan` of type `role`, bound to the host as an
+  `OrchestrationPlanLink`. Binding is pure desired state — it does not need the host online — so it is
+  declared now and **converges after the host first boots** (approval-gated).
+
+- **The write gate.** A freshly provisioned host enrols **read-only** (`write: false`) — the safe default.
+  A read-only host reports metrics and can be reconfigured, but its roles cannot converge (module push and
+  mutating steps need the gate open). Enable writes over the API without SSH via the agent's self-config
+  carve-out — `POST /api/v1/agents/{id}/collect-config {"write": true}`, surfaced in the UI as **Enable
+  writes** on the host's Role bindings snap-in. The agent rewrites its `config.yaml` and restarts; approved
+  role bindings then converge on the next reconcile. The carve-out is owner-scoped + mTLS-authenticated and
+  still cannot touch the agent's auth, token, listen address or TLS.
+
+---
+
 ## Build, run, test
 
 ```bash
