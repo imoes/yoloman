@@ -24,7 +24,8 @@ import { SambaComponent } from './packages/samba.component';
 import { PureFtpdComponent } from './packages/pure-ftpd.component';
 import { ProftpdComponent } from './packages/proftpd.component';
 import { CupsComponent } from './packages/cups.component';
-import { NginxSitesComponent } from './packages/nginx-sites.component';
+import { WebConfigTreeComponent } from './packages/web-config-tree.component';
+import { NGINX_PROFILE } from './packages/web-server-profiles';
 import { ApacheVhostsComponent } from './packages/apache-vhosts.component';
 import { HaproxyConfigComponent } from './packages/haproxy-config.component';
 import { CaddyConfigComponent } from './packages/caddy-config.component';
@@ -48,7 +49,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
-    NginxSitesComponent, ApacheVhostsComponent, HaproxyConfigComponent,
+    WebConfigTreeComponent, ApacheVhostsComponent, HaproxyConfigComponent,
     CaddyConfigComponent, TraefikConfigComponent,
   ],
   template: `
@@ -90,7 +91,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-pureftpd')) { <div [style.display]="show('pkg-pureftpd')"><app-pure-ftpd [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-proftpd')) { <div [style.display]="show('pkg-proftpd')"><app-proftpd [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-cups')) { <div [style.display]="show('pkg-cups')"><app-cups [agentId]="agentId()" /></div> }
-        @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-nginx-sites [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-web-config-tree [agentId]="agentId()" [profile]="nginxProfile" /></div> }
         @if (visited().has('pkg-apache')) { <div [style.display]="show('pkg-apache')"><app-apache-vhosts [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-haproxy')) { <div [style.display]="show('pkg-haproxy')"><app-haproxy-config [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-caddy')) { <div [style.display]="show('pkg-caddy')"><app-caddy-config [agentId]="agentId()" /></div> }
@@ -304,7 +305,8 @@ export class HostManagementComponent implements OnInit {
   private pureftpd = viewChild(PureFtpdComponent);
   private proftpd = viewChild(ProftpdComponent);
   private cups = viewChild(CupsComponent);
-  private nginxSites = viewChild(NginxSitesComponent);
+  private nginxTree = viewChild(WebConfigTreeComponent);
+  readonly nginxProfile = NGINX_PROFILE;
   private apacheVhosts = viewChild(ApacheVhostsComponent);
   private haproxyConfig = viewChild(HaproxyConfigComponent);
   private caddyConfig = viewChild(CaddyConfigComponent);
@@ -331,7 +333,7 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-pureftpd': this.pureftpd()?.loadOnce(); break;
         case 'pkg-proftpd': this.proftpd()?.loadOnce(); break;
         case 'pkg-cups': this.cups()?.loadOnce(); break;
-        case 'pkg-nginx': this.nginxSites()?.loadOnce(); break;
+        case 'pkg-nginx': this.nginxTree()?.loadOnce(); break;
         case 'pkg-apache': this.apacheVhosts()?.loadOnce(); break;
         case 'pkg-haproxy': this.haproxyConfig()?.loadOnce(); break;
         case 'pkg-caddy': this.caddyConfig()?.loadOnce(); break;
