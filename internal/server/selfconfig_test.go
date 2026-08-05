@@ -83,15 +83,16 @@ func TestCollectConfig_WritesTheKnobsAndSchedulesRestart(t *testing.T) {
 	}
 }
 
-// The property the whole design rests on: it can ONLY change the collect block. A request cannot reach
-// the token, the listen address, or the write gate — the fields simply do not exist on the request.
+// The property the design rests on: it can change the collect block AND the master write gate (a
+// provisioned host enrols read-only and must be able to enable writes over the API), but it can NEVER
+// reach auth or the listen address — those fields simply do not exist on the request.
 func TestCollectConfig_CannotTouchAuthOrListen(t *testing.T) {
 	captureRestart(t)
 	path := seedConfigFile(t)
 	srv := httptest.NewServer(NewRESTHandler(RESTConfig{AllowSelfConfig: true, ConfigPath: path}))
 	defer srv.Close()
 
-	// Throw the dangerous keys at it anyway; they must be ignored, not applied.
+	// Throw the dangerous keys at it anyway; token/listen must be ignored. write IS a legitimate field.
 	resp := postCollect(t, srv, map[string]any{
 		"services": false,
 		"token":    "attacker",
@@ -110,8 +111,8 @@ func TestCollectConfig_CannotTouchAuthOrListen(t *testing.T) {
 	if got.Listen != "0.0.0.0:8010" {
 		t.Errorf("listen changed to %q", got.Listen)
 	}
-	if got.Write {
-		t.Error("write gate was flipped on — that would be privilege escalation")
+	if !got.Write {
+		t.Error("write gate was not enabled — the owner-scoped carve-out must be able to set it")
 	}
 	if got.Collect.Services {
 		t.Error("the one legitimate change (services:false) did not apply")

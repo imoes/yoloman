@@ -418,10 +418,13 @@ async def update_agent_bundled(
 
 
 class CollectConfigRequest(BaseModel):
-    """A partial patch of the agent's metric-collection knobs. Every field optional; only the ones
-    provided are changed. Nothing here can touch the agent's auth, listen address or write gate — that
-    is enforced on the agent, whose endpoint has no field for them."""
+    """A partial patch of the agent's self-configurable settings. Every field optional; only the ones
+    provided are changed. It cannot touch the agent's auth, listen address or TLS (the agent's endpoint
+    has no field for those). It CAN toggle the master `write` gate: a PXE-provisioned host enrols
+    read-only, and this owner-scoped, mTLS-authenticated carve-out is the only way to enable writes
+    without SSH so the host can converge its assigned roles."""
 
+    write: bool | None = None    # master write gate — enable so a provisioned host can converge its roles
     services: bool | None = None
     psi: bool | None = None
     docker: bool | None = None

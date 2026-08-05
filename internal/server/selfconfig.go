@@ -23,6 +23,12 @@ var scheduleSelfConfigRestart = func() error {
 // absent field ("leave it alone") is distinguishable from one explicitly set to false or empty: a
 // request carrying only `services` must not also flip `docker`.
 type collectConfigReq struct {
+	// Write toggles the master write gate. It is deliberately settable through THIS carve-out (which is
+	// not itself behind the gate) so a freshly-provisioned read-only host can be flipped to write-enabled
+	// over the API — otherwise the very setting that enables writes could never be reached without SSH,
+	// and a PXE-provisioned host could never converge its assigned roles. Owner-scoped + mTLS + pinned
+	// bearer still apply, and allow_self_config can disable the whole endpoint.
+	Write       *bool   `json:"write"`
 	Services    *bool   `json:"services"`
 	PSI         *bool   `json:"psi"`
 	Docker      *bool   `json:"docker"`
@@ -44,10 +50,11 @@ type collectConfigReq struct {
 //
 // Two safety properties, both structural rather than promised:
 //
-//   - SCOPE. It writes ONLY the fields under `collect:`. It cannot touch listen, token, tls, write, or
-//     any auth setting — the request type has no field for them and the handler copies the loaded
-//     config forward for everything else. So even with the gate wide open it cannot escalate privilege
-//     or lock the operator out.
+//   - SCOPE. It writes ONLY the `collect:` fields plus the master `write` gate. It cannot touch listen,
+//     token, tls, or any auth setting — the request type has no field for them and the handler copies the
+//     loaded config forward for everything else, so it cannot change the agent's identity or lock the
+//     operator out. `write` IS settable on purpose: a PXE-provisioned host enrols read-only, and the only
+//     way to enable writes without SSH is through this owner-scoped, mTLS-authenticated carve-out.
 //   - GATE. Like self-update it is deliberately NOT behind the master write gate (a read-only agent
 //     must stay manageable, and a write:false agent could otherwise never be reconfigured — the
 //     setting that would enable it is itself in the config). It is gated by allow_self_config
@@ -79,6 +86,10 @@ func handleCollectConfig(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 	}
 
 	changed := map[string]any{}
+	if req.Write != nil {
+		loaded.Write = *req.Write
+		changed["write"] = *req.Write
+	}
 	if req.Services != nil {
 		loaded.Collect.Services = *req.Services
 		changed["services"] = *req.Services
