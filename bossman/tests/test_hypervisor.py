@@ -144,25 +144,36 @@ def test_gen_mac_is_locally_administered_qemu_style():
     assert m.startswith("52:54:00:") and len(m.split(":")) == 6
 
 
-async def test_create_vm_posts_config_and_starts(monkeypatch):
-    """create_vm gets nextid, POSTs the qemu config, starts the VM, and returns our MAC + the vmid."""
-    posted = {}
-
+def _proxmox_create_handler(*, existing_vms=(), task_exit="OK", posted=None):
+    """A Proxmox that supports create_vm: name-clash lookup, nextid, qemu create + start (each returns a
+    UPID), and the task-status poll that create_vm now waits on."""
     def handler(request: httpx.Request) -> httpx.Response:
         path = request.url.path
         if path.endswith("/access/ticket"):
             return httpx.Response(200, json=_TICKET)
+        if path.endswith("/cluster/resources"):
+            return httpx.Response(200, json={"data": list(existing_vms)})
         if path.endswith("/cluster/nextid"):
             return httpx.Response(200, json={"data": "131"})
+        if "/tasks/" in path and path.endswith("/status"):
+            return httpx.Response(200, json={"data": {"status": "stopped", "exitstatus": task_exit}})
         if path.endswith("/nodes/pve1/qemu"):
-            posted["config"] = dict(httpx.QueryParams(request.content.decode()))
-            return httpx.Response(200, json={"data": "UPID:create"})
+            if posted is not None:
+                posted["config"] = dict(httpx.QueryParams(request.content.decode()))
+            return httpx.Response(200, json={"data": "UPID:create:pve1"})
         if path.endswith("/nodes/pve1/qemu/131/status/start"):
-            posted["started"] = True
-            return httpx.Response(200, json={"data": "UPID:start"})
+            if posted is not None:
+                posted["started"] = True
+            return httpx.Response(200, json={"data": "UPID:start:pve1"})
         return httpx.Response(404, json={"data": None})
+    return handler
 
-    _client_with(handler, monkeypatch)
+
+async def test_create_vm_posts_config_and_starts(monkeypatch):
+    """create_vm gets nextid, POSTs the qemu config, starts the VM, waits for both tasks to succeed, and
+    returns our MAC + the vmid."""
+    posted = {}
+    _client_with(_proxmox_create_handler(posted=posted), monkeypatch)
     res = await ProxmoxClient("pve", "root@pam", "pw").create_vm(
         "pve1", "web01", cores=2, memory_mb=2048, disk_gib=32, storage="local-lvm",
         bridge="vmbr0", uefi=True, mac="52:54:00:de:ad:be")
@@ -170,6 +181,26 @@ async def test_create_vm_posts_config_and_starts(monkeypatch):
     assert posted["started"] is True
     assert posted["config"]["vmid"] == "131" and posted["config"]["bios"] == "ovmf"
     assert posted["config"]["net0"] == "virtio=52:54:00:de:ad:be,bridge=vmbr0"
+
+
+async def test_create_vm_rejects_a_duplicate_name(monkeypatch):
+    """A VM whose name already exists on the cluster is refused up front with a clear error — not created as
+    a confusing second VM, and not silently swallowed."""
+    _client_with(_proxmox_create_handler(existing_vms=[{"name": "web01", "vmid": 100, "node": "pve1"}]), monkeypatch)
+    with pytest.raises(HypervisorError) as exc:
+        await ProxmoxClient("pve", "root@pam", "pw").create_vm(
+            "pve1", "web01", cores=2, memory_mb=2048, disk_gib=32, storage="local-lvm", bridge="vmbr0", uefi=False)
+    assert "already exists" in str(exc.value) and "web01" in str(exc.value)
+
+
+async def test_create_vm_raises_when_the_async_task_fails(monkeypatch):
+    """Proxmox returns HTTP 200 + a UPID immediately; the real work is async. If that task fails, create_vm
+    must detect it (poll the task) and raise — the exact bug where a failure was swallowed as success."""
+    _client_with(_proxmox_create_handler(task_exit="unable to create VM 131 - config file already exists"), monkeypatch)
+    with pytest.raises(HypervisorError) as exc:
+        await ProxmoxClient("pve", "root@pam", "pw").create_vm(
+            "pve1", "web01", cores=2, memory_mb=2048, disk_gib=32, storage="local-lvm", bridge="vmbr0", uefi=False)
+    assert "failed" in str(exc.value) and "config file already exists" in str(exc.value)
 
 
 # ---- vCenter -------------------------------------------------------------

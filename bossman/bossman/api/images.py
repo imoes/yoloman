@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,6 +38,7 @@ from bossman.services import hypervisor, imaging, offline_enroll, vm_lab
 from bossman.services.vault import Vault
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 def _firmware_of(manifest: dict) -> str:
@@ -446,6 +448,7 @@ async def create_vm(
             disk_gib=body.disk_gib, storage=body.storage, bridge=body.bridge,
             uefi=body.uefi, vlan=body.vlan)
     except hypervisor.HypervisorError as exc:
+        log.warning("create-vm on host %s (%s/%s) failed: %s", row.host, body.node, body.name, exc)
         raise HTTPException(status_code=502, detail=f"VM creation failed: {exc}") from exc
 
 

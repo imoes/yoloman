@@ -19,11 +19,14 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import random
 import re
 from typing import Any
 
 import httpx
+
+log = logging.getLogger(__name__)
 
 
 class HypervisorError(Exception):
@@ -177,24 +180,60 @@ class ProxmoxClient:
                 })
             return {"kind": "proxmox", "nodes": nodes}
 
+    async def _wait_task(self, client: httpx.AsyncClient, node: str, upid: Any, *, what: str) -> None:
+        """Proxmox create/start return a UPID and do the real work ASYNCHRONOUSLY — a plain HTTP 200 only
+        means the task was *accepted*, not that it succeeded. So poll the task to completion and raise if it
+        failed; otherwise a duplicate VM, a full datastore, etc. would be silently swallowed."""
+        if not (isinstance(upid, str) and upid.startswith("UPID:")):
+            return   # not a task-returning call — nothing to wait for
+        for _ in range(120):   # ~120 s ceiling; VM create/start is normally a second or two
+            status = await self._get(client, f"/nodes/{node}/tasks/{upid}/status") or {}
+            if status.get("status") == "stopped":
+                exit_status = status.get("exitstatus")
+                if exit_status and exit_status != "OK":
+                    raise HypervisorError(f"Proxmox task '{what}' failed: {exit_status}")
+                return
+            await asyncio.sleep(1.0)
+        raise HypervisorError(f"Proxmox task '{what}' did not finish within 120s")
+
     async def create_vm(
         self, node: str, name: str, *, cores: int, memory_mb: int, disk_gib: int, storage: str,
         bridge: str, uefi: bool, vlan: int | None = None, mac: str | None = None,
     ) -> dict[str, Any]:
         """Create a PXE-install VM on `node` and start it. Returns {vmid, mac}. The MAC is ours (assigned,
         not read back) so the restore job can be armed against it immediately; starting the VM makes it
-        PXE-boot into the restore flow."""
+        PXE-boot into the restore flow.
+
+        Errors are surfaced, never swallowed: a name already in use is rejected up front, and the async
+        create/start tasks are waited on so a failure (e.g. a config that already exists) becomes a raised
+        HypervisorError instead of a false success."""
         mac = mac or gen_mac()
         async with httpx.AsyncClient(verify=self._verify, timeout=self._timeout) as client:
             try:
+                # Reject a duplicate name up front with a clear message, rather than creating a confusing
+                # second VM (Proxmox keys by vmid, so it would otherwise allow the clash silently).
+                existing = await self._get(client, "/cluster/resources?type=vm") or []
+                clash = next((r for r in existing if r.get("name") == name), None)
+                if clash is not None:
+                    raise HypervisorError(
+                        f"a VM named {name!r} already exists on this cluster "
+                        f"(vmid {clash.get('vmid')} on node {clash.get('node')})")
+
                 vmid = int(await self._get(client, "/cluster/nextid"))
                 cfg = _proxmox_vm_config(name=name, cores=cores, memory_mb=memory_mb, disk_gib=disk_gib,
                                          storage=storage, bridge=bridge, mac=mac, vlan=vlan, uefi=uefi)
                 cfg["vmid"] = vmid
-                await self._post(client, f"/nodes/{node}/qemu", cfg)
-                await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/start", {})
+                create_upid = await self._post(client, f"/nodes/{node}/qemu", cfg)
+                await self._wait_task(client, node, create_upid, what=f"create VM {vmid} ({name})")
+                start_upid = await self._post(client, f"/nodes/{node}/qemu/{vmid}/status/start", {})
+                await self._wait_task(client, node, start_upid, what=f"start VM {vmid} ({name})")
+            except HypervisorError:
+                log.warning("Proxmox create_vm %r on %s failed", name, node, exc_info=True)
+                raise
             except (httpx.HTTPError, KeyError, ValueError) as exc:
+                log.warning("Proxmox create_vm %r on %s failed: %s", name, node, exc)
                 raise HypervisorError(f"Proxmox VM create on {node} failed: {exc}") from exc
+        log.info("Proxmox created + started VM %d (%s) on %s", vmid, name, node)
         return {"vmid": vmid, "mac": mac}
 
 
