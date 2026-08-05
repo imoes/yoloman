@@ -9,7 +9,7 @@ import { AgentService } from '../../../../core/services/agent.service';
 import { ConfigResource } from '../../../../core/models/agent.model';
 import { ParamFormComponent } from '../../../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../../../shared/param-form/param-form.types';
-import { WebServerProfile, NGINX_FEATURE_GROUPS } from './web-server-profiles';
+import { WebServerProfile } from './web-server-profiles';
 
 interface Site { name: string; file: string; enabled: boolean; }
 
@@ -122,7 +122,9 @@ interface Row { id: string; kind: NodeKind; label: string; icon: string; depth: 
         @case ('site') {
           <button class="wt-mi" cdkMenuItem (click)="selectChild('bindings')">Edit Bindings…</button>
           <button class="wt-mi" cdkMenuItem (click)="selectChild('wwwroot')">Set www root…</button>
-          <button class="wt-mi" cdkMenuItem (click)="addLocation()">Add Location / Virtual Directory…</button>
+          @if (profile().locationsList) {
+            <button class="wt-mi" cdkMenuItem (click)="addLocation()">Add Location / Virtual Directory…</button>
+          }
           <div class="wt-sep"></div>
           <button class="wt-mi" cdkMenuItem (click)="testConfig()">Test config</button>
           <button class="wt-mi" cdkMenuItem (click)="reloadServer()">Reload {{ profile().service }}</button>
@@ -276,7 +278,7 @@ export class WebConfigTreeComponent {
   paneSchema = computed<ParamSchema | null>(() => {
     const full = this.schema(); const kind = this.selected()?.kind;
     if (!full) return null;
-    const group = kind && NGINX_FEATURE_GROUPS[kind];
+    const group = kind && this.profile().featureGroups[kind];
     if (!group) return full;   // 'site' node → all settings
     return Object.fromEntries(Object.entries(full).filter(([k]) => group.includes(k))) as ParamSchema;
   });
@@ -293,6 +295,11 @@ export class WebConfigTreeComponent {
 
   private dir(): string { return this.confdLayout() ? this.profile().confdDir : this.profile().sitesDir; }
   private base(p: string): string { return p.replace(/\/+$/, '').split('/').pop() || p; }
+  /** display/site name = file basename with the profile's suffix stripped ('' nginx, '.conf' apache). */
+  private siteName(file: string): string {
+    const b = this.base(file); const suf = this.profile().fileSuffix;
+    return suf && b.endsWith(suf) ? b.slice(0, -suf.length) : b;
+  }
   private sidecar(name: string): string { return `${this.profile().sidecarDir}/${name}.json`; }
 
   reload(): void {
@@ -302,7 +309,8 @@ export class WebConfigTreeComponent {
     // best-effort and runs separately, so a missing cert dir can never abort the whole load.
     forkJoin({
       tpls: this.agentService.configTemplates(),
-      avail: this.agentService.callTool(this.agentId(), 'find', { paths: [p.sitesDir], file_type: 'file' }),
+      avail: this.agentService.callTool(this.agentId(), 'find',
+        p.sitesPattern ? { paths: [p.sitesDir], file_type: 'file', pattern: p.sitesPattern } : { paths: [p.sitesDir], file_type: 'file' }),
     }).subscribe({
       next: ({ tpls, avail }) => {
         const tpl = tpls.templates.find((t) => t.name === p.vhostTemplate);
@@ -345,7 +353,7 @@ export class WebConfigTreeComponent {
     const p = this.profile();
     const build = (enabled: Set<string>) => {
       this.loading.set(false); this.loaded.set(true);
-      this.sites.set(files.map((f) => ({ name: this.base(f), file: f, enabled: this.confdLayout() ? true : enabled.has(this.base(f)) }))
+      this.sites.set(files.map((f) => ({ name: this.siteName(f), file: f, enabled: this.confdLayout() ? true : enabled.has(this.base(f)) }))
         .sort((a, b) => a.name.localeCompare(b.name)));
     };
     if (this.confdLayout() || !p.sitesEnabledDir) { build(new Set()); return; }
@@ -411,7 +419,7 @@ export class WebConfigTreeComponent {
     const f = this.profile().fields;
     const name = this.newSite.name.trim(); if (!name) return;
     if (this.sites().some((s) => s.name === name)) { this.err.set(`Site ${name} already exists.`); this.adding.set(false); return; }
-    const file = `${this.dir()}/${name}`;
+    const file = `${this.dir()}/${name}${this.profile().fileSuffix}`;
     const s: Site = { name, file, enabled: false };
     const values: Record<string, unknown> = {
       [f.serverName]: name,
@@ -435,6 +443,7 @@ export class WebConfigTreeComponent {
   }
 
   addLocation(): void {
+    if (!this.profile().locationsList) return;   // server has no location-list concept (e.g. apache)
     const site = this.ctx()?.site; if (!site) return;
     const f = this.profile().fields;
     this.selectChild('locations');
@@ -487,7 +496,8 @@ export class WebConfigTreeComponent {
   private ensureEnabled(s: Site, done: () => void): void {
     const p = this.profile();
     if (this.confdLayout() || !p.sitesEnabledDir || s.enabled) { done(); return; }
-    this.agentService.callTool(this.agentId(), 'command', { argv: ['ln', '-sf', s.file, `${p.sitesEnabledDir}/${s.name}`] })
+    // Link name = the file basename (keeps apache's `.conf`), matching what a2ensite would create.
+    this.agentService.callTool(this.agentId(), 'command', { argv: ['ln', '-sf', s.file, `${p.sitesEnabledDir}/${this.base(s.file)}`] })
       .subscribe({ next: () => done(), error: () => done() });
   }
 
@@ -501,7 +511,7 @@ export class WebConfigTreeComponent {
     const s = this.sites().find((x) => x.name === site); if (!s) return;
     const p = this.profile();
     this.busy.set(true); this.msg.set(''); this.err.set('');
-    const enabledLink = p.sitesEnabledDir ? `'${p.sitesEnabledDir}/${s.name}'` : '';
+    const enabledLink = p.sitesEnabledDir ? `'${p.sitesEnabledDir}/${this.base(s.file)}'` : '';
     this.agentService.callTool(this.agentId(), 'command', { argv: ['sh', '-c', `rm -f '${s.file}' ${enabledLink} '${this.sidecar(s.name)}'`] }).subscribe({
       next: () => this.reloadServer(() => { this.busy.set(false); this.selectedId.set('sites'); this.msg.set(`Removed ${site}.`); this.reload(); }),
       error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail || 'Remove failed.'); },

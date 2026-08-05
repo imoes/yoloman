@@ -4,53 +4,51 @@
  * One component renders the tree; a profile tells it, for a given server, where sites live, which vhost
  * template + schema drives a site's Features panes, how to validate + reload, and which schema fields map to
  * the IIS concepts (server name / host, www root, binding port, TLS + certificate, locations). Adding a
- * server = adding a profile, not new component code. M1 ships nginx; apache/haproxy/caddy follow.
+ * server = adding a profile, not new component code. M1 nginx, M2 apache; haproxy/caddy follow.
  */
 export interface WebServerFieldMap {
-  /** schema field holding the site's host/server name (IIS: host header). */
-  serverName: string;
-  /** schema field holding the document root (IIS: physical path / www root). */
-  root: string;
-  /** schema field holding the listen port (IIS: binding port). */
-  port: string;
-  /** schema field toggling HTTPS (IIS: https binding). */
-  tlsEnabled: string;
-  /** schema field for the certificate file path (IIS: SSL certificate on the binding). */
-  cert: string;
-  /** schema field for the certificate key path (nginx/apache split cert+key). */
-  certKey: string;
-  /** schema field holding the list of location/virtual-directory blocks. */
-  locations: string;
+  serverName: string;   // IIS: host header
+  root: string;         // IIS: physical path / www root
+  port: string;         // IIS: binding port
+  tlsEnabled: string;   // IIS: https binding toggle
+  cert: string;         // IIS: SSL certificate on the binding
+  certKey: string;      // cert key (nginx/apache split cert+key)
+  locations: string;    // schema field holding the location list ('' when the server has none)
 }
 
 export interface WebServerProfile {
   /** stable key = the snap-in server id (nginx | apache | haproxy | caddy). */
   key: string;
-  /** display label for the server (root tree node). */
   label: string;
   /** config-template name whose j2 renders ONE site and whose schema drives the Features panes. */
   vhostTemplate: string;
-  /** systemd unit / binary name. */
   service: string;
-  /** primary directory sites are written to (Debian layout). */
+  /** primary sites directory (Debian layout). */
   sitesDir: string;
-  /** the "enabled" symlink dir (Debian nginx/apache), or null when the server has no enable step. */
+  /** the "enabled" symlink dir (Debian nginx/apache), or null when there is no enable step. */
   sitesEnabledDir: string | null;
-  /** fallback directory when sitesDir is empty (RedHat/upstream conf.d). */
+  /** fallback dir when sitesDir is empty (RedHat/upstream conf.d). */
   confdDir: string;
-  /** where the per-site VALUES sidecar JSON is stored (outside any include glob). */
+  /** where the per-site VALUES sidecar JSON lives (outside any include glob). */
   sidecarDir: string;
-  /** argv that validates the whole config (rc 0 = OK), run before reload. */
+  /** filename suffix for a site file ('' nginx, '.conf' apache). The display name drops it. */
+  fileSuffix: string;
+  /** glob for enumerating site files (undefined = all files; apache = '*.conf'). */
+  sitesPattern?: string;
+  /** argv that validates the whole config (rc 0 = OK). */
   validateArgv: string[];
-  /** argv that reloads the server after a successful apply. */
+  /** argv that reloads the server. */
   reloadArgv: string[];
-  /** which vhost-schema fields map onto the IIS concepts. */
+  /** vhost-schema fields mapped onto the IIS concepts. */
   fields: WebServerFieldMap;
+  /** whether the server supports a list of location/virtual-directory blocks (nginx yes, apache no). */
+  locationsList: boolean;
+  /** which vhost-schema fields appear on which per-node Features pane (bindings / wwwroot / locations). */
+  featureGroups: Record<string, string[]>;
   /** directories scanned for certificate files (the file-based Certificates node). */
   certSearchDirs: string[];
 }
 
-/** nginx (Debian sites-available/enabled, conf.d fallback), driven by the nginx-vhost template. */
 export const NGINX_PROFILE: WebServerProfile = {
   key: 'nginx',
   label: 'NGINX',
@@ -60,33 +58,47 @@ export const NGINX_PROFILE: WebServerProfile = {
   sitesEnabledDir: '/etc/nginx/sites-enabled',
   confdDir: '/etc/nginx/conf.d',
   sidecarDir: '/etc/agentic-mcp/websites/nginx',
+  fileSuffix: '',
   validateArgv: ['nginx', '-t'],
   reloadArgv: ['nginx', '-s', 'reload'],
-  fields: {
-    serverName: 'server_name',
-    root: 'root',
-    port: 'listen_port',
-    tlsEnabled: 'tls_enabled',
-    cert: 'ssl_certificate',
-    certKey: 'ssl_certificate_key',
-    locations: 'locations',
+  fields: { serverName: 'server_name', root: 'root', port: 'listen_port', tlsEnabled: 'tls_enabled',
+            cert: 'ssl_certificate', certKey: 'ssl_certificate_key', locations: 'locations' },
+  locationsList: true,
+  featureGroups: {
+    bindings: ['listen_port', 'listen_ipv6', 'tls_enabled', 'ssl_certificate', 'ssl_certificate_key',
+               'ssl_protocols', 'ssl_ciphers', 'http2', 'hsts', 'redirect_to_https'],
+    wwwroot: ['root'],
+    locations: ['locations', 'upstreams'],
   },
   certSearchDirs: ['/etc/ssl', '/etc/letsencrypt', '/etc/pki', '/etc/nginx/ssl'],
 };
 
-/** The IIS "Features" grouping of a site's schema fields — which fields appear on which per-node pane. Any
- *  schema field not listed here falls into the site's "All settings" pane, so extending a schema (M5) never
- *  hides a setting. Groups are matched by field name against the profile's fieldMap + these extras. */
-export const NGINX_FEATURE_GROUPS: Record<string, string[]> = {
-  // Bindings pane (IIS: Edit Bindings + SSL Settings)
-  bindings: ['listen_port', 'listen_ipv6', 'tls_enabled', 'ssl_certificate', 'ssl_certificate_key',
-             'ssl_protocols', 'ssl_ciphers', 'http2', 'hsts', 'redirect_to_https'],
-  // www root pane
-  wwwroot: ['root'],
-  // Locations pane (IIS: Applications / Virtual Directories)
-  locations: ['locations', 'upstreams'],
+export const APACHE_PROFILE: WebServerProfile = {
+  key: 'apache',
+  label: 'Apache HTTP Server',
+  vhostTemplate: 'apache-vhost',
+  service: 'apache2',
+  sitesDir: '/etc/apache2/sites-available',
+  sitesEnabledDir: '/etc/apache2/sites-enabled',
+  confdDir: '/etc/httpd/conf.d',
+  sidecarDir: '/etc/agentic-mcp/websites/apache',
+  fileSuffix: '.conf',
+  sitesPattern: '*.conf',
+  validateArgv: ['apache2ctl', '-t'],
+  reloadArgv: ['apache2ctl', '-k', 'graceful'],
+  fields: { serverName: 'server_name', root: 'document_root', port: 'listen_port', tlsEnabled: 'tls_enabled',
+            cert: 'ssl_certificate', certKey: 'ssl_certificate_key', locations: '' },
+  locationsList: false,
+  featureGroups: {
+    bindings: ['listen_port', 'tls_enabled', 'ssl_certificate', 'ssl_certificate_key', 'ssl_protocol',
+               'ssl_cipher_suite', 'hsts', 'redirect_to_https'],
+    wwwroot: ['document_root', 'directory_index', 'allow_override'],
+    locations: ['proxy_pass'],
+  },
+  certSearchDirs: ['/etc/ssl', '/etc/letsencrypt', '/etc/pki', '/etc/apache2/ssl'],
 };
 
 export const PROFILES: Record<string, WebServerProfile> = {
   nginx: NGINX_PROFILE,
+  apache: APACHE_PROFILE,
 };
