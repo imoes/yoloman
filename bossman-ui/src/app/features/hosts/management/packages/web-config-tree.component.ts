@@ -408,7 +408,9 @@ export class WebConfigTreeComponent {
     });
   }
 
-  onValues(v: Record<string, unknown>): void { this.values.set(v); }
+  // MERGE, never replace: a filtered Features pane (Bindings / www root / Locations) emits only ITS fields,
+  // so replacing would drop every setting outside that pane. Merging keeps the rest of the site's values.
+  onValues(v: Record<string, unknown>): void { this.values.update((cur) => ({ ...cur, ...v })); }
 
   // ── Add Website ─────────────────────────────────────────────────────
   openAddSite(): void {

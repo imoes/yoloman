@@ -25,9 +25,8 @@ import { PureFtpdComponent } from './packages/pure-ftpd.component';
 import { ProftpdComponent } from './packages/proftpd.component';
 import { CupsComponent } from './packages/cups.component';
 import { WebConfigTreeComponent } from './packages/web-config-tree.component';
-import { NGINX_PROFILE, APACHE_PROFILE } from './packages/web-server-profiles';
-import { HaproxyConfigComponent } from './packages/haproxy-config.component';
-import { CaddyConfigComponent } from './packages/caddy-config.component';
+import { NGINX_PROFILE, APACHE_PROFILE, HAPROXY_PROFILE, CADDY_PROFILE } from './packages/web-server-profiles';
+import { WebSingleConfigTreeComponent } from './packages/web-single-config-tree.component';
 import { TraefikConfigComponent } from './packages/traefik-config.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
@@ -48,8 +47,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
-    WebConfigTreeComponent, HaproxyConfigComponent,
-    CaddyConfigComponent, TraefikConfigComponent,
+    WebConfigTreeComponent, WebSingleConfigTreeComponent, TraefikConfigComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -92,8 +90,8 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-cups')) { <div [style.display]="show('pkg-cups')"><app-cups [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-web-config-tree #nginxTree [agentId]="agentId()" [profile]="nginxProfile" /></div> }
         @if (visited().has('pkg-apache')) { <div [style.display]="show('pkg-apache')"><app-web-config-tree #apacheTree [agentId]="agentId()" [profile]="apacheProfile" /></div> }
-        @if (visited().has('pkg-haproxy')) { <div [style.display]="show('pkg-haproxy')"><app-haproxy-config [agentId]="agentId()" /></div> }
-        @if (visited().has('pkg-caddy')) { <div [style.display]="show('pkg-caddy')"><app-caddy-config [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-haproxy')) { <div [style.display]="show('pkg-haproxy')"><app-web-single-config-tree #haproxyTree [agentId]="agentId()" [profile]="haproxyProfile" /></div> }
+        @if (visited().has('pkg-caddy')) { <div [style.display]="show('pkg-caddy')"><app-web-single-config-tree #caddyTree [agentId]="agentId()" [profile]="caddyProfile" /></div> }
         @if (visited().has('pkg-traefik')) { <div [style.display]="show('pkg-traefik')"><app-traefik-config [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
@@ -309,8 +307,10 @@ export class HostManagementComponent implements OnInit {
   private apacheTree = viewChild('apacheTree', { read: WebConfigTreeComponent });
   readonly nginxProfile = NGINX_PROFILE;
   readonly apacheProfile = APACHE_PROFILE;
-  private haproxyConfig = viewChild(HaproxyConfigComponent);
-  private caddyConfig = viewChild(CaddyConfigComponent);
+  private haproxyTree = viewChild('haproxyTree', { read: WebSingleConfigTreeComponent });
+  private caddyTree = viewChild('caddyTree', { read: WebSingleConfigTreeComponent });
+  readonly haproxyProfile = HAPROXY_PROFILE;
+  readonly caddyProfile = CADDY_PROFILE;
   private traefikConfig = viewChild(TraefikConfigComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
@@ -336,8 +336,8 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-cups': this.cups()?.loadOnce(); break;
         case 'pkg-nginx': this.nginxTree()?.loadOnce(); break;
         case 'pkg-apache': this.apacheTree()?.loadOnce(); break;
-        case 'pkg-haproxy': this.haproxyConfig()?.loadOnce(); break;
-        case 'pkg-caddy': this.caddyConfig()?.loadOnce(); break;
+        case 'pkg-haproxy': this.haproxyTree()?.loadOnce(); break;
+        case 'pkg-caddy': this.caddyTree()?.loadOnce(); break;
         case 'pkg-traefik': this.traefikConfig()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;

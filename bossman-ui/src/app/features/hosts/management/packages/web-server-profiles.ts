@@ -102,3 +102,96 @@ export const PROFILES: Record<string, WebServerProfile> = {
   nginx: NGINX_PROFILE,
   apache: APACHE_PROFILE,
 };
+
+// ── Single-config servers (HAProxy, Caddy) ─────────────────────────────────────────────────────────────
+//
+// nginx/apache are "one file per site"; HAProxy and Caddy are the opposite — ONE config file rendered whole
+// from ONE values doc. The IIS-style tree still applies, but its nodes are declared feature SECTIONS of that
+// single document (global / frontend / backend / a list of sites or backend-servers) rather than discovered
+// site files. web-single-config-tree.component renders these; one component, both profiles.
+
+/** One node in the single-config tree: either a fixed group of schema fields, or a list whose items become
+ *  child leaf nodes (each editable, add/remove via the context menu). */
+export interface WebSectionSpec {
+  key: string;
+  label: string;
+  icon: string;
+  kind: 'group' | 'list';
+  /** group: top-level schema fields shown on this section's Features pane. */
+  fields?: string[];
+  /** list: the schema list-field whose entries are child nodes. */
+  listField?: string;
+  /** list: which item field labels each entry in the tree. */
+  itemNameField?: string;
+  /** list: the context-menu action label (e.g. "Add Website", "Add Server"). */
+  itemActionLabel?: string;
+  /** list: seed values for a newly-added item. */
+  itemDefault?: Record<string, unknown>;
+}
+
+export interface SingleConfigProfile {
+  key: string;
+  label: string;
+  /** whole-config template name (renders the entire file from one values doc). */
+  template: string;
+  service: string;
+  /** the rendered config file path. */
+  configPath: string;
+  /** the single values sidecar (JSON) this config round-trips through. */
+  sidecarPath: string;
+  /** argv that validates the whole config (rc 0 = OK). */
+  validateArgv: string[];
+  /** argv that reloads the server. */
+  reloadArgv: string[];
+  /** the tree's feature sections, in order. */
+  sections: WebSectionSpec[];
+  /** directories scanned for certificate files (the file-based Certificates node). */
+  certSearchDirs: string[];
+}
+
+export const HAPROXY_PROFILE: SingleConfigProfile = {
+  key: 'haproxy',
+  label: 'HAProxy',
+  template: 'haproxy',
+  service: 'haproxy',
+  configPath: '/etc/haproxy/haproxy.cfg',
+  sidecarPath: '/etc/agentic-mcp/websites/haproxy/haproxy.json',
+  validateArgv: ['haproxy', '-c', '-f', '/etc/haproxy/haproxy.cfg'],
+  reloadArgv: ['systemctl', 'reload', 'haproxy'],
+  sections: [
+    { key: 'global', label: 'Global', icon: 'settings', kind: 'group',
+      fields: ['maxconn', 'user', 'group', 'log_level', 'mode', 'timeout_connect', 'timeout_client', 'timeout_server'] },
+    { key: 'frontend', label: 'Frontend', icon: 'lan', kind: 'group',
+      fields: ['http_port', 'tls_enabled', 'https_port', 'ssl_cert_pem', 'ssl_min_version', 'ssl_ciphers', 'redirect_to_https', 'hsts'] },
+    { key: 'backend', label: 'Backend', icon: 'dns', kind: 'group',
+      fields: ['backend_name', 'balance_algorithm'] },
+    { key: 'servers', label: 'Backend servers', icon: 'account_tree', kind: 'list',
+      listField: 'backend_servers', itemNameField: 'name', itemActionLabel: 'Add Server',
+      itemDefault: { name: '', address: '', port: 8080, check: true } },
+  ],
+  certSearchDirs: ['/etc/ssl', '/etc/letsencrypt', '/etc/pki', '/etc/haproxy/certs'],
+};
+
+export const CADDY_PROFILE: SingleConfigProfile = {
+  key: 'caddy',
+  label: 'Caddy',
+  template: 'caddy',
+  service: 'caddy',
+  configPath: '/etc/caddy/Caddyfile',
+  sidecarPath: '/etc/agentic-mcp/websites/caddy/caddy.json',
+  validateArgv: ['caddy', 'validate', '--adapter', 'caddyfile', '--config', '/etc/caddy/Caddyfile'],
+  reloadArgv: ['systemctl', 'reload', 'caddy'],
+  sections: [
+    { key: 'global', label: 'Global options', icon: 'settings', kind: 'group',
+      fields: ['acme_email', 'admin_off'] },
+    { key: 'sites', label: 'Sites', icon: 'folder', kind: 'list',
+      listField: 'sites', itemNameField: 'domain', itemActionLabel: 'Add Website',
+      itemDefault: { domain: '', upstream: '', root: '', tls: '', extra: '' } },
+  ],
+  certSearchDirs: ['/etc/ssl', '/etc/letsencrypt', '/etc/pki', '/etc/caddy'],
+};
+
+export const SINGLE_CONFIG_PROFILES: Record<string, SingleConfigProfile> = {
+  haproxy: HAPROXY_PROFILE,
+  caddy: CADDY_PROFILE,
+};
