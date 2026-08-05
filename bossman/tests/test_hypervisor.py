@@ -119,13 +119,14 @@ async def test_auth_failure_surfaces_as_hypervisor_error(monkeypatch):
 
 
 def test_proxmox_vm_config_bios_vs_uefi():
-    """The config assembly is the subtle part: PXE net-first boot, virtio-rng entropy, and — only for UEFI —
-    an EFI disk. Pure function, asserted directly."""
+    """The config assembly is the subtle part: disk-first-then-PXE boot (empty disk falls through to PXE on
+    the first boot, restored disk boots after — no PXE loop), virtio-rng entropy, and — only for UEFI — an
+    EFI disk. Pure function, asserted directly."""
     from bossman.services.hypervisor import _proxmox_vm_config
 
     bios = _proxmox_vm_config(name="t", cores=2, memory_mb=2048, disk_gib=32, storage="local-lvm",
                               bridge="vmbr0", mac="52:54:00:aa:bb:cc", vlan=None, uefi=False)
-    assert bios["boot"] == "order=net0"                       # PXE first
+    assert bios["boot"] == "order=scsi0;net0"                 # disk first, PXE fallback (no re-PXE loop)
     assert bios["net0"] == "virtio=52:54:00:aa:bb:cc,bridge=vmbr0"
     assert bios["scsi0"] == "local-lvm:32"
     assert bios["rng0"] == "source=/dev/urandom"              # entropy device, always
@@ -289,7 +290,7 @@ def test_vcenter_vm_spec_pxe_and_firmware():
         resource_pool_id="resgroup-8", network_id="dvportgroup-3",
         network_type="DISTRIBUTED_PORTGROUP", mac="52:54:00:aa:bb:cc", uefi=True)
     assert spec["boot"]["type"] == "EFI"
-    assert spec["boot_devices"] == [{"type": "ETHERNET"}]     # PXE first
+    assert spec["boot_devices"] == [{"type": "DISK"}, {"type": "ETHERNET"}]   # disk first, PXE fallback
     assert spec["nics"][0]["mac_address"] == "52:54:00:aa:bb:cc"
     assert spec["nics"][0]["backing"] == {"type": "DISTRIBUTED_PORTGROUP", "network": "dvportgroup-3"}
     assert spec["placement"]["datastore"] == "datastore-9"

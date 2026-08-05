@@ -48,11 +48,13 @@ def _proxmox_vm_config(
     tested directly — the subtle parts (UEFI needs efidisk0, entropy needs rng0, PXE needs net-first boot)
     all live here.
 
-    - `net0`: virtio NIC with OUR mac, on `bridge`, optionally VLAN-tagged. `boot: order=net0` makes the VM
-      PXE-boot on first start, which is the whole point.
+    - `net0`: virtio NIC with OUR mac, on `bridge`, optionally VLAN-tagged.
     - `scsi0`: a blank disk of the target size on `storage` — this is what the template restores onto.
-    - UEFI (`bios: ovmf`) additionally needs `efidisk0`, or OVMF has nowhere to persist boot entries and the
-      net-first order is lost across the post-install reboot.
+    - `boot: order=scsi0;net0` — DISK FIRST, network fallback. On the first boot the disk is empty (no boot
+      sector) so the firmware falls through to net0 and PXE-boots into the restore. After the restore has
+      written the OS, the same order boots the disk directly — no re-PXE loop. (An earlier `order=net0`
+      never listed the disk, so a BIOS VM PXE-booted forever and never came up on the restored system.)
+    - UEFI (`bios: ovmf`) additionally needs `efidisk0`, or OVMF has nowhere to persist boot entries.
     - `rng0` (virtio-rng from /dev/urandom): the guest gets entropy early, so OVMF and the freshly restored
       system do not stall waiting for the entropy pool.
     """
@@ -67,7 +69,7 @@ def _proxmox_vm_config(
         "scsihw": "virtio-scsi-single",
         "scsi0": f"{storage}:{disk_gib}",
         "net0": net,
-        "boot": "order=net0",
+        "boot": "order=scsi0;net0",
         "rng0": "source=/dev/urandom",
         "agent": "1",
     }
@@ -249,8 +251,9 @@ def _vcenter_vm_spec(
     """The POST /api/vcenter/vm body for a PXE-install VM. Pure, so it is unit-tested directly.
 
     - `boot.type` EFI vs BIOS mirrors the image's firmware.
-    - `boot_devices=[ETHERNET]` makes the VM PXE-boot first, the vCenter analogue of Proxmox's net-first
-      boot order.
+    - `boot_devices=[DISK, ETHERNET]` — disk first, network fallback (the vCenter analogue of Proxmox's
+      `order=scsi0;net0`). An empty disk falls through to PXE on the first boot (the restore), then the same
+      order boots the restored disk instead of PXE-looping forever.
     - the NIC uses a MANUAL mac (ours) so the restore job can be armed against it, on the chosen portgroup;
       `backing.type` follows whether the network is a standard or distributed portgroup.
     - VLAN is NOT set here: on vCenter the portgroup carries the VLAN, unlike Proxmox's per-NIC tag.
@@ -270,7 +273,7 @@ def _vcenter_vm_spec(
             "backing": {"type": network_type, "network": network_id},
         }],
         "boot": {"type": "EFI" if uefi else "BIOS"},
-        "boot_devices": [{"type": "ETHERNET"}],
+        "boot_devices": [{"type": "DISK"}, {"type": "ETHERNET"}],
     }
 
 
