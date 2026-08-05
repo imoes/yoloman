@@ -403,13 +403,24 @@ A few behaviours are worth calling out — each is load-bearing:
   `OrchestrationPlanLink`. Binding is pure desired state — it does not need the host online — so it is
   declared now and **converges after the host first boots** (approval-gated).
 
-- **The write gate.** A freshly provisioned host enrols **read-only** (`write: false`) — the safe default.
-  A read-only host reports metrics and can be reconfigured, but its roles cannot converge (module push and
-  mutating steps need the gate open). Enable writes over the API without SSH via the agent's self-config
-  carve-out — `POST /api/v1/agents/{id}/collect-config {"write": true}`, surfaced in the UI as **Enable
-  writes** on the host's Role bindings snap-in. The agent rewrites its `config.yaml` and restarts; approved
-  role bindings then converge on the next reconcile. The carve-out is owner-scoped + mTLS-authenticated and
-  still cannot touch the agent's auth, token, listen address or TLS.
+- **The write gate.** Role convergence (module push + mutating steps) needs the agent's master **write
+  gate** open. A PXE-provisioned host therefore enrols **write-enabled by default** so its bound roles
+  converge with no manual opt-in:
+    - `agent_deploy_write` defaults to **true**, so the offline enrol bakes `write: true` into the target's
+      `config.yaml`.
+    - The registration API takes a per-host override — `PlannedHostIn.write` (default true); set it false to
+      provision a monitor-only host.
+    - The manual one-liner shows it too: `agentic-mcpd register … --write=true` (`--write=false` = read-only).
+  Writes can always be toggled later over the API without SSH, via the agent's self-config carve-out —
+  `POST /api/v1/agents/{id}/collect-config {"write": true|false}`, surfaced in the UI as **Enable writes /
+  Set read-only** on the host's Role bindings snap-in. The agent rewrites its `config.yaml` and restarts.
+  The carve-out is owner-scoped + mTLS-authenticated and still cannot touch the agent's auth, token, listen
+  address or TLS.
+
+- **The agent package is bind-mounted, not baked.** Both Bossman and the PXE container serve the agent
+  `.deb` (and the PXE PE bakes the `agentic-mcpd` binary) from `deploy-artifacts/` via bind mounts declared
+  in `docker-compose.override.yml` — rebuild it on the host with `scripts/build-agent-deb.sh` and every
+  consumer serves the fresh package on the next request, no image rebuild.
 
 ---
 

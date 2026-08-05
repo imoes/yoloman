@@ -43,7 +43,9 @@ async def enroll_info(
     # Enrollment is open (no secret) — always available. The manual one-liner
     # is a convenience; the authenticated path is the SSH deploy above.
     url = settings.public_url or "http://<this-bossman-host>:8000"
-    command = f"agentic-mcpd register --enroll-url {url} --name $(hostname)"
+    # `--write=true` enrols the host with the master write gate open so server-management tools and role
+    # convergence work immediately; pass `--write=false` to enrol a monitor-only (read-only) host.
+    command = f"agentic-mcpd register --enroll-url {url} --name $(hostname) --write=true"
     return EnrollInfoResponse(
         configured=True,
         enroll_url=url,

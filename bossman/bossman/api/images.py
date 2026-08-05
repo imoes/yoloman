@@ -85,6 +85,9 @@ class PlannedHostIn(BaseModel):
     # Catalog roles/features (package_catalog names) chosen offline in the wizard. Stored on the planned
     # host now and PUSHED after the first boot — the host does not exist yet, so nothing is installed here.
     roles: list[str] = []
+    # Master write gate the restored agent enrols with. Default TRUE so a provisioned host comes up
+    # write-enabled and its bound roles converge automatically; set false to provision monitor-only.
+    write: bool = True
 
 
 # The volume roles a grow policy may size — the ones imaging.classify_role can grow independently.
@@ -226,6 +229,9 @@ async def create_planned_host(
     if body.roles:
         # Kept offline until the host is up; the post-boot role push reads this back (Block B3).
         new_meta["provision_roles"] = list(body.roles)
+    # The write gate the offline enrol will bake into the target's config.yaml (default true — see the
+    # restore flow, which reads this back). Stored so a re-arm keeps the operator's choice.
+    new_meta["provision_write"] = bool(body.write)
     existing = await session.scalar(select(Agent).where(Agent.name == hostname))
     if existing is not None:
         # Re-provisioning (reimage): update the provisioning metadata and move the host back to 'planned'
@@ -946,10 +952,15 @@ async def netboot_checkin(
     # The FINAL network the target should boot onto (from the planned host's config), written into the
     # restored root so it comes up on its destination segment, not the rollout/PXE one.
     net = None
+    prov_write: bool | None = None
     if job.agent_id is not None:
         planned = await session.get(Agent, job.agent_id)
         if planned is not None:
             net = (planned.agent_metadata or {}).get("provision_network")
+            # The write gate chosen at registration (PlannedHostIn.write). None → the global default
+            # (settings.agent_deploy_write, itself true) applies. A provisioned host thus comes up
+            # write-enabled by default so its roles converge without a manual opt-in.
+            prov_write = (planned.agent_metadata or {}).get("provision_write")
     try:
         layout = imaging.layout_from_dict(img.manifest or {})
         target = imaging.select_target_disk(body.blockdevices, prefer=job.target_disk)
@@ -957,7 +968,7 @@ async def netboot_checkin(
         # The target's own agent, installed into the mounted root as the last configuring act. Minted
         # here rather than when the job was armed, because a token handed out before the machine even
         # netbooted would be a live credential sitting in the database for however long the job waited.
-        install = offline_enroll.plan_offline_install(settings, job.target_hostname)
+        install = offline_enroll.plan_offline_install(settings, job.target_hostname, write=prov_write)
         # Playbook-driven restore: resolve the layout into the vars the two Ansible restore playbooks
         # loop over, and load the playbooks as canonical runbook docs. The PE runs them with run-runbook
         # (phase 1 in the PE, phase 2 chroot'd into /mnt/target). Network is a task in phase 2

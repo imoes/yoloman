@@ -68,8 +68,11 @@ class Settings(BaseSettings):
     # reach it) and the value stored as the Agent row's address (host:port).
     agent_listen_port: int = 18051
     # Whether a freshly-deployed agent gets the master write gate enabled.
-    # Default false: a new host is monitor-only until an operator opts it in.
-    agent_deploy_write: bool = False
+    # Default TRUE: a PXE-provisioned host comes up write-enabled so its assigned
+    # roles converge without a manual opt-in. Per deployment it can be overridden
+    # (PlannedHostIn.write / the `agentic-mcpd register --write=false` flag), and
+    # writes can always be toggled later via the self-config carve-out.
+    agent_deploy_write: bool = True
 
     # Where plan YAML files live (see docs/plan.md's plan-format design).
     plans_dir: str = "/etc/bossman/plans"

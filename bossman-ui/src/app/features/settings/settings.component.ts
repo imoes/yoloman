@@ -57,6 +57,8 @@ import { EnrollInfo } from '../../core/models/enroll.model';
                 Run this on a server to enroll it as a node agent (Duppy) — no secret needed; the
                 agent registers, pulls Bossman's public key, and shows up here ready to run plans
                 against. (Set <code>BOSSMAN_PUBLIC_URL</code> so the exact URL is shown.)
+                <code>--write=true</code> enrolls it with the write gate open so server-management and role
+                convergence work immediately; use <code>--write=false</code> for a monitor-only host.
               </p>
               <div class="bm-command-row">
                 <code class="bm-command">{{ info.register_command }}</code>

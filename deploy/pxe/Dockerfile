@@ -23,9 +23,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         partclone zstd lvm2 jq fdisk parted \
     && rm -rf /var/lib/apt/lists/*
 
-# The static agent, baked into the PE at build-pe time and served at the HTTP root as agent.deb.
-COPY deploy-artifacts/agentic-mcpd /usr/bin/agentic-mcpd
-COPY deploy-artifacts/agent.deb /srv/http/agent.deb
+# The static agent (baked into the PE at build-pe time) and the agent.deb (served at the HTTP root for the
+# restored target to install) are NOT copied into the image — they are BIND-MOUNTED from deploy-artifacts/
+# at runtime (see docker-compose.override.yml), the same way Bossman gets its agent.deb. Rebuild the package
+# on the host (scripts/build-agent-deb.sh) and both this container and Bossman serve the fresh one without an
+# image rebuild. Expected mounts: deploy-artifacts/agentic-mcpd -> /usr/bin/agentic-mcpd,
+# deploy-artifacts/agent.deb -> /srv/http/agent.deb.
 
 # Provisioning-only modules (yoloman.disk_partition/partclone_restore/bootloader/initramfs/machine_identity):
 # NOT in the builtin agent — they are one-shot deploy ops. build-pe.sh bakes them into the PE; the restore

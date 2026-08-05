@@ -60,7 +60,7 @@ async def test_enroll_info_reports_secret_free_command(db_session, monkeypatch):
     assert body["enroll_url"] == "https://bossman.example.com:8000"
     assert "enroll_secret" not in body
     assert body["register_command"] == (
-        "agentic-mcpd register --enroll-url https://bossman.example.com:8000 --name $(hostname)"
+        "agentic-mcpd register --enroll-url https://bossman.example.com:8000 --name $(hostname) --write=true"
     )
     assert "--enroll-secret" not in body["register_command"]
 
