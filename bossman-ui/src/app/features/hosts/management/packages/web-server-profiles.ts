@@ -67,7 +67,8 @@ export const NGINX_PROFILE: WebServerProfile = {
   featureGroups: {
     bindings: ['listen_port', 'listen_ipv6', 'tls_enabled', 'ssl_certificate', 'ssl_certificate_key',
                'ssl_protocols', 'ssl_ciphers', 'http2', 'hsts', 'redirect_to_https'],
-    wwwroot: ['root'],
+    wwwroot: ['root', 'index_files', 'directory_browsing', 'client_max_body_size', 'compression',
+              'access_log', 'error_log', 'error_pages', 'response_headers'],
     locations: ['locations', 'upstreams'],
   },
   certSearchDirs: ['/etc/ssl', '/etc/letsencrypt', '/etc/pki', '/etc/nginx/ssl'],
@@ -92,7 +93,8 @@ export const APACHE_PROFILE: WebServerProfile = {
   featureGroups: {
     bindings: ['listen_port', 'tls_enabled', 'ssl_certificate', 'ssl_certificate_key', 'ssl_protocol',
                'ssl_cipher_suite', 'hsts', 'redirect_to_https'],
-    wwwroot: ['document_root', 'directory_index', 'allow_override'],
+    wwwroot: ['document_root', 'directory_index', 'allow_override', 'directory_browsing', 'limit_request_body',
+              'compression', 'error_log', 'access_log', 'error_pages', 'response_headers'],
     locations: ['proxy_pass'],
   },
   certSearchDirs: ['/etc/ssl', '/etc/letsencrypt', '/etc/pki', '/etc/apache2/ssl'],

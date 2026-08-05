@@ -46,7 +46,30 @@ server {
   server_name {{ server_name }};
 
   root {{ root }};
-  index index.html index.htm;
+  index {{ index_files|default('index.html index.htm') }};
+{% if directory_browsing|default(false) %}
+  autoindex on;
+{% endif %}
+{% if client_max_body_size|default('') %}
+  client_max_body_size {{ client_max_body_size }};
+{% endif %}
+{% if access_log|default('') %}
+  access_log {{ access_log }};
+{% endif %}
+{% if error_log|default('') %}
+  error_log {{ error_log }};
+{% endif %}
+{% if compression|default(false) %}
+  gzip on;
+  gzip_vary on;
+  gzip_types text/plain text/css application/json application/javascript text/xml application/xml image/svg+xml;
+{% endif %}
+{% for e in error_pages|default([]) %}
+  error_page {{ e.code }} {{ e.uri }};
+{% endfor %}
+{% for h in response_headers|default([]) %}
+  add_header {{ h.name }} "{{ h.value }}" always;
+{% endfor %}
 
 {% for loc in locations %}
   location {{ loc.path }} {

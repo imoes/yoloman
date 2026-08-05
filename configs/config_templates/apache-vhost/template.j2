@@ -21,10 +21,28 @@
     DirectoryIndex {{ directory_index|default('index.html') }}
 
     <Directory {{ document_root }}>
-        Options -Indexes +FollowSymLinks
+        Options {{ '+Indexes' if directory_browsing|default(false) else '-Indexes' }} +FollowSymLinks
         AllowOverride {{ allow_override|default('None') }}
         Require all granted
     </Directory>
+{% if limit_request_body|default('') %}
+    LimitRequestBody {{ limit_request_body }}
+{% endif %}
+{% if compression|default(false) %}
+    <IfModule mod_deflate.c>
+        AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript application/json text/xml application/xml image/svg+xml
+    </IfModule>
+{% endif %}
+{% for e in error_pages|default([]) %}
+    ErrorDocument {{ e.code }} {{ e.path }}
+{% endfor %}
+{% if response_headers|default([]) %}
+    <IfModule mod_headers.c>
+{% for h in response_headers %}
+        Header always set {{ h.name }} "{{ h.value }}"
+{% endfor %}
+    </IfModule>
+{% endif %}
 {% if proxy_pass %}
     ProxyPreserveHost On
     ProxyPass / {{ proxy_pass }}
