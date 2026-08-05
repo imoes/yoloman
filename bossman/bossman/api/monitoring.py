@@ -24,6 +24,7 @@ from bossman.api.etag import check_if_match, compute_version
 from bossman.api.auth import get_current_identity
 from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service
 from bossman.db.session import get_session
+from bossman.services.auth import user_can_manage_agent
 from bossman.services.reconciler import enqueue_policy_event
 from bossman.services.monitoring import (
     ServiceView,
@@ -316,6 +317,33 @@ async def unacknowledge_service_route(
     if service is None:
         raise HTTPException(status_code=404, detail=f"no such service {service_id}")
     return ServiceOut.from_view(await to_view(session, service))
+
+
+@router.delete("/api/v1/services/{service_id}", status_code=204)
+async def delete_service_route(
+    service_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> None:
+    """Delete one service row — for orphaned/stale services that no producer
+    refreshes any more (a renamed check's leftover row like an old "Link state",
+    or a service left behind after its assignment/rule was removed).
+
+    Deletes ONLY the `services` row (a small, plain table — a cheap normal
+    DELETE). It deliberately does NOT touch `service_state_history`: that is a
+    TimescaleDB hypertable, and deleting from a time-series hypertable forces its
+    (potentially compressed) chunks to decompress and bloats the database. The
+    stale timeline is harmless and its 30-day retention policy drops it on its
+    own. Caveat: if an ACTIVE assignment, check rule, or agent builtin still
+    materialises this service, the next poll recreates it — remove that producer
+    first (unassign the check / delete the rule) to make the deletion stick."""
+    service = await session.get(Service, service_id)
+    if service is None:
+        raise HTTPException(status_code=404, detail=f"no such service {service_id}")
+    if not await user_can_manage_agent(session, identity, service.agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    await session.delete(service)
+    await session.commit()
 
 
 class DowntimeIn(BaseModel):

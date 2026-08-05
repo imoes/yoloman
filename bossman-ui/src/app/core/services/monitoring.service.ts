@@ -80,6 +80,13 @@ export class MonitoringService {
     return this.http.delete<ServiceState>(`${this.base}/services/${serviceId}/acknowledge`);
   }
 
+  /** Delete a service row and its history — for orphaned/stale services no
+   * producer refreshes any more. If an active assignment/rule/builtin still
+   * materialises it, the next poll recreates it; remove that producer first. */
+  deleteService(serviceId: string) {
+    return this.http.delete<void>(`${this.base}/services/${serviceId}`);
+  }
+
   /** Acknowledge many problems at once (multi-select on the Problems table). */
   bulkAcknowledge(serviceIds: string[], comment: string, expireAfterMinutes: number | null = null) {
     return this.http.post<{ acknowledged: string[]; missing: string[]; count: number }>(

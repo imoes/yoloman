@@ -193,7 +193,7 @@ import {
       @if (services().length) {
         <div class="bm-group">
           <table class="bm-table">
-            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Metric</th></tr></thead>
+            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Metric</th><th></th></tr></thead>
             <tbody>
               @for (s of services(); track s.id) {
                 <tr>
@@ -201,6 +201,13 @@ import {
                   <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
                   <td class="bm-num">{{ fmtValue(s) }}</td>
                   <td class="bm-dim bm-mono">{{ s.metric }}</td>
+                  <td class="bm-svc-actions">
+                    <button mat-icon-button class="bm-del" [disabled]="deleting() === s.id"
+                            title="Delete this service (for orphaned/stale rows; recreated next poll if a producer still materialises it)"
+                            (click)="removeService(s)">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  </td>
                 </tr>
               }
             </tbody>
@@ -325,6 +332,7 @@ export class HostChecksComponent {
   // 0–100, driven by the discovery job's progress poll (Checkmk-style ~1400-check run).
   discoverPercent = signal(0);
   rechecking = signal(false);
+  deleting = signal<string | null>(null);
   private selected = signal<Set<string>>(new Set());
   private creds = signal<Record<string, Record<string, string>>>({});
   // provisioning: per-check {available, title, admin_params} + collected admin creds
@@ -362,6 +370,19 @@ export class HostChecksComponent {
     this.agentService.pollNow(id).subscribe({
       next: () => { this.rechecking.set(false); this.reload(id); },
       error: (e) => { this.rechecking.set(false); this.fail(e); },
+    });
+  }
+
+  /** Delete an orphaned/stale monitoring service row. Only removes the small
+   * services-table row (never the compressed time-series). If a producer still
+   * materialises it, it reappears next poll — the confirm text says so. */
+  removeService(s: ServiceState): void {
+    if (this.deleting()) return;
+    if (!confirm(`Delete monitoring service "${s.name}"?\n\nRemoves the service row only (its history ages out on its own). If a check assignment, rule, or agent builtin still produces it, it will reappear on the next poll — unassign/remove that first.`)) return;
+    this.deleting.set(s.id);
+    this.monitoringService.deleteService(s.id).subscribe({
+      next: () => { this.deleting.set(null); this.services.update((list) => list.filter((x) => x.id !== s.id)); },
+      error: (e) => { this.deleting.set(null); this.fail(e); },
     });
   }
 
