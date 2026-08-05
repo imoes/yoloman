@@ -174,19 +174,39 @@ def main(ctx, params):
     out_err = counters[10]
     out_disc = counters[11]
 
-    link_detected = None
+    # Link speed in bits/s (0 = unknown). Prefer sysfs — it needs no ethtool
+    # (often absent on minimal/VM installs) and is the source the builtin
+    # telemetry uses. NOTE: virtio/veth report "-1" here, which means "unknown"
+    # and must NEVER be shown as 0 Mb/s. ethtool is only a fallback.
     speed = 0
-    eth = ctx.run(["ethtool", item], mutates=False)
-    if eth.rc == 0 and item != "lo":
-        for el in eth.stdout.splitlines():
-            el = el.strip()
-            if el.startswith("Speed:"):
-                speed = _parse_speed(el.split(":", 1)[1].strip())
-            elif el.startswith("Link detected:"):
-                link_detected = el.split(":", 1)[1].strip()
+    speed_path = "/sys/class/net/" + item + "/speed"
+    if ctx.file_exists(speed_path):
+        raw = ctx.file_read(speed_path).strip()
+        if raw and raw.lstrip("-").isdigit():
+            mbit = int(raw)
+            if mbit > 0:
+                speed = mbit * 1000000
 
-    ip = ctx.run(["ip", "-o", "link"], mutates=False)
+    link_detected = None
+    if speed == 0 and item != "lo":
+        eth = ctx.run(["ethtool", item], mutates=False)
+        if eth.rc == 0:
+            for el in eth.stdout.splitlines():
+                el = el.strip()
+                if el.startswith("Speed:"):
+                    speed = _parse_speed(el.split(":", 1)[1].strip())
+                elif el.startswith("Link detected:"):
+                    link_detected = el.split(":", 1)[1].strip()
+
+    # Operational state: sysfs operstate is authoritative; fall back to the
+    # ip-link flags (and finally traffic) only when it is absent/unknown.
+    operstate = None
+    op_path = "/sys/class/net/" + item + "/operstate"
+    if ctx.file_exists(op_path):
+        operstate = ctx.file_read(op_path).strip()
+
     state_infos = []
+    ip = ctx.run(["ip", "-o", "link"], mutates=False)
     if ip.rc == 0:
         for il in ip.stdout.splitlines():
             fields = il.split()
@@ -197,7 +217,12 @@ def main(ctx, params):
                     state_infos = il[lt+1:gt].split(",")
                 break
 
-    oper = _get_oper(link_detected, state_infos, in_oct)
+    if operstate == "up":
+        oper = "1"
+    elif operstate == "down":
+        oper = "2"
+    else:
+        oper = _get_oper(link_detected, state_infos, in_oct)
 
     link_up = 0
     if oper == "1":
@@ -214,7 +239,14 @@ def main(ctx, params):
     elif oper == "4":
         state = "UNKNOWN"
 
-    msg = "Oper %s, Speed %dMb/s, In %d Out %d" % (oper, speed / 1000000, in_oct, out_oct)
+    oper_label = {"1": "up", "2": "down", "3": "degraded", "4": "unknown"}.get(oper, oper)
+    if speed >= 1000000000:
+        speed_label = "%d Gbit/s" % (speed // 1000000000)
+    elif speed > 0:
+        speed_label = "%d Mbit/s" % (speed // 1000000)
+    else:
+        speed_label = "speed unknown"
+    msg = "%s, %s" % (oper_label, speed_label)
 
     metrics = {
         "if_in_oct_bytes": in_oct,
@@ -227,5 +259,7 @@ def main(ctx, params):
         "if_out_disc": out_disc,
         "link_up": link_up,
     }
+    if speed > 0:
+        metrics["link_speed"] = speed
 
-    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": metrics, "details": ""}}
+    return {"changed": False, "msg": msg, "data": {"state": state, "metrics": metrics, "details": msg}}

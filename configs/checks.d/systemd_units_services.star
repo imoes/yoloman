@@ -302,6 +302,20 @@ def main(ctx, params):
     unit_type = params.get("unit_type", "service")
     item = params.get("item", "")
 
+    # A per-unit check with no item is a mis-assignment (the aggregate is
+    # systemd_units_services_summary). Report UNKNOWN with guidance rather than a
+    # false CRIT "Unit not found" — and skip the expensive full-unit scan below.
+    if not item:
+        return {
+            "changed": False,
+            "msg": "no unit specified",
+            "data": {
+                "state": "UNKNOWN",
+                "metrics": {},
+                "details": "This per-unit check needs an 'item' (a specific unit). Assign it to a unit, or use systemd_units_services_summary for the aggregate.",
+            },
+        }
+
     if not _has_systemctl(ctx):
         return {
             "changed": False,
