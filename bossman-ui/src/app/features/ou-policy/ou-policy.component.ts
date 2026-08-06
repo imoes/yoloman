@@ -1184,15 +1184,24 @@ export class OuPolicyComponent implements OnInit {
       return;
     }
     if (p.kind === 'plan') {
-      const name = await this.appDialog.prompt({
-        title: 'Rename policy',
-        message: 'A policy’s entries (roles/thresholds/checks) are authored in the plan designer; here you can rename it.',
-        input: { label: 'Display name', value: p.label },
-      });
-      if (name == null || !name.trim() || name.trim() === p.label) return;
-      this.orchestration.updatePlan(p.id, { display_name: name.trim() }).subscribe({
-        next: () => this.reload(),
-        error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'rename failed', 'error'),
+      // Full content edit: load the plan, open the composite editor prefilled
+      // with its current version's entries, then save metadata + a new version.
+      this.orchestration.getPlan(p.id).subscribe({
+        next: (plan) => {
+          const ref = this.dialog.open<OrchestrationPlanDialogComponent, { plan: OrchestrationPlan }, OrchestrationPlanInput>(
+            OrchestrationPlanDialogComponent,
+            { width: '480px', data: { plan } },
+          );
+          ref.afterClosed().subscribe((input) => {
+            if (!input) return;
+            const fail = (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'save failed', 'error');
+            this.orchestration.updatePlan(p.id, { display_name: input.display_name, description: input.description }).subscribe({
+              next: () => this.orchestration.createPlanVersion(p.id, input.version ?? {}).subscribe({ next: () => this.reload(), error: fail }),
+              error: fail,
+            });
+          });
+        },
+        error: (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'load failed', 'error'),
       });
     }
   }

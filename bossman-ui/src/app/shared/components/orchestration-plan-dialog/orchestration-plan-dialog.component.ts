@@ -1,6 +1,6 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, Inject, OnInit, Optional, computed, inject, signal } from '@angular/core';
 import { FormArray, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
@@ -36,7 +36,7 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
     MatSelectModule, MatAutocompleteModule, MatButtonModule, MatIconModule,
   ],
   template: `
-    <h2 mat-dialog-title>New policy</h2>
+    <h2 mat-dialog-title>{{ editing ? 'Edit policy' : 'New policy' }}</h2>
     <mat-dialog-content [formGroup]="form">
       <mat-form-field appearance="outline" class="bm-full-width">
         <mat-label>Policy name</mat-label>
@@ -163,7 +163,7 @@ const COMPARISONS = ['gt', 'lt', 'ge', 'le', 'eq', 'ne'];
     </mat-dialog-content>
     <mat-dialog-actions align="end">
       <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">Create</button>
+      <button mat-raised-button color="primary" [disabled]="form.invalid" (click)="save()">{{ editing ? 'Save' : 'Create' }}</button>
     </mat-dialog-actions>
   `,
   styles: [
@@ -226,9 +226,53 @@ export class OrchestrationPlanDialogComponent implements OnInit {
     notifications: new FormArray<FormControl<string>>([]),
   });
 
+  // Edit mode: opened with { plan } to author a NEW VERSION of an existing
+  // policy (its entries), not just create one. Rename happens here too (the
+  // display name is an editable field), replacing the old rename-only prompt.
+  editing = false;
+  constructor(@Optional() @Inject(MAT_DIALOG_DATA) public data?: { plan?: OrchestrationPlan }) {}
+
   ngOnInit(): void {
     this.monitoring.metricCatalog().subscribe((c) => this.catalog.set(c));
     this.orchestration.listPlans().subscribe((p) => this.plans.set(p));
+    const plan = this.data?.plan;
+    if (plan) this.prefill(plan);
+  }
+
+  /** Load an existing policy's identity + its current version's entries into
+   * the form so the user edits content, then saves a new version. */
+  private prefill(plan: OrchestrationPlan): void {
+    this.editing = true;
+    this.form.patchValue({
+      name: plan.name,
+      display_name: plan.display_name,
+      description: plan.description ?? '',
+      plan_type: plan.plan_type,
+    });
+    // The technical name is the policy's identity — an edit must not rename it.
+    this.form.controls.name.disable();
+    const ver =
+      plan.versions?.find((v) => v.version === plan.current_version) ??
+      plan.versions?.[plan.versions.length - 1];
+    if (!ver) return;
+    const gm = (ver.generated_monitoring ?? {}) as {
+      checks?: string[];
+      thresholds?: Record<string, { warn?: number | null; crit?: number | null; comparison?: string }>;
+      roles?: string[];
+    };
+    for (const [metric, t] of Object.entries(gm.thresholds ?? {})) {
+      this.thresholds.push(
+        new FormGroup({
+          metric: new FormControl(metric, { nonNullable: true, validators: [Validators.required] }),
+          comparison: new FormControl(t?.comparison ?? 'gt', { nonNullable: true }),
+          warn: new FormControl<number | null>(t?.warn ?? null),
+          crit: new FormControl<number | null>(t?.crit ?? null),
+        }),
+      );
+    }
+    for (const c of gm.checks ?? []) this.checks.push(new FormControl(c, { nonNullable: true, validators: [Validators.required] }));
+    for (const r of gm.roles ?? []) this.roles.push(new FormControl(r, { nonNullable: true, validators: [Validators.required] }));
+    for (const rt of ver.generated_notifications?.routes ?? []) this.notifications.push(new FormControl(rt, { nonNullable: true, validators: [Validators.required] }));
   }
 
   get thresholds() {
