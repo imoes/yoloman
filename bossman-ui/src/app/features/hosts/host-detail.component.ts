@@ -555,6 +555,21 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   [ngModel]="gpoSearch()"
                   (ngModelChange)="gpoSearch.set($event)"
                 />
+                <!-- #5: add a config file the host doesn't have on disk yet, from
+                     the codec catalog, then define it as policy (host/OU/group). -->
+                <div class="bm-cfg-addfile">
+                  <mat-icon class="bm-dim">note_add</mat-icon>
+                  <input class="bm-kvin bm-addfile-in" list="bm-catalog-files"
+                         placeholder="Add a config file the host doesn't have yet (e.g. /etc/apt/apt.conf)…"
+                         [ngModel]="addFilePath()" (ngModelChange)="addFilePath.set($event)"
+                         (keydown.enter)="addCatalogFile(addFilePath())" />
+                  <datalist id="bm-catalog-files">
+                    @for (f of catalogAddOptions(); track f) { <option [value]="f"></option> }
+                  </datalist>
+                  <button mat-stroked-button (click)="addCatalogFile(addFilePath())" [disabled]="!addFilePath().trim()">
+                    <mat-icon>add</mat-icon> Add file
+                  </button>
+                </div>
                 <div class="bm-gpo">
                   <!-- Miller column 1: categories -->
                   <div class="bm-gpo-col">
@@ -741,6 +756,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                             }
                           </tbody>
                         </table>
+                        <div class="bm-cfg-addkey">
+                          <input class="bm-kvin" placeholder="Add a setting key…"
+                                 [ngModel]="newSettingKey()" (ngModelChange)="newSettingKey.set($event)"
+                                 (keydown.enter)="addSettingKey(r)" />
+                          <button mat-stroked-button (click)="addSettingKey(r)" [disabled]="!newSettingKey().trim()">Add</button>
+                        </div>
                         @if (settingKey(); as sk) {
                           <mat-card class="bm-setting-dlg">
                             <strong>{{ sk }}</strong>
@@ -1402,6 +1423,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-gpo { display: flex; gap: 10px; align-items: stretch; }
       .bm-gpo-col { flex: 0 0 210px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 5px 0; font-size: 13px; max-height: 560px; overflow-y: auto; }
       .bm-gpo-search { display: block; width: 100%; max-width: 440px; margin: 2px 0 10px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; box-sizing: border-box; }
+      .bm-cfg-addfile { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; max-width: 640px; }
+      .bm-cfg-addfile .bm-addfile-in { flex: 1 1 auto; min-width: 0; }
+      .bm-cfg-addkey { display: flex; gap: 8px; margin: 10px 0 0; }
       .bm-gpo-cat { padding: 7px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; border-left: 3px solid transparent; }
       .bm-gpo-cat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
       .bm-gpo-cat .bm-gpo-count { margin-left: auto; font-size: 11px; opacity: 0.5; }
@@ -2215,6 +2239,24 @@ export class HostDetailComponent implements OnInit {
       error: () => {},
     });
 
+    // Host-independent codec catalog: every config file we know how to parse.
+    // Lets the operator add a file this host doesn't have yet (e.g. apt.conf)
+    // and define it as policy — parity with the OU policy editor (#5).
+    this.agentService.configCodecs().subscribe({
+      next: (r) => {
+        const seen = new Set<string>();
+        const files: { path: string; format: string; separator: string }[] = [];
+        for (const e of r.entries ?? []) {
+          const path = (e.paths ?? []).find((p) => p && !p.includes('*')) ?? e.pattern;
+          if (!path || path.includes('*') || seen.has(path)) continue;
+          seen.add(path);
+          files.push({ path, format: e.codec === 'none' ? 'keyvalue' : e.codec, separator: e.separator ?? '' });
+        }
+        this.codecCatalog.set(files);
+      },
+      error: () => {},
+    });
+
     this.agentService.get(id).subscribe((agent) => {
       this.agent.set(agent);
       this.healthStatus.set(agentHealthStatus(agent));
@@ -2637,9 +2679,10 @@ export class HostDetailComponent implements OnInit {
   gpoSearch = signal('');
   categoryGroups(obs: ObservedState): { cat: ConfigCategory; files: ObservedResource[] }[] {
     const q = this.gpoSearch().trim().toLowerCase();
+    const all = this.allConfig(obs);
     const files = !q
-      ? obs.config
-      : obs.config.filter(
+      ? all
+      : all.filter(
           (r) =>
             r.path.toLowerCase().includes(q) ||
             this.flatKeys(r).some((k) => k.toLowerCase().includes(q)),
@@ -2651,7 +2694,7 @@ export class HostDetailComponent implements OnInit {
     return flat.map(([k]) => k);
   }
   selRes(obs: ObservedState): ObservedResource | null {
-    return obs.config.find((r) => r.path === this.selectedPane()) ?? null;
+    return this.allConfig(obs).find((r) => r.path === this.selectedPane()) ?? null;
   }
 
   /** The settings list narrowed by the live search: when the query matched
@@ -2675,7 +2718,11 @@ export class HostDetailComponent implements OnInit {
       r.format === 'keyvalue' ? Object.entries(v ?? {}) : this.flatten(v ?? {});
     const live = new Map(flat(r.values));
     const des = new Map(flat(desired));
-    const keys = [...new Set([...live.keys(), ...des.keys()])].sort();
+    // Union in the file's known ADMX directives so every settable key shows as
+    // a row (configured or not) — like the Group Policy Editor lists all known
+    // settings, not just the ones already present in the file.
+    const specs = this.specsForPath(r.path);
+    const keys = [...new Set([...live.keys(), ...des.keys(), ...Object.keys(specs)])].sort();
     return keys.map((key) => {
       const managed = des.has(key);
       const dv = des.get(key);
@@ -2683,7 +2730,8 @@ export class HostDetailComponent implements OnInit {
         key,
         state: managed ? (dv === null ? 'Removed' : 'Configured') : 'Host based',
         desired: dv === null || dv === undefined ? '' : this.scalarStr(dv),
-        live: live.has(key) ? this.scalarStr(live.get(key)) : '',
+        // Unmanaged key: the host's live value, or the directive default as a hint.
+        live: live.has(key) ? this.scalarStr(live.get(key)) : this.scalarStr(specs[key]?.default ?? ''),
         // A managed key is sourced from the GPO scope it won at (Host/Group/OU/
         // Default *policy*); an unmanaged key is just the host's own baseline
         // value → "Host". So policy-set settings read as a policy, and the
@@ -2745,13 +2793,23 @@ export class HostDetailComponent implements OnInit {
   /** ADMX per-directive value catalog ({file: {directive: spec}}), loaded once. */
   directiveCatalog = signal<Record<string, Record<string, DirectiveSpec>>>({});
 
-  /** The mined spec for the setting currently being edited on this resource,
-   * looked up by the file's basename + the directive name. Null if unmined. */
+  /** ADMX directive specs for a file. config_directives.json is keyed by FULL
+   * path (e.g. /etc/apt/apt.conf.d/…); basename is a legacy fallback. Keying by
+   * basename alone (the old bug) missed every full-path entry, so settings fell
+   * back to a generic text input instead of the enum/bool/int field the catalog
+   * defines — the same bug that was fixed in the OU policy editor. */
+  private specsForPath(path: string): Record<string, DirectiveSpec> {
+    const cat = this.directiveCatalog();
+    const base = (path || '').split('/').pop() || '';
+    return cat[path] ?? cat[base] ?? {};
+  }
+
+  /** The mined spec for the setting currently being edited on this resource.
+   * Null if unmined. */
   directiveSpec(r: ObservedResource): DirectiveSpec | null {
     const key = this.settingKey();
     if (!key) return null;
-    const file = (r.path || '').split('/').pop() || '';
-    return this.directiveCatalog()[file]?.[key] ?? null;
+    return this.specsForPath(r.path)[key] ?? null;
   }
 
   /** Possible values as a listbox. Prefers the ADMX catalog (enum's real
@@ -2788,6 +2846,57 @@ export class HostDetailComponent implements OnInit {
     return hit ? hit.service.replace(/@$/, '') : null; // strip template unit suffix (getty@)
   }
   restartAfterApply = signal(true);
+
+  // #5 — reach a config file the host doesn't have yet. The codec catalog lists
+  // every known file; picking one injects a synthetic (empty) resource so the
+  // existing settings editor + Apply path can define it as desired config at
+  // host/OU/group scope (stateApply doesn't require the file to pre-exist).
+  codecCatalog = signal<{ path: string; format: string; separator: string }[]>([]);
+  extraConfigFiles = signal<ObservedResource[]>([]);
+  addFilePath = signal('');
+
+  /** Observed files ∪ catalog files the operator added (dedup by path). */
+  private allConfig(obs: ObservedState): ObservedResource[] {
+    const extra = this.extraConfigFiles().filter((e) => !obs.config.some((c) => c.path === e.path));
+    return [...obs.config, ...extra];
+  }
+
+  /** Catalog paths not already shown, for the "add a file" datalist. */
+  catalogAddOptions(): string[] {
+    const have = new Set<string>([
+      ...(this.observed()?.config ?? []).map((c) => c.path),
+      ...this.extraConfigFiles().map((c) => c.path),
+    ]);
+    return this.codecCatalog().map((e) => e.path).filter((p) => !have.has(p));
+  }
+
+  addCatalogFile(path: string): void {
+    const p = (path || '').trim();
+    if (!p) return;
+    this.addFilePath.set('');
+    const obs = this.observed();
+    const present = (obs?.config ?? []).some((c) => c.path === p) || this.extraConfigFiles().some((c) => c.path === p);
+    if (!present) {
+      const cat = this.codecCatalog().find((e) => e.path === p);
+      const res = { path: p, format: cat?.format || 'keyvalue', separator: cat?.separator || '=', values: {} } as ObservedResource;
+      this.extraConfigFiles.update((xs) => [...xs, res]);
+    }
+    if (obs) {
+      const grp = this.categoryGroups(obs).find((g) => g.files.some((f) => f.path === p));
+      if (grp) this.gpoActiveCat.set(grp.cat.key);
+    }
+    this.selectPane(p);
+  }
+
+  // Add an arbitrary setting key to the selected file (for files with no mined
+  // directives, or a key the catalog doesn't list) — mirrors the OU editor.
+  newSettingKey = signal('');
+  addSettingKey(r: ObservedResource): void {
+    const k = this.newSettingKey().trim();
+    if (!k) return;
+    this.newSettingKey.set('');
+    this.openSetting(r, { key: k, state: 'Host based', desired: '', live: '' });
+  }
 
   applySetting(r: ObservedResource): void {
     const agent = this.agent();
