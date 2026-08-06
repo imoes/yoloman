@@ -262,9 +262,18 @@ export class OuConfigEditorComponent implements OnChanges {
     return groupByCategory(items);
   }
 
-  /** Known setting keys for a file, from the ADMX directive catalog (by name). */
+  /** The ADMX directive specs for a file. config_directives.json is keyed by FULL path
+   * (e.g. /etc/apt/apt.conf.d/…); the basename is a fallback for any legacy name-keyed entry. Keying by
+   * basename alone (the old bug) matched nothing, so every setting fell back to a generic text input
+   * instead of the enum/bool/int field the catalog defines. */
+  private specsForFile(path: string): Record<string, DirectiveSpec> {
+    const cat = this.directiveCatalog();
+    return cat[path] ?? cat[this.baseName(path)] ?? {};
+  }
+
+  /** Known setting keys for a file, from the ADMX directive catalog. */
   private directiveKeysFor(path: string): string[] {
-    return Object.keys(this.directiveCatalog()[this.baseName(path)] ?? {});
+    return Object.keys(this.specsForFile(path));
   }
 
   /** Miller-column navigation: category → its files → the file's settings.
@@ -297,7 +306,7 @@ export class OuConfigEditorComponent implements OnChanges {
     const path = this.selected();
     if (!path) return [];
     const fmt = this.catalog().find((r) => r.path === path)?.format ?? this.policyFor(path)?.format ?? 'keyvalue';
-    const specs = this.directiveCatalog()[this.baseName(path)] ?? {};
+    const specs = this.specsForFile(path);
     const des = new Map(this.flat(this.policyFor(path)?.values ?? {}, fmt));
     const keys = [...new Set([...Object.keys(specs), ...des.keys()])].sort();
     const q = this.search().trim().toLowerCase();
@@ -338,8 +347,7 @@ export class OuConfigEditorComponent implements OnChanges {
   directiveSpec(): DirectiveSpec | null {
     const path = this.selected(), key = this.editKey();
     if (!path || !key) return null;
-    const file = path.split('/').pop() || '';
-    return this.directiveCatalog()[file]?.[key] ?? null;
+    return this.specsForFile(path)[key] ?? null;
   }
 
   /** Enum/bool → real allowed values from the ADMX catalog (a listbox), like

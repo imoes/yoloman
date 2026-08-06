@@ -188,6 +188,8 @@ interface PaletteItem {
               draggable="true"
               (dragstart)="onPolicyDragStart(p, $event)"
               (dragend)="onDragEnd()"
+              [cdkContextMenuTriggerFor]="paletteMenu"
+              (contextmenu)="paletteCtx.set(p)"
             >
               <mat-icon class="bm-obj-icon">{{ paletteIcon(p.kind) }}</mat-icon>
               <span class="bm-label">{{ p.label }}</span>
@@ -303,6 +305,15 @@ interface PaletteItem {
         <button class="bm-menu-item bm-danger" cdkMenuItem (click)="deleteObject(ctx()!)">Delete</button>
       </div>
     </ng-template>
+
+    <!-- Palette context menu: right-click any policy in the palette (incl. unlinked plans) to edit or
+         delete it, without first dragging it onto an OU. -->
+    <ng-template #paletteMenu><div class="bm-menu" cdkMenu>
+      @if (paletteCtx()?.kind === 'config_policy') {
+        <button class="bm-menu-item" cdkMenuItem (click)="palettePolicyEdit(paletteCtx()!)">Edit…</button>
+      }
+      <button class="bm-menu-item bm-danger" cdkMenuItem (click)="palettePolicyDelete(paletteCtx()!)">Delete</button>
+    </div></ng-template>
   `,
   styles: [
     `
@@ -410,6 +421,7 @@ export class OuPolicyComponent implements OnInit {
   objectsByOu = signal<Map<string, OUObject[]>>(new Map());
   selected = signal<TreeRow | null>(null);
   ctx = signal<TreeRow | null>(null);
+  paletteCtx = signal<PaletteItem | null>(null);
   yoloMode = signal<SystemSettings | null>(null);
   /** Drag-and-drop reparenting (Block L3e): the OU currently being dragged,
    * and the current drop target ('__root__' = the forest root). */
@@ -1139,5 +1151,35 @@ export class OuPolicyComponent implements OnInit {
     else if (obj.kind === 'host_group') this.hostGroup.delete(obj.id).subscribe(done);
     else if (obj.kind === 'orchestration_link') this.orchestration.deleteLinkById(obj.id).subscribe(done);
     else if (obj.kind === 'config_policy') this.ouService.deleteConfigPolicy(obj.id).subscribe(done);
+  }
+
+  /** Delete any policy straight from the palette (right-click) — including UNLINKED plans, which had no
+   * affordance before. Confirmed, since a linked plan is removed everywhere it applies. */
+  async palettePolicyDelete(p: PaletteItem): Promise<void> {
+    const ok = await this.appDialog.confirm({
+      title: 'Delete policy',
+      message: `Delete "${p.label}"${p.ownerPath ? ` (linked at ${p.ownerPath})` : ' (unlinked)'}? This removes it everywhere it is linked.`,
+      confirmText: 'Delete', danger: true,
+    });
+    if (!ok) return;
+    const done = () => this.reload();
+    const fail = (e: { error?: { detail?: string } }) => this.appDialog.notify(e?.error?.detail ?? 'delete failed', 'error');
+    const del =
+      p.kind === 'plan' ? this.orchestration.deletePlan(p.id)
+      : p.kind === 'check_rule' ? this.monitoring.deleteCheckRule(p.id)
+      : p.kind === 'notification' ? this.notification.deleteRule(p.id)
+      : p.kind === 'host_group' ? this.hostGroup.delete(p.id)
+      : p.kind === 'orchestration_link' ? this.orchestration.deleteLinkById(p.id)
+      : p.kind === 'config_policy' ? this.ouService.deleteConfigPolicy(p.id)
+      : null;
+    del?.subscribe({ next: done, error: fail });
+  }
+
+  /** Edit a palette policy (right-click). Config policies reopen the gpedit editor at their scope; other
+   * kinds are edited from their placed object in the tree. */
+  palettePolicyEdit(p: PaletteItem): void {
+    if (p.kind === 'config_policy' && p.ownerOuId) {
+      this.openGpedit({ kind: 'ou', id: p.ownerOuId, label: p.ownerPath ?? '' });
+    }
   }
 }
