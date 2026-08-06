@@ -1,0 +1,32 @@
+name: sensu_subscription
+fqcn: community.general.sensu_subscription
+collection: community.general
+short_description: Manage Sensu subscriptions
+description: Manage which I(sensu channels) a machine should subscribe to
+options:
+  backup:
+    type: bool
+    default: false
+    description: Create a backup file (if yes), including the timestamp information so you can get the
+      original file back if you somehow clobbered it incorrectly.
+  name:
+    type: str
+    required: true
+    description: The name of the channel
+  path:
+    type: str
+    default: /etc/sensu/conf.d/subscriptions.json
+    description: Path to the subscriptions json file
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the machine should subscribe or unsubscribe from the channel
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Subscribe to the nginx channel\n- name: Subscribe to nginx checks\n  community.general.sensu_subscription:\
+  \ name=nginx\n\n# Unsubscribe from the common checks channel\n- name: Unsubscribe from common checks\n\
+  \  community.general.sensu_subscription: name=common state=absent\n"

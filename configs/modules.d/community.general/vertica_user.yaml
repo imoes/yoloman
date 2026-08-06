@@ -1,0 +1,70 @@
+name: vertica_user
+fqcn: community.general.vertica_user
+collection: community.general
+short_description: Adds or removes Vertica database users and assigns roles
+description: Adds or removes Vertica database user and, optionally, assigns roles. A user will not be
+  removed until all the dependencies have been dropped. In such a situation, if the module tries to remove
+  the user it will fail and only remove roles granted to the user.
+options:
+  cluster:
+    type: str
+    default: localhost
+    description: Name of the Vertica cluster.
+  db:
+    type: str
+    description: Name of the Vertica database.
+  expired:
+    type: bool
+    description: Sets the user's password expiration.
+  ldap:
+    type: bool
+    description: Set to true if users are authenticated via LDAP. The user will be created with password
+      expired and set to V($ldap$).
+  login_password:
+    type: str
+    description: The password used to authenticate with.
+  login_user:
+    type: str
+    default: dbadmin
+    description: The username used to authenticate with.
+  password:
+    type: str
+    description: The user's password encrypted by the MD5 algorithm. The password must be generated with
+      the format C("md5" + md5[password + username]), resulting in a total of 35 characters. An easy way
+      to do this is by querying the Vertica database with select V('md5'||md5('<user_password><user_name>'\)).
+  port:
+    type: str
+    default: '5433'
+    description: Vertica cluster port to connect to.
+  profile:
+    type: str
+    description: Sets the user's profile.
+  resource_pool:
+    type: str
+    description: Sets the user's resource pool.
+  roles:
+    type: str
+    aliases:
+    - role
+    description: Comma separated list of roles to assign to the user.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - locked
+    description: Whether to create (V(present)), drop (V(absent)), or lock (V(locked)) a user.
+  user:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: Name of the user to add or remove.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Creating a new vertica user with password\n  community.general.vertica_user: name=user_name\
+  \ password=md5<encrypted_password> db=db_name state=present\n\n- name: Creating a new vertica user authenticated\
+  \ via ldap with roles assigned\n  community.general.vertica_user:\n    name=user_name\n    ldap=true\n\
+  \    db=db_name\n    roles=schema_name_ro\n    state=present\n"

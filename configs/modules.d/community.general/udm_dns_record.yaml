@@ -1,0 +1,45 @@
+name: udm_dns_record
+fqcn: community.general.udm_dns_record
+collection: community.general
+short_description: Manage dns entries on a univention corporate server
+description: This module allows to manage dns records on a univention corporate server (UCS). It uses
+  the python API of the UCS to create a new object or edit it.
+options:
+  data:
+    type: dict
+    default: {}
+    description: 'Additional data for this record, for example V({''a'': ''192.0.2.1''}). Required if
+      O(state=present).'
+  name:
+    type: str
+    required: true
+    description: Name of the record, this is also the DNS record. E.g. www for www.example.com. For PTR
+      records this has to be the IP address.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the dns record is present or not.
+  type:
+    type: str
+    required: true
+    description: 'Define the record type. V(host_record) is a A or AAAA record, V(alias) is a CNAME, V(ptr_record)
+      is a PTR record, V(srv_record) is a SRV record and V(txt_record) is a TXT record. The available
+      choices are: V(host_record), V(alias), V(ptr_record), V(srv_record), V(txt_record).'
+  zone:
+    type: str
+    required: true
+    description: Corresponding DNS zone for this record, e.g. example.com. For PTR records this has to
+      be the full reverse zone (for example V(1.1.192.in-addr.arpa)).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a DNS record on a UCS\n  community.general.udm_dns_record:\n    name: www\n\
+  \    zone: example.com\n    type: host_record\n    data:\n      a:\n         - 192.0.2.1\n         -\
+  \ 2001:0db8::42\n\n- name: Create a DNS v4 PTR record on a UCS\n  community.general.udm_dns_record:\n\
+  \    name: 192.0.2.1\n    zone: 2.0.192.in-addr.arpa\n    type: ptr_record\n    data:\n      ptr_record:\
+  \ \"www.example.com.\"\n\n- name: Create a DNS v6 PTR record on a UCS\n  community.general.udm_dns_record:\n\
+  \    name: 2001:db8:0:0:0:ff00:42:8329\n    zone: 2.4.0.0.0.0.f.f.0.0.0.0.0.0.0.0.0.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa\n\
+  \    type: ptr_record\n    data:\n      ptr_record: \"www.example.com.\"\n"

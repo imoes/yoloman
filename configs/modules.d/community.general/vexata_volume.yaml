@@ -1,0 +1,45 @@
+name: vexata_volume
+fqcn: community.general.vexata_volume
+collection: community.general
+short_description: Manage volumes on Vexata VX100 storage arrays
+description: Create, deletes or extend volumes on a Vexata VX100 array.
+options:
+  array:
+    type: str
+    required: true
+    description: Vexata VX100 array hostname or IPv4 Address.
+  name:
+    type: str
+    required: true
+    description: Volume name.
+  password:
+    type: str
+    description: Vexata API user password. Uses the E(VEXATA_PASSWORD) environment variable as a fallback.
+  size:
+    type: str
+    description: Volume size in M, G, T units. M=2^20, G=2^30, T=2^40 bytes.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Creates/Modifies volume when present or removes when absent.
+  user:
+    type: str
+    description: Vexata API user with administrative privileges. Uses the E(VEXATA_USER) environment variable
+      as a fallback.
+  validate_certs:
+    type: bool
+    default: false
+    description: Allows connection when SSL certificates are not valid. Set to V(false) when certificates
+      are not trusted. If set to V(true), please make sure Python >= 2.7.9 is installed on the given machine.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create new 2 TiB volume named foo\n  community.general.vexata_volume:\n    name:\
+  \ foo\n    size: 2T\n    state: present\n    array: vx100_ultra.test.com\n    user: admin\n    password:\
+  \ secret\n\n- name: Expand volume named foo to 4 TiB\n  community.general.vexata_volume:\n    name:\
+  \ foo\n    size: 4T\n    state: present\n    array: vx100_ultra.test.com\n    user: admin\n    password:\
+  \ secret\n\n- name: Delete volume named foo\n  community.general.vexata_volume:\n    name: foo\n   \
+  \ state: absent\n    array: vx100_ultra.test.com\n    user: admin\n    password: secret\n"

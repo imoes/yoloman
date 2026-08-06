@@ -1,0 +1,96 @@
+name: ssh_config
+fqcn: community.general.ssh_config
+collection: community.general
+short_description: Manage SSH config for user
+description: Configures SSH hosts with special C(IdentityFile)s and hostnames.
+options:
+  add_keys_to_agent:
+    type: bool
+    description: Sets the C(AddKeysToAgent) option.
+  controlmaster:
+    type: str
+    choices:
+    - 'yes'
+    - 'no'
+    - ask
+    - auto
+    - autoask
+    description: Sets the C(ControlMaster) option.
+  controlpath:
+    type: str
+    description: Sets the C(ControlPath) option.
+  controlpersist:
+    type: str
+    description: Sets the C(ControlPersist) option.
+  forward_agent:
+    type: bool
+    description: Sets the C(ForwardAgent) option.
+  group:
+    type: str
+    description: Which group this configuration file belongs to. If none given, O(user) is used.
+  host:
+    type: str
+    required: true
+    description: The endpoint this configuration is valid for. Can be an actual address on the internet
+      or an alias that will connect to the value of O(hostname).
+  host_key_algorithms:
+    type: str
+    description: Sets the C(HostKeyAlgorithms) option.
+  hostname:
+    type: str
+    description: The actual host to connect to when connecting to the host defined.
+  identities_only:
+    type: bool
+    description: Specifies that SSH should only use the configured authentication identity and certificate
+      files (either the default files, or those explicitly configured in the C(ssh_config) files or passed
+      on the ssh command-line), even if ssh-agent or a PKCS11Provider or SecurityKeyProvider offers more
+      identities.
+  identity_file:
+    type: path
+    description: The path to an identity file (SSH private key) that will be used when connecting to this
+      host. File need to exist and have mode V(0600) to be valid.
+  port:
+    type: str
+    description: The actual port to connect to when connecting to the host defined.
+  proxycommand:
+    type: str
+    description: Sets the C(ProxyCommand) option. Mutually exclusive with O(proxyjump).
+  proxyjump:
+    type: str
+    description: Sets the C(ProxyJump) option. Mutually exclusive with O(proxycommand).
+  remote_user:
+    type: str
+    description: Specifies the user to log in as.
+  ssh_config_file:
+    type: path
+    description: SSH config file. If O(user) and this option are not specified, C(/etc/ssh/ssh_config)
+      is used. Mutually exclusive with O(user).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether a host entry should exist or not.
+  strict_host_key_checking:
+    type: str
+    choices:
+    - 'yes'
+    - 'no'
+    - ask
+    description: Whether to strictly check the host key when doing connections to the remote host.
+  user:
+    type: str
+    description: Which user account this configuration file belongs to. If none given and O(ssh_config_file)
+      is not specified, C(/etc/ssh/ssh_config) is used. If a user is given, C(~/.ssh/config) is used.
+      Mutually exclusive with O(ssh_config_file).
+  user_known_hosts_file:
+    type: str
+    description: Sets the user known hosts file option.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add a host in the configuration\n  community.general.ssh_config:\n    user: akasurde\n\
+  \    host: \"example.com\"\n    hostname: \"github.com\"\n    identity_file: \"/home/akasurde/.ssh/id_rsa\"\
+  \n    port: '2223'\n    state: present\n\n- name: Delete a host from the configuration\n  community.general.ssh_config:\n\
+  \    ssh_config_file: \"{{ ssh_config_test }}\"\n    host: \"example.com\"\n    state: absent\n"

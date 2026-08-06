@@ -1,0 +1,62 @@
+name: stackdriver
+fqcn: community.general.stackdriver
+collection: community.general
+short_description: Send code deploy and annotation events to stackdriver
+description: Send code deploy and annotation events to Stackdriver
+options:
+  annotated_by:
+    type: str
+    default: Ansible
+    description: The person or robot who the annotation should be attributed to.
+  deployed_by:
+    type: str
+    default: Ansible
+    description: The person or robot responsible for deploying the code
+  deployed_to:
+    type: str
+    description: 'The environment code was deployed to. (ie: development, staging, production)'
+  event:
+    type: str
+    required: true
+    choices:
+    - annotation
+    - deploy
+    description: The type of event to send, either annotation or deploy
+  event_epoch:
+    type: str
+    description: Unix timestamp of where the event should appear in the timeline, defaults to now. Be
+      careful with this.
+  instance_id:
+    type: str
+    description: id of an EC2 instance that this event should be attached to, which will limit the contexts
+      where this event is shown
+  key:
+    type: str
+    required: true
+    description: API key.
+  level:
+    type: str
+    default: INFO
+    choices:
+    - INFO
+    - WARN
+    - ERROR
+    description: one of INFO/WARN/ERROR, defaults to INFO if not supplied. May affect display.
+  msg:
+    type: str
+    description: The contents of the annotation message, in plain text. Limited to 256 characters. Required
+      for annotation.
+  repository:
+    type: str
+    description: The repository (or project) deployed
+  revision_id:
+    type: str
+    description: The revision of the code that was deployed. Required for deploy events
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Send a code deploy event to stackdriver\n  community.general.stackdriver:\n    key:\
+  \ AAAAAA\n    event: deploy\n    deployed_to: production\n    deployed_by: leeroyjenkins\n    repository:\
+  \ MyWebApp\n    revision_id: abcd123\n\n- name: Send an annotation event to stackdriver\n  community.general.stackdriver:\n\
+  \    key: AAAAAA\n    event: annotation\n    msg: Greetings from Ansible\n    annotated_by: leeroyjenkins\n\
+  \    level: WARN\n    instance_id: i-abcd1234\n"

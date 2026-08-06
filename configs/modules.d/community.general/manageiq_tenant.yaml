@@ -1,0 +1,59 @@
+name: manageiq_tenant
+fqcn: community.general.manageiq_tenant
+collection: community.general
+short_description: Management of tenants in ManageIQ
+description: The manageiq_tenant module supports adding, updating and deleting tenants in ManageIQ.
+options:
+  description:
+    type: str
+    required: true
+    description: The tenant description.
+  manageiq_connection:
+    type: dict
+    description: ManageIQ connection configuration information.
+  name:
+    type: str
+    required: true
+    description: The tenant name.
+  parent:
+    type: str
+    description: The name of the parent tenant. If not supplied and no O(parent_id) is supplied the root
+      tenant is used.
+  parent_id:
+    type: int
+    description: The id of the parent tenant. If not supplied the root tenant is used. The O(parent_id)
+      takes president over O(parent) when supplied
+  quotas:
+    type: dict
+    default: {}
+    description: 'The tenant quotas. All parameters case sensitive. Valid attributes are:  - C(cpu_allocated)
+      (int): use null to remove the quota.  - C(mem_allocated) (GB): use null to remove the quota.  -
+      C(storage_allocated) (GB): use null to remove the quota.  - C(vms_allocated) (int): use null to
+      remove the quota.  - C(templates_allocated) (int): use null to remove the quota.'
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: absent - tenant should not exist, present - tenant should be.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Update the root tenant in ManageIQ\n  community.general.manageiq_tenant:\n    name:\
+  \ 'My Company'\n    description: 'My company name'\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n\n- name: Create a tenant in ManageIQ\n  community.general.manageiq_tenant:\n\
+  \    name: 'Dep1'\n    description: 'Manufacturing department'\n    parent_id: 1\n    manageiq_connection:\n\
+  \      url: 'http://127.0.0.1:3000'\n      username: 'admin'\n      password: 'smartvm'\n      validate_certs:\
+  \ false  # only do this when you trust the network!\n\n- name: Delete a tenant in ManageIQ\n  community.general.manageiq_tenant:\n\
+  \    state: 'absent'\n    name: 'Dep1'\n    parent_id: 1\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n\n- name: Set tenant quota for cpu_allocated, mem_allocated, remove quota\
+  \ for vms_allocated\n  community.general.manageiq_tenant:\n    name: 'Dep1'\n    parent_id: 1\n    quotas:\n\
+  \      - cpu_allocated: 100\n      - mem_allocated: 50\n      - vms_allocated: null\n    manageiq_connection:\n\
+  \      url: 'http://127.0.0.1:3000'\n      username: 'admin'\n      password: 'smartvm'\n      validate_certs:\
+  \ false  # only do this when you trust the network!\n\n\n- name: Delete a tenant in ManageIQ using a\
+  \ token\n  community.general.manageiq_tenant:\n    state: 'absent'\n    name: 'Dep1'\n    parent_id:\
+  \ 1\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n      token: 'sometoken'\n      validate_certs:\
+  \ false  # only do this when you trust the network!\n"

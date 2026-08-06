@@ -1,0 +1,82 @@
+name: scaleway_lb
+fqcn: community.general.scaleway_lb
+collection: community.general
+short_description: Scaleway load-balancer management module
+description: This module manages load-balancers on Scaleway.
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  description:
+    type: str
+    required: true
+    description: Description of the load-balancer.
+  name:
+    type: str
+    required: true
+    description: Name of the load-balancer.
+  organization_id:
+    type: str
+    required: true
+    description: Organization identifier.
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  region:
+    type: str
+    required: true
+    choices:
+    - nl-ams
+    - fr-par
+    - pl-waw
+    description: Scaleway zone.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the instance.
+  tags:
+    type: list
+    default: []
+    description: List of tags to apply to the load-balancer.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+  wait:
+    type: bool
+    default: false
+    description: Wait for the load-balancer to reach its desired state before returning.
+  wait_sleep_time:
+    type: int
+    default: 3
+    description: Time to wait before every attempt to check the state of the load-balancer.
+  wait_timeout:
+    type: int
+    default: 300
+    description: Time to wait for the load-balancer to reach the expected state.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a load-balancer\n  community.general.scaleway_lb:\n    name: foobar\n    state:\
+  \ present\n    organization_id: 951df375-e094-4d26-97c1-ba548eeb9c42\n    region: fr-par\n    tags:\n\
+  \      - hello\n\n- name: Delete a load-balancer\n  community.general.scaleway_lb:\n    name: foobar\n\
+  \    state: absent\n    organization_id: 951df375-e094-4d26-97c1-ba548eeb9c42\n    region: fr-par\n"

@@ -1,0 +1,209 @@
+name: yum
+fqcn: ansible.builtin.yum
+collection: ansible.builtin
+short_description: Manages packages with the I(yum) package manager
+description: Installs, upgrade, downgrades, removes, and lists packages and groups with the I(yum) package
+  manager. This module only works on Python 2. If you require Python 3 support see the M(ansible.builtin.dnf)
+  module.
+options:
+  allow_downgrade:
+    type: bool
+    default: 'no'
+    description: Specify if the named package and version is allowed to downgrade a maybe already installed
+      higher version of that package. Note that setting allow_downgrade=True can make this module behave
+      in a non-idempotent way. The task could end up with a set of packages that does not match the complete
+      list of specified packages to install (because dependencies between the downgraded package and others
+      can cause changes to the packages which were in the earlier transaction).
+  autoremove:
+    type: bool
+    default: 'no'
+    description: 'If V(true), removes all "leaf" packages from the system that were originally installed
+      as dependencies of user-installed packages but which are no longer required by any such package.
+      Should be used alone or when O(state) is V(absent) NOTE: This feature requires yum >= 3.4.3 (RHEL/CentOS
+      7+)'
+  bugfix:
+    type: bool
+    default: 'no'
+    description: If set to V(true), and O(state=latest) then only installs updates that have been marked
+      bugfix related.
+  cacheonly:
+    type: bool
+    default: 'no'
+    description: Tells yum to run entirely from system cache; does not download or update metadata.
+  conf_file:
+    type: str
+    description: The remote yum configuration file to use for the transaction.
+  disable_excludes:
+    type: str
+    description: Disable the excludes defined in YUM config files. If set to V(all), disables all excludes.
+      If set to V(main), disable excludes defined in [main] in yum.conf. If set to V(repoid), disable
+      excludes defined for given repo id.
+  disable_gpg_check:
+    type: bool
+    default: 'no'
+    description: Whether to disable the GPG checking of signatures of packages being installed. Has an
+      effect only if O(state) is V(present) or V(latest).
+  disable_plugin:
+    type: list
+    default: []
+    description: I(Plugin) name to disable for the install/update operation. The disabled plugins will
+      not persist beyond the transaction.
+  disablerepo:
+    type: list
+    default: []
+    description: I(Repoid) of repositories to disable for the install/update operation. These repos will
+      not persist beyond the transaction. When specifying multiple repos, separate them with a C(",").
+      As of Ansible 2.7, this can alternatively be a list instead of C(",") separated string
+  download_dir:
+    type: str
+    description: Specifies an alternate directory to store packages. Has an effect only if O(download_only)
+      is specified.
+  download_only:
+    type: bool
+    default: 'no'
+    description: Only download the packages, do not install them.
+  enable_plugin:
+    type: list
+    default: []
+    description: I(Plugin) name to enable for the install/update operation. The enabled plugin will not
+      persist beyond the transaction.
+  enablerepo:
+    type: list
+    default: []
+    description: I(Repoid) of repositories to enable for the install/update operation. These repos will
+      not persist beyond the transaction. When specifying multiple repos, separate them with a C(",").
+      As of Ansible 2.7, this can alternatively be a list instead of C(",") separated string
+  exclude:
+    type: list
+    default: []
+    description: Package name(s) to exclude when state=present, or latest
+  install_repoquery:
+    type: bool
+    default: 'yes'
+    description: 'If repoquery is not available, install yum-utils. If the system is registered to RHN
+      or an RHN Satellite, repoquery allows for querying all channels assigned to the system. It is also
+      required to use the ''list'' parameter. NOTE: This will run and be logged as a separate yum transation
+      which takes place before any other installation or removal. NOTE: This will use the system''s default
+      enabled repositories without regard for disablerepo/enablerepo given to the module.'
+  install_weak_deps:
+    type: bool
+    default: 'yes'
+    description: 'Will also install all packages linked by a weak dependency relation. NOTE: This feature
+      requires yum >= 4 (RHEL/CentOS 8+)'
+  installroot:
+    type: str
+    default: /
+    description: Specifies an alternative installroot, relative to which all packages will be installed.
+  list:
+    type: str
+    description: 'Package name to run the equivalent of C(yum list --show-duplicates <package>) against.
+      In addition to listing packages, use can also list the following: V(installed), V(updates), V(available)
+      and V(repos). This parameter is mutually exclusive with O(name).'
+  lock_timeout:
+    type: int
+    default: 30
+    description: Amount of time to wait for the yum lockfile to be freed.
+  name:
+    type: list
+    default: []
+    aliases:
+    - pkg
+    description: A package name or package specifier with version, like V(name-1.0). Comparison operators
+      for package version are valid here C(>), C(<), C(>=), C(<=). Example - V(name>=1.0) If a previous
+      version is specified, the task also needs to turn O(allow_downgrade) on. See the O(allow_downgrade)
+      documentation for caveats with downgrading packages. When using O(state=latest), this can be V('*')
+      which means run C(yum -y update). You can also pass a url or a local path to an rpm file (using
+      O(state=present)). To operate on several packages this can accept a comma separated string of packages
+      or (as of 2.0) a list of packages.
+  releasever:
+    type: str
+    description: Specifies an alternative release from which all packages will be installed.
+  security:
+    type: bool
+    default: 'no'
+    description: If set to V(true), and O(state=latest) then only installs updates that have been marked
+      security related.
+  skip_broken:
+    type: bool
+    default: 'no'
+    description: Skip all unavailable packages or packages with broken dependencies without raising an
+      error. Equivalent to passing the --skip-broken option.
+  sslverify:
+    type: bool
+    default: 'yes'
+    description: Disables SSL validation of the repository server for this transaction. This should be
+      set to V(false) if one of the configured repositories is using an untrusted or self-signed certificate.
+  state:
+    type: str
+    choices:
+    - absent
+    - installed
+    - latest
+    - present
+    - removed
+    description: Whether to install (V(present) or V(installed), V(latest)), or remove (V(absent) or V(removed))
+      a package. V(present) and V(installed) will simply ensure that a desired package is installed. V(latest)
+      will update the specified package if it's not of the latest available version. V(absent) and V(removed)
+      will remove the specified package. Default is V(None), however in effect the default action is V(present)
+      unless the O(autoremove) option is enabled for this module, then V(absent) is inferred.
+  update_cache:
+    type: bool
+    default: 'no'
+    aliases:
+    - expire-cache
+    description: Force yum to check if cache is out of date and redownload if needed. Has an effect only
+      if O(state) is V(present) or V(latest).
+  update_only:
+    type: bool
+    default: 'no'
+    description: When using latest, only update installed packages. Do not install packages. Has an effect
+      only if O(state) is V(latest)
+  use_backend:
+    type: str
+    default: auto
+    choices:
+    - auto
+    - yum
+    - yum4
+    - dnf
+    - dnf4
+    - dnf5
+    description: This module supports V(yum) (as it always has), this is known as C(yum3)/C(YUM3)/C(yum-deprecated)
+      by upstream yum developers. As of Ansible 2.7+, this module also supports C(YUM4), which is the
+      "new yum" and it has an V(dnf) backend. As of ansible-core 2.15+, this module will auto select the
+      backend based on the C(ansible_pkg_mgr) fact. By default, this module will select the backend based
+      on the C(ansible_pkg_mgr) fact.
+  validate_certs:
+    type: bool
+    default: 'yes'
+    description: This only applies if using a https url as the source of the rpm. e.g. for localinstall.
+      If set to V(false), the SSL certificates will not be validated. This should only set to V(false)
+      used on personally controlled sites using self-signed certificates as it avoids verifying the source
+      site. Prior to 2.1 the code worked as if this was set to V(true).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install the latest version of Apache\n  ansible.builtin.yum:\n    name: httpd\n \
+  \   state: latest\n\n- name: Install Apache >= 2.4\n  ansible.builtin.yum:\n    name: httpd>=2.4\n \
+  \   state: present\n\n- name: Install a list of packages (suitable replacement for 2.11 loop deprecation\
+  \ warning)\n  ansible.builtin.yum:\n    name:\n      - nginx\n      - postgresql\n      - postgresql-server\n\
+  \    state: present\n\n- name: Install a list of packages with a list variable\n  ansible.builtin.yum:\n\
+  \    name: \"{{ packages }}\"\n  vars:\n    packages:\n    - httpd\n    - httpd-tools\n\n- name: Remove\
+  \ the Apache package\n  ansible.builtin.yum:\n    name: httpd\n    state: absent\n\n- name: Install\
+  \ the latest version of Apache from the testing repo\n  ansible.builtin.yum:\n    name: httpd\n    enablerepo:\
+  \ testing\n    state: present\n\n- name: Install one specific version of Apache\n  ansible.builtin.yum:\n\
+  \    name: httpd-2.2.29-1.4.amzn1\n    state: present\n\n- name: Upgrade all packages\n  ansible.builtin.yum:\n\
+  \    name: '*'\n    state: latest\n\n- name: Upgrade all packages, excluding kernel & foo related packages\n\
+  \  ansible.builtin.yum:\n    name: '*'\n    state: latest\n    exclude: kernel*,foo*\n\n- name: Install\
+  \ the nginx rpm from a remote repo\n  ansible.builtin.yum:\n    name: http://nginx.org/packages/centos/6/noarch/RPMS/nginx-release-centos-6-0.el6.ngx.noarch.rpm\n\
+  \    state: present\n\n- name: Install nginx rpm from a local file\n  ansible.builtin.yum:\n    name:\
+  \ /usr/local/src/nginx-release-centos-6-0.el6.ngx.noarch.rpm\n    state: present\n\n- name: Install\
+  \ the 'Development tools' package group\n  ansible.builtin.yum:\n    name: \"@Development tools\"\n\
+  \    state: present\n\n- name: Install the 'Gnome desktop' environment group\n  ansible.builtin.yum:\n\
+  \    name: \"@^gnome-desktop-environment\"\n    state: present\n\n- name: List ansible packages and\
+  \ register result to print with debug later\n  ansible.builtin.yum:\n    list: ansible\n  register:\
+  \ result\n\n- name: Install package with multiple repos enabled\n  ansible.builtin.yum:\n    name: sos\n\
+  \    enablerepo: \"epel,ol7_latest\"\n\n- name: Install package with multiple repos disabled\n  ansible.builtin.yum:\n\
+  \    name: sos\n    disablerepo: \"epel,ol7_latest\"\n\n- name: Download the nginx package but do not\
+  \ install it\n  ansible.builtin.yum:\n    name:\n      - nginx\n    state: latest\n    download_only:\
+  \ true\n"

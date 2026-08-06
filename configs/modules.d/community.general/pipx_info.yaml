@@ -1,0 +1,36 @@
+name: pipx_info
+fqcn: community.general.pipx_info
+collection: community.general
+short_description: Rretrieves information about applications installed with pipx
+description: Retrieve details about Python applications installed in isolated virtualenvs using pipx.
+options:
+  executable:
+    type: path
+    description: 'Path to the C(pipx) installed in the system. If not specified, the module will use C(python
+      -m pipx) to run the tool, using the same Python interpreter as ansible itself.
+
+      '
+  include_deps:
+    type: bool
+    default: false
+    description: Include dependent packages in the output.
+  include_injected:
+    type: bool
+    default: false
+    description: Include injected packages in the output.
+  include_raw:
+    type: bool
+    default: false
+    description: Returns the raw output of C(pipx list --json). The raw output is not affected by O(include_deps)
+      or O(include_injected).
+  name:
+    type: str
+    description: Name of an application installed with C(pipx).
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: retrieve all installed applications\n  community.general.pipx_info: {}\n\n- name:\
+  \ retrieve all installed applications, include dependencies and injected packages\n  community.general.pipx_info:\n\
+  \    include_deps: true\n    include_injected: true\n\n- name: retrieve application tox\n  community.general.pipx_info:\n\
+  \    name: tox\n    include_deps: true\n\n- name: retrieve application ansible-lint, include dependencies\n\
+  \  community.general.pipx_info:\n    name: ansible-lint\n    include_deps: true\n"

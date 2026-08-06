@@ -1,0 +1,63 @@
+name: statsd
+fqcn: community.general.statsd
+collection: community.general
+short_description: Send metrics to StatsD
+description: The C(statsd) module sends metrics to StatsD. For more information, see U(https://statsd-metrics.readthedocs.io/en/latest/).
+  Supported metric types are V(counter) and V(gauge). Currently unupported metric types are V(timer),
+  V(set), and V(gaugedelta).
+options:
+  delta:
+    type: bool
+    default: false
+    description: If the metric is of type V(gauge), change the value by O(delta).
+  host:
+    type: str
+    default: localhost
+    description: StatsD host (hostname or IP) to send metrics to.
+  metric:
+    type: str
+    required: true
+    description: The name of the metric.
+  metric_prefix:
+    type: str
+    default: ''
+    description: The prefix to add to the metric.
+  metric_type:
+    type: str
+    required: true
+    choices:
+    - counter
+    - gauge
+    description: The type of metric.
+  port:
+    type: int
+    default: 8125
+    description: The port on O(host) which StatsD is listening on.
+  protocol:
+    type: str
+    default: udp
+    choices:
+    - udp
+    - tcp
+    description: The transport protocol to send metrics over.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    description: State of the check, only V(present) makes sense.
+  timeout:
+    type: float
+    default: 1.0
+    description: Sender timeout, only applicable if O(protocol) is V(tcp).
+  value:
+    type: int
+    required: true
+    description: The value of the metric.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Increment the metric my_counter by 1\n  community.general.statsd:\n    host: localhost\n\
+  \    port: 9125\n    protocol: tcp\n    metric: my_counter\n    metric_type: counter\n    value: 1\n\
+  \n- name: Set the gauge my_gauge to 7\n  community.general.statsd:\n    host: localhost\n    port: 9125\n\
+  \    protocol: tcp\n    metric: my_gauge\n    metric_type: gauge\n    value: 7\n"

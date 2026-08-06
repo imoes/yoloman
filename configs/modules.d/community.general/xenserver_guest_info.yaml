@@ -1,0 +1,55 @@
+name: xenserver_guest_info
+fqcn: community.general.xenserver_guest_info
+collection: community.general
+short_description: Gathers information for virtual machines running on Citrix Hypervisor/XenServer host
+  or pool
+description: 'This module can be used to gather essential VM facts.
+
+  '
+options:
+  hostname:
+    type: str
+    default: localhost
+    aliases:
+    - host
+    - pool
+    description: The hostname or IP address of the XenServer host or XenServer pool master. If the value
+      is not specified in the task, the value of environment variable E(XENSERVER_HOST) will be used instead.
+  name:
+    type: str
+    aliases:
+    - name_label
+    description: Name of the VM to gather facts from. VMs running on XenServer do not necessarily have
+      unique names. The module will fail if multiple VMs with same name are found. In case of multiple
+      VMs with same name, use O(uuid) to uniquely specify VM to manage. This parameter is case sensitive.
+  password:
+    type: str
+    aliases:
+    - pass
+    - pwd
+    description: The password to use for connecting to XenServer. If the value is not specified in the
+      task, the value of environment variable E(XENSERVER_PASSWORD) will be used instead.
+  username:
+    type: str
+    default: root
+    aliases:
+    - admin
+    - user
+    description: The username to use for connecting to XenServer. If the value is not specified in the
+      task, the value of environment variable E(XENSERVER_USER) will be used instead.
+  uuid:
+    type: str
+    description: UUID of the VM to gather fact of. This is XenServer's unique identifier. It is required
+      if name is not unique.
+  validate_certs:
+    type: bool
+    default: true
+    description: Allows connection when SSL certificates are not valid. Set to V(false) when certificates
+      are not trusted. If the value is not specified in the task, the value of environment variable E(XENSERVER_VALIDATE_CERTS)
+      will be used instead.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Gather facts\n  community.general.xenserver_guest_info:\n    hostname: \"{{ xenserver_hostname\
+  \ }}\"\n    username: \"{{ xenserver_username }}\"\n    password: \"{{ xenserver_password }}\"\n   \
+  \ name: testvm_11\n  delegate_to: localhost\n  register: facts\n"

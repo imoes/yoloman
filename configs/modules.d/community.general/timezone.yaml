@@ -1,0 +1,33 @@
+name: timezone
+fqcn: community.general.timezone
+collection: community.general
+short_description: Configure timezone setting
+description: This module configures the timezone setting, both of the system clock and of the hardware
+  clock. If you want to set up the NTP, use M(ansible.builtin.service) module. It is recommended to restart
+  C(crond) after changing the timezone, otherwise the jobs may run at the wrong time. Several different
+  tools are used depending on the OS/Distribution involved. For Linux it can use C(timedatectl) or edit
+  C(/etc/sysconfig/clock) or C(/etc/timezone) and C(hwclock). On SmartOS, C(sm-set-timezone), for macOS,
+  C(systemsetup), for BSD, C(/etc/localtime) is modified. On AIX, C(chtz) is used. Make sure that the
+  zoneinfo files are installed with the appropriate OS package, like C(tzdata) (usually always installed,
+  when not using a minimal installation like Alpine Linux). Windows and HPUX are not supported, please
+  let us know if you find any other OS/distro in which this fails.
+options:
+  hwclock:
+    type: str
+    choices:
+    - local
+    - UTC
+    aliases:
+    - rtc
+    description: Whether the hardware clock is in UTC or in local timezone. Default is to keep current
+      setting. Note that this option is recommended not to change and may fail to configure, especially
+      on virtual environments such as AWS. B(At least one of name and hwclock are required.) I(Only used
+      on Linux.)
+  name:
+    type: str
+    description: Name of the timezone for the system clock. Default is to keep current setting. B(At least
+      one of name and hwclock are required.)
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Set timezone to Asia/Tokyo\n  community.general.timezone:\n    name: Asia/Tokyo\n"

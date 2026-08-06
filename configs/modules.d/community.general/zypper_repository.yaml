@@ -1,0 +1,70 @@
+name: zypper_repository
+fqcn: community.general.zypper_repository
+collection: community.general
+short_description: Add and remove Zypper repositories
+description: Add or remove Zypper repositories on SUSE and openSUSE
+options:
+  auto_import_keys:
+    type: bool
+    default: false
+    description: Automatically import the gpg signing key of the new or changed repository. Has an effect
+      only if O(state=present). Has no effect on existing (unchanged) repositories or in combination with
+      O(state=absent). Implies runrefresh. Only works with C(.repo) files if `name` is given explicitly.
+  autorefresh:
+    type: bool
+    default: true
+    aliases:
+    - refresh
+    description: Enable autorefresh of the repository.
+  description:
+    type: str
+    description: A description of the repository
+  disable_gpg_check:
+    type: bool
+    default: false
+    description: Whether to disable GPG signature checking of all packages. Has an effect only if O(state=present).
+      Needs zypper version >= 1.6.2.
+  enabled:
+    type: bool
+    default: true
+    description: Set repository to enabled (or disabled).
+  name:
+    type: str
+    description: A name for the repository. Not required when adding repofiles.
+  overwrite_multiple:
+    type: bool
+    default: false
+    description: Overwrite multiple repository entries, if repositories with both name and URL already
+      exist.
+  priority:
+    type: int
+    description: Set priority of repository. Packages will always be installed from the repository with
+      the smallest priority number. Needs zypper version >= 1.12.25.
+  repo:
+    type: str
+    description: URI of the repository or .repo file. Required when state=present.
+  runrefresh:
+    type: bool
+    default: false
+    description: Refresh the package list of the given repository. Can be used with repo=* to refresh
+      all repositories.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: A source string state.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add NVIDIA repository for graphics drivers\n  community.general.zypper_repository:\n\
+  \    name: nvidia-repo\n    repo: 'ftp://download.nvidia.com/opensuse/12.2'\n    state: present\n\n\
+  - name: Remove NVIDIA repository\n  community.general.zypper_repository:\n    name: nvidia-repo\n  \
+  \  repo: 'ftp://download.nvidia.com/opensuse/12.2'\n    state: absent\n\n- name: Add python development\
+  \ repository\n  community.general.zypper_repository:\n    repo: 'http://download.opensuse.org/repositories/devel:/languages:/python/SLE_11_SP3/devel:languages:python.repo'\n\
+  \n- name: Refresh all repos\n  community.general.zypper_repository:\n    repo: '*'\n    runrefresh:\
+  \ true\n\n- name: Add a repo and add its gpg key\n  community.general.zypper_repository:\n    repo:\
+  \ 'http://download.opensuse.org/repositories/systemsmanagement/openSUSE_Leap_42.1/'\n    auto_import_keys:\
+  \ true\n\n- name: Force refresh of a repository\n  community.general.zypper_repository:\n    repo: 'http://my_internal_ci_repo/repo'\n\
+  \    name: my_ci_repo\n    state: present\n    runrefresh: true\n"
