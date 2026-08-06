@@ -227,7 +227,13 @@ interface PaletteItem {
                 </table>
               }
               <p class="bm-hint">Right-click to add OUs/objects, assign a check, toggle Block Inheritance, or delete. A host's own check config overrides these.</p>
-              <app-ou-config-editor [scope]="{ kind: 'ou', id: sel.ou!.id, label: sel.ou!.path }" />
+              <!-- Config is NOT edited inline on the OU. Author it as a policy —
+                   right-click the OU → "Config setting…" (opens the gpedit dialog
+                   for this scope), or link a policy from the palette. -->
+              <p class="bm-hint bm-hint-cfg">
+                <mat-icon>policy</mat-icon>
+                Config for this OU is set through policies. Right-click → <strong>Config setting…</strong> to author one, or drag a policy from the palette to link it here.
+              </p>
             } @else {
               <h2>{{ sel.obj!.label }}</h2>
               <table class="bm-kv">
@@ -378,6 +384,8 @@ interface PaletteItem {
       .bm-badge-off { background: color-mix(in srgb, var(--mat-sys-on-surface) 14%, transparent); }
       .bm-empty { opacity: 0.7; padding: 12px 16px; }
       .bm-hint { opacity: 0.6; font-size: 12.5px; margin-top: 16px; }
+      .bm-hint-cfg { display: flex; align-items: center; gap: 8px; opacity: 0.85; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--mat-sys-outline-variant); border-radius: 8px; }
+      .bm-hint-cfg mat-icon { flex: 0 0 auto; opacity: 0.8; }
       .bm-checks-h { font-size: 12px; opacity: 0.75; margin: 16px 0 4px; }
       .bm-link { background: none; border: none; color: var(--bm-green); cursor: pointer; font: inherit; margin-left: 8px; padding: 0; }
       .bm-kv { border-collapse: collapse; margin-top: 8px; }

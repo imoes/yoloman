@@ -1,6 +1,7 @@
 import { Component, Inject } from '@angular/core';
 import { MatDialogModule, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { OuConfigEditorComponent, EditorScope } from './ou-config-editor.component';
 
 export interface PolicyGpeditDialogData {
@@ -16,20 +17,28 @@ export interface PolicyGpeditDialogData {
 @Component({
   selector: 'app-policy-gpedit-dialog',
   standalone: true,
-  imports: [MatDialogModule, MatButtonModule, OuConfigEditorComponent],
+  imports: [MatDialogModule, MatButtonModule, MatIconModule, OuConfigEditorComponent],
   template: `
-    <h2 mat-dialog-title>Policy settings — {{ data.scope.label }}</h2>
+    <h2 mat-dialog-title class="bm-gpd-title">
+      <span>Policy settings — {{ data.scope.label }}</span>
+      <button mat-icon-button mat-dialog-close aria-label="Close" title="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </h2>
     <mat-dialog-content>
       <app-ou-config-editor [scope]="data.scope" />
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-flat-button color="primary" mat-dialog-close>Done</button>
+      <!-- Each setting is applied by its own Apply button in the editor, so there
+           is nothing to save/discard on the dialog itself — this just closes. -->
+      <button mat-flat-button color="primary" mat-dialog-close>Close</button>
     </mat-dialog-actions>
   `,
   styles: [`
     /* Fit the viewport and never scroll sideways — the editor's Miller columns
        wrap on their own when the panel is narrow. */
     mat-dialog-content { width: 100%; max-width: 100%; overflow-x: hidden; box-sizing: border-box; }
+    .bm-gpd-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; }
   `],
 })
 export class PolicyGpeditDialogComponent {
